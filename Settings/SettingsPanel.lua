@@ -1,0 +1,302 @@
+--[[
+    Housing Codex - SettingsPanel.lua
+    WoW native Settings UI integration (Settings > AddOns > Housing Codex)
+]]
+
+local ADDON_NAME, addon = ...
+
+addon.Settings = {}
+
+-- The binding action name from Bindings.xml
+local BINDING_ACTION = "HOUSINGCODEX_TOGGLE"
+
+--------------------------------------------------------------------------------
+-- Helper: Get current keybind from standard WoW binding system
+--------------------------------------------------------------------------------
+local function GetCurrentKeybind()
+    -- Query the standard WoW keybinding system for our action
+    local key1, key2 = GetBindingKey(BINDING_ACTION)
+    return key1  -- Return primary binding (WoW supports 2 per action)
+end
+
+--------------------------------------------------------------------------------
+-- Helper: Get display text for keybind
+--------------------------------------------------------------------------------
+local function GetKeybindDisplayText()
+    local key = GetCurrentKeybind()
+    if key then
+        return GetBindingText(key)  -- Human-readable (e.g., "Alt-C" instead of "ALT-C")
+    end
+    return nil
+end
+
+--------------------------------------------------------------------------------
+-- Helper: Create checkbox with tooltip
+--------------------------------------------------------------------------------
+local function CreateCheckbox(parent, label, tooltip, getValue, setValue)
+    local check = CreateFrame("CheckButton", nil, parent, "UICheckButtonTemplate")
+    check.Text:SetFontObject(GameFontNormal)
+    check.Text:SetTextColor(1, 0.82, 0)
+    check.Text:SetText(label)
+    check:SetChecked(getValue())
+
+    check:SetScript("OnClick", function(self)
+        setValue(self:GetChecked())
+    end)
+
+    check:SetScript("OnEnter", function(self)
+        GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
+        GameTooltip:SetText(tooltip)
+        GameTooltip:Show()
+    end)
+
+    check:SetScript("OnLeave", function()
+        GameTooltip:Hide()
+    end)
+
+    return check
+end
+
+--------------------------------------------------------------------------------
+-- Settings Panel Initialization
+--------------------------------------------------------------------------------
+function addon.Settings:Initialize()
+    local L = addon.L
+
+    -- Create the settings panel frame
+    local panel = CreateFrame("Frame", "HousingCodexSettingsPanel", UIParent)
+    panel.name = "Housing Codex"
+    self.panel = panel
+
+    -- Title
+    local title = panel:CreateFontString(nil, "ARTWORK", "GameFontNormalLarge")
+    title:SetPoint("TOPLEFT", 16, -16)
+    title:SetText("Housing Codex")
+    title:SetTextColor(1, 0.82, 0)
+
+    local yOffset = -50
+
+    --------------------------------------------------------------------------------
+    -- DISPLAY SECTION
+    --------------------------------------------------------------------------------
+    local displayHeader = panel:CreateFontString(nil, "ARTWORK", "GameFontNormal")
+    displayHeader:SetPoint("TOPLEFT", 16, yOffset)
+    displayHeader:SetText(L["OPTIONS_SECTION_DISPLAY"] or "Display")
+    displayHeader:SetTextColor(1, 0.82, 0)
+    yOffset = yOffset - 30
+
+    -- Use Custom Font checkbox
+    local fontCheck = CreateCheckbox(
+        panel,
+        L["OPTIONS_USE_CUSTOM_FONT"] or "Use Custom Font (Roboto Condensed)",
+        L["OPTIONS_USE_CUSTOM_FONT_TOOLTIP"] or "Use the custom Roboto Condensed font for addon text",
+        function() return addon.db and addon.db.settings.useCustomFont end,
+        function(checked)
+            if addon.db then
+                addon.db.settings.useCustomFont = checked
+                if addon.ApplyFontSettings then
+                    addon:ApplyFontSettings()
+                end
+            end
+        end
+    )
+    fontCheck:SetPoint("TOPLEFT", 16, yOffset)
+    self.fontCheck = fontCheck
+    yOffset = yOffset - 30
+
+    -- Show Collected Indicator checkbox
+    local collectedCheck = CreateCheckbox(
+        panel,
+        L["OPTIONS_SHOW_COLLECTED"] or "Show owned quantity on tiles",
+        L["OPTIONS_SHOW_COLLECTED_TOOLTIP"] or "Display owned count on grid tiles for collected items",
+        function() return addon.db and addon.db.settings.showCollectedIndicator end,
+        function(checked)
+            if addon.db then
+                addon.db.settings.showCollectedIndicator = checked
+                if addon.Grid and addon.MainFrame and addon.MainFrame.frame and addon.MainFrame.frame:IsShown() then
+                    addon.Grid:Refresh()
+                end
+            end
+        end
+    )
+    collectedCheck:SetPoint("TOPLEFT", 16, yOffset)
+    self.collectedCheck = collectedCheck
+    yOffset = yOffset - 40
+
+    --------------------------------------------------------------------------------
+    -- KEYBIND SECTION
+    --------------------------------------------------------------------------------
+    local keybindHeader = panel:CreateFontString(nil, "ARTWORK", "GameFontNormal")
+    keybindHeader:SetPoint("TOPLEFT", 16, yOffset)
+    keybindHeader:SetText(L["OPTIONS_SECTION_KEYBIND"] or "Keybind")
+    keybindHeader:SetTextColor(1, 0.82, 0)
+    yOffset = yOffset - 30
+
+    -- Keybind label
+    local keybindLabel = panel:CreateFontString(nil, "ARTWORK", "GameFontNormal")
+    keybindLabel:SetPoint("TOPLEFT", 16, yOffset)
+    keybindLabel:SetText(L["OPTIONS_TOGGLE_KEYBIND"] or "Toggle Window:")
+    keybindLabel:SetTextColor(0.9, 0.9, 0.9)
+
+    -- Keybind button
+    local keybindBtn = CreateFrame("Button", nil, panel, "UIPanelButtonTemplate")
+    keybindBtn:SetPoint("LEFT", keybindLabel, "RIGHT", 10, 0)
+    keybindBtn:SetSize(140, 28)
+    keybindBtn:RegisterForClicks("AnyUp")
+    self.keybindBtn = keybindBtn
+
+    -- Update button text based on current keybind from standard WoW system
+    local function UpdateKeybindButtonText()
+        local displayText = GetKeybindDisplayText()
+        keybindBtn:SetText(displayText or (L["OPTIONS_NOT_BOUND"] or "Not Bound"))
+    end
+    self.UpdateKeybindButtonText = UpdateKeybindButtonText
+    UpdateKeybindButtonText()
+
+    -- Listen for binding changes from the standard Keybindings UI
+    panel:RegisterEvent("UPDATE_BINDINGS")
+    panel:SetScript("OnEvent", function(_, event)
+        if event == "UPDATE_BINDINGS" then
+            UpdateKeybindButtonText()
+        end
+    end)
+
+    -- Stop listening for key input
+    local function StopKeyCapture(btn)
+        btn:EnableKeyboard(false)
+        btn:SetScript("OnKeyDown", nil)
+        UpdateKeybindButtonText()
+    end
+
+    -- Modifier keys to ignore when pressed alone
+    local MODIFIER_KEYS = {
+        LSHIFT = true, RSHIFT = true,
+        LCTRL = true, RCTRL = true,
+        LALT = true, RALT = true,
+    }
+
+    -- Handle key press during capture
+    local function OnKeyCaptured(btn, key)
+        if MODIFIER_KEYS[key] then return end
+
+        if key == "ESCAPE" then
+            StopKeyCapture(btn)
+            return
+        end
+
+        -- Build full key with modifiers
+        local modifiers = {}
+        if IsAltKeyDown() then modifiers[#modifiers + 1] = "ALT" end
+        if IsControlKeyDown() then modifiers[#modifiers + 1] = "CTRL" end
+        if IsShiftKeyDown() then modifiers[#modifiers + 1] = "SHIFT" end
+        modifiers[#modifiers + 1] = key
+
+        local fullKey = table.concat(modifiers, "-")
+
+        -- Write to standard WoW binding system (not SavedVariables)
+        -- First clear existing binding for our action
+        local existingKey = GetCurrentKeybind()
+        if existingKey then
+            SetBinding(existingKey, nil)  -- Unbind old key
+        end
+
+        -- Set new binding
+        SetBinding(fullKey, BINDING_ACTION)
+        SaveBindings(GetCurrentBindingSet())
+
+        StopKeyCapture(btn)
+        UpdateKeybindButtonText()
+        addon:Debug("Keybind set via standard system: " .. fullKey)
+    end
+
+    keybindBtn:SetScript("OnEnter", function(btn)
+        local displayText = GetKeybindDisplayText()
+        if displayText then
+            GameTooltip:SetOwner(btn, "ANCHOR_RIGHT")
+            GameTooltip:AddLine("Housing Codex (" .. displayText .. ")", 1, 1, 1)
+            GameTooltip:AddLine(L["OPTIONS_UNBIND_TOOLTIP"] or "Right-click to unbind", 1, 1, 1)
+            GameTooltip:Show()
+        end
+    end)
+
+    keybindBtn:SetScript("OnLeave", function()
+        GameTooltip:Hide()
+    end)
+
+    keybindBtn:SetScript("OnClick", function(btn, button)
+        if button == "RightButton" then
+            -- Unbind from standard WoW system
+            local existingKey = GetCurrentKeybind()
+            if existingKey then
+                SetBinding(existingKey, nil)
+                SaveBindings(GetCurrentBindingSet())
+                addon:Debug("Keybind cleared via standard system")
+            end
+            UpdateKeybindButtonText()
+            GameTooltip:Hide()
+        else
+            btn:SetText(L["OPTIONS_PRESS_KEY"] or "Press a key...")
+            btn:EnableKeyboard(true)
+            btn:SetScript("OnKeyDown", OnKeyCaptured)
+        end
+    end)
+
+    yOffset = yOffset - 40
+
+    -- Hint text
+    local hintText = panel:CreateFontString(nil, "ARTWORK", "GameFontNormalSmall")
+    hintText:SetPoint("TOPLEFT", 16, yOffset)
+    hintText:SetText(L["OPTIONS_KEYBIND_HINT"] or "Click to set keybind. Right-click to clear. ESC to cancel.")
+    hintText:SetTextColor(0.6, 0.6, 0.6)
+
+    --------------------------------------------------------------------------------
+    -- Register with WoW Settings system
+    --------------------------------------------------------------------------------
+    local category = Settings.RegisterCanvasLayoutCategory(panel, "Housing |cffFB7104Codex|r")
+    Settings.RegisterAddOnCategory(category)
+    self.category = category
+
+    addon:Debug("Settings panel initialized")
+end
+
+--------------------------------------------------------------------------------
+-- No longer needed - standard WoW binding system handles keybinds automatically
+-- via Bindings.xml registration of HOUSINGCODEX_TOGGLE action
+--------------------------------------------------------------------------------
+
+--------------------------------------------------------------------------------
+-- Open the settings panel
+--------------------------------------------------------------------------------
+function addon.Settings:Open()
+    if self.category then
+        Settings.OpenToCategory(self.category:GetID())
+    end
+end
+
+--------------------------------------------------------------------------------
+-- Refresh settings panel values from SavedVariables
+-- Called when panel is shown or DB is reloaded
+--------------------------------------------------------------------------------
+function addon.Settings:Refresh()
+    if not addon.db then return end
+
+    if self.fontCheck then
+        self.fontCheck:SetChecked(addon.db.settings.useCustomFont)
+    end
+    if self.collectedCheck then
+        self.collectedCheck:SetChecked(addon.db.settings.showCollectedIndicator)
+    end
+    if self.UpdateKeybindButtonText then
+        self.UpdateKeybindButtonText()
+    end
+end
+
+--------------------------------------------------------------------------------
+-- Initialize Settings after data is loaded
+-- This ensures SavedVariables are available
+--------------------------------------------------------------------------------
+addon:RegisterInternalEvent("DATA_LOADED", function()
+    -- Initialize settings panel (registers with WoW Settings UI)
+    addon.Settings:Initialize()
+    -- Keybinds are handled automatically by WoW via Bindings.xml
+end)

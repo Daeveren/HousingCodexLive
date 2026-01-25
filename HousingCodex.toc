@@ -1,0 +1,36 @@
+## Interface: 120000
+## Title: Housing Codex
+## Notes: Decor discovery and inspection addon for WoW Housing
+## Author: Daev
+## Version: 0.1.0
+## SavedVariables: HousingCodexDB
+## IconTexture: Interface\AddOns\HousingCodex\HC
+
+# Core modules (load order matters)
+Core\Init.lua
+Core\SavedVars.lua
+Core\Fonts.lua
+
+# Localization (before UI)
+Core\Localization.lua
+Locales\enUS.lua
+
+# Data layer
+Core\Data.lua
+Core\Index.lua
+Core\LDB.lua
+
+# UI modules
+UI\MainFrame.lua
+UI\Tabs.lua
+UI\SearchBox.lua
+UI\Filters.lua
+UI\FilterBar.lua
+UI\Categories.lua
+UI\Grid.lua
+
+# Preview
+Preview\PreviewFrame.lua
+
+# Settings
+Settings\SettingsPanel.lua

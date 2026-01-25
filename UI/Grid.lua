@@ -1,0 +1,847 @@
+--[[
+    Housing Codex - Grid.lua
+    Virtualized grid display for decor items using WoW ScrollBox
+]]
+
+local ADDON_NAME, addon = ...
+
+local CONSTS = addon.CONSTANTS
+local COLORS = CONSTS.COLORS
+local GRID_OUTER_PAD = CONSTS.GRID_OUTER_PAD
+local GRID_CELL_GAP = CONSTS.GRID_CELL_GAP
+local DEFAULT_TILE_SIZE = CONSTS.DEFAULT_TILE_SIZE
+local MIN_TILE_SIZE = CONSTS.MIN_TILE_SIZE
+local MAX_TILE_SIZE = CONSTS.MAX_TILE_SIZE
+
+local TOOLBAR_HEIGHT = 32
+local WISHLIST_STAR_SIZE = CONSTS.WISHLIST_STAR_SIZE_GRID
+
+-- Sort type constants
+local SORT_NATIVE_NEWEST = 0     -- Enum.HousingCatalogSortType.DateAdded
+local SORT_NATIVE_ALPHA = 1      -- Enum.HousingCatalogSortType.Alphabetical
+local SORT_CLIENT_SIZE = 100     -- Client-side: by size (Huge → None)
+local SORT_CLIENT_QUANTITY = 101 -- Client-side: by quantity owned
+
+-- Sort options for dropdown (isNative determines if we use catalogSearcher or client-side)
+local SORT_OPTIONS = {
+    { value = SORT_NATIVE_NEWEST, isNative = true },
+    { value = SORT_NATIVE_ALPHA, isNative = true },
+    { value = SORT_CLIENT_SIZE, isNative = false },
+    { value = SORT_CLIENT_QUANTITY, isNative = false },
+}
+
+-- Lookup table for sort type labels
+local SORT_LABELS = {
+    [SORT_NATIVE_NEWEST] = "SORT_NEWEST",
+    [SORT_NATIVE_ALPHA] = "SORT_ALPHABETICAL",
+    [SORT_CLIENT_SIZE] = "SORT_SIZE",
+    [SORT_CLIENT_QUANTITY] = "SORT_QUANTITY",
+}
+
+-- ModelScene constants for 3D preview (from Blizzard_HousingCatalogEntry.lua)
+local MODEL_SCENE_ID = 691  -- Housing decor preview scene
+local MODEL_ACTOR_TAG = "decor"
+
+-- Camera constants (WoW globals with fallbacks)
+local CAMERA_IMMEDIATE = CAMERA_TRANSITION_TYPE_IMMEDIATE or 1
+local CAMERA_MAINTAIN = CAMERA_MODIFICATION_TYPE_MAINTAIN or 1
+
+-- Tile color values
+local COLOR_BG_NORMAL = { 0.06, 0.06, 0.08, 1 }
+local COLOR_BG_HOVER = { 0.1, 0.1, 0.12, 1 }
+local COLOR_BORDER_NORMAL = COLORS.BORDER
+local COLOR_COLLECTED = { 0.2, 0.8, 0.2 }  -- Green for owned items
+
+addon.Grid = {}
+local Grid = addon.Grid
+
+Grid.scrollBox = nil
+Grid.scrollBar = nil
+Grid.dataProvider = nil
+Grid.currentRecordIDs = {}
+Grid.selectedRecordID = nil
+Grid.tileSize = DEFAULT_TILE_SIZE
+Grid.parent = nil
+Grid.toolbar = nil
+Grid.container = nil
+Grid.sortDropdown = nil
+Grid.sortLabel = nil
+Grid.emptyState = nil
+
+local TILE_BACKDROP = {
+    bgFile = "Interface\\Buttons\\WHITE8x8",
+    edgeFile = "Interface\\Tooltips\\UI-Tooltip-Border",
+    edgeSize = 12,
+    insets = { left = 2, right = 2, top = 2, bottom = 2 }
+}
+
+local function SetupTileFrame(tile, tileSize)
+    tile:SetSize(tileSize, tileSize)
+    tile:EnableMouse(true)
+    tile:SetBackdrop(TILE_BACKDROP)
+    tile:SetBackdropColor(unpack(COLOR_BG_NORMAL))
+    tile:SetBackdropBorderColor(unpack(COLOR_BORDER_NORMAL))
+
+    -- Icon fills most of tile, leaving room for quantity at bottom
+    local icon = tile:CreateTexture(nil, "ARTWORK")
+    icon:SetPoint("TOPLEFT", 6, -6)
+    icon:SetPoint("BOTTOMRIGHT", -6, 20)
+    tile.icon = icon
+
+    -- ModelScene for 3D preview of model-only items (hidden by default)
+    local modelScene = CreateFrame("ModelScene", nil, tile, "NonInteractableModelSceneMixinTemplate")
+    modelScene:SetPoint("TOPLEFT", 6, -6)
+    modelScene:SetPoint("BOTTOMRIGHT", -6, 20)
+    modelScene:Hide()
+    tile.modelScene = modelScene
+
+    -- Initialize the scene with the housing decor preset
+    local forceSceneChange = true
+    modelScene:TransitionToModelSceneID(MODEL_SCENE_ID, CAMERA_IMMEDIATE, CAMERA_MAINTAIN, forceSceneChange)
+
+    -- Quantity text at bottom right (larger, bold, subdued)
+    local qty = tile:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
+    qty:SetPoint("BOTTOMRIGHT", -4, 3)
+    qty:SetTextColor(unpack(COLORS.TEXT_DISABLED))
+    local font = qty:GetFont()
+    qty:SetFont(font, 13, "OUTLINE")
+    tile.quantity = qty
+
+    -- Wishlist star badge (top-right corner)
+    local wishlistStar = tile:CreateTexture(nil, "OVERLAY")
+    wishlistStar:SetSize(WISHLIST_STAR_SIZE, WISHLIST_STAR_SIZE)
+    wishlistStar:SetPoint("TOPRIGHT", -2, -2)
+    wishlistStar:SetAtlas("PetJournal-FavoritesIcon")
+    wishlistStar:SetVertexColor(unpack(COLORS.GOLD))
+    wishlistStar:Hide()
+    tile.wishlistStar = wishlistStar
+
+    -- OnLeave handler (OnEnter is set per-element in initializer)
+    tile:SetScript("OnLeave", function(self)
+        self:SetBackdropColor(unpack(COLOR_BG_NORMAL))
+        GameTooltip:Hide()
+    end)
+end
+
+function Grid:CreateToolbar(parent)
+    if self.toolbar then return self.toolbar end
+
+    local toolbar = CreateFrame("Frame", nil, parent)
+    toolbar:SetPoint("TOPLEFT", parent, "TOPLEFT", 0, 0)
+    toolbar:SetPoint("TOPRIGHT", parent, "TOPRIGHT", 0, 0)
+    toolbar:SetHeight(TOOLBAR_HEIGHT)
+    self.toolbar = toolbar
+
+    -- Background
+    local bg = toolbar:CreateTexture(nil, "BACKGROUND")
+    bg:SetAllPoints()
+    bg:SetColorTexture(0.05, 0.05, 0.07, 0.9)
+
+    local L = addon.L
+
+    -- === LEFT SIDE: Size slider + Collection buttons + Filter dropdown ===
+
+    -- Size label (shortened from "Tile Size:")
+    local label = toolbar:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+    label:SetPoint("LEFT", toolbar, "LEFT", GRID_OUTER_PAD, 0)
+    label:SetText(L["SIZE_LABEL"] or "Size:")
+    label:SetTextColor(0.8, 0.8, 0.8, 1)
+
+    -- Size value display
+    local valueText = toolbar:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+    valueText:SetPoint("LEFT", label, "RIGHT", 6, 0)
+    valueText:SetTextColor(1, 0.82, 0, 1)
+    valueText:SetText(tostring(self.tileSize))
+    self.tileSizeValueText = valueText
+
+    -- Size slider (halved width: 150 -> 75)
+    local slider = CreateFrame("Slider", nil, toolbar, "MinimalSliderTemplate")
+    slider:SetPoint("LEFT", valueText, "RIGHT", 12, 0)
+    slider:SetSize(75, 16)
+    slider:SetMinMaxValues(MIN_TILE_SIZE, MAX_TILE_SIZE)
+    slider:SetValueStep(8)
+    slider:SetObeyStepOnDrag(true)
+    slider:SetValue(self.tileSize)
+    self.tileSizeSlider = slider
+
+    -- Slider change handler with debounce
+    slider:SetScript("OnValueChanged", function(sliderFrame, value)
+        value = math.floor(value)
+        valueText:SetText(tostring(value))
+
+        -- Debounce the rebuild to avoid excessive rebuilds while dragging
+        if sliderFrame.debounceTimer then
+            sliderFrame.debounceTimer:Cancel()
+        end
+        sliderFrame.debounceTimer = C_Timer.NewTimer(0.15, function()
+            Grid:SetTileSize(value)
+        end)
+    end)
+
+    -- Collection filter buttons
+    local filterContainer = addon.Filters:CreateCollectionButtons(toolbar)
+    filterContainer:SetPoint("LEFT", slider, "RIGHT", 16, 0)
+    self.filterContainer = filterContainer
+
+    -- Tag/trackable filter dropdown
+    local filterDropdown = addon.FilterBar:CreateDropdown(toolbar)
+    filterDropdown:SetPoint("LEFT", filterContainer, "RIGHT", 12, 0)
+    self.filterDropdown = filterDropdown
+
+    -- === RIGHT SIDE: Preview toggle + Sort dropdown + Sort label ===
+
+    -- Preview toggle button (rightmost element in toolbar)
+    local toggleBtn = self:CreatePreviewToggleButton(toolbar)
+    toggleBtn:SetPoint("RIGHT", toolbar, "RIGHT", -GRID_OUTER_PAD, 0)
+    self.previewToggleButton = toggleBtn
+
+    -- Sort dropdown (left of toggle button)
+    local sortDropdown = self:CreateSortDropdown(toolbar)
+    sortDropdown:SetPoint("RIGHT", toggleBtn, "LEFT", -8, 0)
+    self.sortDropdown = sortDropdown
+
+    -- "Sort by" label (left of sort dropdown)
+    local sortLabel = toolbar:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+    sortLabel:SetPoint("RIGHT", sortDropdown, "LEFT", -6, 0)
+    sortLabel:SetText(L["SORT_BY_LABEL"] or "Sort by")
+    sortLabel:SetTextColor(0.8, 0.8, 0.8, 1)
+    self.sortLabel = sortLabel
+
+    -- === CENTER: Search box (flexible width via two-point anchoring) ===
+    local searchBox = addon.SearchBox:Create(toolbar)
+    searchBox:SetPoint("LEFT", filterDropdown, "RIGHT", 16, 0)
+    searchBox:SetPoint("RIGHT", sortLabel, "LEFT", -16, 0)
+    self.searchBox = searchBox
+
+    return toolbar
+end
+
+-- Get label for a sort type value
+local function GetSortLabel(sortType)
+    local key = SORT_LABELS[sortType] or "SORT_NEWEST"
+    return addon.L[key] or key
+end
+
+-- Sort dropdown using modern Blizzard_Menu system
+function Grid:CreateSortDropdown(parent)
+    local dropdown = CreateFrame("DropdownButton", nil, parent, "WowStyle1DropdownTemplate")
+    dropdown:SetSize(100, 22)
+
+    -- Setup menu generator
+    dropdown:SetupMenu(function(dropdownFrame, rootDescription)
+        for _, opt in ipairs(SORT_OPTIONS) do
+            rootDescription:CreateRadio(
+                GetSortLabel(opt.value),
+                function() return (addon.db.browser.sortType or 0) == opt.value end,
+                function()
+                    Grid:SetSortType(opt.value)
+                end,
+                opt.value
+            )
+        end
+    end)
+
+    -- Set initial text
+    self:UpdateSortDropdownText(dropdown)
+
+    return dropdown
+end
+
+function Grid:SetSortType(sortType)
+    if not addon.db or not addon.db.browser then return end
+
+    addon.db.browser.sortType = sortType
+
+    -- Native sorts are < 100, client-side sorts are >= 100
+    local isNative = sortType < 100
+
+    if isNative then
+        if addon.catalogSearcher then
+            addon.catalogSearcher:SetSortType(sortType)
+            addon.catalogSearcher:RunSearch()
+        end
+    else
+        self:ReapplyFilters()
+    end
+
+    self:UpdateSortDropdownText(self.sortDropdown)
+    addon:Debug("Sort type set to: " .. tostring(sortType) .. " (native: " .. tostring(isNative) .. ")")
+end
+
+function Grid:UpdateSortDropdownText(dropdown)
+    if not dropdown then return end
+
+    local sortType = addon.db and addon.db.browser and addon.db.browser.sortType or 0
+    dropdown:SetDefaultText(GetSortLabel(sortType))
+end
+
+-- Create preview toggle button for toolbar (uses shared helper)
+function Grid:CreatePreviewToggleButton(parent)
+    local btn = addon:CreateToggleButton(parent, ">", nil, function()
+        if InCombatLockdown() then
+            addon:Print(addon.L["COMBAT_LOCKDOWN_MESSAGE"] or "Cannot open during combat")
+            return
+        end
+        if addon.Preview then
+            addon.Preview:Toggle()
+        end
+    end)
+
+    -- Custom tooltip that changes based on preview state
+    btn:SetScript("OnEnter", function(b)
+        b:SetBackdropColor(0.2, 0.2, 0.24, 1)
+        b:SetBackdropBorderColor(0.6, 0.5, 0.1, 1)
+        GameTooltip:SetOwner(b, "ANCHOR_TOP")
+        local isOpen = addon.Preview and addon.Preview:IsShown()
+        local key = isOpen and "PREVIEW_COLLAPSE" or "PREVIEW_EXPAND"
+        GameTooltip:SetText(addon.L[key] or "Toggle Preview")
+        GameTooltip:Show()
+    end)
+
+    return btn
+end
+
+function Grid:UpdatePreviewToggleButton()
+    if not self.previewToggleButton then return end
+
+    -- Hide toolbar button when preview is open (title bar collapse button is sufficient)
+    local isOpen = addon.Preview and addon.Preview:IsShown()
+    self.previewToggleButton:SetShown(not isOpen)
+end
+
+function Grid:CreateScrollBox(parent, tileSize)
+    -- Create container frame below toolbar
+    local container = CreateFrame("Frame", nil, parent)
+    container:SetPoint("TOPLEFT", self.toolbar, "BOTTOMLEFT", GRID_OUTER_PAD, 0)
+    container:SetPoint("BOTTOMRIGHT", parent, "BOTTOMRIGHT", -GRID_OUTER_PAD - 20, GRID_OUTER_PAD)
+    self.container = container
+
+    -- Create ScrollBox
+    local scrollBox = CreateFrame("Frame", nil, container, "WowScrollBoxList")
+    scrollBox:SetPoint("TOPLEFT")
+    scrollBox:SetPoint("BOTTOMRIGHT")
+    self.scrollBox = scrollBox
+
+    -- Create ScrollBar
+    local scrollBar = CreateFrame("EventFrame", nil, parent, "MinimalScrollBar")
+    scrollBar:SetPoint("TOPLEFT", container, "TOPRIGHT", 4, 0)
+    scrollBar:SetPoint("BOTTOMLEFT", container, "BOTTOMRIGHT", 4, 0)
+    self.scrollBar = scrollBar
+
+    -- Calculate columns based on current container width
+    local function GetColumnCount()
+        local containerWidth = container:GetWidth()
+        if containerWidth <= 0 then containerWidth = 800 end
+        return math.max(1, math.floor((containerWidth + GRID_CELL_GAP) / (tileSize + GRID_CELL_GAP)))
+    end
+
+    -- Track column count for resize detection
+    self.currentColumnCount = nil
+    self.resizeTimer = nil
+
+    container:SetScript("OnSizeChanged", function(_, width, height)
+        if self.resizeTimer then self.resizeTimer:Cancel() end
+        self.resizeTimer = C_Timer.NewTimer(0.15, function()
+            self.resizeTimer = nil
+            local newColumns = math.max(1, math.floor((width + GRID_CELL_GAP) / (self.tileSize + GRID_CELL_GAP)))
+            if self.currentColumnCount and newColumns ~= self.currentColumnCount then
+                self:Rebuild()
+            end
+        end)
+    end)
+
+    -- Create grid view
+    local columns = GetColumnCount()
+    local view = CreateScrollBoxListGridView(
+        columns,
+        1,  -- top padding (minimal)
+        GRID_OUTER_PAD,
+        GRID_OUTER_PAD,
+        GRID_OUTER_PAD,
+        GRID_CELL_GAP,
+        GRID_CELL_GAP
+    )
+
+    -- Tell the view element sizes (BackdropTemplate has no defined size)
+    view:SetElementSizeCalculator(function()
+        return tileSize, tileSize
+    end)
+
+    -- Set element extent for scroll calculations
+    view:SetElementExtent(tileSize)
+    view:SetStrideExtent(tileSize)
+
+    -- Element resetter for frame recycling
+    view:SetElementResetter(function(tile)
+        if tile.icon then
+            tile.icon:SetTexture(nil)
+            tile.icon:Show()  -- Reset to default visible state
+        end
+        if tile.modelScene then
+            local actor = tile.modelScene:GetActorByTag(MODEL_ACTOR_TAG)
+            if actor then
+                actor:ClearModel()
+            end
+            tile.modelScene:Hide()
+        end
+        if tile.quantity then tile.quantity:Hide() end
+        if tile.wishlistStar then tile.wishlistStar:Hide() end
+        tile:SetBackdropBorderColor(unpack(COLOR_BORDER_NORMAL))
+        tile:SetBackdropColor(unpack(COLOR_BG_NORMAL))
+        tile:SetScript("OnMouseDown", nil)
+        tile:SetScript("OnEnter", nil)
+        tile.recordID = nil
+    end)
+
+    -- Element initializer
+    view:SetElementInitializer("BackdropTemplate", function(tile, elementData)
+        if not tile.icon then
+            SetupTileFrame(tile, tileSize)
+        else
+            -- Update size if tile was recycled from different size
+            tile:SetSize(tileSize, tileSize)
+        end
+
+        local recordID = elementData.recordID
+        local record = addon:GetRecord(recordID)
+        tile.recordID = recordID
+
+        -- Display based on icon availability (following Blizzard's pattern)
+        local useModelScene = record and record.isModelOnly and record.modelAsset
+
+        if useModelScene and tile.modelScene then
+            -- Model-only item: show 3D preview instead of 2D icon
+            tile.icon:Hide()
+            local modelScene = tile.modelScene
+            local actor = modelScene:GetActorByTag(MODEL_ACTOR_TAG)
+            if not actor then
+                -- Fallback: create actor if scene doesn't define one
+                actor = modelScene:CreateActor()
+                if actor then actor:SetTag(MODEL_ACTOR_TAG) end
+            end
+            if actor then
+                actor:SetModelByFileID(record.modelAsset)
+                modelScene:Show()
+            end
+        else
+            -- Show 2D icon (texture or atlas)
+            if tile.modelScene then tile.modelScene:Hide() end
+
+            if record and record.iconType == "atlas" then
+                tile.icon:SetAtlas(record.icon)
+            elseif record then
+                tile.icon:SetTexture(record.icon)
+            else
+                tile.icon:SetTexture("Interface\\Icons\\INV_Misc_QuestionMark")
+            end
+            tile.icon:Show()
+        end
+
+        -- Set quantity indicator (use totalOwned = placed + storage + redeemable)
+        if record and record.totalOwned and record.totalOwned > 0 then
+            tile.quantity:SetText(record.totalOwned)
+            tile.quantity:Show()
+        end
+
+        -- Wishlist star badge
+        if tile.wishlistStar then
+            tile.wishlistStar:SetShown(addon:IsWishlisted(recordID))
+        end
+
+        -- Selection state
+        if Grid.selectedRecordID == recordID then
+            tile:SetBackdropBorderColor(unpack(COLORS.GOLD))
+        end
+
+        -- Click handler
+        tile:SetScript("OnMouseDown", function()
+            Grid:SelectRecord(recordID)
+        end)
+
+        -- Tooltip handler
+        tile:SetScript("OnEnter", function(self)
+            self:SetBackdropColor(unpack(COLOR_BG_HOVER))
+            local rec = addon:GetRecord(self.recordID)
+            if not rec then return end
+
+            GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
+            GameTooltip:SetText(rec.name or "Unknown", 1, 1, 1)
+            if rec.sourceText and rec.sourceText ~= "" then
+                GameTooltip:AddLine(rec.sourceText, 0.8, 0.8, 0.8, true)
+            end
+            if rec.totalOwned and rec.totalOwned > 0 then
+                GameTooltip:AddLine(string.format(addon.L["DETAILS_OWNED"] or "Owned: %d", rec.totalOwned), unpack(COLOR_COLLECTED))
+            end
+            GameTooltip:Show()
+        end)
+    end)
+
+    -- Initialize ScrollBox
+    ScrollUtil.InitScrollBoxListWithScrollBar(scrollBox, scrollBar, view)
+    self.view = view
+    self.currentColumnCount = columns
+
+    addon:Debug("Grid created with " .. columns .. " columns, tile size " .. tileSize)
+end
+
+function Grid:DestroyScrollBox()
+    if self.scrollBox then
+        self.scrollBox:Hide()
+        self.scrollBox:SetParent(nil)
+        self.scrollBox = nil
+    end
+    if self.scrollBar then
+        self.scrollBar:Hide()
+        self.scrollBar:SetParent(nil)
+        self.scrollBar = nil
+    end
+    if self.container then
+        self.container:Hide()
+        self.container:SetParent(nil)
+        self.container = nil
+    end
+    self.view = nil
+    self.dataProvider = nil
+end
+
+function Grid:Create(parent)
+    if self.toolbar and self.scrollBox then return end
+
+    self.parent = parent
+
+    -- Load saved tile size from db with validation
+    local savedSize = addon.db and addon.db.browser and addon.db.browser.tileSize
+    local isValidSize = savedSize and savedSize >= MIN_TILE_SIZE and savedSize <= MAX_TILE_SIZE
+    self.tileSize = isValidSize and savedSize or DEFAULT_TILE_SIZE
+
+    -- Create toolbar and scrollbox
+    self:CreateToolbar(parent)
+    self:CreateScrollBox(parent, self.tileSize)
+    self:CreateEmptyState(parent)
+
+    -- Sync slider to loaded value (toolbar may have been created with default)
+    if self.tileSizeSlider then
+        self.tileSizeSlider:SetValue(self.tileSize)
+        self.tileSizeValueText:SetText(tostring(self.tileSize))
+    end
+
+    -- Apply saved sort type (only native sorts go to catalogSearcher)
+    local savedSortType = addon.db and addon.db.browser and addon.db.browser.sortType
+    if savedSortType and savedSortType < 100 and addon.catalogSearcher then
+        addon.catalogSearcher:SetSortType(savedSortType)
+    end
+
+    addon:Debug("Grid created with tile size: " .. self.tileSize)
+
+    -- Populate grid if data is already loaded and we're on DECOR tab
+    -- This handles the case where DATA_LOADED and TAB_CHANGED fired before Grid was created
+    if addon.dataLoaded and addon.Tabs and addon.Tabs:GetCurrentTab() == "DECOR" then
+        if addon.catalogSearcher then
+            -- Run search to populate grid (searcher already has current filter state)
+            addon.catalogSearcher:RunSearch()
+        else
+            -- Fallback: use all record IDs
+            local recordIDs = addon:GetAllRecordIDs()
+            self:SetData(recordIDs)
+        end
+    end
+end
+
+function Grid:UpdateResultCount()
+    -- Delegate to Categories module for sidebar display
+    if addon.Categories then
+        local shown = #self.currentRecordIDs
+        local total = #self.unfilteredRecordIDs
+        addon.Categories:UpdateResultCount(shown, total)
+    end
+end
+
+function Grid:CreateEmptyState(parent)
+    local frame = CreateFrame("Frame", nil, self.container)
+    frame:SetAllPoints(self.container)
+    frame:SetFrameLevel(self.container:GetFrameLevel() + 5)
+    frame:Hide()
+    self.emptyState = frame
+
+    -- Semi-transparent background
+    local bg = frame:CreateTexture(nil, "BACKGROUND")
+    bg:SetAllPoints()
+    bg:SetColorTexture(0.03, 0.03, 0.05, 0.9)
+
+    -- Message text
+    local msg = frame:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
+    msg:SetPoint("CENTER", frame, "CENTER", 0, 20)
+    msg:SetText(addon.L["EMPTY_STATE_MESSAGE"] or "No items match your filters")
+    msg:SetTextColor(0.6, 0.6, 0.6, 1)
+    frame.message = msg
+
+    -- Reset filters button
+    local btn = CreateFrame("Button", nil, frame, "UIPanelButtonTemplate")
+    btn:SetSize(120, 26)
+    btn:SetPoint("TOP", msg, "BOTTOM", 0, -16)
+    btn:SetText(addon.L["RESET_FILTERS"] or "Reset Filters")
+    btn:SetScript("OnClick", function()
+        addon.Filters:ResetAllFilters()
+    end)
+    frame.resetBtn = btn
+end
+
+function Grid:UpdateEmptyState()
+    if not self.emptyState then return end
+
+    local count = #self.currentRecordIDs
+    local showEmpty = count == 0 and addon.dataLoaded
+    self.emptyState:SetShown(showEmpty)
+
+    -- Also show/hide scrollbox appropriately
+    if self.scrollBox then
+        self.scrollBox:SetShown(not showEmpty)
+    end
+    if self.scrollBar then
+        self.scrollBar:SetShown(not showEmpty)
+    end
+end
+
+function Grid:SetTileSize(newSize)
+    newSize = math.max(MIN_TILE_SIZE, math.min(MAX_TILE_SIZE, newSize))
+    if newSize == self.tileSize then return end
+
+    self.tileSize = newSize
+
+    -- Save to db
+    if addon.db and addon.db.browser then
+        addon.db.browser.tileSize = newSize
+    end
+
+    -- Rebuild the grid
+    self:Rebuild()
+end
+
+function Grid:Rebuild()
+    if not self.parent then return end
+
+    -- Save current data
+    local savedUnfilteredIDs = self.unfilteredRecordIDs
+    local savedSelection = self.selectedRecordID
+
+    -- Destroy and recreate
+    self:DestroyScrollBox()
+    self:CreateScrollBox(self.parent, self.tileSize)
+
+    -- Recreate empty state (depends on container)
+    if self.emptyState then
+        self.emptyState:SetParent(nil)
+        self.emptyState = nil
+    end
+    self:CreateEmptyState(self.parent)
+
+    -- Restore data
+    self.selectedRecordID = savedSelection
+    if savedUnfilteredIDs and #savedUnfilteredIDs > 0 then
+        self:SetData(savedUnfilteredIDs)
+    end
+
+    addon:Debug("Grid rebuilt with tile size " .. self.tileSize)
+end
+
+-- Store unfiltered IDs for re-filtering without new search
+Grid.unfilteredRecordIDs = {}
+
+-- Apply client-side filters that aren't supported by HousingCatalogSearcher
+function Grid:ApplyPostSearchFilters(recordIDs)
+    local filtered = {}
+    for _, recordID in ipairs(recordIDs) do
+        local record = addon:GetRecord(recordID)
+        if record and addon.Filters:PassesTrackableFilter(record) and addon.Filters:PassesWishlistFilter(record) then
+            table.insert(filtered, recordID)
+        end
+    end
+    return filtered
+end
+
+-- Sort record IDs by a field extracted from each record (descending order)
+local function SortByField(recordIDs, fieldName)
+    table.sort(recordIDs, function(a, b)
+        local recA = addon:GetRecord(a)
+        local recB = addon:GetRecord(b)
+        local valA = recA and recA[fieldName] or 0
+        local valB = recB and recB[fieldName] or 0
+        return valA > valB
+    end)
+end
+
+-- Client-side sort field mapping
+local CLIENT_SORT_FIELDS = {
+    [SORT_CLIENT_SIZE] = "size",           -- Huge=69 → None=0
+    [SORT_CLIENT_QUANTITY] = "totalOwned", -- Most owned first (storage + placed + redeemable)
+}
+
+-- Apply client-side sorting for non-native sort types
+function Grid:ApplyClientSideSort(recordIDs, sortType)
+    if not recordIDs or #recordIDs == 0 then return recordIDs end
+
+    local fieldName = CLIENT_SORT_FIELDS[sortType]
+    if fieldName then
+        SortByField(recordIDs, fieldName)
+    end
+
+    return recordIDs
+end
+
+function Grid:SetData(recordIDs)
+    if not self.scrollBox then return end
+
+    -- Store unfiltered IDs for re-filtering
+    self.unfilteredRecordIDs = recordIDs or {}
+
+    if not recordIDs or #recordIDs == 0 then
+        self.currentRecordIDs = {}
+        self.dataProvider = CreateDataProvider()
+        self.scrollBox:SetDataProvider(self.dataProvider)
+        self:UpdateResultCount()
+        self:UpdateEmptyState()
+        addon:Debug("Grid cleared - no items")
+        return
+    end
+
+    -- Apply post-search filters (trackable, etc.)
+    local filteredIDs = self:ApplyPostSearchFilters(recordIDs)
+
+    -- Apply client-side sorting if using a non-native sort type
+    local sortType = addon.db and addon.db.browser and addon.db.browser.sortType or 0
+    if sortType >= 100 then
+        filteredIDs = self:ApplyClientSideSort(filteredIDs, sortType)
+    end
+
+    self.currentRecordIDs = filteredIDs
+
+    -- Convert to element data
+    local elements = {}
+    for _, recordID in ipairs(filteredIDs) do
+        table.insert(elements, { recordID = recordID })
+    end
+
+    -- Create and set data provider
+    self.dataProvider = CreateDataProvider(elements)
+    self.scrollBox:SetDataProvider(self.dataProvider, ScrollBoxConstants.RetainScrollPosition)
+
+    -- Update result count and empty state
+    self:UpdateResultCount()
+    self:UpdateEmptyState()
+
+    addon:Debug("Grid populated with " .. #filteredIDs .. " items (from " .. #recordIDs .. " search results)")
+end
+
+function Grid:ReapplyFilters()
+    -- Re-apply post-search filters to the current unfiltered data
+    if self.unfilteredRecordIDs and #self.unfilteredRecordIDs > 0 then
+        self:SetData(self.unfilteredRecordIDs)
+    end
+end
+
+function Grid:SelectRecord(recordID)
+    local prevSelected = self.selectedRecordID
+    self.selectedRecordID = recordID
+
+    -- Update selection visuals on visible frames only
+    if self.scrollBox then
+        self.scrollBox:ForEachFrame(function(tile)
+            if not tile.recordID then return end
+
+            if tile.recordID == recordID then
+                tile:SetBackdropBorderColor(unpack(COLORS.GOLD))
+            elseif tile.recordID == prevSelected then
+                tile:SetBackdropBorderColor(unpack(COLOR_BORDER_NORMAL))
+            end
+        end)
+    end
+
+    -- Fire selection event
+    addon:FireEvent("RECORD_SELECTED", recordID)
+    addon:Debug("Selected record: " .. tostring(recordID))
+end
+
+function Grid:GetSelectedRecord()
+    return self.selectedRecordID
+end
+
+function Grid:Refresh()
+    if self.scrollBox then
+        self.scrollBox:FullUpdate(ScrollBoxConstants.UpdateImmediately)
+    end
+end
+
+function Grid:Show()
+    if self.toolbar then self.toolbar:Show() end
+    if self.container then self.container:Show() end
+    if self.scrollBar then self.scrollBar:Show() end
+    if addon.Filters then addon.Filters:Show() end
+    self:UpdateEmptyState()
+end
+
+function Grid:Hide()
+    if self.toolbar then self.toolbar:Hide() end
+    if self.container then self.container:Hide() end
+    if self.scrollBar then self.scrollBar:Hide() end
+    if self.emptyState then self.emptyState:Hide() end
+    if addon.Filters then addon.Filters:Hide() end
+end
+
+-- Event handlers
+addon:RegisterInternalEvent("DATA_LOADED", function(recordCount)
+    if addon.Tabs and addon.Tabs:GetCurrentTab() == "DECOR" then
+        local recordIDs = addon:GetAllRecordIDs()
+        Grid:SetData(recordIDs)
+    end
+end)
+
+addon:RegisterInternalEvent("SEARCH_RESULTS_UPDATED", function(recordIDs)
+    if addon.Tabs and addon.Tabs:GetCurrentTab() == "DECOR" then
+        Grid:SetData(recordIDs)
+    end
+end)
+
+addon:RegisterInternalEvent("TAB_CHANGED", function(tabKey)
+    if tabKey == "DECOR" then
+        Grid:Show()
+        if addon.dataLoaded then
+            local recordIDs = addon:GetAllRecordIDs()
+            Grid:SetData(recordIDs)
+        end
+    else
+        Grid:Hide()
+    end
+end)
+
+-- Re-apply post-search filters when filter state changes (e.g., trackable filter)
+addon:RegisterInternalEvent("FILTER_CHANGED", function()
+    if addon.Tabs and addon.Tabs:GetCurrentTab() == "DECOR" then
+        Grid:ReapplyFilters()
+    end
+end)
+
+-- Update preview toggle button when preview visibility changes
+addon:RegisterInternalEvent("PREVIEW_VISIBILITY_CHANGED", function()
+    Grid:UpdatePreviewToggleButton()
+end)
+
+-- Update wishlist badges when wishlist changes
+addon:RegisterInternalEvent("WISHLIST_CHANGED", function(recordID, isWishlisted)
+    -- Only update visible frames for performance
+    if Grid.scrollBox then
+        Grid.scrollBox:ForEachFrame(function(tile)
+            if tile.recordID == recordID and tile.wishlistStar then
+                tile.wishlistStar:SetShown(isWishlisted)
+            end
+        end)
+    end
+end)
+
+-- Hook into MainFrame creation
+local originalCreateContent = addon.MainFrame.CreateContentArea
+addon.MainFrame.CreateContentArea = function(self)
+    originalCreateContent(self)
+    if self.contentArea then
+        Grid:Create(self.contentArea)
+    end
+end
