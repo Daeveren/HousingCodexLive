@@ -20,11 +20,6 @@ Download from [CurseForge](https://www.curseforge.com/wow/addons/housing-codex) 
 
 Type `/hc` to open, or set a keybind in WoW's keybinding options.
 
-## Requirements
-
-- World of Warcraft Retail 12.0+ (The War Within)
-- Housing feature unlocked
-
 ## Feedback
 
 Found a bug or have a feature request? [Open an issue](https://github.com/Daeveren/HousingCodexLive/issues).
