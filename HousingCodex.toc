@@ -2,7 +2,7 @@
 ## Title: Housing Codex
 ## Notes: Decor discovery and inspection addon for WoW Housing
 ## Author: Daev
-## Version: 0.1.0
+## Version: 0.5.0
 ## SavedVariables: HousingCodexDB
 ## IconTexture: Interface\AddOns\HousingCodex\HC
 
