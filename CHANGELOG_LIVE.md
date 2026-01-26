@@ -2,6 +2,11 @@
 
 All notable changes to Housing Codex.
 
+## [0.5.1] - 2026-01-26
+
+### Fixed
+- Fixed collected items incorrectly showing as "Uncollected" when the same item exists from multiple sources
+
 ## [0.5.0] - 2026-01-26
 
 ### Added
