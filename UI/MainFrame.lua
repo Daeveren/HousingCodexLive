@@ -86,15 +86,15 @@ function MainFrame:CreateTitleBar()
 
     -- Addon icon
     local icon = titleBar:CreateTexture(nil, "ARTWORK")
-    icon:SetSize(20, 20)
+    icon:SetSize(25, 25)
     icon:SetPoint("LEFT", titleBar, "LEFT", 12, 0)
-    icon:SetTexture("Interface\\AddOns\\HousingCodex\\HC")
+    icon:SetTexture("Interface\\AddOns\\HousingCodex\\HC64")
     self.titleIcon = icon
 
     -- Title text (anchored after icon)
     local title = addon:CreateFontString(titleBar, "OVERLAY", "GameFontNormalLarge")
     title:SetPoint("LEFT", icon, "RIGHT", 8, 0)
-    title:SetText(addon.L["ADDON_NAME"] or "Housing Codex")
+    title:SetText(addon.L["ADDON_NAME"])
     title:SetTextColor(unpack(COLORS.TITLE))
     self.titleText = title
 
@@ -170,7 +170,7 @@ function MainFrame:CreateLoadingOverlay()
 
     local text = addon:CreateFontString(overlay, "OVERLAY", "GameFontNormalLarge")
     text:SetPoint("CENTER")
-    text:SetText(addon.L["LOADING_DATA"] or "Loading decor data...")
+    text:SetText(addon.L["LOADING_DATA"])
     text:SetTextColor(unpack(COLORS.TITLE))
     self.loadingText = text
 
@@ -179,7 +179,7 @@ function MainFrame:CreateLoadingOverlay()
     end)
 
     addon:RegisterInternalEvent("DATA_LOAD_FAILED", function()
-        text:SetText(addon.L["ERROR_LOAD_FAILED_SHORT"] or "Failed to load data. Use /hc retry")
+        text:SetText(addon.L["ERROR_LOAD_FAILED_SHORT"])
         text:SetTextColor(1, 0.4, 0.4, 1)  -- Red-ish for error
     end)
 
@@ -373,7 +373,7 @@ end
 
 function MainFrame:Show()
     if InCombatLockdown() then
-        addon:Print(addon.L["COMBAT_LOCKDOWN_MESSAGE"] or "Cannot open during combat")
+        addon:Print(addon.L["COMBAT_LOCKDOWN_MESSAGE"])
         return false
     end
 

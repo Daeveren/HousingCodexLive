@@ -3,13 +3,17 @@
     Addon namespace initialization, event systems, and core setup
 ]]
 
+-- Keybinding localization strings (must be global for WoW keybinding UI)
+BINDING_HEADER_HCODEX = "|cffffd100Housing|r |cffff8000Codex|r"
+BINDING_NAME_HOUSINGCODEX_TOGGLE = "|cffff8000HC|r Toggle Window"
+
 local ADDON_NAME, addon = ...
 
 -- Export addon table globally for other files and debugging
 HousingCodex = addon
 
 -- Version info
-addon.version = "0.1.0"
+addon.version = "0.5.1"
 addon.addonName = ADDON_NAME
 
 -- Localization table (populated by Locales/*.lua)
@@ -80,6 +84,26 @@ addon.CONSTANTS = {
     -- Content tracking
     TRACKING_TYPE_DECOR = 3,  -- Enum.ContentTrackingType.Decor
     MAX_TRACKED = 15,  -- Constants.ContentTrackingConsts.MaxTrackedCollectableSources
+
+    -- Housing sizes (Enum.HousingCatalogEntrySize values → localization keys)
+    -- Use these instead of magic numbers for patch-proof code
+    HOUSING_SIZE_KEYS = {
+        [0] = nil,             -- Enum.HousingCatalogEntrySize.None
+        [65] = "SIZE_TINY",    -- Enum.HousingCatalogEntrySize.Tiny
+        [66] = "SIZE_SMALL",   -- Enum.HousingCatalogEntrySize.Small
+        [67] = "SIZE_MEDIUM",  -- Enum.HousingCatalogEntrySize.Medium
+        [68] = "SIZE_LARGE",   -- Enum.HousingCatalogEntrySize.Large
+        [69] = "SIZE_HUGE",    -- Enum.HousingCatalogEntrySize.Huge
+    },
+
+    -- Sort types (native = HousingCatalogSearcher, client-side >= 100)
+    SORT_NATIVE_NEWEST = 0,    -- Enum.HousingCatalogSortType.DateAdded
+    SORT_NATIVE_ALPHA = 1,     -- Enum.HousingCatalogSortType.Alphabetical
+    SORT_CLIENT_SIZE = 100,    -- Client-side: by size (Huge → None)
+    SORT_CLIENT_QUANTITY = 101, -- Client-side: by quantity owned
+
+    -- Category navigation
+    BUILTIN_ALL_CATEGORY_ID = 18,  -- WoW's built-in "All" category (filter out)
 
     -- Shared button styling (toolbar toggle, preview collapse)
     TOGGLE_BUTTON_SIZE = 34,
@@ -340,13 +364,13 @@ SlashCmdList["HOUSINGCODEX"] = function(msg)
     local L = addon.L
 
     if cmd == "help" or cmd == "?" then
-        addon:Print("|cFFFFD100" .. (L["HELP_TITLE"] or "Housing Codex Commands:") .. "|r")
-        addon:Print("  " .. (L["HELP_TOGGLE"] or "/hc - Toggle main window"))
-        addon:Print("  " .. (L["HELP_PREVIEW"] or "/hc preview - Toggle preview window"))
-        addon:Print("  " .. (L["HELP_SETTINGS"] or "/hc settings - Open settings"))
-        addon:Print("  " .. (L["HELP_RETRY"] or "/hc retry - Retry loading data"))
-        addon:Print("  " .. (L["HELP_HELP"] or "/hc help - Show this help"))
-        addon:Print("  " .. (L["HELP_DEBUG"] or "/hc debug - Toggle debug mode"))
+        addon:Print("|cFFFFD100" .. L["HELP_TITLE"] .. "|r")
+        addon:Print("  " .. L["HELP_TOGGLE"])
+        addon:Print("  " .. L["HELP_PREVIEW"])
+        addon:Print("  " .. L["HELP_SETTINGS"])
+        addon:Print("  " .. L["HELP_RETRY"])
+        addon:Print("  " .. L["HELP_HELP"])
+        addon:Print("  " .. L["HELP_DEBUG"])
     elseif cmd == "preview" then
         if addon.Preview then
             addon.Preview:Toggle()
@@ -429,4 +453,13 @@ addon:RegisterWoWEvent("PLAYER_ENTERING_WORLD", function()
             addon:LoadData()
         end
     end)
+end)
+
+-- Category cache invalidation (fires internal events for Categories.lua and Data.lua)
+addon:RegisterWoWEvent("HOUSING_CATALOG_CATEGORY_UPDATED", function(categoryID)
+    addon:FireEvent("CATEGORY_CACHE_INVALIDATED", categoryID)
+end)
+
+addon:RegisterWoWEvent("HOUSING_CATALOG_SUBCATEGORY_UPDATED", function(subcategoryID)
+    addon:FireEvent("SUBCATEGORY_CACHE_INVALIDATED", subcategoryID)
 end)

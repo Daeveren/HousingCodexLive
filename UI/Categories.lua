@@ -16,9 +16,6 @@ local COLOR_BG_HOVER = { 0.12, 0.12, 0.15, 1 }
 local COLOR_BG_SELECTED = { 0.10, 0.10, 0.13, 1 }
 local COLOR_GOLD_BORDER = { 1, 0.82, 0, 1 }
 
--- Built-in "All" category ID from WoW API (filter this out since we create our own)
-local BUILTIN_ALL_CATEGORY_ID = 18
-
 -- Button vertical spacing
 local BUTTON_SPACING = BUTTON_HEIGHT + 2
 
@@ -196,7 +193,7 @@ function Categories:BuildCategoryView()
     local yOffset = -PADDING
 
     -- "All" button at top
-    local allBtn = self:CreateCategoryButton(L["CATEGORY_ALL"] or "All", nil)
+    local allBtn = self:CreateCategoryButton(L["CATEGORY_ALL"], nil)
     self:PositionButton(allBtn, yOffset)
     allBtn.isAll = true
     allBtn:SetScript("OnClick", function()
@@ -211,8 +208,9 @@ function Categories:BuildCategoryView()
 
     -- Get sorted category list (excluding built-in "All" category)
     local sortedCategories = {}
+    local builtinAllID = CONSTS.BUILTIN_ALL_CATEGORY_ID
     for _, info in pairs(self.categories) do
-        if info.ID ~= BUILTIN_ALL_CATEGORY_ID then
+        if info.ID ~= builtinAllID then
             table.insert(sortedCategories, info)
         end
     end
@@ -248,7 +246,7 @@ function Categories:BuildSubcategoryView()
     end
 
     -- Back button
-    local backBtn = self:CreateCategoryButton("< " .. (L["CATEGORY_BACK"] or "Back"), nil)
+    local backBtn = self:CreateCategoryButton("< " .. L["CATEGORY_BACK"], nil)
     self:PositionButton(backBtn, yOffset)
     backBtn.isBack = true
     backBtn:SetScript("OnClick", function()
@@ -258,7 +256,7 @@ function Categories:BuildSubcategoryView()
     yOffset = yOffset - BUTTON_SPACING
 
     -- "All [Category]" button
-    local allLabel = string.format(L["CATEGORY_ALL_IN"] or "All %s", categoryInfo.name or "")
+    local allLabel = string.format(L["CATEGORY_ALL_IN"], categoryInfo.name or "")
     local allBtn = self:CreateCategoryButton(allLabel, categoryInfo.icon)
     self:PositionButton(allBtn, yOffset)
     allBtn.isAll = true
@@ -417,9 +415,9 @@ function Categories:UpdateResultCount(shown, total)
     if not addon.dataLoaded then
         self.resultCountText:SetText("")
     elseif shown == total then
-        self.resultCountText:SetText(string.format(L["RESULT_COUNT_ALL"] or "Showing %d items", total))
+        self.resultCountText:SetText(string.format(L["RESULT_COUNT_ALL"], total))
     else
-        self.resultCountText:SetText(string.format(L["RESULT_COUNT_FILTERED"] or "Showing %d of %d items", shown, total))
+        self.resultCountText:SetText(string.format(L["RESULT_COUNT_FILTERED"], shown, total))
     end
 end
 
@@ -454,4 +452,29 @@ addon:RegisterInternalEvent("DATA_LOADED", function()
         -- Run initial search to populate the grid
         Categories:ApplyFilter()
     end
+end)
+
+-- Cache invalidation for categories (fired by Init.lua from WoW events)
+addon:RegisterInternalEvent("CATEGORY_CACHE_INVALIDATED", function(categoryID)
+    if not Categories.categories or not categoryID then return end
+
+    -- Clear cached entry and fetch fresh data
+    Categories.categories[categoryID] = nil
+    local info = C_HousingCatalog.GetCatalogCategoryInfo(categoryID)
+    if info then
+        Categories.categories[categoryID] = info
+    end
+    Categories:BuildDisplay()
+end)
+
+addon:RegisterInternalEvent("SUBCATEGORY_CACHE_INVALIDATED", function(subcategoryID)
+    if not Categories.subcategories or not subcategoryID then return end
+
+    -- Clear cached entry and fetch fresh data
+    Categories.subcategories[subcategoryID] = nil
+    local info = C_HousingCatalog.GetCatalogSubcategoryInfo(subcategoryID)
+    if info then
+        Categories.subcategories[subcategoryID] = info
+    end
+    Categories:BuildDisplay()
 end)

@@ -16,26 +16,26 @@ local MAX_TILE_SIZE = CONSTS.MAX_TILE_SIZE
 local TOOLBAR_HEIGHT = 32
 local WISHLIST_STAR_SIZE = CONSTS.WISHLIST_STAR_SIZE_GRID
 
--- Sort type constants
-local SORT_NATIVE_NEWEST = 0     -- Enum.HousingCatalogSortType.DateAdded
-local SORT_NATIVE_ALPHA = 1      -- Enum.HousingCatalogSortType.Alphabetical
-local SORT_CLIENT_SIZE = 100     -- Client-side: by size (Huge → None)
-local SORT_CLIENT_QUANTITY = 101 -- Client-side: by quantity owned
-
--- Sort options for dropdown (isNative determines if we use catalogSearcher or client-side)
+-- Sort options for dropdown (isNative: true = HousingCatalogSearcher, false = client-side)
 local SORT_OPTIONS = {
-    { value = SORT_NATIVE_NEWEST, isNative = true },
-    { value = SORT_NATIVE_ALPHA, isNative = true },
-    { value = SORT_CLIENT_SIZE, isNative = false },
-    { value = SORT_CLIENT_QUANTITY, isNative = false },
+    { value = CONSTS.SORT_NATIVE_NEWEST, isNative = true },
+    { value = CONSTS.SORT_NATIVE_ALPHA, isNative = true },
+    { value = CONSTS.SORT_CLIENT_SIZE, isNative = false },
+    { value = CONSTS.SORT_CLIENT_QUANTITY, isNative = false },
 }
 
--- Lookup table for sort type labels
+-- Lookup table: sort type value -> localization key
 local SORT_LABELS = {
-    [SORT_NATIVE_NEWEST] = "SORT_NEWEST",
-    [SORT_NATIVE_ALPHA] = "SORT_ALPHABETICAL",
-    [SORT_CLIENT_SIZE] = "SORT_SIZE",
-    [SORT_CLIENT_QUANTITY] = "SORT_QUANTITY",
+    [CONSTS.SORT_NATIVE_NEWEST] = "SORT_NEWEST",
+    [CONSTS.SORT_NATIVE_ALPHA] = "SORT_ALPHABETICAL",
+    [CONSTS.SORT_CLIENT_SIZE] = "SORT_SIZE",
+    [CONSTS.SORT_CLIENT_QUANTITY] = "SORT_QUANTITY",
+}
+
+-- Client-side sort field mapping: sort type -> record field name
+local CLIENT_SORT_FIELDS = {
+    [CONSTS.SORT_CLIENT_SIZE] = "size",           -- Huge=69 -> None=0
+    [CONSTS.SORT_CLIENT_QUANTITY] = "totalOwned", -- Most owned first
 }
 
 -- ModelScene constants for 3D preview (from Blizzard_HousingCatalogEntry.lua)
@@ -144,7 +144,7 @@ function Grid:CreateToolbar(parent)
     -- Size label (shortened from "Tile Size:")
     local label = toolbar:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
     label:SetPoint("LEFT", toolbar, "LEFT", GRID_OUTER_PAD, 0)
-    label:SetText(L["SIZE_LABEL"] or "Size:")
+    label:SetText(L["SIZE_LABEL"])
     label:SetTextColor(0.8, 0.8, 0.8, 1)
 
     -- Size value display
@@ -203,7 +203,7 @@ function Grid:CreateToolbar(parent)
     -- "Sort by" label (left of sort dropdown)
     local sortLabel = toolbar:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
     sortLabel:SetPoint("RIGHT", sortDropdown, "LEFT", -6, 0)
-    sortLabel:SetText(L["SORT_BY_LABEL"] or "Sort by")
+    sortLabel:SetText(L["SORT_BY_LABEL"])
     sortLabel:SetTextColor(0.8, 0.8, 0.8, 1)
     self.sortLabel = sortLabel
 
@@ -216,10 +216,10 @@ function Grid:CreateToolbar(parent)
     return toolbar
 end
 
--- Get label for a sort type value
+-- Get localized label for a sort type value
 local function GetSortLabel(sortType)
     local key = SORT_LABELS[sortType] or "SORT_NEWEST"
-    return addon.L[key] or key
+    return addon.L[key]
 end
 
 -- Sort dropdown using modern Blizzard_Menu system
@@ -279,7 +279,7 @@ end
 function Grid:CreatePreviewToggleButton(parent)
     local btn = addon:CreateToggleButton(parent, ">", nil, function()
         if InCombatLockdown() then
-            addon:Print(addon.L["COMBAT_LOCKDOWN_MESSAGE"] or "Cannot open during combat")
+            addon:Print(addon.L["COMBAT_LOCKDOWN_MESSAGE"])
             return
         end
         if addon.Preview then
@@ -294,7 +294,7 @@ function Grid:CreatePreviewToggleButton(parent)
         GameTooltip:SetOwner(b, "ANCHOR_TOP")
         local isOpen = addon.Preview and addon.Preview:IsShown()
         local key = isOpen and "PREVIEW_COLLAPSE" or "PREVIEW_EXPAND"
-        GameTooltip:SetText(addon.L[key] or "Toggle Preview")
+        GameTooltip:SetText(addon.L[key])
         GameTooltip:Show()
     end)
 
@@ -470,7 +470,7 @@ function Grid:CreateScrollBox(parent, tileSize)
                 GameTooltip:AddLine(rec.sourceText, 0.8, 0.8, 0.8, true)
             end
             if rec.totalOwned and rec.totalOwned > 0 then
-                GameTooltip:AddLine(string.format(addon.L["DETAILS_OWNED"] or "Owned: %d", rec.totalOwned), unpack(COLOR_COLLECTED))
+                GameTooltip:AddLine(string.format(addon.L["DETAILS_OWNED"], rec.totalOwned), unpack(COLOR_COLLECTED))
             end
             GameTooltip:Show()
         end)
@@ -571,7 +571,7 @@ function Grid:CreateEmptyState(parent)
     -- Message text
     local msg = frame:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
     msg:SetPoint("CENTER", frame, "CENTER", 0, 20)
-    msg:SetText(addon.L["EMPTY_STATE_MESSAGE"] or "No items match your filters")
+    msg:SetText(addon.L["EMPTY_STATE_MESSAGE"])
     msg:SetTextColor(0.6, 0.6, 0.6, 1)
     frame.message = msg
 
@@ -579,7 +579,7 @@ function Grid:CreateEmptyState(parent)
     local btn = CreateFrame("Button", nil, frame, "UIPanelButtonTemplate")
     btn:SetSize(120, 26)
     btn:SetPoint("TOP", msg, "BOTTOM", 0, -16)
-    btn:SetText(addon.L["RESET_FILTERS"] or "Reset Filters")
+    btn:SetText(addon.L["RESET_FILTERS"])
     btn:SetScript("OnClick", function()
         addon.Filters:ResetAllFilters()
     end)
@@ -669,12 +669,6 @@ local function SortByField(recordIDs, fieldName)
         return valA > valB
     end)
 end
-
--- Client-side sort field mapping
-local CLIENT_SORT_FIELDS = {
-    [SORT_CLIENT_SIZE] = "size",           -- Huge=69 → None=0
-    [SORT_CLIENT_QUANTITY] = "totalOwned", -- Most owned first (storage + placed + redeemable)
-}
 
 -- Apply client-side sorting for non-native sort types
 function Grid:ApplyClientSideSort(recordIDs, sortType)
@@ -790,8 +784,15 @@ end
 -- Event handlers
 addon:RegisterInternalEvent("DATA_LOADED", function(recordCount)
     if addon.Tabs and addon.Tabs:GetCurrentTab() == "DECOR" then
-        local recordIDs = addon:GetAllRecordIDs()
-        Grid:SetData(recordIDs)
+        -- Trigger search refresh to respect current filter state
+        -- SEARCH_RESULTS_UPDATED will populate grid with filtered results
+        if addon.catalogSearcher then
+            addon.catalogSearcher:RunSearch()
+        else
+            -- Fallback: use all record IDs (no searcher available)
+            local recordIDs = addon:GetAllRecordIDs()
+            Grid:SetData(recordIDs)
+        end
     end
 end)
 
@@ -805,8 +806,15 @@ addon:RegisterInternalEvent("TAB_CHANGED", function(tabKey)
     if tabKey == "DECOR" then
         Grid:Show()
         if addon.dataLoaded then
-            local recordIDs = addon:GetAllRecordIDs()
-            Grid:SetData(recordIDs)
+            -- Trigger search refresh to respect current filter state
+            -- SEARCH_RESULTS_UPDATED will populate grid with filtered results
+            if addon.catalogSearcher then
+                addon.catalogSearcher:RunSearch()
+            else
+                -- Fallback: use all record IDs (no searcher available)
+                local recordIDs = addon:GetAllRecordIDs()
+                Grid:SetData(recordIDs)
+            end
         end
     else
         Grid:Hide()

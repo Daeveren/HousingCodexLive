@@ -17,16 +17,6 @@ local SPACING_SMALL = 2
 local METADATA_GAP = 4          -- Extra spacing before metadata row
 local DIVIDER_OFFSET = 1        -- Inset from left edge to clear MainFrame divider
 
--- Size API values to localization keys
-local SIZE_KEYS = {
-    [0] = nil,           -- No size
-    [65] = "SIZE_TINY",
-    [66] = "SIZE_SMALL",
-    [67] = "SIZE_MEDIUM",
-    [68] = "SIZE_LARGE",
-    [69] = "SIZE_HUGE",
-}
-
 -- Camera constants (WoW globals with fallbacks)
 local CAMERA_IMMEDIATE = CAMERA_TRANSITION_TYPE_IMMEDIATE or 1
 local CAMERA_DISCARD = CAMERA_MODIFICATION_TYPE_DISCARD or 0
@@ -200,7 +190,7 @@ function Preview:CreateFallbackUI()
     -- Placeholder: shown when no item selected
     local placeholder = addon:CreateFontString(self.modelArea, "OVERLAY", "GameFontNormalLarge")
     placeholder:SetPoint("CENTER")
-    placeholder:SetText(addon.L["PREVIEW_NO_SELECTION"] or "Select an item to preview")
+    placeholder:SetText(addon.L["PREVIEW_NO_SELECTION"])
     placeholder:SetTextColor(unpack(COLORS.TEXT_TERTIARY))
     self.placeholderText = placeholder
 end
@@ -299,7 +289,7 @@ function Preview:CreateIdentityBlock()
     -- Size row (anchored below source text with extra spacing)
     local sizeLabel = addon:CreateFontString(details, "OVERLAY", "GameFontHighlightSmall")
     sizeLabel:SetPoint("TOPLEFT", source, "BOTTOMLEFT", 0, -PADDING - METADATA_GAP)
-    sizeLabel:SetText(addon.L["DETAILS_SIZE"] or "Size:")
+    sizeLabel:SetText(addon.L["DETAILS_SIZE"])
     sizeLabel:SetTextColor(0.5, 0.5, 0.5)
 
     local sizeValue = addon:CreateFontString(details, "OVERLAY", "GameFontHighlightSmall")
@@ -310,7 +300,7 @@ function Preview:CreateIdentityBlock()
     -- Place (same line, after size)
     local placeLabel = addon:CreateFontString(details, "OVERLAY", "GameFontHighlightSmall")
     placeLabel:SetPoint("LEFT", sizeValue, "RIGHT", 12, 0)
-    placeLabel:SetText(addon.L["DETAILS_PLACE"] or "Place:")
+    placeLabel:SetText(addon.L["DETAILS_PLACE"])
     placeLabel:SetTextColor(0.5, 0.5, 0.5)
 
     local placeValue = addon:CreateFontString(details, "OVERLAY", "GameFontHighlightSmall")
@@ -354,7 +344,7 @@ function Preview:CreateActionsRow(details, anchorElement)
     -- Track/Untrack button (uses shared action button style)
     local trackBtn = addon:CreateActionButton(
         actionsRow,
-        addon.L["ACTION_TRACK"] or "Track",
+        addon.L["ACTION_TRACK"],
         function() self:OnTrackButtonClick() end,
         function(btn) self:ShowTrackButtonTooltip(btn) end
     )
@@ -364,7 +354,7 @@ function Preview:CreateActionsRow(details, anchorElement)
     -- Link to Chat button (left-click: chat link, right-click: Wowhead URL)
     local linkBtn = addon:CreateActionButton(
         actionsRow,
-        addon.L["ACTION_LINK"] or "Link",
+        addon.L["ACTION_LINK"],
         function(btn, mouseButton)
             if mouseButton == "RightButton" then
                 self:OnLinkButtonRightClick()
@@ -460,9 +450,9 @@ function Preview:CreateWishlistButton(parent)
         local name = record and record.name or "item"
 
         if isNowWishlisted then
-            addon:Print(string.format(addon.L["WISHLIST_ADDED"] or "Added to wishlist: %s", name))
+            addon:Print(string.format(addon.L["WISHLIST_ADDED"], name))
         else
-            addon:Print(string.format(addon.L["WISHLIST_REMOVED"] or "Removed from wishlist: %s", name))
+            addon:Print(string.format(addon.L["WISHLIST_REMOVED"], name))
         end
         self:UpdateWishlistButton()
     end)
@@ -477,8 +467,8 @@ function Preview:CreateWishlistButton(parent)
         end
 
         local tooltipText = isWishlisted
-            and (addon.L["WISHLIST_REMOVE"] or "Remove from Wishlist")
-            or (addon.L["WISHLIST_ADD"] or "Add to Wishlist")
+            and addon.L["WISHLIST_REMOVE"]
+            or addon.L["WISHLIST_ADD"]
         GameTooltip:SetOwner(b, "ANCHOR_RIGHT")
         GameTooltip:SetText(tooltipText)
         GameTooltip:Show()
@@ -514,10 +504,10 @@ function Preview:UpdateDetails(record)
 
     -- Owned count (use totalOwned = placed + storage + redeemable)
     if record.totalOwned and record.totalOwned > 0 then
-        self.detailsOwned:SetText(string.format(addon.L["DETAILS_OWNED"] or "Owned: %d", record.totalOwned))
+        self.detailsOwned:SetText(string.format(addon.L["DETAILS_OWNED"], record.totalOwned))
         self.detailsOwned:SetTextColor(0.2, 0.8, 0.2)
     else
-        self.detailsOwned:SetText(addon.L["DETAILS_NOT_OWNED"] or "Not Owned")
+        self.detailsOwned:SetText(addon.L["DETAILS_NOT_OWNED"])
         self.detailsOwned:SetTextColor(0.6, 0.6, 0.6)
     end
 
@@ -526,27 +516,26 @@ function Preview:UpdateDetails(record)
     if sourceText and sourceText ~= "" then
         self.detailsSource:SetText(sourceText)
     else
-        self.detailsSource:SetText(addon.L["DETAILS_SOURCE_UNKNOWN"] or "Unknown source")
+        self.detailsSource:SetText(addon.L["DETAILS_SOURCE_UNKNOWN"])
     end
 
     -- ========== Metadata (1C.7) ==========
 
     -- Size (use localized name or dash if no size)
-    local sizeKey = SIZE_KEYS[record.size]
-    self.detailsSize:SetText(sizeKey and addon.L[sizeKey] or "-")
+    self.detailsSize:SetText(record.sizeKey and addon.L[record.sizeKey] or "-")
 
     -- Place
     local placement = {}
-    if record.isIndoors then table.insert(placement, addon.L["PLACEMENT_IN"] or "In") end
-    if record.isOutdoors then table.insert(placement, addon.L["PLACEMENT_OUT"] or "Out") end
+    if record.isIndoors then table.insert(placement, addon.L["PLACEMENT_IN"]) end
+    if record.isOutdoors then table.insert(placement, addon.L["PLACEMENT_OUT"]) end
     self.detailsPlacement:SetText(#placement > 0 and table.concat(placement, "/") or "-")
 
     -- Dyeable
     if record.canCustomize then
-        self.detailsDyeable:SetText(addon.L["DETAILS_DYEABLE"] or "Dyeable")
+        self.detailsDyeable:SetText(addon.L["DETAILS_DYEABLE"])
         self.detailsDyeable:SetTextColor(0.6, 0.8, 1)  -- Light blue
     else
-        self.detailsDyeable:SetText(addon.L["DETAILS_NOT_DYEABLE"] or "Not Dyeable")
+        self.detailsDyeable:SetText(addon.L["DETAILS_NOT_DYEABLE"])
         self.detailsDyeable:SetTextColor(0.5, 0.5, 0.5)  -- Gray
     end
 
@@ -563,7 +552,7 @@ end
 function Preview:ClearDetails()
     if not self.detailsName then return end  -- Not yet created
 
-    self.detailsName:SetText(addon.L["PREVIEW_NO_SELECTION"] or "Select an item to preview")
+    self.detailsName:SetText(addon.L["PREVIEW_NO_SELECTION"])
     self.detailsName:SetTextColor(0.5, 0.5, 0.5)
     self.detailsOwned:SetText("")
     self.detailsSource:SetText("")
@@ -575,7 +564,7 @@ function Preview:ClearDetails()
     -- Reset action buttons to disabled state (wishlist uses UpdateWishlistButton which handles nil recordID)
     self:UpdateWishlistButton()
     if self.trackButton then
-        self.trackButton:SetText(addon.L["ACTION_TRACK"] or "Track")
+        self.trackButton:SetText(addon.L["ACTION_TRACK"])
         self.trackButton:SetEnabled(false)
         self.trackButton:SetActive(false)
     end
@@ -647,14 +636,14 @@ function Preview:UpdateActionButtons(record)
         local isTracking = IsRecordTracked(record.recordID)
         self.trackButton:SetActive(isTracking)  -- Gold highlight when tracking
         if isTracking then
-            self.trackButton:SetText(addon.L["ACTION_UNTRACK"] or "Untrack")
+            self.trackButton:SetText(addon.L["ACTION_UNTRACK"])
         else
-            self.trackButton:SetText(addon.L["ACTION_TRACK"] or "Track")
+            self.trackButton:SetText(addon.L["ACTION_TRACK"])
         end
     else
         self.trackButton:SetEnabled(false)
         self.trackButton:SetActive(false)
-        self.trackButton:SetText(addon.L["ACTION_TRACK"] or "Track")
+        self.trackButton:SetText(addon.L["ACTION_TRACK"])
     end
 
     -- Link button is always enabled when an item is selected
@@ -674,14 +663,14 @@ function Preview:OnTrackButtonClick()
     if not record or not record.isTrackable then return end
 
     if not C_ContentTracking then
-        addon:Print(addon.L["ERROR_API_UNAVAILABLE"] or "API unavailable")
+        addon:Print(addon.L["ERROR_API_UNAVAILABLE"])
         return
     end
 
     -- Stop tracking if already tracked
     if IsRecordTracked(recordID) then
         C_ContentTracking.StopTracking(Enum.ContentTrackingType.Decor, recordID, Enum.ContentTrackingStopType.Manual)
-        addon:Print(string.format(addon.L["TRACKING_STOPPED"] or "Stopped tracking: %s", record.name))
+        addon:Print(string.format(addon.L["TRACKING_STOPPED"], record.name))
         self:UpdateActionButtons(record)
         addon:FireEvent("TRACKING_CHANGED", recordID)
         return
@@ -692,14 +681,14 @@ function Preview:OnTrackButtonClick()
 
     -- Handle result using error code lookup
     local ERROR_MESSAGES = {
-        [Enum.ContentTrackingError.MaxTracked] = addon.L["TRACKING_ERROR_MAX"] or "Maximum tracked items reached",
-        [Enum.ContentTrackingError.Untrackable] = addon.L["TRACKING_ERROR_UNTRACKABLE"] or "Cannot track this item",
+        [Enum.ContentTrackingError.MaxTracked] = addon.L["TRACKING_ERROR_MAX"],
+        [Enum.ContentTrackingError.Untrackable] = addon.L["TRACKING_ERROR_UNTRACKABLE"],
     }
 
     if not err or err == Enum.ContentTrackingError.AlreadyTracked then
         SetSuperTracking(recordID)
         if not err then
-            addon:Print(string.format(addon.L["TRACKING_STARTED"] or "Now tracking: %s", record.name))
+            addon:Print(string.format(addon.L["TRACKING_STARTED"], record.name))
         end
     elseif ERROR_MESSAGES[err] then
         addon:Print(ERROR_MESSAGES[err])
@@ -726,9 +715,9 @@ function Preview:OnLinkButtonClick()
     if editBox and editBox:IsShown() then
         local linkText = string.format("|cFFFFD100[%s]|r", record.name)
         editBox:Insert(linkText)
-        addon:Print(addon.L["LINK_INSERTED"] or "Link inserted into chat")
+        addon:Print(addon.L["LINK_INSERTED"])
     else
-        addon:Print(addon.L["LINK_ERROR"] or "Unable to insert link")
+        addon:Print(addon.L["LINK_ERROR"])
     end
 end
 
@@ -761,16 +750,16 @@ function Preview:ShowTrackButtonTooltip(btn)
     -- Determine tooltip content based on tracking state
     local title, description, r, g, b
     if not record or not record.isTrackable then
-        title = L["ACTION_TRACK"] or "Track"
-        description = L["ACTION_TRACK_DISABLED_TOOLTIP"] or "This item cannot be tracked"
+        title = L["ACTION_TRACK"]
+        description = L["ACTION_TRACK_DISABLED_TOOLTIP"]
         r, g, b = 1, 0.5, 0.5
     elseif IsRecordTracked(recordID) then
-        title = L["ACTION_UNTRACK"] or "Untrack"
-        description = L["ACTION_UNTRACK_TOOLTIP"] or "Stop tracking this item"
+        title = L["ACTION_UNTRACK"]
+        description = L["ACTION_UNTRACK_TOOLTIP"]
         r, g, b = 1, 1, 1
     else
-        title = L["ACTION_TRACK"] or "Track"
-        description = L["ACTION_TRACK_TOOLTIP"] or "Track this item in the objectives tracker"
+        title = L["ACTION_TRACK"]
+        description = L["ACTION_TRACK_TOOLTIP"]
         r, g, b = 1, 1, 1
     end
 
@@ -781,9 +770,9 @@ end
 
 function Preview:ShowLinkButtonTooltip(btn)
     GameTooltip:SetOwner(btn, "ANCHOR_RIGHT")
-    GameTooltip:SetText(addon.L["ACTION_LINK"] or "Link")
-    GameTooltip:AddLine(addon.L["ACTION_LINK_TOOLTIP"] or "Insert item link into chat", 1, 1, 1)
-    GameTooltip:AddLine(addon.L["ACTION_LINK_TOOLTIP_RIGHTCLICK"] or "Right-click: Copy Wowhead URL", 0.7, 0.7, 0.7)
+    GameTooltip:SetText(addon.L["ACTION_LINK"])
+    GameTooltip:AddLine(addon.L["ACTION_LINK_TOOLTIP"], 1, 1, 1)
+    GameTooltip:AddLine(addon.L["ACTION_LINK_TOOLTIP_RIGHTCLICK"], 0.7, 0.7, 0.7)
     GameTooltip:Show()
 end
 
@@ -882,7 +871,7 @@ function Preview:Show()
     if self:IsShown() then return true end
 
     if InCombatLockdown() then
-        addon:Print(addon.L["COMBAT_LOCKDOWN_MESSAGE"] or "Cannot open during combat")
+        addon:Print(addon.L["COMBAT_LOCKDOWN_MESSAGE"])
         return false
     end
 

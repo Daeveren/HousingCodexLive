@@ -196,7 +196,7 @@ function Filters:CreateCollectionButtons(parent)
     -- Collected toggle (mutually exclusive with uncollected)
     local collectedBtn = CreateToggleButton(
         container,
-        L["FILTER_COLLECTED"] or "Collected",
+        L["FILTER_COLLECTED"],
         function() return self.showCollected end,
         function()
             if not self.showCollected then
@@ -210,7 +210,7 @@ function Filters:CreateCollectionButtons(parent)
     -- Uncollected toggle (mutually exclusive with collected)
     local uncollectedBtn = CreateToggleButton(
         container,
-        L["FILTER_UNCOLLECTED"] or "Uncollected",
+        L["FILTER_UNCOLLECTED"],
         function() return self.showUncollected end,
         function()
             if not self.showUncollected then

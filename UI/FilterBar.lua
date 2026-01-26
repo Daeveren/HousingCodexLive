@@ -43,7 +43,7 @@ function FilterBar:CreateDropdown(parent)
     -- Create dropdown using WowStyle1FilterDropdownTemplate
     local dropdown = CreateFrame("DropdownButton", nil, parent, "WowStyle1FilterDropdownTemplate")
     dropdown:SetSize(93, 22)
-    dropdown:SetText(L["FILTERS"] or "Filters")
+    dropdown:SetText(L["FILTERS"])
     self.dropdownButton = dropdown
 
     -- Setup isDefault and reset callbacks for the reset button
@@ -75,7 +75,7 @@ function FilterBar:SetupMenu(rootDescription)
 
     -- Wishlist-only filter (post-search filter via addon.Filters)
     rootDescription:CreateCheckbox(
-        L["FILTER_WISHLIST_ONLY"] or "Wishlist Only",
+        L["FILTER_WISHLIST_ONLY"],
         function() return addon.Filters.showWishlistOnly end,
         function()
             addon.Filters:SetWishlistOnly(not addon.Filters.showWishlistOnly)
@@ -86,7 +86,7 @@ function FilterBar:SetupMenu(rootDescription)
     rootDescription:CreateSpacer()
 
     -- Trackable filter submenu (post-search filter via addon.Filters)
-    local trackableSubmenu = rootDescription:CreateButton(L["FILTER_TRACKABLE_HEADER"] or "Trackable")
+    local trackableSubmenu = rootDescription:CreateButton(L["FILTER_TRACKABLE_HEADER"])
     for _, opt in ipairs(TRACKABLE_OPTIONS) do
         local label = L[opt.labelKey] or opt.fallback
         trackableSubmenu:CreateRadio(
@@ -124,7 +124,7 @@ function FilterBar:SetupMenu(rootDescription)
 
             -- Check All / Uncheck All buttons
             groupSubmenu:CreateButton(
-                L["CHECK_ALL"] or "Check All",
+                L["CHECK_ALL"],
                 function()
                     searcher:SetAllInFilterTagGroup(tagGroup.groupID, true)
                     addon.Filters:SaveState()
@@ -133,7 +133,7 @@ function FilterBar:SetupMenu(rootDescription)
                 tagGroup.groupID
             )
             groupSubmenu:CreateButton(
-                L["UNCHECK_ALL"] or "Uncheck All",
+                L["UNCHECK_ALL"],
                 function()
                     searcher:SetAllInFilterTagGroup(tagGroup.groupID, false)
                     addon.Filters:SaveState()

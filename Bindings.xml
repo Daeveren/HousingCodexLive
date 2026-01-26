@@ -1,5 +1,5 @@
 <Bindings>
-    <Binding name="HOUSINGCODEX_TOGGLE" category="BINDING_HEADER_HOUSINGCODEX">
+    <Binding name="HOUSINGCODEX_TOGGLE" category="BINDING_HEADER_HCODEX">
         -- Toggle Housing Codex window
         HousingCodex.MainFrame:Toggle()
     </Binding>

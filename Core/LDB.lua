@@ -27,7 +27,7 @@ function LDB:Initialize()
         OnClick = function(clickedframe, button)
             if button == "LeftButton" then
                 if InCombatLockdown() then
-                    addon:Print(addon.L["COMBAT_LOCKDOWN_MESSAGE"] or "Cannot open during combat")
+                    addon:Print(addon.L["COMBAT_LOCKDOWN_MESSAGE"])
                     return
                 end
                 if addon.MainFrame then
@@ -35,23 +35,23 @@ function LDB:Initialize()
                 end
             elseif button == "RightButton" then
                 if InCombatLockdown() then
-                    addon:Print(addon.L["COMBAT_LOCKDOWN_MESSAGE"] or "Cannot open during combat")
+                    addon:Print(addon.L["COMBAT_LOCKDOWN_MESSAGE"])
                     return
                 end
                 -- Open WoW Settings to Housing Codex panel
                 if addon.Settings and addon.Settings.Open then
                     addon.Settings:Open()
                 else
-                    addon:Print(addon.L["LDB_OPTIONS_PLACEHOLDER"] or "Settings panel not yet available")
+                    addon:Print(addon.L["LDB_OPTIONS_PLACEHOLDER"])
                 end
             end
         end,
         OnTooltipShow = function(tooltip)
             if not tooltip or not tooltip.AddLine then return end
-            tooltip:AddLine(addon.L["ADDON_NAME"] or "Housing Codex")
+            tooltip:AddLine(addon.L["ADDON_NAME"])
             tooltip:AddLine(" ")
-            tooltip:AddLine(addon.L["LDB_TOOLTIP_LEFT"] or "|cffffffffLeft-click|r to toggle main window", 0.8, 0.8, 0.8)
-            tooltip:AddLine(addon.L["LDB_TOOLTIP_RIGHT"] or "|cffffffffRight-click|r to open options", 0.8, 0.8, 0.8)
+            tooltip:AddLine(addon.L["LDB_TOOLTIP_LEFT"], 0.8, 0.8, 0.8)
+            tooltip:AddLine(addon.L["LDB_TOOLTIP_RIGHT"], 0.8, 0.8, 0.8)
         end,
     })
 

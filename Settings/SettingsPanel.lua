@@ -81,15 +81,15 @@ function addon.Settings:Initialize()
     --------------------------------------------------------------------------------
     local displayHeader = panel:CreateFontString(nil, "ARTWORK", "GameFontNormal")
     displayHeader:SetPoint("TOPLEFT", 16, yOffset)
-    displayHeader:SetText(L["OPTIONS_SECTION_DISPLAY"] or "Display")
+    displayHeader:SetText(L["OPTIONS_SECTION_DISPLAY"])
     displayHeader:SetTextColor(1, 0.82, 0)
     yOffset = yOffset - 30
 
     -- Use Custom Font checkbox
     local fontCheck = CreateCheckbox(
         panel,
-        L["OPTIONS_USE_CUSTOM_FONT"] or "Use Custom Font (Roboto Condensed)",
-        L["OPTIONS_USE_CUSTOM_FONT_TOOLTIP"] or "Use the custom Roboto Condensed font for addon text",
+        L["OPTIONS_USE_CUSTOM_FONT"],
+        L["OPTIONS_USE_CUSTOM_FONT_TOOLTIP"],
         function() return addon.db and addon.db.settings.useCustomFont end,
         function(checked)
             if addon.db then
@@ -107,8 +107,8 @@ function addon.Settings:Initialize()
     -- Show Collected Indicator checkbox
     local collectedCheck = CreateCheckbox(
         panel,
-        L["OPTIONS_SHOW_COLLECTED"] or "Show owned quantity on tiles",
-        L["OPTIONS_SHOW_COLLECTED_TOOLTIP"] or "Display owned count on grid tiles for collected items",
+        L["OPTIONS_SHOW_COLLECTED"],
+        L["OPTIONS_SHOW_COLLECTED_TOOLTIP"],
         function() return addon.db and addon.db.settings.showCollectedIndicator end,
         function(checked)
             if addon.db then
@@ -128,14 +128,14 @@ function addon.Settings:Initialize()
     --------------------------------------------------------------------------------
     local keybindHeader = panel:CreateFontString(nil, "ARTWORK", "GameFontNormal")
     keybindHeader:SetPoint("TOPLEFT", 16, yOffset)
-    keybindHeader:SetText(L["OPTIONS_SECTION_KEYBIND"] or "Keybind")
+    keybindHeader:SetText(L["OPTIONS_SECTION_KEYBIND"])
     keybindHeader:SetTextColor(1, 0.82, 0)
     yOffset = yOffset - 30
 
     -- Keybind label
     local keybindLabel = panel:CreateFontString(nil, "ARTWORK", "GameFontNormal")
     keybindLabel:SetPoint("TOPLEFT", 16, yOffset)
-    keybindLabel:SetText(L["OPTIONS_TOGGLE_KEYBIND"] or "Toggle Window:")
+    keybindLabel:SetText(L["OPTIONS_TOGGLE_KEYBIND"])
     keybindLabel:SetTextColor(0.9, 0.9, 0.9)
 
     -- Keybind button
@@ -148,7 +148,7 @@ function addon.Settings:Initialize()
     -- Update button text based on current keybind from standard WoW system
     local function UpdateKeybindButtonText()
         local displayText = GetKeybindDisplayText()
-        keybindBtn:SetText(displayText or (L["OPTIONS_NOT_BOUND"] or "Not Bound"))
+        keybindBtn:SetText(displayText or L["OPTIONS_NOT_BOUND"])
     end
     self.UpdateKeybindButtonText = UpdateKeybindButtonText
     UpdateKeybindButtonText()
@@ -214,7 +214,7 @@ function addon.Settings:Initialize()
         if displayText then
             GameTooltip:SetOwner(btn, "ANCHOR_RIGHT")
             GameTooltip:AddLine("Housing Codex (" .. displayText .. ")", 1, 1, 1)
-            GameTooltip:AddLine(L["OPTIONS_UNBIND_TOOLTIP"] or "Right-click to unbind", 1, 1, 1)
+            GameTooltip:AddLine(L["OPTIONS_UNBIND_TOOLTIP"], 1, 1, 1)
             GameTooltip:Show()
         end
     end)
@@ -235,7 +235,7 @@ function addon.Settings:Initialize()
             UpdateKeybindButtonText()
             GameTooltip:Hide()
         else
-            btn:SetText(L["OPTIONS_PRESS_KEY"] or "Press a key...")
+            btn:SetText(L["OPTIONS_PRESS_KEY"])
             btn:EnableKeyboard(true)
             btn:SetScript("OnKeyDown", OnKeyCaptured)
         end
@@ -246,7 +246,7 @@ function addon.Settings:Initialize()
     -- Hint text
     local hintText = panel:CreateFontString(nil, "ARTWORK", "GameFontNormalSmall")
     hintText:SetPoint("TOPLEFT", 16, yOffset)
-    hintText:SetText(L["OPTIONS_KEYBIND_HINT"] or "Click to set keybind. Right-click to clear. ESC to cancel.")
+    hintText:SetText(L["OPTIONS_KEYBIND_HINT"])
     hintText:SetTextColor(0.6, 0.6, 0.6)
 
     --------------------------------------------------------------------------------

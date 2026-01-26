@@ -6,14 +6,10 @@
 
 local ADDON_NAME, addon = ...
 
-local SIZE_NAMES = {
-    [0] = "SIZE_NONE",
-    [65] = "SIZE_TINY",
-    [66] = "SIZE_SMALL",
-    [67] = "SIZE_MEDIUM",
-    [68] = "SIZE_LARGE",
-    [69] = "SIZE_HUGE",
-}
+-- Get localization key for size enum value (returns nil for None/unknown)
+local function GetSizeKey(size)
+    return addon.CONSTANTS.HOUSING_SIZE_KEYS[size]
+end
 
 -- Fallback icon for items without valid 2D icon (model-only items)
 local FALLBACK_ICON = "Interface\\Icons\\INV_Misc_QuestionMark"
@@ -110,7 +106,7 @@ local function BuildRecord(entryID, info)
 
         -- Attributes
         size = info.size or 0,
-        sizeName = SIZE_NAMES[info.size] or "SIZE_NONE",
+        sizeKey = GetSizeKey(info.size),  -- Localization key (nil for None/unknown)
         isIndoors = info.isAllowedIndoors or false,
         isOutdoors = info.isAllowedOutdoors or false,
         canCustomize = info.canCustomize or false,
@@ -140,7 +136,7 @@ function addon:ScheduleRetry(reason)
     if self.loadRetryCount > MAX_RETRIES then
         self:Debug("Max retries reached, giving up")
         self:FireEvent("DATA_LOAD_FAILED")
-        self:Print(self.L["ERROR_LOAD_FAILED"] or "Failed to load housing data after multiple attempts. Use /hc retry to try again.")
+        self:Print(self.L["ERROR_LOAD_FAILED"])
         return
     end
 
@@ -446,15 +442,19 @@ function addon:StartTracking(recordID)
     end
 
     local err = C_ContentTracking.StartTracking(TRACKING_TYPE_DECOR, recordID)
-    if err then
-        if err == 1 then  -- Enum.ContentTrackingError.MaxTracked
-            return false, self.L["TRACKING_ERROR_MAX"]
-        end
-        return false, "Tracking failed"
+
+    -- Handle result using Enum values (matches PreviewFrame.lua pattern)
+    if not err or err == Enum.ContentTrackingError.AlreadyTracked then
+        -- Success or already tracked (treat as success)
+        self:UpdateRecordTrackingStatus(recordID)
+        return true
+    elseif err == Enum.ContentTrackingError.MaxTracked then
+        return false, self.L["TRACKING_ERROR_MAX"]
+    elseif err == Enum.ContentTrackingError.Untrackable then
+        return false, self.L["TRACKING_ERROR_UNTRACKABLE"]
     end
 
-    self:UpdateRecordTrackingStatus(recordID)
-    return true
+    return false, "Tracking failed"
 end
 
 function addon:StopTracking(recordID)
@@ -462,8 +462,7 @@ function addon:StopTracking(recordID)
         return false, "API unavailable"
     end
 
-    -- Enum.ContentTrackingStopType.Manual = 2
-    C_ContentTracking.StopTracking(TRACKING_TYPE_DECOR, recordID, 2)
+    C_ContentTracking.StopTracking(TRACKING_TYPE_DECOR, recordID, Enum.ContentTrackingStopType.Manual)
     self:UpdateRecordTrackingStatus(recordID)
     return true
 end
@@ -512,6 +511,21 @@ addon:RegisterWoWEvent("HOUSING_STORAGE_UPDATED", function()
     addon:Debug("Storage updated, re-running search")
     if addon.catalogSearcher then
         addon.catalogSearcher:RunSearch()
+    end
+end)
+
+-- Cache invalidation for categories (fired by Init.lua from WoW events)
+addon:RegisterInternalEvent("CATEGORY_CACHE_INVALIDATED", function(categoryID)
+    if addon.categoryCache and categoryID then
+        addon.categoryCache[categoryID] = nil
+        addon:Debug("Category cache invalidated: " .. tostring(categoryID))
+    end
+end)
+
+addon:RegisterInternalEvent("SUBCATEGORY_CACHE_INVALIDATED", function(subcategoryID)
+    if addon.subcategoryCache and subcategoryID then
+        addon.subcategoryCache[subcategoryID] = nil
+        addon:Debug("Subcategory cache invalidated: " .. tostring(subcategoryID))
     end
 end)
 

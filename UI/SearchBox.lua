@@ -26,7 +26,7 @@ function SearchBox:Create(parent)
 
     -- Set placeholder text
     if frame.Instructions then
-        frame.Instructions:SetText(addon.L["SEARCH_PLACEHOLDER"] or "Search...")
+        frame.Instructions:SetText(addon.L["SEARCH_PLACEHOLDER"])
     end
 
     -- Text changed handler with debounce (HookScript preserves default placeholder behavior)

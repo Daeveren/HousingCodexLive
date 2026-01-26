@@ -3,10 +3,6 @@
     English (US) localization - base language
 ]]
 
--- Keybinding globals (WoW looks for these in global namespace)
-BINDING_HEADER_HOUSINGCODEX = "Housing Codex"
-BINDING_NAME_HOUSINGCODEX_TOGGLE = "Toggle Window"
-
 local ADDON_NAME, addon = ...
 
 local L = addon.L

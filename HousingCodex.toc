@@ -1,8 +1,8 @@
 ## Interface: 120000
-## Title: Housing Codex
+## Title: |cffffd100Housing|r |cffff8000Codex|r
 ## Notes: Decor discovery and inspection addon for WoW Housing
 ## Author: Daev
-## Version: 0.5.1
+## Version: 0.5.2
 ## SavedVariables: HousingCodexDB
 ## IconTexture: Interface\AddOns\HousingCodex\HC
 
