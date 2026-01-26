@@ -79,6 +79,7 @@ local function BuildRecord(entryID, info)
 
     local recordID = entryID.recordID
     local icon, iconType, isModelOnly = GetEntryIcon(entryID, info)
+    local totalOwned = CalculateTotalOwned(info)
 
     -- Build record
     local record = {
@@ -99,8 +100,8 @@ local function BuildRecord(entryID, info)
         quantity = info.quantity or 0,
         numPlaced = info.numPlaced or 0,
         remainingRedeemable = info.remainingRedeemable or 0,
-        totalOwned = CalculateTotalOwned(info),
-        isCollected = CalculateTotalOwned(info) > 0,
+        totalOwned = totalOwned,
+        isCollected = totalOwned > 0,
 
         -- Categories
         categoryIDs = info.categoryIDs or {},
@@ -254,18 +255,31 @@ function addon:ProcessSearchResults()
 
     self:Debug("Processing " .. #allEntries .. " catalog entries")
 
-    -- Build records
+    -- Build records, aggregating ownership across entries with same recordID
+    -- (Same item can have multiple entryIDs from different acquisition sources)
     local records = {}
     local recordCount = 0
 
     for _, entryID in ipairs(allEntries) do
         local info = C_HousingCatalog.GetCatalogEntryInfo(entryID)
         if info and not info.isPrefab then
-            local record = BuildRecord(entryID, info)
-            if record then
-                -- Use recordID as key (per MVP plan decision)
-                records[record.recordID] = record
-                recordCount = recordCount + 1
+            local recordID = entryID.recordID
+            local existing = records[recordID]
+
+            if existing then
+                -- Aggregate ownership from additional entry
+                existing.quantity = existing.quantity + (info.quantity or 0)
+                existing.numPlaced = existing.numPlaced + (info.numPlaced or 0)
+                existing.remainingRedeemable = existing.remainingRedeemable + (info.remainingRedeemable or 0)
+                existing.totalOwned = CalculateTotalOwned(existing)
+                existing.isCollected = existing.totalOwned > 0
+            else
+                -- First entry for this recordID
+                local record = BuildRecord(entryID, info)
+                if record then
+                    records[recordID] = record
+                    recordCount = recordCount + 1
+                end
             end
         end
     end
