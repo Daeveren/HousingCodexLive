@@ -83,6 +83,9 @@ function FilterBar:SetupMenu(rootDescription)
         end
     )
 
+    -- NOTE: "Placed in House" filter disabled — Blizzard API returns numPlaced=0
+    -- for all items (bug in GetCatalogEntryInfo). Re-enable when Blizzard fixes.
+
     rootDescription:CreateSpacer()
 
     -- Trackable filter submenu (post-search filter via addon.Filters)

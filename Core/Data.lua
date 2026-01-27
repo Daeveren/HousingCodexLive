@@ -28,6 +28,8 @@ addon.loadStartTime = 0
 addon.filterTagGroups = nil
 addon.categoryCache = {}
 addon.subcategoryCache = {}
+addon.needsRecordRefresh = false
+addon.storageEntryTimer = nil
 
 local function IsValidFileID(id)
     -- File IDs must be positive numbers; 0 and negative are invalid
@@ -251,31 +253,19 @@ function addon:ProcessSearchResults()
 
     self:Debug("Processing " .. #allEntries .. " catalog entries")
 
-    -- Build records, aggregating ownership across entries with same recordID
-    -- (Same item can have multiple entryIDs from different acquisition sources)
+    -- Build records, deduplicating by recordID
+    -- (Same item can have multiple entryIDs from different stacks;
+    -- ownership fields are per-recordID totals, not per-entry)
     local records = {}
     local recordCount = 0
 
     for _, entryID in ipairs(allEntries) do
         local info = C_HousingCatalog.GetCatalogEntryInfo(entryID)
-        if info and not info.isPrefab then
-            local recordID = entryID.recordID
-            local existing = records[recordID]
-
-            if existing then
-                -- Aggregate ownership from additional entry
-                existing.quantity = existing.quantity + (info.quantity or 0)
-                existing.numPlaced = existing.numPlaced + (info.numPlaced or 0)
-                existing.remainingRedeemable = existing.remainingRedeemable + (info.remainingRedeemable or 0)
-                existing.totalOwned = CalculateTotalOwned(existing)
-                existing.isCollected = existing.totalOwned > 0
-            else
-                -- First entry for this recordID
-                local record = BuildRecord(entryID, info)
-                if record then
-                    records[recordID] = record
-                    recordCount = recordCount + 1
-                end
+        if info and not info.isPrefab and not records[entryID.recordID] then
+            local record = BuildRecord(entryID, info)
+            if record then
+                records[entryID.recordID] = record
+                recordCount = recordCount + 1
             end
         end
     end
@@ -297,17 +287,34 @@ function addon:ProcessSearchResults()
     -- Fire loaded event
     self:FireEvent("DATA_LOADED", recordCount)
 
-    if self.L["LOADED_MESSAGE_TIME"] then
-        self:Print(string.format(self.L["LOADED_MESSAGE_TIME"], recordCount, elapsedMs))
-    end
+    self:Print(string.format(self.L["LOADED_MESSAGE"], recordCount))
 end
 
 function addon:OnSearchResultsUpdated(entries)
     local recordIDs = {}
+    local seen = {}
+    local refreshing = self.needsRecordRefresh
+    self.needsRecordRefresh = false
+
+    -- Single pass: refresh ownership (first entry per recordID only) and collect unique IDs
     for _, entryID in ipairs(entries or {}) do
-        -- Only include records we have (excludes prefabs filtered during initial load)
-        if self.decorRecords[entryID.recordID] then
-            table.insert(recordIDs, entryID.recordID)
+        local recordID = entryID.recordID
+        local record = self.decorRecords[recordID]
+        if record and not seen[recordID] then
+            seen[recordID] = true
+
+            if refreshing then
+                local info = C_HousingCatalog.GetCatalogEntryInfo(entryID)
+                if info then
+                    record.quantity = info.quantity or 0
+                    record.numPlaced = info.numPlaced or 0
+                    record.remainingRedeemable = info.remainingRedeemable or 0
+                    record.totalOwned = CalculateTotalOwned(record)
+                    record.isCollected = record.totalOwned > 0
+                end
+            end
+
+            table.insert(recordIDs, recordID)
         end
     end
 
@@ -485,33 +492,32 @@ addon:RegisterWoWEvent("CONTENT_TRACKING_UPDATE", function(trackingType, id, isT
     end
 end)
 
--- Single-entry storage update (efficient for individual changes)
-addon:RegisterWoWEvent("HOUSING_STORAGE_ENTRY_UPDATED", function(entryID)
-    if not addon.dataLoaded or not entryID then return end
-
-    local record = addon.decorRecords[entryID.recordID]
-    if not record then return end
-
-    local info = C_HousingCatalog.GetCatalogEntryInfo(entryID)
-    if not info then return end
-
-    record.quantity = info.quantity or 0
-    record.numPlaced = info.numPlaced or 0
-    record.remainingRedeemable = info.remainingRedeemable or 0
-    record.totalOwned = CalculateTotalOwned(info)
-    record.isCollected = record.totalOwned > 0
-    addon:FireEvent("RECORD_UPDATED", entryID.recordID)
-    addon:Debug("Storage entry updated: " .. (record.name or entryID.recordID))
-end)
-
--- Bulk storage update (just re-run searcher to refresh grid)
-addon:RegisterWoWEvent("HOUSING_STORAGE_UPDATED", function()
-    if not addon.dataLoaded then return end
-
-    addon:Debug("Storage updated, re-running search")
+-- Trigger a record refresh by flagging ownership data as stale and re-running the search
+local function TriggerRecordRefresh()
+    addon.needsRecordRefresh = true
     if addon.catalogSearcher then
         addon.catalogSearcher:RunSearch()
     end
+end
+
+-- Single-entry storage update (debounced into bulk refresh)
+addon:RegisterWoWEvent("HOUSING_STORAGE_ENTRY_UPDATED", function(entryID)
+    if not addon.dataLoaded or not entryID then return end
+    addon:Debug("Storage entry updated: " .. tostring(entryID.recordID))
+    if addon.storageEntryTimer then
+        addon.storageEntryTimer:Cancel()
+    end
+    addon.storageEntryTimer = C_Timer.NewTimer(0.1, function()
+        addon.storageEntryTimer = nil
+        TriggerRecordRefresh()
+    end)
+end)
+
+-- Bulk storage update (refresh record data and re-run searcher)
+addon:RegisterWoWEvent("HOUSING_STORAGE_UPDATED", function()
+    if not addon.dataLoaded then return end
+    addon:Debug("Storage updated, re-running search")
+    TriggerRecordRefresh()
 end)
 
 -- Cache invalidation for categories (fired by Init.lua from WoW events)

@@ -12,12 +12,12 @@ local HTAB_GAP = addon.CONSTANTS.HTAB_GAP
 local HTAB_PADDING_X = addon.CONSTANTS.HTAB_PADDING_X
 
 local TAB_CONFIG = {
-    { key = "DECOR", labelKey = "TAB_DECOR", atlas = "house-decor-budget-icon", enabled = true },
-    { key = "QUESTS", labelKey = "TAB_QUESTS", icon = "Interface\\Icons\\INV_Misc_Book_08", enabled = false },
-    { key = "ACHIEVEMENTS", labelKey = "TAB_ACHIEVEMENTS", icon = "Interface\\Icons\\Achievement_General", enabled = false },
-    { key = "VENDORS", labelKey = "TAB_VENDORS", icon = "Interface\\Icons\\INV_Misc_Coin_02", enabled = false },
-    { key = "DROPS", labelKey = "TAB_DROPS", icon = "Interface\\Icons\\INV_Misc_Bag_10_Blue", enabled = false },
-    { key = "PROFESSIONS", labelKey = "TAB_PROFESSIONS", icon = "Interface\\Icons\\INV_Misc_Gear_01", enabled = false },
+    { key = "DECOR", labelKey = "TAB_DECOR", descKey = "TAB_DECOR_DESC", atlas = "house-decor-budget-icon", enabled = true },
+    { key = "QUESTS", labelKey = "TAB_QUESTS", descKey = "TAB_QUESTS_DESC", icon = "Interface\\Icons\\INV_Misc_Book_08", enabled = false },
+    { key = "ACHIEVEMENTS", labelKey = "TAB_ACHIEVEMENTS", descKey = "TAB_ACHIEVEMENTS_DESC", icon = "Interface\\Icons\\Achievement_General", enabled = false },
+    { key = "VENDORS", labelKey = "TAB_VENDORS", descKey = "TAB_VENDORS_DESC", icon = "Interface\\Icons\\INV_Misc_Coin_02", enabled = false },
+    { key = "DROPS", labelKey = "TAB_DROPS", descKey = "TAB_DROPS_DESC", icon = "Interface\\Icons\\INV_Misc_Bag_10_Blue", enabled = false },
+    { key = "PROFESSIONS", labelKey = "TAB_PROFESSIONS", descKey = "TAB_PROFESSIONS_DESC", icon = "Interface\\Icons\\INV_Misc_Gear_01", enabled = false },
 }
 
 addon.Tabs = {}
@@ -73,23 +73,38 @@ local function CreateTabButton(parent, tabConfig, index)
 
     -- Visual states
     if not tabConfig.enabled then
-        -- Disabled state
+        -- Disabled state (visual-only, keep button enabled for OnEnter/OnLeave)
         icon:SetDesaturated(true)
         icon:SetAlpha(0.5)
         label:SetTextColor(unpack(COLORS.TEXT_DISABLED))
-        btn:Disable()
+        -- Tooltip for disabled tabs (no btn:Disable() so mouse events still fire)
+        btn:SetScript("OnEnter", function(self)
+            GameTooltip:SetOwner(self, "ANCHOR_BOTTOM")
+            GameTooltip:SetText(addon.L[tabConfig.labelKey], 0.5, 0.5, 0.5)
+            GameTooltip:AddLine(addon.L["TAB_COMING_SOON"], 0.5, 0.5, 0.5, true)
+            GameTooltip:Show()
+        end)
+        btn:SetScript("OnLeave", function() GameTooltip:Hide() end)
+        -- No OnClick = clicking does nothing
     else
-        -- Enable hover effects
-        btn:SetScript("OnEnter", function()
+        -- Enable hover effects + tooltip
+        btn:SetScript("OnEnter", function(self)
             if not Tabs:IsSelected(tabConfig.key) then
                 bg:SetColorTexture(unpack(COLORS.TAB_HOVER))
             end
+            GameTooltip:SetOwner(self, "ANCHOR_BOTTOM")
+            GameTooltip:SetText(addon.L[tabConfig.labelKey], 1, 1, 1)
+            if tabConfig.descKey then
+                GameTooltip:AddLine(addon.L[tabConfig.descKey], 0.8, 0.8, 0.8, true)
+            end
+            GameTooltip:Show()
         end)
 
         btn:SetScript("OnLeave", function()
             if not Tabs:IsSelected(tabConfig.key) then
                 bg:SetColorTexture(unpack(COLORS.TAB_NORMAL))
             end
+            GameTooltip:Hide()
         end)
 
         btn:SetScript("OnClick", function()

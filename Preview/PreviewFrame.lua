@@ -275,6 +275,12 @@ function Preview:CreateIdentityBlock()
     owned:SetTextColor(0.7, 0.7, 0.7)
     self.detailsOwned = owned
 
+    -- Placed count (inline, right of owned)
+    local placed = addon:CreateFontString(details, "OVERLAY", "GameFontHighlightSmall")
+    placed:SetPoint("LEFT", owned, "RIGHT", 8, 0)
+    placed:SetTextColor(0.4, 0.8, 0.4)
+    self.detailsPlaced = placed
+
     -- Source text (below owned, spans full width)
     -- No MaxLines limit - sourceText can contain multiple vendor sources with full formatting
     local source = addon:CreateFontString(details, "OVERLAY", "GameFontHighlightSmall")
@@ -511,6 +517,15 @@ function Preview:UpdateDetails(record)
         self.detailsOwned:SetTextColor(0.6, 0.6, 0.6)
     end
 
+    -- Placed count (inline with owned)
+    if record.numPlaced and record.numPlaced > 0 then
+        self.detailsPlaced:SetText(string.format(addon.L["DETAILS_PLACED"], record.numPlaced))
+        self.detailsPlaced:Show()
+    else
+        self.detailsPlaced:SetText("")
+        self.detailsPlaced:Hide()
+    end
+
     -- Source (use raw sourceText - FontStrings render texture escape sequences natively)
     local sourceText = record.sourceText
     if sourceText and sourceText ~= "" then
@@ -555,6 +570,8 @@ function Preview:ClearDetails()
     self.detailsName:SetText(addon.L["PREVIEW_NO_SELECTION"])
     self.detailsName:SetTextColor(0.5, 0.5, 0.5)
     self.detailsOwned:SetText("")
+    self.detailsPlaced:SetText("")
+    self.detailsPlaced:Hide()
     self.detailsSource:SetText("")
     self.detailsSize:SetText("-")
     self.detailsPlacement:SetText("-")

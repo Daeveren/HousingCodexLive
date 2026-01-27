@@ -45,6 +45,7 @@ local defaults = {
         -- toggleKeybind removed: now uses standard WoW keybinding system via Bindings.xml
         debugMode = false,
         ldbShowText = true,  -- Show text in LDB display (false = icon-only)
+        showMinimapButton = true,  -- Show LibDBIcon minimap button
     },
 }
 

@@ -16,6 +16,7 @@ Filters.showCollected = false
 Filters.showUncollected = true
 Filters.trackableState = "all"   -- "all", "trackable", "not_trackable"
 Filters.showWishlistOnly = false
+Filters.showPlacedOnly = false
 Filters.initialized = false
 
 -- Toggle button containers (created lazily)
@@ -73,6 +74,7 @@ function Filters:Initialize()
         end
         self.trackableState = filters.trackableState or "all"
         self.showWishlistOnly = filters.showWishlistOnly or false
+        self.showPlacedOnly = filters.showPlacedOnly or false
     end
 
     self.initialized = true
@@ -300,6 +302,30 @@ function Filters:PassesWishlistFilter(record)
 end
 
 --------------------------------------------------------------------------------
+-- Placed Filter
+--------------------------------------------------------------------------------
+
+function Filters:SetPlacedOnly(enabled)
+    self.showPlacedOnly = enabled
+
+    -- Save to SavedVariables
+    if addon.db and addon.db.browser then
+        addon.db.browser.filters = addon.db.browser.filters or {}
+        addon.db.browser.filters.showPlacedOnly = enabled
+    end
+
+    -- Fire event to trigger grid re-filter (post-search filter)
+    addon:FireEvent("FILTER_CHANGED")
+
+    addon:Debug("Placed-only filter set to: " .. tostring(enabled))
+end
+
+function Filters:PassesPlacedFilter(record)
+    if not self.showPlacedOnly then return true end
+    return record.numPlaced and record.numPlaced > 0
+end
+
+--------------------------------------------------------------------------------
 -- Filter State Persistence
 --------------------------------------------------------------------------------
 
@@ -312,6 +338,7 @@ function Filters:SaveState()
     db.showUncollected = self.showUncollected
     db.trackableState = self.trackableState
     db.showWishlistOnly = self.showWishlistOnly
+    db.showPlacedOnly = self.showPlacedOnly
 
     -- Save search text
     local searchText = addon.SearchBox and addon.SearchBox:GetText()
@@ -373,6 +400,9 @@ function Filters:RestoreState()
 
     -- Restore wishlist-only filter
     self.showWishlistOnly = db.showWishlistOnly or false
+
+    -- Restore placed-only filter
+    self.showPlacedOnly = db.showPlacedOnly or false
 
     -- Restore search text
     if db.searchText and db.searchText ~= "" and addon.SearchBox and addon.SearchBox.frame then
@@ -461,6 +491,9 @@ function Filters:ResetAllFilters()
 
     -- Reset wishlist-only filter
     self:SetWishlistOnly(false)
+
+    -- Reset placed-only filter
+    self:SetPlacedOnly(false)
 
     -- Reset FilterBar (special filters + tags)
     if addon.FilterBar then

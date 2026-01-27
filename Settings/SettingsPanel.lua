@@ -121,6 +121,25 @@ function addon.Settings:Initialize()
     )
     collectedCheck:SetPoint("TOPLEFT", 16, yOffset)
     self.collectedCheck = collectedCheck
+    yOffset = yOffset - 30
+
+    -- Show Minimap Button checkbox
+    local minimapCheck = CreateCheckbox(
+        panel,
+        L["OPTIONS_SHOW_MINIMAP"],
+        L["OPTIONS_SHOW_MINIMAP_TOOLTIP"],
+        function() return addon.db and addon.db.settings.showMinimapButton end,
+        function(checked)
+            if addon.db then
+                addon.db.settings.showMinimapButton = checked
+                if addon.LDB then
+                    addon.LDB:SetMinimapShown(checked)
+                end
+            end
+        end
+    )
+    minimapCheck:SetPoint("TOPLEFT", 16, yOffset)
+    self.minimapCheck = minimapCheck
     yOffset = yOffset - 40
 
     --------------------------------------------------------------------------------
@@ -285,6 +304,9 @@ function addon.Settings:Refresh()
     end
     if self.collectedCheck then
         self.collectedCheck:SetChecked(addon.db.settings.showCollectedIndicator)
+    end
+    if self.minimapCheck then
+        self.minimapCheck:SetChecked(addon.db.settings.showMinimapButton)
     end
     if self.UpdateKeybindButtonText then
         self.UpdateKeybindButtonText()

@@ -91,6 +91,20 @@ function addon:BuildIndexes()
                 end
             end
         end
+
+        -- Word index for sourceText search (zone, quest, vendor names)
+        if record.sourceText and record.sourceText ~= "" then
+            -- Strip all WoW escape sequences (colors, hyperlinks, textures, newlines)
+            local clean = C_StringUtil and C_StringUtil.StripHyperlinks
+                and C_StringUtil.StripHyperlinks(record.sourceText, false, false, true, false)
+                or record.sourceText:gsub("|c%x%x%x%x%x%x%x%x", ""):gsub("|r", ""):gsub("|T.-|t", ""):gsub("|n", " ")
+            local lower = string.lower(clean)
+            for word in string.gmatch(lower, "%w+") do
+                if #word >= 2 then
+                    AddToIndex(self.indexes.byWord, word, recordID)
+                end
+            end
+        end
     end
 
     self.indexesBuilt = true

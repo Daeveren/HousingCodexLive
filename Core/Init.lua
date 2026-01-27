@@ -101,6 +101,7 @@ addon.CONSTANTS = {
     SORT_NATIVE_ALPHA = 1,     -- Enum.HousingCatalogSortType.Alphabetical
     SORT_CLIENT_SIZE = 100,    -- Client-side: by size (Huge → None)
     SORT_CLIENT_QUANTITY = 101, -- Client-side: by quantity owned
+    SORT_CLIENT_PLACED = 102,   -- Client-side: by quantity placed
 
     -- Category navigation
     BUILTIN_ALL_CATEGORY_ID = 18,  -- WoW's built-in "All" category (filter out)

@@ -2,6 +2,15 @@
 
 All notable changes to Housing Codex.
 
+## [0.5.3] - 2026-01-28
+
+### Added
+- Minimap button
+- Search now finds items by source and description (zone, vendor, quest, etc.)
+
+### Fixed
+- Various bug fixes
+
 ## [0.5.2] - 2026-01-26
 
 ### Changed

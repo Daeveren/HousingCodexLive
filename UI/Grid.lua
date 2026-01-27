@@ -22,6 +22,8 @@ local SORT_OPTIONS = {
     { value = CONSTS.SORT_NATIVE_ALPHA, isNative = true },
     { value = CONSTS.SORT_CLIENT_SIZE, isNative = false },
     { value = CONSTS.SORT_CLIENT_QUANTITY, isNative = false },
+    -- NOTE: "Qty Placed" sort disabled — Blizzard API returns numPlaced=0 (bug in GetCatalogEntryInfo)
+    -- { value = CONSTS.SORT_CLIENT_PLACED, isNative = false },
 }
 
 -- Lookup table: sort type value -> localization key
@@ -30,12 +32,14 @@ local SORT_LABELS = {
     [CONSTS.SORT_NATIVE_ALPHA] = "SORT_ALPHABETICAL",
     [CONSTS.SORT_CLIENT_SIZE] = "SORT_SIZE",
     [CONSTS.SORT_CLIENT_QUANTITY] = "SORT_QUANTITY",
+    [CONSTS.SORT_CLIENT_PLACED] = "SORT_PLACED",
 }
 
 -- Client-side sort field mapping: sort type -> record field name
 local CLIENT_SORT_FIELDS = {
     [CONSTS.SORT_CLIENT_SIZE] = "size",           -- Huge=69 -> None=0
     [CONSTS.SORT_CLIENT_QUANTITY] = "totalOwned", -- Most owned first
+    [CONSTS.SORT_CLIENT_PLACED] = "numPlaced",   -- Most placed first
 }
 
 -- ModelScene constants for 3D preview (from Blizzard_HousingCatalogEntry.lua)
@@ -99,7 +103,16 @@ local function SetupTileFrame(tile, tileSize)
     local forceSceneChange = true
     modelScene:TransitionToModelSceneID(MODEL_SCENE_ID, CAMERA_IMMEDIATE, CAMERA_MAINTAIN, forceSceneChange)
 
-    -- Quantity text at bottom right (larger, bold, subdued)
+    -- Placed count at bottom right (green)
+    local placed = tile:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
+    placed:SetPoint("BOTTOMRIGHT", -4, 3)
+    placed:SetTextColor(0.4, 0.8, 0.4, 1)
+    local placedFont = placed:GetFont()
+    placed:SetFont(placedFont, 13, "OUTLINE")
+    placed:Hide()
+    tile.placed = placed
+
+    -- Quantity text at bottom right (larger, bold, subdued) - anchored dynamically
     local qty = tile:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
     qty:SetPoint("BOTTOMRIGHT", -4, 3)
     qty:SetTextColor(unpack(COLORS.TEXT_DISABLED))
@@ -384,7 +397,12 @@ function Grid:CreateScrollBox(parent, tileSize)
             end
             tile.modelScene:Hide()
         end
-        if tile.quantity then tile.quantity:Hide() end
+        if tile.placed then tile.placed:Hide() end
+        if tile.quantity then
+            tile.quantity:ClearAllPoints()
+            tile.quantity:SetPoint("BOTTOMRIGHT", -4, 3)
+            tile.quantity:Hide()
+        end
         if tile.wishlistStar then tile.wishlistStar:Hide() end
         tile:SetBackdropBorderColor(unpack(COLOR_BORDER_NORMAL))
         tile:SetBackdropColor(unpack(COLOR_BG_NORMAL))
@@ -437,7 +455,19 @@ function Grid:CreateScrollBox(parent, tileSize)
             tile.icon:Show()
         end
 
-        -- Set quantity indicator (use totalOwned = placed + storage + redeemable)
+        -- Placed count (green, right side)
+        if record and record.numPlaced and record.numPlaced > 0 then
+            tile.placed:SetText(record.numPlaced)
+            tile.placed:Show()
+            tile.quantity:ClearAllPoints()
+            tile.quantity:SetPoint("RIGHT", tile.placed, "LEFT", -5, 0)
+        else
+            tile.placed:Hide()
+            tile.quantity:ClearAllPoints()
+            tile.quantity:SetPoint("BOTTOMRIGHT", -4, 3)
+        end
+
+        -- Owned count (gray, left of placed or at bottom-right)
         if record and record.totalOwned and record.totalOwned > 0 then
             tile.quantity:SetText(record.totalOwned)
             tile.quantity:Show()
@@ -471,6 +501,9 @@ function Grid:CreateScrollBox(parent, tileSize)
             end
             if rec.totalOwned and rec.totalOwned > 0 then
                 GameTooltip:AddLine(string.format(addon.L["DETAILS_OWNED"], rec.totalOwned), unpack(COLOR_COLLECTED))
+            end
+            if rec.numPlaced and rec.numPlaced > 0 then
+                GameTooltip:AddLine(string.format(addon.L["DETAILS_PLACED"], rec.numPlaced), 0.4, 0.8, 0.4)
             end
             GameTooltip:Show()
         end)
@@ -652,7 +685,11 @@ function Grid:ApplyPostSearchFilters(recordIDs)
     local filtered = {}
     for _, recordID in ipairs(recordIDs) do
         local record = addon:GetRecord(recordID)
-        if record and addon.Filters:PassesTrackableFilter(record) and addon.Filters:PassesWishlistFilter(record) then
+        if record
+            and addon.Filters:PassesTrackableFilter(record)
+            and addon.Filters:PassesWishlistFilter(record)
+            and addon.Filters:PassesPlacedFilter(record)
+        then
             table.insert(filtered, recordID)
         end
     end
@@ -796,8 +833,32 @@ addon:RegisterInternalEvent("DATA_LOADED", function(recordCount)
     end
 end)
 
+function Grid:MergeResults(listA, listB)
+    local seen = {}
+    local merged = {}
+    for _, id in ipairs(listA) do
+        if not seen[id] then
+            seen[id] = true
+            table.insert(merged, id)
+        end
+    end
+    for _, id in ipairs(listB) do
+        if not seen[id] then
+            seen[id] = true
+            table.insert(merged, id)
+        end
+    end
+    return merged
+end
+
 addon:RegisterInternalEvent("SEARCH_RESULTS_UPDATED", function(recordIDs)
     if addon.Tabs and addon.Tabs:GetCurrentTab() == "DECOR" then
+        local searchText = addon.SearchBox and addon.SearchBox:GetText() or ""
+        searchText = strtrim(searchText)
+        if searchText ~= "" and addon.indexesBuilt then
+            local clientIDs = addon:SearchByText(searchText)
+            recordIDs = Grid:MergeResults(recordIDs, clientIDs)
+        end
         Grid:SetData(recordIDs)
     end
 end)
