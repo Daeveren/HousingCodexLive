@@ -31,15 +31,16 @@ local COLOR_PRESET_ACTIVE = { 0.9, 0.75, 0.3, 1 }  -- Gold
 
 -- Scene presets by Enum.HousingCatalogEntrySize values (0, 65-69)
 -- record.size uses these actual enum values, not 0-5 indices
+local ScenePresets = Enum.HousingCatalogEntryModelScenePresets
 local SCENE_PRESETS = {
-    [0] = 1317,   -- None -> DecorDefault
-    [65] = 1333,  -- Tiny
-    [66] = 1334,  -- Small
-    [67] = 1335,  -- Medium
-    [68] = 1336,  -- Large
-    [69] = 1337,  -- Huge
+    [0]  = ScenePresets.DecorDefault,   -- None
+    [65] = ScenePresets.DecorTiny,
+    [66] = ScenePresets.DecorSmall,
+    [67] = ScenePresets.DecorMedium,
+    [68] = ScenePresets.DecorLarge,
+    [69] = ScenePresets.DecorHuge,
 }
-local DEFAULT_SCENE_ID = 1317
+local DEFAULT_SCENE_ID = ScenePresets.DecorDefault
 
 -- Zoom constant: 2% per wheel notch (50 steps for full range)
 local ZOOM_STEP = 0.02
@@ -380,7 +381,7 @@ local urlPopup = nil  -- Lazy init
 
 local function CreateURLPopup()
     local popup = CreateFrame("Frame", nil, UIParent, "BackdropTemplate")
-    popup:SetSize(400, 70)
+    popup:SetSize(480, 40)
     popup:SetFrameStrata("DIALOG")
     popup:SetBackdrop({
         bgFile = "Interface/Tooltips/UI-Tooltip-Background",
@@ -409,17 +410,6 @@ local function CreateURLPopup()
     editBox:EnableMouse(true)
     editBox:SetScript("OnEscapePressed", function() popup:Hide() end)
     popup.editBox = editBox
-
-    -- Copy button
-    local copyBtn = CreateFrame("Button", nil, popup, "UIPanelButtonTemplate")
-    copyBtn:SetSize(60, 22)
-    copyBtn:SetPoint("BOTTOMRIGHT", popup, "BOTTOMRIGHT", -10, 8)
-    copyBtn:SetText("Copy")
-    copyBtn:SetScript("OnClick", function()
-        editBox:SetFocus()
-        editBox:HighlightText()
-        -- Note: WoW doesn't allow direct clipboard access, but highlighting makes Ctrl+C easy
-    end)
 
     popup:SetScript("OnShow", function()
         editBox:SetFocus()
@@ -453,7 +443,7 @@ function Preview:CreateWishlistButton(parent)
 
         local isNowWishlisted = addon:ToggleWishlist(recordID)
         local record = addon:GetRecord(recordID)
-        local name = record and record.name or "item"
+        local name = record and record.name or addon.L["UNKNOWN"]
 
         if isNowWishlisted then
             addon:Print(string.format(addon.L["WISHLIST_ADDED"], name))
@@ -505,7 +495,7 @@ function Preview:UpdateDetails(record)
     end
 
     -- Name
-    self.detailsName:SetText(record.name or "Unknown")
+    self.detailsName:SetText(record.name or addon.L["UNKNOWN"])
     self.detailsName:SetTextColor(1, 1, 1)
 
     -- Owned count (use totalOwned = placed + storage + redeemable)
@@ -635,12 +625,6 @@ end
 -- Actions (1C.9)
 -- ============================================================================
 
--- Helper: Check if a record is currently being tracked
-local function IsRecordTracked(recordID)
-    return C_ContentTracking and
-        C_ContentTracking.IsTracking(Enum.ContentTrackingType.Decor, recordID)
-end
-
 function Preview:UpdateActionButtons(record)
     if not self.trackButton or not self.linkButton then return end
 
@@ -650,7 +634,7 @@ function Preview:UpdateActionButtons(record)
     -- Track button state
     if record and record.isTrackable then
         self.trackButton:SetEnabled(true)
-        local isTracking = IsRecordTracked(record.recordID)
+        local isTracking = addon:IsRecordTracked(record.recordID)
         self.trackButton:SetActive(isTracking)  -- Gold highlight when tracking
         if isTracking then
             self.trackButton:SetText(addon.L["ACTION_UNTRACK"])
@@ -667,54 +651,15 @@ function Preview:UpdateActionButtons(record)
     self.linkButton:SetEnabled(record ~= nil)
 end
 
--- Helper: Set super tracking for map pin auto-select
-local function SetSuperTracking(recordID)
-    if C_SuperTrack and C_SuperTrack.SetSuperTrackedContent then
-        C_SuperTrack.SetSuperTrackedContent(Enum.ContentTrackingType.Decor, recordID)
-    end
-end
-
 function Preview:OnTrackButtonClick()
     local recordID = self.currentRecordID
+    addon:ToggleTracking(recordID)
+
+    -- Update preview button state
     local record = recordID and addon:GetRecord(recordID)
-    if not record or not record.isTrackable then return end
-
-    if not C_ContentTracking then
-        addon:Print(addon.L["ERROR_API_UNAVAILABLE"])
-        return
-    end
-
-    -- Stop tracking if already tracked
-    if IsRecordTracked(recordID) then
-        C_ContentTracking.StopTracking(Enum.ContentTrackingType.Decor, recordID, Enum.ContentTrackingStopType.Manual)
-        addon:Print(string.format(addon.L["TRACKING_STOPPED"], record.name))
+    if record then
         self:UpdateActionButtons(record)
-        addon:FireEvent("TRACKING_CHANGED", recordID)
-        return
     end
-
-    -- Start tracking
-    local err = C_ContentTracking.StartTracking(Enum.ContentTrackingType.Decor, recordID)
-
-    -- Handle result using error code lookup
-    local ERROR_MESSAGES = {
-        [Enum.ContentTrackingError.MaxTracked] = addon.L["TRACKING_ERROR_MAX"],
-        [Enum.ContentTrackingError.Untrackable] = addon.L["TRACKING_ERROR_UNTRACKABLE"],
-    }
-
-    if not err or err == Enum.ContentTrackingError.AlreadyTracked then
-        SetSuperTracking(recordID)
-        if not err then
-            addon:Print(string.format(addon.L["TRACKING_STARTED"], record.name))
-        end
-    elseif ERROR_MESSAGES[err] then
-        addon:Print(ERROR_MESSAGES[err])
-    else
-        addon:Print("Tracking failed")
-    end
-
-    self:UpdateActionButtons(record)
-    addon:FireEvent("TRACKING_CHANGED", recordID)
 end
 
 function Preview:OnLinkButtonClick()
@@ -722,20 +667,18 @@ function Preview:OnLinkButtonClick()
     local record = recordID and addon:GetRecord(recordID)
     if not record then return end
 
-    -- Try to open chat if not already open
-    local editBox = ChatFrame1EditBox
-    if not editBox or not editBox:IsShown() then
-        ChatFrame_OpenChat("")
-        editBox = ChatFrame1EditBox
-    end
-
-    if editBox and editBox:IsShown() then
-        local linkText = string.format("|cFFFFD100[%s]|r", record.name)
-        editBox:Insert(linkText)
-        addon:Print(addon.L["LINK_INSERTED"])
-    else
-        addon:Print(addon.L["LINK_ERROR"])
-    end
+    -- Open chat and insert after a brief delay to ensure editbox is ready
+    ChatFrame_OpenChat("")
+    C_Timer.After(0, function()
+        local editBox = ChatFrame1EditBox
+        if editBox and editBox:IsShown() then
+            local linkText = string.format("|cFFFFD100[%s]|r", record.name)
+            editBox:Insert(linkText)
+            addon:Print(addon.L["LINK_INSERTED"])
+        else
+            addon:Print(addon.L["LINK_ERROR"])
+        end
+    end)
 end
 
 function Preview:OnLinkButtonRightClick()
@@ -770,7 +713,7 @@ function Preview:ShowTrackButtonTooltip(btn)
         title = L["ACTION_TRACK"]
         description = L["ACTION_TRACK_DISABLED_TOOLTIP"]
         r, g, b = 1, 0.5, 0.5
-    elseif IsRecordTracked(recordID) then
+    elseif addon:IsRecordTracked(recordID) then
         title = L["ACTION_UNTRACK"]
         description = L["ACTION_UNTRACK_TOOLTIP"]
         r, g, b = 1, 1, 1

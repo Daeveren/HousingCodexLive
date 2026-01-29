@@ -2,6 +2,19 @@
 
 All notable changes to Housing Codex.
 
+## [0.6.0] - 2026-01-29
+
+### Added
+- New Quests tab - browse housing items by quest source
+  - Quest completion tracking (account-wide)
+  - Collection progress at expansion, zone, and quest levels
+  - Search and filter by completion status
+  - Reward preview for each quest
+- Midnight expansion initial support
+
+### Fixed
+- Search results more accurate
+
 ## [0.5.3] - 2026-01-28
 
 ### Added

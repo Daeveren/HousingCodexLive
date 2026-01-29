@@ -29,7 +29,6 @@ addon.filterTagGroups = nil
 addon.categoryCache = {}
 addon.subcategoryCache = {}
 addon.needsRecordRefresh = false
-addon.storageEntryTimer = nil
 
 local function IsValidFileID(id)
     -- File IDs must be positive numbers; 0 and negative are invalid
@@ -49,6 +48,15 @@ end
 -- Calculate total owned from all sources (placed + storage + redeemable)
 local function CalculateTotalOwned(info)
     return (info.numPlaced or 0) + (info.quantity or 0) + (info.remainingRedeemable or 0)
+end
+
+-- Update a record's ownership fields from API info
+local function RefreshRecordOwnership(record, info)
+    record.quantity = info.quantity or 0
+    record.numPlaced = info.numPlaced or 0
+    record.remainingRedeemable = info.remainingRedeemable or 0
+    record.totalOwned = CalculateTotalOwned(record)
+    record.isCollected = record.totalOwned > 0
 end
 
 local function GetEntryIcon(entryID, info)
@@ -306,11 +314,7 @@ function addon:OnSearchResultsUpdated(entries)
             if refreshing then
                 local info = C_HousingCatalog.GetCatalogEntryInfo(entryID)
                 if info then
-                    record.quantity = info.quantity or 0
-                    record.numPlaced = info.numPlaced or 0
-                    record.remainingRedeemable = info.remainingRedeemable or 0
-                    record.totalOwned = CalculateTotalOwned(record)
-                    record.isCollected = record.totalOwned > 0
+                    RefreshRecordOwnership(record, info)
                 end
             end
 
@@ -434,55 +438,59 @@ function addon:UpdateRecordTrackingStatus(recordID, isTrackedHint)
     end
 end
 
-function addon:StartTracking(recordID)
-    if not C_ContentTracking or not C_ContentTracking.StartTracking then
-        return false, "API unavailable"
+-- Check if a record is currently being tracked
+function addon:IsRecordTracked(recordID)
+    return C_ContentTracking and
+        C_ContentTracking.IsTracking(TRACKING_TYPE_DECOR, recordID)
+end
+
+-- Set super tracking for map pin auto-select
+local function SetSuperTracking(recordID)
+    if C_SuperTrack and C_SuperTrack.SetSuperTrackedContent then
+        C_SuperTrack.SetSuperTrackedContent(TRACKING_TYPE_DECOR, recordID)
+    end
+end
+
+-- Error code to locale key mapping (hoisted for reuse)
+local TRACKING_ERROR_MESSAGES = {
+    [Enum.ContentTrackingError.MaxTracked] = "TRACKING_ERROR_MAX",
+    [Enum.ContentTrackingError.Untrackable] = "TRACKING_ERROR_UNTRACKABLE",
+}
+
+-- Shared tracking toggle (used by Preview track button and Grid shift-click)
+function addon:ToggleTracking(recordID)
+    local record = recordID and self:GetRecord(recordID)
+    if not record or not record.isTrackable then return end
+
+    if not C_ContentTracking then
+        self:Print(self.L["ERROR_API_UNAVAILABLE"])
+        return
     end
 
-    local record = self.decorRecords[recordID]
-    if not record then
-        return false, "Record not found"
+    local coloredName = "|cFF82C5FF" .. record.name .. "|r"
+
+    -- Stop tracking if already tracked
+    if self:IsRecordTracked(recordID) then
+        C_ContentTracking.StopTracking(TRACKING_TYPE_DECOR, recordID, Enum.ContentTrackingStopType.Manual)
+        self:Print(string.format(self.L["TRACKING_STOPPED"], coloredName))
+        self:FireEvent("TRACKING_CHANGED", recordID)
+        return
     end
 
-    if not record.isTrackable then
-        return false, self.L["TRACKING_ERROR_UNTRACKABLE"]
-    end
-
+    -- Start tracking
     local err = C_ContentTracking.StartTracking(TRACKING_TYPE_DECOR, recordID)
 
-    -- Handle result using Enum values (matches PreviewFrame.lua pattern)
     if not err or err == Enum.ContentTrackingError.AlreadyTracked then
-        -- Success or already tracked (treat as success)
-        self:UpdateRecordTrackingStatus(recordID)
-        return true
-    elseif err == Enum.ContentTrackingError.MaxTracked then
-        return false, self.L["TRACKING_ERROR_MAX"]
-    elseif err == Enum.ContentTrackingError.Untrackable then
-        return false, self.L["TRACKING_ERROR_UNTRACKABLE"]
-    end
-
-    return false, "Tracking failed"
-end
-
-function addon:StopTracking(recordID)
-    if not C_ContentTracking or not C_ContentTracking.StopTracking then
-        return false, "API unavailable"
-    end
-
-    C_ContentTracking.StopTracking(TRACKING_TYPE_DECOR, recordID, Enum.ContentTrackingStopType.Manual)
-    self:UpdateRecordTrackingStatus(recordID)
-    return true
-end
-
-function addon:ToggleTracking(recordID)
-    local record = self.decorRecords[recordID]
-    if not record then return false end
-
-    if record.isTracking then
-        return self:StopTracking(recordID)
+        SetSuperTracking(recordID)
+        if not err then
+            self:Print(string.format(self.L["TRACKING_STARTED"], coloredName))
+        end
     else
-        return self:StartTracking(recordID)
+        local errorKey = TRACKING_ERROR_MESSAGES[err]
+        self:Print(errorKey and self.L[errorKey] or self.L["TRACKING_ERROR_GENERIC"])
     end
+
+    self:FireEvent("TRACKING_CHANGED", recordID)
 end
 
 -- Event Handlers
@@ -500,17 +508,22 @@ local function TriggerRecordRefresh()
     end
 end
 
--- Single-entry storage update (debounced into bulk refresh)
+-- Single-entry storage update (direct record update following Blizzard's pattern)
 addon:RegisterWoWEvent("HOUSING_STORAGE_ENTRY_UPDATED", function(entryID)
     if not addon.dataLoaded or not entryID then return end
-    addon:Debug("Storage entry updated: " .. tostring(entryID.recordID))
-    if addon.storageEntryTimer then
-        addon.storageEntryTimer:Cancel()
-    end
-    addon.storageEntryTimer = C_Timer.NewTimer(0.1, function()
-        addon.storageEntryTimer = nil
-        TriggerRecordRefresh()
-    end)
+
+    local recordID = entryID.recordID
+    local record = addon.decorRecords[recordID]
+    if not record then return end
+
+    local info = C_HousingCatalog.GetCatalogEntryInfo(entryID)
+    if not info then return end
+
+    addon:Debug("Storage entry updated: " .. tostring(recordID))
+
+    RefreshRecordOwnership(record, info)
+
+    addon:FireEvent("RECORD_OWNERSHIP_UPDATED", recordID)
 end)
 
 -- Bulk storage update (refresh record data and re-run searcher)

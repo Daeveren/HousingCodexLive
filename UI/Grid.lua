@@ -484,7 +484,11 @@ function Grid:CreateScrollBox(parent, tileSize)
         end
 
         -- Click handler
-        tile:SetScript("OnMouseDown", function()
+        tile:SetScript("OnMouseDown", function(_, button)
+            if button == "LeftButton" and IsShiftKeyDown() then
+                addon:ToggleTracking(recordID)
+                return
+            end
             Grid:SelectRecord(recordID)
         end)
 
@@ -495,7 +499,7 @@ function Grid:CreateScrollBox(parent, tileSize)
             if not rec then return end
 
             GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
-            GameTooltip:SetText(rec.name or "Unknown", 1, 1, 1)
+            GameTooltip:SetText(rec.name or addon.L["UNKNOWN"], 1, 1, 1)
             if rec.sourceText and rec.sourceText ~= "" then
                 GameTooltip:AddLine(rec.sourceText, 0.8, 0.8, 0.8, true)
             end
@@ -504,6 +508,11 @@ function Grid:CreateScrollBox(parent, tileSize)
             end
             if rec.numPlaced and rec.numPlaced > 0 then
                 GameTooltip:AddLine(string.format(addon.L["DETAILS_PLACED"], rec.numPlaced), 0.4, 0.8, 0.4)
+            end
+            if rec.isTrackable then
+                local isTracked = addon:IsRecordTracked(self.recordID)
+                local hint = isTracked and addon.L["TOOLTIP_SHIFT_CLICK_UNTRACK"] or addon.L["TOOLTIP_SHIFT_CLICK_TRACK"]
+                GameTooltip:AddLine(hint, 0.5, 0.5, 0.5)
             end
             GameTooltip:Show()
         end)
@@ -792,6 +801,24 @@ function Grid:SelectRecord(recordID)
     addon:Debug("Selected record: " .. tostring(recordID))
 end
 
+function Grid:ClearSelection()
+    if not self.selectedRecordID then return end
+
+    local prevSelected = self.selectedRecordID
+    self.selectedRecordID = nil
+
+    -- Remove gold border from previously selected tile
+    if self.scrollBox then
+        self.scrollBox:ForEachFrame(function(tile)
+            if tile.recordID == prevSelected then
+                tile:SetBackdropBorderColor(unpack(COLOR_BORDER_NORMAL))
+            end
+        end)
+    end
+
+    addon:FireEvent("RECORD_SELECTED", nil)
+end
+
 function Grid:GetSelectedRecord()
     return self.selectedRecordID
 end
@@ -852,15 +879,20 @@ function Grid:MergeResults(listA, listB)
 end
 
 addon:RegisterInternalEvent("SEARCH_RESULTS_UPDATED", function(recordIDs)
-    if addon.Tabs and addon.Tabs:GetCurrentTab() == "DECOR" then
-        local searchText = addon.SearchBox and addon.SearchBox:GetText() or ""
-        searchText = strtrim(searchText)
-        if searchText ~= "" and addon.indexesBuilt then
-            local clientIDs = addon:SearchByText(searchText)
-            recordIDs = Grid:MergeResults(recordIDs, clientIDs)
-        end
-        Grid:SetData(recordIDs)
+    if not addon.Tabs or addon.Tabs:GetCurrentTab() ~= "DECOR" then return end
+
+    Grid:ClearSelection()
+
+    -- Supplement native searcher results with client-side text search matches
+    local searchText = addon.SearchBox and addon.SearchBox:GetText() or ""
+    searchText = strtrim(searchText)
+    if searchText ~= "" and addon.indexesBuilt then
+        local clientIDs = addon:SearchByText(searchText)
+        local filteredClientIDs = addon.Filters:FilterBySearcherRules(clientIDs)
+        recordIDs = Grid:MergeResults(recordIDs, filteredClientIDs)
     end
+
+    Grid:SetData(recordIDs)
 end)
 
 addon:RegisterInternalEvent("TAB_CHANGED", function(tabKey)
@@ -885,6 +917,7 @@ end)
 -- Re-apply post-search filters when filter state changes (e.g., trackable filter)
 addon:RegisterInternalEvent("FILTER_CHANGED", function()
     if addon.Tabs and addon.Tabs:GetCurrentTab() == "DECOR" then
+        Grid:ClearSelection()
         Grid:ReapplyFilters()
     end
 end)
@@ -892,6 +925,13 @@ end)
 -- Update preview toggle button when preview visibility changes
 addon:RegisterInternalEvent("PREVIEW_VISIBILITY_CHANGED", function()
     Grid:UpdatePreviewToggleButton()
+end)
+
+-- Refresh grid when a record's ownership data changes
+addon:RegisterInternalEvent("RECORD_OWNERSHIP_UPDATED", function()
+    if addon.Tabs and addon.Tabs:GetCurrentTab() == "DECOR" then
+        Grid:Refresh()
+    end
 end)
 
 -- Update wishlist badges when wishlist changes

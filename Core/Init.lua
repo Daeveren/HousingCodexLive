@@ -81,9 +81,9 @@ addon.CONSTANTS = {
     -- Font path
     FONT_PATH = "Interface\\AddOns\\HousingCodex\\Fonts\\Roboto_Condensed_semibold.ttf",
 
-    -- Content tracking
-    TRACKING_TYPE_DECOR = 3,  -- Enum.ContentTrackingType.Decor
-    MAX_TRACKED = 15,  -- Constants.ContentTrackingConsts.MaxTrackedCollectableSources
+    -- Content tracking (Blizzard enums resolved at load time)
+    TRACKING_TYPE_DECOR = Enum.ContentTrackingType.Decor,
+    MAX_TRACKED = Constants.ContentTrackingConsts.MaxTrackedCollectableSources,
 
     -- Housing sizes (Enum.HousingCatalogEntrySize values → localization keys)
     -- Use these instead of magic numbers for patch-proof code
@@ -104,7 +104,7 @@ addon.CONSTANTS = {
     SORT_CLIENT_PLACED = 102,   -- Client-side: by quantity placed
 
     -- Category navigation
-    BUILTIN_ALL_CATEGORY_ID = 18,  -- WoW's built-in "All" category (filter out)
+    BUILTIN_ALL_CATEGORY_ID = Constants.HousingCatalogConsts.HOUSING_CATALOG_ALL_CATEGORY_ID,
 
     -- Shared button styling (toolbar toggle, preview collapse)
     TOGGLE_BUTTON_SIZE = 34,

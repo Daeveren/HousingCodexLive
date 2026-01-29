@@ -65,13 +65,13 @@ function addon.Settings:Initialize()
 
     -- Create the settings panel frame
     local panel = CreateFrame("Frame", "HousingCodexSettingsPanel", UIParent)
-    panel.name = "Housing Codex"
+    panel.name = L["ADDON_NAME"]
     self.panel = panel
 
     -- Title
     local title = panel:CreateFontString(nil, "ARTWORK", "GameFontNormalLarge")
     title:SetPoint("TOPLEFT", 16, -16)
-    title:SetText("Housing Codex")
+    title:SetText(L["ADDON_NAME"])
     title:SetTextColor(1, 0.82, 0)
 
     local yOffset = -50
@@ -232,7 +232,7 @@ function addon.Settings:Initialize()
         local displayText = GetKeybindDisplayText()
         if displayText then
             GameTooltip:SetOwner(btn, "ANCHOR_RIGHT")
-            GameTooltip:AddLine("Housing Codex (" .. displayText .. ")", 1, 1, 1)
+            GameTooltip:AddLine(L["ADDON_NAME"] .. " (" .. displayText .. ")", 1, 1, 1)
             GameTooltip:AddLine(L["OPTIONS_UNBIND_TOOLTIP"], 1, 1, 1)
             GameTooltip:Show()
         end

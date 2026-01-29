@@ -325,6 +325,45 @@ function Filters:PassesPlacedFilter(record)
     return record.numPlaced and record.numPlaced > 0
 end
 
+-- Filter a list of record IDs to only include those passing searcher-level filters
+-- Used to filter client-side text search results that bypass the native searcher
+function Filters:FilterBySearcherRules(recordIDs)
+    local filtered = {}
+    for _, id in ipairs(recordIDs) do
+        local record = addon:GetRecord(id)
+        if record and self:PassesSearcherFilters(record) then
+            table.insert(filtered, id)
+        end
+    end
+    return filtered
+end
+
+-- Check if a record passes the current searcher-level filters
+function Filters:PassesSearcherFilters(record)
+    if not record then return false end
+
+    -- Collection filter (mutually exclusive toggles)
+    if self.showCollected and not self.showUncollected then
+        if not record.isCollected then return false end
+    elseif self.showUncollected and not self.showCollected then
+        if record.isCollected then return false end
+    end
+
+    -- Indoor/outdoor and dyeable filters (from searcher state)
+    local searcher = addon.catalogSearcher
+    if searcher then
+        local allowIndoors = searcher:IsAllowedIndoorsActive()
+        local allowOutdoors = searcher:IsAllowedOutdoorsActive()
+        local isIndoorOnly = record.isIndoors and not record.isOutdoors
+        local isOutdoorOnly = record.isOutdoors and not record.isIndoors
+        if not allowIndoors and isIndoorOnly then return false end
+        if not allowOutdoors and isOutdoorOnly then return false end
+        if searcher:IsCustomizableOnlyActive() and not record.canCustomize then return false end
+    end
+
+    return true
+end
+
 --------------------------------------------------------------------------------
 -- Filter State Persistence
 --------------------------------------------------------------------------------
