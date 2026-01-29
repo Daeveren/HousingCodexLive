@@ -60,14 +60,6 @@ local function SetIcon(texture, icon, iconType)
     end
 end
 
--- Helper: Generate Wowhead URL for a decor item
-local function CreateWowheadURL(record)
-    local slug = record.name:lower()
-    slug = slug:gsub("%s+", "-")        -- spaces to hyphens
-    slug = slug:gsub("[^%w%-]", "")     -- remove non-alphanumeric except hyphens
-    slug = slug:gsub("%-+", "-")        -- collapse multiple hyphens
-    return string.format("https://www.wowhead.com/decor/%s-%d", slug, record.recordID)
-end
 
 -- Helper: Format category path as "Category > Subcategory"
 function Preview:FormatCategoryPath(record)
@@ -376,48 +368,6 @@ function Preview:CreateActionsRow(details, anchorElement)
     self.linkButton = linkBtn
 end
 
--- URL popup for Wowhead link copy
-local urlPopup = nil  -- Lazy init
-
-local function CreateURLPopup()
-    local popup = CreateFrame("Frame", nil, UIParent, "BackdropTemplate")
-    popup:SetSize(480, 40)
-    popup:SetFrameStrata("DIALOG")
-    popup:SetBackdrop({
-        bgFile = "Interface/Tooltips/UI-Tooltip-Background",
-        edgeFile = "Interface/Tooltips/UI-Tooltip-Border",
-        edgeSize = 16,
-        insets = { left = 4, right = 4, top = 4, bottom = 4 }
-    })
-    popup:SetBackdropColor(0.1, 0.1, 0.1, 0.95)
-    popup:SetBackdropBorderColor(0.6, 0.6, 0.6)
-    popup:Hide()
-    popup:EnableMouse(true)
-
-    -- Close button (top-right)
-    local closeBtn = CreateFrame("Button", nil, popup, "UIPanelCloseButton")
-    closeBtn:SetPoint("TOPRIGHT", popup, "TOPRIGHT", 2, 2)
-    closeBtn:SetSize(20, 20)
-    closeBtn:SetScript("OnClick", function() popup:Hide() end)
-
-    -- URL edit box
-    local editBox = CreateFrame("EditBox", nil, popup)
-    editBox:SetPoint("TOPLEFT", 10, -10)
-    editBox:SetPoint("RIGHT", closeBtn, "LEFT", -4, 0)
-    editBox:SetHeight(20)
-    editBox:SetFontObject("GameFontHighlight")
-    editBox:SetAutoFocus(false)
-    editBox:EnableMouse(true)
-    editBox:SetScript("OnEscapePressed", function() popup:Hide() end)
-    popup.editBox = editBox
-
-    popup:SetScript("OnShow", function()
-        editBox:SetFocus()
-        editBox:HighlightText()
-    end)
-
-    return popup
-end
 
 -- Star button sizing and colors
 local WISHLIST_STAR_SIZE = addon.CONSTANTS.WISHLIST_STAR_SIZE_PREVIEW
@@ -686,18 +636,8 @@ function Preview:OnLinkButtonRightClick()
     local record = recordID and addon:GetRecord(recordID)
     if not record then return end
 
-    -- Create popup lazily
-    if not urlPopup then
-        urlPopup = CreateURLPopup()
-    end
-
-    local url = CreateWowheadURL(record)
-    urlPopup.editBox:SetText(url)
-
-    -- Position near the Link button
-    urlPopup:ClearAllPoints()
-    urlPopup:SetPoint("TOPLEFT", self.linkButton, "BOTTOMLEFT", 0, -5)
-    urlPopup:Show()
+    local url = addon:CreateWowheadURL(record)
+    addon:ShowURLPopup(url, self.linkButton)
 end
 
 function Preview:ShowTrackButtonTooltip(btn)

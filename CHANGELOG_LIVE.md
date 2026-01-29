@@ -2,6 +2,13 @@
 
 All notable changes to Housing Codex.
 
+## [0.7.0] - 2026-01-29
+
+### Added
+- Standalone wishlist window - view all wishlisted items in a dedicated UI
+  - Grid display with 3D preview panel
+  - Hover to preview, click to lock selection
+
 ## [0.6.0] - 2026-01-29
 
 ### Added

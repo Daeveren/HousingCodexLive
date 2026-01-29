@@ -430,6 +430,71 @@ SlashCmdList["HOUSINGCODEX"] = function(msg)
     end
 end
 
+-- Helper: Generate Wowhead URL for a decor item
+-- Used by PreviewFrame and WishlistFrame for link sharing
+function addon:CreateWowheadURL(record)
+    local slug = record.name:lower()
+    slug = slug:gsub("%s+", "-")        -- spaces to hyphens
+    slug = slug:gsub("[^%w%-]", "")     -- remove non-alphanumeric except hyphens
+    slug = slug:gsub("%-+", "-")        -- collapse multiple hyphens
+    return string.format("https://www.wowhead.com/decor/%s-%d", slug, record.recordID)
+end
+
+-- Shared URL popup for Wowhead link copy (lazy init, reused across frames)
+addon.urlPopup = nil
+
+function addon:CreateURLPopup()
+    if self.urlPopup then return self.urlPopup end
+
+    local popup = CreateFrame("Frame", nil, UIParent, "BackdropTemplate")
+    popup:SetSize(480, 40)
+    popup:SetFrameStrata("DIALOG")
+    popup:SetBackdrop({
+        bgFile = "Interface/Tooltips/UI-Tooltip-Background",
+        edgeFile = "Interface/Tooltips/UI-Tooltip-Border",
+        edgeSize = 16,
+        insets = { left = 4, right = 4, top = 4, bottom = 4 }
+    })
+    popup:SetBackdropColor(0.1, 0.1, 0.1, 0.95)
+    popup:SetBackdropBorderColor(0.6, 0.6, 0.6)
+    popup:Hide()
+    popup:EnableMouse(true)
+
+    -- Close button (top-right)
+    local closeBtn = CreateFrame("Button", nil, popup, "UIPanelCloseButton")
+    closeBtn:SetPoint("TOPRIGHT", popup, "TOPRIGHT", 2, 2)
+    closeBtn:SetSize(20, 20)
+    closeBtn:SetScript("OnClick", function() popup:Hide() end)
+
+    -- URL edit box
+    local editBox = CreateFrame("EditBox", nil, popup)
+    editBox:SetPoint("TOPLEFT", 10, -10)
+    editBox:SetPoint("RIGHT", closeBtn, "LEFT", -4, 0)
+    editBox:SetHeight(20)
+    editBox:SetFontObject("GameFontHighlight")
+    editBox:SetAutoFocus(false)
+    editBox:EnableMouse(true)
+    editBox:SetScript("OnEscapePressed", function() popup:Hide() end)
+    popup.editBox = editBox
+
+    popup:SetScript("OnShow", function()
+        editBox:SetFocus()
+        editBox:HighlightText()
+    end)
+
+    self.urlPopup = popup
+    return popup
+end
+
+-- Show URL popup anchored to a button
+function addon:ShowURLPopup(url, anchorButton)
+    local popup = self:CreateURLPopup()
+    popup.editBox:SetText(url)
+    popup:ClearAllPoints()
+    popup:SetPoint("TOPLEFT", anchorButton, "BOTTOMLEFT", 0, -5)
+    popup:Show()
+end
+
 -- Addon Initialization
 addon:RegisterWoWEvent("ADDON_LOADED", function(loadedAddon)
     if loadedAddon ~= ADDON_NAME then return end

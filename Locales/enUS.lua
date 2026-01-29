@@ -130,6 +130,12 @@ L["WISHLIST_ADD"] = "Add to Wishlist"
 L["WISHLIST_REMOVE"] = "Remove from Wishlist"
 L["WISHLIST_ADDED"] = "Added to wishlist: %s"
 L["WISHLIST_REMOVED"] = "Removed from wishlist: %s"
+L["WISHLIST_BUTTON"] = "WISHLIST"
+L["WISHLIST_BUTTON_TOOLTIP"] = "View your wishlist"
+L["WISHLIST_TITLE"] = "Wishlist"
+L["WISHLIST_EMPTY"] = "Your wishlist is empty"
+L["WISHLIST_EMPTY_DESC"] = "Add items by clicking the star icon in Decor or Quests tabs"
+L["WISHLIST_SHIFT_CLICK"] = "Shift+Click to add/remove from wishlist"
 
 --------------------------------------------------------------------------------
 -- Actions

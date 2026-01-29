@@ -54,6 +54,11 @@ local defaults = {
         ldbShowText = true,  -- Show text in LDB display (false = icon-only)
         showMinimapButton = true,  -- Show LibDBIcon minimap button
     },
+    wishlistUI = {
+        tileSize = 152,      -- Separate from browser.tileSize
+        position = nil,      -- Frame position
+        size = { width = 1200, height = 940 },  -- Default size (clamped to screen at runtime)
+    },
 }
 
 local function MigrateDB(db)

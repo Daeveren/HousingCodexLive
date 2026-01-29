@@ -106,6 +106,9 @@ function MainFrame:CreateTitleBar()
     end)
     self.closeButton = closeBtn
 
+    -- Wishlist button (before close button)
+    self:CreateWishlistButton(titleBar)
+
     -- Create horizontal tabs in title bar (after title text)
     if addon.Tabs then
         addon.Tabs:Create(titleBar, title)
@@ -121,6 +124,67 @@ function MainFrame:CreateTitleBar()
         frame:StopMovingOrSizing()
         MainFrame:SavePosition()
     end)
+end
+
+function MainFrame:CreateWishlistButton(titleBar)
+    local AB = addon.CONSTANTS.ACTION_BUTTON
+    local L = addon.L
+
+    -- Button container with star icon + text
+    local btn = CreateFrame("Button", nil, titleBar, "BackdropTemplate")
+    btn:SetBackdrop(addon.CONSTANTS.TOGGLE_BUTTON_BACKDROP)
+    btn:SetBackdropColor(unpack(AB.COLOR_NORMAL))
+    btn:SetBackdropBorderColor(unpack(AB.COLOR_BORDER_NORMAL))
+
+    -- Star icon
+    local starIcon = btn:CreateTexture(nil, "ARTWORK")
+    starIcon:SetSize(19, 19)
+    starIcon:SetPoint("LEFT", 8, 0)
+    starIcon:SetAtlas("PetJournal-FavoritesIcon")
+    starIcon:SetVertexColor(unpack(COLORS.GOLD))
+    btn.starIcon = starIcon
+
+    -- Text label
+    local label = addon:CreateFontString(btn, "OVERLAY", "GameFontNormalSmall")
+    label:SetPoint("LEFT", starIcon, "RIGHT", 4, 0)
+    label:SetText(L["WISHLIST_BUTTON"])
+    label:SetTextColor(unpack(COLORS.GOLD))
+    btn.label = label
+
+    -- Calculate button width based on content
+    local btnWidth = 8 + 19 + 4 + label:GetStringWidth() + 8
+    btn:SetSize(btnWidth, 24)
+
+    -- Position before close button (3px below to align visually)
+    btn:SetPoint("RIGHT", self.closeButton, "LEFT", -8, -3)
+
+    btn:SetScript("OnEnter", function(b)
+        b:SetBackdropColor(unpack(AB.COLOR_HOVER))
+        b:SetBackdropBorderColor(0.6, 0.5, 0.1, 1)
+        GameTooltip:SetOwner(b, "ANCHOR_BOTTOM")
+        GameTooltip:SetText(L["WISHLIST_BUTTON_TOOLTIP"])
+        GameTooltip:Show()
+    end)
+
+    btn:SetScript("OnLeave", function(b)
+        b:SetBackdropColor(unpack(AB.COLOR_NORMAL))
+        b:SetBackdropBorderColor(unpack(AB.COLOR_BORDER_NORMAL))
+        GameTooltip:Hide()
+    end)
+
+    btn:SetScript("OnClick", function()
+        if InCombatLockdown() then
+            addon:Print(L["COMBAT_LOCKDOWN_MESSAGE"])
+            return
+        end
+        -- Hide main frame and show wishlist
+        MainFrame:Hide()
+        if addon.WishlistFrame then
+            addon.WishlistFrame:Show()
+        end
+    end)
+
+    self.wishlistButton = btn
 end
 
 function MainFrame:CreateSidebar()

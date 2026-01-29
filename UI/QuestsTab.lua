@@ -16,6 +16,7 @@ local HIERARCHY_PADDING = 8
 local HEADER_HEIGHT = 32  -- Expansion/zone header height
 local ROW_HEIGHT = 26     -- Quest row height
 local GRID_OUTER_PAD = CONSTS.GRID_OUTER_PAD
+local WISHLIST_STAR_SIZE = 14  -- Small star for quest rows
 
 -- Button colors
 local COLOR_BG_NORMAL = { 0.06, 0.06, 0.08, 1 }
@@ -562,6 +563,15 @@ function QuestsTab:SetupZoneQuestButton(frame, elementData)
         progress:SetJustifyH("RIGHT")
         frame.progress = progress
 
+        -- Wishlist star badge (next to quest name)
+        local wishlistStar = frame:CreateTexture(nil, "OVERLAY")
+        wishlistStar:SetSize(WISHLIST_STAR_SIZE, WISHLIST_STAR_SIZE)
+        wishlistStar:SetPoint("LEFT", 40, 0)  -- Will be repositioned after label
+        wishlistStar:SetAtlas("PetJournal-FavoritesIcon")
+        wishlistStar:SetVertexColor(unpack(COLORS.GOLD))
+        wishlistStar:Hide()
+        frame.wishlistStar = wishlistStar
+
         frame:EnableMouse(true)
     end
 
@@ -569,6 +579,7 @@ function QuestsTab:SetupZoneQuestButton(frame, elementData)
     frame.selectionBorder:Hide()
     frame.checkIcon:Hide()
     if frame.incompleteIcon then frame.incompleteIcon:Hide() end
+    if frame.wishlistStar then frame.wishlistStar:Hide() end
     frame.questID = nil
     frame.recordID = nil
     frame.expansionKey = nil
@@ -660,6 +671,17 @@ function QuestsTab:SetupZoneQuestButton(frame, elementData)
         frame.label:SetFont(STANDARD_TEXT_FONT, 11, "")
         frame.label:SetPoint("LEFT", 40, 0)
 
+        -- Wishlist star (show if item is wishlisted)
+        if frame.wishlistStar and elementData.recordID then
+            local isWishlisted = addon:IsWishlisted(elementData.recordID)
+            frame.wishlistStar:SetShown(isWishlisted)
+            if isWishlisted then
+                -- Position star after label text
+                frame.wishlistStar:ClearAllPoints()
+                frame.wishlistStar:SetPoint("LEFT", frame.label, "LEFT", frame.label:GetStringWidth() + 4, 0)
+            end
+        end
+
         -- Progress
         local owned, total = addon:GetQuestCollectionProgress(elementData.questID)
         frame.progress:SetText(string.format("%d/%d", owned, total))
@@ -668,7 +690,17 @@ function QuestsTab:SetupZoneQuestButton(frame, elementData)
 
         frame:SetScript("OnClick", function()
             if IsShiftKeyDown() and elementData.recordID then
-                -- Track the decor reward
+                -- Shift+Click: Toggle wishlist
+                local isNowWishlisted = addon:ToggleWishlist(elementData.recordID)
+                local record = addon:GetRecord(elementData.recordID)
+                local name = record and record.name or addon.L["UNKNOWN"]
+                if isNowWishlisted then
+                    addon:Print(string.format(addon.L["WISHLIST_ADDED"], name))
+                else
+                    addon:Print(string.format(addon.L["WISHLIST_REMOVED"], name))
+                end
+            elseif IsControlKeyDown() and elementData.recordID then
+                -- Ctrl+Click: Track the decor reward (moved from Shift+Click)
                 local error = C_ContentTracking.StartTracking(Enum.ContentTrackingType.Decor, elementData.recordID)
                 if error == nil then
                     addon:Print(addon.L["QUESTS_TRACKING_STARTED"])
@@ -1020,6 +1052,22 @@ addon:RegisterInternalEvent("PREVIEW_VISIBILITY_CHANGED", function()
 end)
 
 addon:RegisterInternalEvent("RECORD_OWNERSHIP_UPDATED", RefreshQuestDisplays)
+
+-- Update wishlist stars when wishlist changes
+addon:RegisterInternalEvent("WISHLIST_CHANGED", function(recordID, isWishlisted)
+    if QuestsTab:IsShown() and QuestsTab.zoneQuestScrollBox then
+        QuestsTab.zoneQuestScrollBox:ForEachFrame(function(frame)
+            if frame.recordID == recordID and frame.wishlistStar then
+                frame.wishlistStar:SetShown(isWishlisted)
+                if isWishlisted then
+                    -- Reposition star after label text
+                    frame.wishlistStar:ClearAllPoints()
+                    frame.wishlistStar:SetPoint("LEFT", frame.label, "LEFT", frame.label:GetStringWidth() + 4, 0)
+                end
+            end
+        end)
+    end
+end)
 
 -- Hook into MainFrame creation (same pattern as Grid.lua)
 local originalCreateContent = addon.MainFrame.CreateContentArea
