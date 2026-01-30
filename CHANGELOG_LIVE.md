@@ -2,6 +2,13 @@
 
 All notable changes to Housing Codex.
 
+## [0.8.3] - 2026-01-30
+
+### Added
+- NEW feature! Vendor decor indicators - Housing Codex icon appears on vendor item buttons for housing decor items
+- Green checkmark on vendor items you already own
+- Two new settings to control vendor indicators independently
+
 ## [0.8.2] - 2026-01-30
 
 ### Fixed

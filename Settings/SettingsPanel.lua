@@ -140,6 +140,48 @@ function addon.Settings:Initialize()
     )
     minimapCheck:SetPoint("TOPLEFT", 16, yOffset)
     self.minimapCheck = minimapCheck
+    yOffset = yOffset - 30
+
+    -- Show Vendor Decor Indicators checkbox
+    local vendorCheck = CreateCheckbox(
+        panel,
+        L["OPTIONS_VENDOR_INDICATORS"],
+        L["OPTIONS_VENDOR_INDICATORS_TOOLTIP"],
+        function() return addon.db and addon.db.settings.showVendorDecorIndicators end,
+        function(checked)
+            if addon.db then
+                addon.db.settings.showVendorDecorIndicators = checked
+                if addon.MerchantOverlay then
+                    if checked then
+                        addon.MerchantOverlay:UpdateMerchantButtons()
+                    else
+                        addon.MerchantOverlay:HideAllOverlays()
+                    end
+                end
+            end
+        end
+    )
+    vendorCheck:SetPoint("TOPLEFT", 16, yOffset)
+    self.vendorCheck = vendorCheck
+    yOffset = yOffset - 30
+
+    -- Show Vendor Owned Checkmark checkbox
+    local vendorOwnedCheck = CreateCheckbox(
+        panel,
+        L["OPTIONS_VENDOR_OWNED_CHECKMARK"],
+        L["OPTIONS_VENDOR_OWNED_CHECKMARK_TOOLTIP"],
+        function() return addon.db and addon.db.settings.showVendorOwnedCheckmark end,
+        function(checked)
+            if addon.db then
+                addon.db.settings.showVendorOwnedCheckmark = checked
+                if addon.MerchantOverlay then
+                    addon.MerchantOverlay:UpdateMerchantButtons()
+                end
+            end
+        end
+    )
+    vendorOwnedCheck:SetPoint("TOPLEFT", 16, yOffset)
+    self.vendorOwnedCheck = vendorOwnedCheck
     yOffset = yOffset - 40
 
     --------------------------------------------------------------------------------
@@ -307,6 +349,12 @@ function addon.Settings:Refresh()
     end
     if self.minimapCheck then
         self.minimapCheck:SetChecked(addon.db.settings.showMinimapButton)
+    end
+    if self.vendorCheck then
+        self.vendorCheck:SetChecked(addon.db.settings.showVendorDecorIndicators)
+    end
+    if self.vendorOwnedCheck then
+        self.vendorOwnedCheck:SetChecked(addon.db.settings.showVendorOwnedCheckmark)
     end
     if self.UpdateKeybindButtonText then
         self.UpdateKeybindButtonText()

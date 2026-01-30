@@ -61,6 +61,8 @@ local defaults = {
         debugMode = false,
         ldbShowText = true,  -- Show text in LDB display (false = icon-only)
         showMinimapButton = true,  -- Show LibDBIcon minimap button
+        showVendorDecorIndicators = true,  -- Show decor icons on vendor items
+        showVendorOwnedCheckmark = true,   -- Show checkmark on owned decor at vendors
     },
     wishlistUI = {
         tileSize = 152,      -- Separate from browser.tileSize
