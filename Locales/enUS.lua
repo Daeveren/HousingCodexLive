@@ -236,6 +236,7 @@ L["QUESTS_UNKNOWN_EXPANSION"] = "Other"
 
 -- Quest tracking messages
 L["QUESTS_TRACKING_STARTED"] = "Now tracking item"
+L["QUESTS_TRACKING_STOPPED"] = "Stopped tracking item"
 L["QUESTS_TRACKING_MAX_REACHED"] = "Cannot track - maximum items reached (15)"
 L["QUESTS_TRACKING_ALREADY"] = "Already tracking this item"
 L["QUESTS_TRACKING_FAILED"] = "Cannot track this item"
@@ -253,3 +254,40 @@ L["EXPANSION_SL"] = "Shadowlands"
 L["EXPANSION_DF"] = "Dragonflight"
 L["EXPANSION_TWW"] = "The War Within"
 L["EXPANSION_MIDNIGHT"] = "Midnight"
+
+--------------------------------------------------------------------------------
+-- Achievements Tab
+--------------------------------------------------------------------------------
+L["ACHIEVEMENTS_SEARCH_PLACEHOLDER"] = "Search achievements, rewards, or categories..."
+L["ACHIEVEMENTS_FILTER_ALL"] = "All"
+L["ACHIEVEMENTS_FILTER_INCOMPLETE"] = "Incomplete"
+L["ACHIEVEMENTS_FILTER_COMPLETE"] = "Complete"
+L["ACHIEVEMENTS_EMPTY_NO_SOURCES"] = "No achievement sources found"
+L["ACHIEVEMENTS_EMPTY_NO_SOURCES_DESC"] = "Achievement data may not be available"
+L["ACHIEVEMENTS_SELECT_CATEGORY"] = "Select a category"
+L["ACHIEVEMENTS_EMPTY_NO_RESULTS"] = "No achievements match your search"
+L["ACHIEVEMENTS_UNKNOWN"] = "Achievement #%d"
+
+-- Achievement tracking messages
+L["ACHIEVEMENTS_TRACKING_STARTED"] = "Now tracking item"
+L["ACHIEVEMENTS_TRACKING_STARTED_ACHIEVEMENT"] = "Now tracking achievement"
+L["ACHIEVEMENTS_TRACKING_STOPPED"] = "Stopped tracking achievement"
+L["ACHIEVEMENTS_TRACKING_MAX_REACHED"] = "Cannot track - maximum items reached (15)"
+L["ACHIEVEMENTS_TRACKING_ALREADY"] = "Already tracking this item"
+L["ACHIEVEMENTS_TRACKING_FAILED"] = "Cannot track this achievement"
+
+-- Wowhead link messages
+L["WOWHEAD_LINK_COPIED"] = "Copied to clipboard: %s"
+L["WOWHEAD_LINK_NO_ID"] = "Cannot copy link - quest ID unknown"
+
+-- Achievement category names (for search matching)
+L["ACHIEVEMENT_CATEGORY_CLASS_HALL"] = "Class Hall"
+L["ACHIEVEMENT_CATEGORY_DELVES"] = "Delves"
+L["ACHIEVEMENT_CATEGORY_QUESTS"] = "Quests"
+L["ACHIEVEMENT_CATEGORY_PVP"] = "PvP"
+L["ACHIEVEMENT_CATEGORY_SPECIAL"] = "Special"
+L["ACHIEVEMENT_CATEGORY_PROFESSIONS"] = "Professions"
+L["ACHIEVEMENT_CATEGORY_EXPLORATION"] = "Exploration"
+L["ACHIEVEMENT_CATEGORY_REPUTATION"] = "Reputation"
+L["ACHIEVEMENT_CATEGORY_DUNGEONS"] = "Dungeons"
+L["ACHIEVEMENT_CATEGORY_TIMEWALKING"] = "Timewalking"

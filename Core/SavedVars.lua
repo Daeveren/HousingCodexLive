@@ -44,6 +44,13 @@ local defaults = {
             searchText = "",
             expandedZones = {},       -- { ["EXPANSION_TWW:Isle of Dorn"] = true, ... }
         },
+        achievements = {
+            selectedCategory = nil,
+            selectedAchievementID = nil,
+            selectedRecordID = nil,
+            completionFilter = "incomplete",  -- "all" | "incomplete" | "complete"
+            searchText = "",
+        },
     },
     wishlist = {},
     settings = {

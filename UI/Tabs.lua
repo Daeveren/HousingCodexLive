@@ -14,7 +14,7 @@ local HTAB_PADDING_X = addon.CONSTANTS.HTAB_PADDING_X
 local TAB_CONFIG = {
     { key = "DECOR", labelKey = "TAB_DECOR", descKey = "TAB_DECOR_DESC", atlas = "house-decor-budget-icon", enabled = true },
     { key = "QUESTS", labelKey = "TAB_QUESTS", descKey = "TAB_QUESTS_DESC", icon = "Interface\\Icons\\INV_Misc_Book_08", enabled = true },
-    { key = "ACHIEVEMENTS", labelKey = "TAB_ACHIEVEMENTS", descKey = "TAB_ACHIEVEMENTS_DESC", icon = "Interface\\Icons\\Achievement_General", enabled = false },
+    { key = "ACHIEVEMENTS", labelKey = "TAB_ACHIEVEMENTS", descKey = "TAB_ACHIEVEMENTS_DESC", icon = "Interface\\Icons\\Achievement_General", enabled = true },
     { key = "VENDORS", labelKey = "TAB_VENDORS", descKey = "TAB_VENDORS_DESC", icon = "Interface\\Icons\\INV_Misc_Coin_02", enabled = false },
     { key = "DROPS", labelKey = "TAB_DROPS", descKey = "TAB_DROPS_DESC", icon = "Interface\\Icons\\INV_Misc_Bag_10_Blue", enabled = false },
     { key = "PROFESSIONS", labelKey = "TAB_PROFESSIONS", descKey = "TAB_PROFESSIONS_DESC", icon = "Interface\\Icons\\INV_Misc_Gear_01", enabled = false },
@@ -76,7 +76,7 @@ local function CreateTabButton(parent, tabConfig, index)
         -- Disabled state (visual-only, keep button enabled for OnEnter/OnLeave)
         icon:SetDesaturated(true)
         icon:SetAlpha(0.5)
-        label:SetTextColor(unpack(COLORS.TEXT_DISABLED))
+        label:SetTextColor(0.35, 0.35, 0.35, 1)  -- Dimmer than TEXT_DISABLED
         -- Tooltip for disabled tabs (no btn:Disable() so mouse events still fire)
         btn:SetScript("OnEnter", function(self)
             GameTooltip:SetOwner(self, "ANCHOR_BOTTOM")
@@ -154,7 +154,7 @@ function Tabs:SelectTab(tabKey, skipSave)
         local oldBtn = self.buttons[self.currentTab]
         oldBtn.bg:SetColorTexture(unpack(COLORS.TAB_NORMAL))
         oldBtn.selectBar:Hide()
-        oldBtn.label:SetTextColor(unpack(COLORS.TEXT_SECONDARY))
+        oldBtn.label:SetTextColor(unpack(COLORS.TEXT_TERTIARY))
     end
 
     -- Select new
@@ -196,12 +196,12 @@ function Tabs:SetTabEnabled(tabKey, enabled)
     if enabled then
         btn.icon:SetDesaturated(false)
         btn.icon:SetAlpha(1)
-        btn.label:SetTextColor(unpack(COLORS.TEXT_SECONDARY))
+        btn.label:SetTextColor(unpack(COLORS.TEXT_TERTIARY))
         btn:Enable()
     else
         btn.icon:SetDesaturated(true)
         btn.icon:SetAlpha(0.5)
-        btn.label:SetTextColor(unpack(COLORS.TEXT_DISABLED))
+        btn.label:SetTextColor(0.35, 0.35, 0.35, 1)  -- Dimmer than TEXT_DISABLED
         btn:Disable()
 
         -- If this was selected, select first available

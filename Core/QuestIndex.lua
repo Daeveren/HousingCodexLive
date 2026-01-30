@@ -58,7 +58,6 @@ local ZONE_TO_EXPANSION = {
     ["Felwood"] = "EXPANSION_CLASSIC",
 
     -- TBC
-    ["Eversong Woods"] = "EXPANSION_TBC",
     ["Exile's Reach"] = "EXPANSION_TBC",  -- Starting zone, fits better here
 
     -- Wrath
@@ -114,6 +113,7 @@ local ZONE_TO_EXPANSION = {
 
     -- Midnight
     ["Arcantina"] = "EXPANSION_MIDNIGHT",
+    ["Eversong Woods"] = "EXPANSION_MIDNIGHT",  -- Midnight quests (92025, 90493)
     ["Harandar"] = "EXPANSION_MIDNIGHT",
 
     -- Unknown/catchall
@@ -275,8 +275,10 @@ function addon:BuildQuestIndex()
             local recordID = decorId
             -- Only index if the record exists in our data
             if self.decorRecords[recordID] then
-                -- Use questId if available, otherwise use questName as key
-                local questKey = questData.questId or questData.questName
+                -- Use questId if available, check override table, then fall back to questName
+                local questKey = questData.questId
+                    or (questData.questName and self.QuestIdOverrides and self.QuestIdOverrides[questData.questName])
+                    or questData.questName
                 if questKey then
                     if not self.questIndex[questKey] then
                         self.questIndex[questKey] = {}
@@ -306,7 +308,9 @@ function addon:BuildQuestIndex()
         for zoneName, quests in pairs(self.QuestSourceData) do
             local expansionKey = ZONE_TO_EXPANSION[zoneName] or "QUESTS_UNKNOWN_EXPANSION"
             for _, questInfo in ipairs(quests) do
-                local questKey = questInfo.questId or questInfo.questName
+                local questKey = questInfo.questId
+                    or (questInfo.questName and self.QuestIdOverrides and self.QuestIdOverrides[questInfo.questName])
+                    or questInfo.questName
                 if questKey and self.questIndex[questKey] then
                     local existing = self.questZoneFromScrape[questKey]
                     local isDornogalPriority = existing and existing.zoneName == "Dornogal" and zoneName ~= "Dornogal"
@@ -495,6 +499,23 @@ function addon:GetExpansionCollectionProgress(expansionKey)
     end
 
     return owned, total
+end
+
+-- Get quest completion progress for an expansion (completed/total quests)
+function addon:GetExpansionQuestCompletionProgress(expansionKey)
+    local zones = self.questHierarchy[expansionKey] and self.questHierarchy[expansionKey].zones
+    if not zones then return 0, 0 end
+
+    local completed, total = 0, 0
+    for zoneName, quests in pairs(zones) do
+        for _, questKey in ipairs(quests) do
+            total = total + 1
+            if self:IsQuestCompleted(questKey) then
+                completed = completed + 1
+            end
+        end
+    end
+    return completed, total
 end
 
 -- Get quest title (with placeholder fallback)

@@ -2,6 +2,19 @@
 
 All notable changes to Housing Codex.
 
+## [0.8.0] - 2026-01-30
+
+### Added
+- Achievements tab - browse housing items by achievement source
+  - Category navigation (Class Hall, Delves, PvP, Quests, Professions, etc.)
+  - Completion percentage display per category
+  - Achievement tooltips with real-time criteria progress
+  - Shift-click to track achievements in objective tracker
+  - Right-click to copy Wowhead link
+- Quest completion percentages on expansion buttons
+- Quest tooltips showing objectives and progress
+- Right-click on quests to copy Wowhead link
+
 ## [0.7.0] - 2026-01-29
 
 ### Added

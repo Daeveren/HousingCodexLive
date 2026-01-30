@@ -85,6 +85,20 @@ local function ApplyQuestRowState(frame, isSelected)
     end
 end
 
+-- Helper to print tracking result messages
+local function PrintTrackingResult(errorCode, startedKey, failedKey)
+    local L = addon.L
+    if errorCode == nil then
+        addon:Print(L[startedKey])
+    elseif errorCode == Enum.ContentTrackingError.MaxTracked then
+        addon:Print(L["QUESTS_TRACKING_MAX_REACHED"])
+    elseif errorCode == Enum.ContentTrackingError.AlreadyTracked then
+        addon:Print(L["QUESTS_TRACKING_ALREADY"])
+    else
+        addon:Print(L[failedKey])
+    end
+end
+
 -- Helper to create an empty state frame with centered message
 local function CreateEmptyStateFrame(parent, messageKey, descKey, descWidth)
     local L = addon.L
@@ -381,9 +395,14 @@ function QuestsTab:SetupExpansionButton(frame, elementData)
         border:Hide()
         frame.selectionBorder = border
 
+        local pct = frame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+        pct:SetPoint("RIGHT", -8, 0)
+        pct:SetJustifyH("RIGHT")
+        frame.percentLabel = pct
+
         local label = frame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
         label:SetPoint("LEFT", 10, 0)
-        label:SetPoint("RIGHT", -8, 0)
+        label:SetPoint("RIGHT", pct, "LEFT", -4, 0)
         label:SetJustifyH("LEFT")
         label:SetWordWrap(false)
         frame.label = label
@@ -400,6 +419,13 @@ function QuestsTab:SetupExpansionButton(frame, elementData)
 
     frame.label:SetText(L[elementData.expansionKey] or elementData.expansionKey)
     frame.label:SetFont(STANDARD_TEXT_FONT, 12, "")
+
+    -- Quest completion percentage
+    local completed, total = addon:GetExpansionQuestCompletionProgress(elementData.expansionKey)
+    local pctValue = total > 0 and (completed / total * 100) or 0
+    frame.percentLabel:SetText(string.format("%.0f%%", pctValue))
+    frame.percentLabel:SetTextColor(addon:GetCompletionProgressColor(pctValue))
+    frame.percentLabel:SetFont(STANDARD_TEXT_FONT, 11, "")
 
     frame:SetScript("OnClick", function()
         self:SelectExpansion(elementData.expansionKey)
@@ -444,10 +470,15 @@ function QuestsTab:SelectExpansion(expansionKey)
     -- Rebuild zone/quest panel
     self:BuildZoneQuestDisplay()
 
-    -- Clear quest selection when switching expansions
+    -- Clear quest selection and preview when switching expansions
     if prevSelected ~= expansionKey then
         self.selectedQuestID = nil
-        if db then db.selectedQuestID = nil end
+        self.selectedRecordID = nil
+        if db then
+            db.selectedQuestID = nil
+            db.selectedRecordID = nil
+        end
+        addon:FireEvent("RECORD_SELECTED", nil)
     end
 
     self:UpdateEmptyStates()
@@ -688,29 +719,39 @@ function QuestsTab:SetupZoneQuestButton(frame, elementData)
         local progressComplete = owned == total and total > 0
         frame.progress:SetTextColor(unpack(progressComplete and COLOR_PROGRESS_COMPLETE or COLOR_PROGRESS_LOW))
 
-        frame:SetScript("OnClick", function()
-            if IsShiftKeyDown() and elementData.recordID then
-                -- Shift+Click: Toggle wishlist
-                local isNowWishlisted = addon:ToggleWishlist(elementData.recordID)
-                local record = addon:GetRecord(elementData.recordID)
-                local name = record and record.name or addon.L["UNKNOWN"]
-                if isNowWishlisted then
-                    addon:Print(string.format(addon.L["WISHLIST_ADDED"], name))
+        frame:SetScript("OnMouseDown", function(f, button)
+            if button == "RightButton" then
+                -- Right-Click: Copy Wowhead URL to clipboard
+                if type(elementData.questID) == "number" then
+                    local url = "https://www.wowhead.com/quest=" .. elementData.questID
+                    CopyToClipboard(url)
+                    addon:Print(string.format(addon.L["WOWHEAD_LINK_COPIED"], url))
                 else
-                    addon:Print(string.format(addon.L["WISHLIST_REMOVED"], name))
+                    addon:Print(addon.L["WOWHEAD_LINK_NO_ID"])
+                end
+                return
+            end
+
+            if IsShiftKeyDown() then
+                -- Shift+Click: Toggle tracking the decor reward
+                local recordID = elementData.recordID or (addon:GetRecordsForQuest(elementData.questID) or {})[1]
+                if not recordID then
+                    addon:Print(addon.L["QUESTS_TRACKING_FAILED"])
+                    return
+                end
+
+                local trackingType = Enum.ContentTrackingType.Decor
+                if C_ContentTracking.IsTracking(trackingType, recordID) then
+                    C_ContentTracking.StopTracking(trackingType, recordID, Enum.ContentTrackingStopType.Manual)
+                    addon:Print(addon.L["QUESTS_TRACKING_STOPPED"])
+                else
+                    local err = C_ContentTracking.StartTracking(trackingType, recordID)
+                    PrintTrackingResult(err, "QUESTS_TRACKING_STARTED", "QUESTS_TRACKING_FAILED")
                 end
             elseif IsControlKeyDown() and elementData.recordID then
-                -- Ctrl+Click: Track the decor reward (moved from Shift+Click)
-                local error = C_ContentTracking.StartTracking(Enum.ContentTrackingType.Decor, elementData.recordID)
-                if error == nil then
-                    addon:Print(addon.L["QUESTS_TRACKING_STARTED"])
-                elseif error == Enum.ContentTrackingError.MaxTracked then
-                    addon:Print(addon.L["QUESTS_TRACKING_MAX_REACHED"])
-                elseif error == Enum.ContentTrackingError.AlreadyTracked then
-                    addon:Print(addon.L["QUESTS_TRACKING_ALREADY"])
-                else
-                    addon:Print(addon.L["QUESTS_TRACKING_FAILED"])
-                end
+                -- Ctrl+Click: Start tracking decor (kept for compatibility)
+                local err = C_ContentTracking.StartTracking(Enum.ContentTrackingType.Decor, elementData.recordID)
+                PrintTrackingResult(err, "QUESTS_TRACKING_STARTED", "QUESTS_TRACKING_FAILED")
             else
                 self:SelectQuest(elementData)
             end
@@ -732,9 +773,24 @@ function QuestsTab:SetupZoneQuestButton(frame, elementData)
                 self.hoveringRecordID = recordID
                 addon:FireEvent("RECORD_SELECTED", recordID)
             end
+
+            -- Show quest tooltip at cursor
+            GameTooltip:SetOwner(UIParent, "ANCHOR_NONE")
+            local x, y = GetCursorPosition()
+            local scale = UIParent:GetEffectiveScale()
+            GameTooltip:SetPoint("BOTTOMLEFT", UIParent, "BOTTOMLEFT", (x / scale) + 15, (y / scale) + 15)
+            if type(f.questID) == "number" then
+                GameTooltip:SetHyperlink("quest:" .. f.questID)
+            else
+                local questTitle = addon:GetQuestTitle(f.questID) or f.questID
+                GameTooltip:SetText(questTitle, 1, 1, 1)
+            end
+            GameTooltip:Show()
         end)
 
         frame:SetScript("OnLeave", function(f)
+            GameTooltip:Hide()
+
             ApplyQuestRowState(f, self.selectedQuestID == f.questID and
                 (not f.recordID or self.selectedRecordID == f.recordID))
 

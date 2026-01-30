@@ -430,6 +430,18 @@ SlashCmdList["HOUSINGCODEX"] = function(msg)
     end
 end
 
+-- Helper: Calculate completion progress color (orange at 0% -> green at 100%)
+-- Used by QuestsTab and AchievementsTab for category/expansion completion percentages
+-- @param percent: 0-100 percentage value
+-- @return r, g, b, a color values
+function addon:GetCompletionProgressColor(percent)
+    local t = percent / 100
+    local r = 0.8 - (0.4 * t)   -- 0.8 -> 0.4
+    local g = 0.5 + (0.25 * t)  -- 0.5 -> 0.75
+    local b = 0.2 + (0.15 * t)  -- 0.2 -> 0.35
+    return r, g, b, 1
+end
+
 -- Helper: Generate Wowhead URL for a decor item
 -- Used by PreviewFrame and WishlistFrame for link sharing
 function addon:CreateWowheadURL(record)

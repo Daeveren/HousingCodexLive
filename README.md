@@ -9,8 +9,9 @@ A World of Warcraft addon that provides an enhanced catalog for browsing housing
 - **Grid View** - Browse all decorations in a searchable grid with thumbnails
 - **3D Preview** - Docked preview panel showing model, source, size, and dye options
 - **Filters** - Filter by collected/uncollected, indoor/outdoor, dyeable, size, expansion, theme
-- **Wishlist** - Star items and filter to show only tracked decorations
-- **Quick Access** - Right-click for Wowhead links, left-click to link in chat
+- **Quests Tab** - Browse quest-sourced decorations organized by expansion and zone, with collection progress and completion filters
+- **Wishlist** - Star items to track them, view all wishlisted items in a dedicated window with preview, or filter the main catalog to show only tracked decorations
+- **Quick Access** - Right-click for Wowhead links, left-click to link in chat, shift-click to track to map objectives
 
 ## Installation
 
