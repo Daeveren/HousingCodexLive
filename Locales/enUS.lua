@@ -280,14 +280,5 @@ L["ACHIEVEMENTS_TRACKING_FAILED"] = "Cannot track this achievement"
 L["WOWHEAD_LINK_COPIED"] = "Copied to clipboard: %s"
 L["WOWHEAD_LINK_NO_ID"] = "Cannot copy link - quest ID unknown"
 
--- Achievement category names (for search matching)
-L["ACHIEVEMENT_CATEGORY_CLASS_HALL"] = "Class Hall"
-L["ACHIEVEMENT_CATEGORY_DELVES"] = "Delves"
-L["ACHIEVEMENT_CATEGORY_QUESTS"] = "Quests"
-L["ACHIEVEMENT_CATEGORY_PVP"] = "PvP"
-L["ACHIEVEMENT_CATEGORY_SPECIAL"] = "Special"
-L["ACHIEVEMENT_CATEGORY_PROFESSIONS"] = "Professions"
-L["ACHIEVEMENT_CATEGORY_EXPLORATION"] = "Exploration"
-L["ACHIEVEMENT_CATEGORY_REPUTATION"] = "Reputation"
-L["ACHIEVEMENT_CATEGORY_DUNGEONS"] = "Dungeons"
-L["ACHIEVEMENT_CATEGORY_TIMEWALKING"] = "Timewalking"
+-- Note: Achievement category names come from WoW's GetCategoryInfo() API
+-- which returns already-localized strings, so no L[] entries needed

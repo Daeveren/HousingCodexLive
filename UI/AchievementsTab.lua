@@ -11,35 +11,22 @@ local COLORS = CONSTS.COLORS
 -- Layout constants
 local TOOLBAR_HEIGHT = 32
 local SIDEBAR_WIDTH = CONSTS.SIDEBAR_WIDTH  -- 182 - same as main sidebar
-local CATEGORY_PANEL_WIDTH = 180            -- Left column for categories
+local CATEGORY_PANEL_WIDTH = 198            -- Left column for categories (10% wider)
 local HIERARCHY_PADDING = 8
 local ROW_HEIGHT = 26     -- Achievement row height
 local GRID_OUTER_PAD = CONSTS.GRID_OUTER_PAD
 local WISHLIST_STAR_SIZE = 14  -- Small star for achievement rows
 local CATEGORY_BUTTON_HEIGHT = 32  -- Category button height
 
--- Category localization lookup (pre-built for performance)
-local CATEGORY_L10N_KEYS = {
-    ["Class Hall"] = "ACHIEVEMENT_CATEGORY_CLASS_HALL",
-    ["PvP"] = "ACHIEVEMENT_CATEGORY_PVP",
-    ["Delves"] = "ACHIEVEMENT_CATEGORY_DELVES",
-    ["Quests"] = "ACHIEVEMENT_CATEGORY_QUESTS",
-    ["Special"] = "ACHIEVEMENT_CATEGORY_SPECIAL",
-    ["Professions"] = "ACHIEVEMENT_CATEGORY_PROFESSIONS",
-    ["Exploration"] = "ACHIEVEMENT_CATEGORY_EXPLORATION",
-    ["Reputation"] = "ACHIEVEMENT_CATEGORY_REPUTATION",
-    ["Dungeons"] = "ACHIEVEMENT_CATEGORY_DUNGEONS",
-    ["Timewalking"] = "ACHIEVEMENT_CATEGORY_TIMEWALKING",
-}
+-- Category names from WoW API are already localized by the game
+-- No lookup table needed - we display GetCategoryInfo() results directly
 
 -- Button colors
-local COLOR_BG_NORMAL = { 0.06, 0.06, 0.08, 1 }
 local COLOR_GOLD_BORDER = { 1, 0.82, 0, 1 }
 
--- Progress colors
+-- Progress colors (used for collection progress display)
 local COLOR_PROGRESS_COMPLETE = { 0.2, 1, 0.2, 1 }   -- Green for 100%
-local COLOR_PROGRESS_PARTIAL = { 1, 0.82, 0, 1 }     -- Gold for 50%+
-local COLOR_PROGRESS_LOW = { 0.7, 0.7, 0.7, 1 }      -- Gray for <50%
+local COLOR_PROGRESS_LOW = { 0.7, 0.7, 0.7, 1 }      -- Gray for incomplete
 
 -- Solid colors for category buttons
 local COLOR_CATEGORY_NORMAL = { 0.14, 0.14, 0.16, 0.9 }
@@ -47,17 +34,6 @@ local COLOR_CATEGORY_HOVER = { 0.19, 0.19, 0.21, 1 }
 
 -- Selected achievement row background
 local COLOR_ACHIEVEMENT_SELECTED = { 0.20, 0.20, 0.22, 1 }
-
--- Helper to get progress text color based on percentage
-local function GetProgressColor(percent)
-    if percent == 100 then
-        return COLOR_PROGRESS_COMPLETE
-    elseif percent >= 50 then
-        return COLOR_PROGRESS_PARTIAL
-    else
-        return COLOR_PROGRESS_LOW
-    end
-end
 
 -- Helper to apply category button visual state
 local function ApplyCategoryButtonState(frame, isSelected)
@@ -119,13 +95,13 @@ local function CreateEmptyStateFrame(parent, messageKey, descKey, descWidth)
     bg:SetColorTexture(0.04, 0.04, 0.06, 0.95)
 
     local hasDesc = descKey ~= nil
-    local msg = frame:CreateFontString(nil, "OVERLAY", hasDesc and "GameFontNormal" or "GameFontNormalLarge")
+    local msg = addon:CreateFontString(frame, "OVERLAY", hasDesc and "GameFontNormal" or "GameFontNormalLarge")
     msg:SetPoint("CENTER", 0, hasDesc and 10 or 0)
     msg:SetText(L[messageKey])
     msg:SetTextColor(hasDesc and 0.6 or 0.5, hasDesc and 0.6 or 0.5, hasDesc and 0.6 or 0.5, 1)
 
     if hasDesc then
-        local desc = frame:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+        local desc = addon:CreateFontString(frame, "OVERLAY", "GameFontNormal")
         desc:SetPoint("TOP", msg, "BOTTOM", 0, -8)
         desc:SetText(L[descKey])
         desc:SetTextColor(0.5, 0.5, 0.5, 1)
@@ -207,9 +183,6 @@ function AchievementsTab:Show()
         self.selectedCategory = saved.selectedCategory
         self.selectedAchievementID = saved.selectedAchievementID
         self.selectedRecordID = saved.selectedRecordID
-        if self.searchBox and saved.searchText then
-            self.searchBox:SetText(saved.searchText)
-        end
         self:SetCompletionFilter(saved.completionFilter or "incomplete")
     end
 
@@ -255,11 +228,18 @@ function AchievementsTab:CreateToolbar(parent)
     searchBox.Instructions:SetText(L["ACHIEVEMENTS_SEARCH_PLACEHOLDER"])
     self.searchBox = searchBox
 
-    searchBox:SetScript("OnTextChanged", function(box, userInput)
+    searchBox:HookScript("OnTextChanged", function(box, userInput)
         if userInput then
             self:OnSearchTextChanged(box:GetText())
         end
     end)
+
+    -- Handle clear button click (X button)
+    if searchBox.clearButton then
+        searchBox.clearButton:HookScript("OnClick", function()
+            self:OnSearchTextChanged("")
+        end)
+    end
 
     searchBox:SetScript("OnEscapePressed", function(box)
         box:ClearFocus()
@@ -334,8 +314,6 @@ end
 
 function AchievementsTab:OnSearchTextChanged(text)
     text = strtrim(text or "")
-    local db = GetAchievementsDB()
-    if db then db.searchText = text end
     self:BuildCategoryDisplay()
     self:BuildAchievementDisplay()
 end
@@ -401,12 +379,12 @@ function AchievementsTab:SetupCategoryButton(frame, elementData)
         border:Hide()
         frame.selectionBorder = border
 
-        local pct = frame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+        local pct = addon:CreateFontString(frame, "OVERLAY", "GameFontNormal")
         pct:SetPoint("RIGHT", -8, 0)
         pct:SetJustifyH("RIGHT")
         frame.percentLabel = pct
 
-        local label = frame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+        local label = addon:CreateFontString(frame, "OVERLAY", "GameFontNormal")
         label:SetPoint("LEFT", 10, 0)
         label:SetPoint("RIGHT", pct, "LEFT", -4, 0)
         label:SetJustifyH("LEFT")
@@ -423,17 +401,16 @@ function AchievementsTab:SetupCategoryButton(frame, elementData)
     local isSelected = self.selectedCategory == elementData.category
     ApplyCategoryButtonState(frame, isSelected)
 
-    -- Use localized category name
-    local categoryKey = CATEGORY_L10N_KEYS[elementData.category]
-    frame.label:SetText(categoryKey and addon.L[categoryKey] or elementData.category)
-    frame.label:SetFont(STANDARD_TEXT_FONT, 12, "")
+    -- Category names from WoW API are already localized
+    frame.label:SetText(elementData.category)
+    addon:SetFontSize(frame.label, 13, "")
 
     -- Achievement completion percentage
     local completed, total = addon:GetCategoryAchievementCompletionProgress(elementData.category)
     local pctValue = total > 0 and (completed / total * 100) or 0
     frame.percentLabel:SetText(string.format("%.0f%%", pctValue))
     frame.percentLabel:SetTextColor(addon:GetCompletionProgressColor(pctValue))
-    frame.percentLabel:SetFont(STANDARD_TEXT_FONT, 11, "")
+    addon:SetFontSize(frame.percentLabel, 11, "")
 
     frame:SetScript("OnClick", function()
         self:SelectCategory(elementData.category)
@@ -564,7 +541,7 @@ function AchievementsTab:SetupAchievementButton(frame, elementData)
         frame.incompleteIcon = incompleteIcon
 
         -- Label
-        local label = frame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+        local label = addon:CreateFontString(frame, "OVERLAY", "GameFontNormal")
         label:SetPoint("LEFT", 28, 0)
         label:SetPoint("RIGHT", -80, 0)
         label:SetJustifyH("LEFT")
@@ -572,7 +549,7 @@ function AchievementsTab:SetupAchievementButton(frame, elementData)
         frame.label = label
 
         -- Progress (right side)
-        local progress = frame:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+        local progress = addon:CreateFontString(frame, "OVERLAY", "GameFontNormal")
         progress:SetPoint("RIGHT", -8, 0)
         progress:SetJustifyH("RIGHT")
         frame.progress = progress
@@ -618,7 +595,7 @@ function AchievementsTab:SetupAchievementButton(frame, elementData)
         achievementName = achievementName .. " (" .. elementData.rewardIndex .. ")"
     end
     frame.label:SetText(achievementName)
-    frame.label:SetFont(STANDARD_TEXT_FONT, 11, "")
+    addon:SetFontSize(frame.label, 11, "")
 
     -- Wishlist star
     if frame.wishlistStar and elementData.recordID then
@@ -760,17 +737,8 @@ local function AchievementMatchesSearch(achievementID, searchText, category)
     local name = addon:GetAchievementName(achievementID) or ""
     if strlower(name):find(searchText, 1, true) then return true end
 
-    -- Check category name (raw key)
+    -- Check category name (already localized from WoW API)
     if strlower(category):find(searchText, 1, true) then return true end
-
-    -- Check localized category name
-    local categoryKey = CATEGORY_L10N_KEYS[category]
-    if categoryKey then
-        local localizedCategory = addon.L[categoryKey]
-        if localizedCategory and strlower(localizedCategory):find(searchText, 1, true) then
-            return true
-        end
-    end
 
     -- Check decor reward names
     local records = addon:GetRecordsForAchievement(achievementID)

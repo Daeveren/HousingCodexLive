@@ -220,13 +220,12 @@ function addon:CreateToggleButton(parent, symbol, tooltipKey, onClick)
     btn:SetBackdropColor(0.15, 0.15, 0.18, 0.9)
     btn:SetBackdropBorderColor(unpack(COLORS.BORDER))
 
-    local btnText = btn:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
+    local btnText = self:CreateFontString(btn, "OVERLAY", "GameFontNormalLarge")
     local xOffset = (symbol == "<") and -1 or 1
     btnText:SetPoint("CENTER", xOffset, 0)
     btnText:SetText(symbol)
     btnText:SetTextColor(unpack(COLORS.GOLD))
-    local font = btnText:GetFont()
-    btnText:SetFont(font, 20, "OUTLINE")
+    self:SetFontSize(btnText, 20, "OUTLINE")
     btn.text = btnText
 
     btn:SetScript("OnEnter", function(b)
@@ -269,7 +268,7 @@ function addon:CreateActionButton(parent, label, onClick, onTooltip)
     btn.isEnabled = true
 
     -- Create text first to measure width
-    local text = btn:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+    local text = self:CreateFontString(btn, "OVERLAY", "GameFontNormal")
     text:SetText(label)
 
     -- Calculate width from text, respecting minimum
@@ -483,7 +482,7 @@ function addon:CreateURLPopup()
     editBox:SetPoint("TOPLEFT", 10, -10)
     editBox:SetPoint("RIGHT", closeBtn, "LEFT", -4, 0)
     editBox:SetHeight(20)
-    editBox:SetFontObject("GameFontHighlight")
+    editBox:SetFontObject(self:GetFontObject("GameFontHighlight"))
     editBox:SetAutoFocus(false)
     editBox:EnableMouse(true)
     editBox:SetScript("OnEscapePressed", function() popup:Hide() end)

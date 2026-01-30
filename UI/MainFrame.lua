@@ -145,7 +145,7 @@ function MainFrame:CreateWishlistButton(titleBar)
     btn.starIcon = starIcon
 
     -- Text label
-    local label = addon:CreateFontString(btn, "OVERLAY", "GameFontNormalSmall")
+    local label = addon:CreateFontString(btn, "OVERLAY", "GameFontNormal")
     label:SetPoint("LEFT", starIcon, "RIGHT", 4, 0)
     label:SetText(L["WISHLIST_BUTTON"])
     label:SetTextColor(unpack(COLORS.GOLD))

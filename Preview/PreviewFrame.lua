@@ -204,7 +204,7 @@ function Preview:CreateWidthPresets()
         btn:SetSize(BUTTON_WIDTH, 14)
         btn:SetPoint("LEFT", container, "LEFT", (i - 1) * (BUTTON_WIDTH + BUTTON_SPACING), 0)
 
-        local label = btn:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+        local label = addon:CreateFontString(btn, "OVERLAY", "GameFontNormalSmall")
         label:SetPoint("CENTER")
         label:SetText(string.rep(".", i))  -- ".", "..", "..."
         label:SetTextColor(unpack(COLOR_PRESET_INACTIVE))
@@ -263,20 +263,20 @@ function Preview:CreateIdentityBlock()
     self.detailsName = name
 
     -- Owned count (below name)
-    local owned = addon:CreateFontString(details, "OVERLAY", "GameFontHighlightSmall")
+    local owned = addon:CreateFontString(details, "OVERLAY", "GameFontHighlight")
     owned:SetPoint("TOPLEFT", name, "BOTTOMLEFT", 0, -2)
     owned:SetTextColor(0.7, 0.7, 0.7)
     self.detailsOwned = owned
 
     -- Placed count (inline, right of owned)
-    local placed = addon:CreateFontString(details, "OVERLAY", "GameFontHighlightSmall")
+    local placed = addon:CreateFontString(details, "OVERLAY", "GameFontHighlight")
     placed:SetPoint("LEFT", owned, "RIGHT", 8, 0)
     placed:SetTextColor(0.4, 0.8, 0.4)
     self.detailsPlaced = placed
 
     -- Source text (below owned, spans full width)
     -- No MaxLines limit - sourceText can contain multiple vendor sources with full formatting
-    local source = addon:CreateFontString(details, "OVERLAY", "GameFontHighlightSmall")
+    local source = addon:CreateFontString(details, "OVERLAY", "GameFontHighlight")
     source:SetPoint("TOPLEFT", owned, "BOTTOMLEFT", 0, -PADDING)
     source:SetPoint("RIGHT", details, "RIGHT", -PADDING, 0)
     source:SetJustifyH("LEFT")
@@ -286,34 +286,34 @@ function Preview:CreateIdentityBlock()
 
     -- ========== Metadata Section (1C.7) ==========
     -- Size row (anchored below source text with extra spacing)
-    local sizeLabel = addon:CreateFontString(details, "OVERLAY", "GameFontHighlightSmall")
+    local sizeLabel = addon:CreateFontString(details, "OVERLAY", "GameFontHighlight")
     sizeLabel:SetPoint("TOPLEFT", source, "BOTTOMLEFT", 0, -PADDING - METADATA_GAP)
     sizeLabel:SetText(addon.L["DETAILS_SIZE"])
     sizeLabel:SetTextColor(0.5, 0.5, 0.5)
 
-    local sizeValue = addon:CreateFontString(details, "OVERLAY", "GameFontHighlightSmall")
+    local sizeValue = addon:CreateFontString(details, "OVERLAY", "GameFontHighlight")
     sizeValue:SetPoint("LEFT", sizeLabel, "RIGHT", 4, 0)
     sizeValue:SetTextColor(1, 1, 1)
     self.detailsSize = sizeValue
 
     -- Place (same line, after size)
-    local placeLabel = addon:CreateFontString(details, "OVERLAY", "GameFontHighlightSmall")
+    local placeLabel = addon:CreateFontString(details, "OVERLAY", "GameFontHighlight")
     placeLabel:SetPoint("LEFT", sizeValue, "RIGHT", 12, 0)
     placeLabel:SetText(addon.L["DETAILS_PLACE"])
     placeLabel:SetTextColor(0.5, 0.5, 0.5)
 
-    local placeValue = addon:CreateFontString(details, "OVERLAY", "GameFontHighlightSmall")
+    local placeValue = addon:CreateFontString(details, "OVERLAY", "GameFontHighlight")
     placeValue:SetPoint("LEFT", placeLabel, "RIGHT", 4, 0)
     placeValue:SetTextColor(1, 1, 1)
     self.detailsPlacement = placeValue
 
     -- Dyeable (same line, after place)
-    local dyeableValue = addon:CreateFontString(details, "OVERLAY", "GameFontHighlightSmall")
+    local dyeableValue = addon:CreateFontString(details, "OVERLAY", "GameFontHighlight")
     dyeableValue:SetPoint("LEFT", placeValue, "RIGHT", 12, 0)
     self.detailsDyeable = dyeableValue
 
     -- Category (same line, after dyeable)
-    local categoryValue = addon:CreateFontString(details, "OVERLAY", "GameFontHighlightSmall")
+    local categoryValue = addon:CreateFontString(details, "OVERLAY", "GameFontHighlight")
     categoryValue:SetPoint("LEFT", dyeableValue, "RIGHT", 12, 0)
     categoryValue:SetTextColor(unpack(COLOR_CATEGORY))
     self.detailsCategory = categoryValue

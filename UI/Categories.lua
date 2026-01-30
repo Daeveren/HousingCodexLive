@@ -53,7 +53,7 @@ function Categories:Initialize(sidebar)
     end)
 
     -- Create result count text at bottom of sidebar
-    local resultText = addon:CreateFontString(sidebar, "OVERLAY", "GameFontHighlightSmall")
+    local resultText = addon:CreateFontString(sidebar, "OVERLAY", "GameFontHighlight")
     resultText:SetPoint("BOTTOMLEFT", sidebar, "BOTTOMLEFT", PADDING, 6)
     resultText:SetPoint("BOTTOMRIGHT", sidebar, "BOTTOMRIGHT", -PADDING, 6)
     resultText:SetTextColor(0.7, 0.7, 0.7, 1)
@@ -368,7 +368,7 @@ function Categories:CreateCategoryButton(label, iconAtlas)
 
     -- Label (default to grayed out, selected buttons get white text)
     if not btn.label then
-        local text = btn:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+        local text = addon:CreateFontString(btn, "OVERLAY", "GameFontNormal")
         text:SetPoint("RIGHT", -PADDING, 0)
         text:SetJustifyH("LEFT")
         btn.label = text

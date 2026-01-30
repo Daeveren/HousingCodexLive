@@ -87,6 +87,8 @@ local function CreateTabButton(parent, tabConfig, index)
         btn:SetScript("OnLeave", function() GameTooltip:Hide() end)
         -- No OnClick = clicking does nothing
     else
+        -- Enabled but not selected - set initial color (GameFontNormal default is yellow)
+        label:SetTextColor(unpack(COLORS.TEXT_TERTIARY))
         -- Enable hover effects + tooltip
         btn:SetScript("OnEnter", function(self)
             if not Tabs:IsSelected(tabConfig.key) then

@@ -96,7 +96,7 @@ local function CreateToggleButton(parent, label, isActive, onToggle)
     btn:SetBackdrop(BUTTON_BACKDROP)
 
     -- Create text first to measure width
-    local text = btn:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+    local text = addon:CreateFontString(btn, "OVERLAY", "GameFontNormal")
     text:SetText(label)
 
     -- Calculate width from text, respecting minimum
@@ -379,10 +379,6 @@ function Filters:SaveState()
     db.showWishlistOnly = self.showWishlistOnly
     db.showPlacedOnly = self.showPlacedOnly
 
-    -- Save search text
-    local searchText = addon.SearchBox and addon.SearchBox:GetText()
-    db.searchText = (searchText and strtrim(searchText) ~= "") and searchText or ""
-
     -- Save searcher-based filters
     local searcher = addon.catalogSearcher
     if searcher then
@@ -442,15 +438,6 @@ function Filters:RestoreState()
 
     -- Restore placed-only filter
     self.showPlacedOnly = db.showPlacedOnly or false
-
-    -- Restore search text
-    if db.searchText and db.searchText ~= "" and addon.SearchBox and addon.SearchBox.frame then
-        addon.SearchBox.frame:SetText(db.searchText)
-        addon.SearchBox.lastSearchText = db.searchText
-        if searcher then
-            searcher:SetSearchText(db.searchText)
-        end
-    end
 
     -- Restore searcher-based filters
     if searcher then

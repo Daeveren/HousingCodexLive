@@ -2,6 +2,14 @@
 
 All notable changes to Housing Codex.
 
+## [0.8.1] - 2026-01-30
+
+### Fixed
+- Achievement categories now correctly match in-game achievement panel
+
+### Changed
+- UI and font size tweaks for better readability
+
 ## [0.8.0] - 2026-01-30
 
 ### Added

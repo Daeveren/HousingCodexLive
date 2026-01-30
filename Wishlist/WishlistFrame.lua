@@ -215,13 +215,13 @@ function WishlistFrame:CreateToolbar()
     bg:SetColorTexture(0.05, 0.05, 0.07, 0.9)
 
     -- Size label
-    local label = toolbar:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+    local label = addon:CreateFontString(toolbar, "OVERLAY", "GameFontNormal")
     label:SetPoint("LEFT", toolbar, "LEFT", GRID_OUTER_PAD, 0)
     label:SetText(L["SIZE_LABEL"])
     label:SetTextColor(0.8, 0.8, 0.8, 1)
 
     -- Size value display
-    local valueText = toolbar:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+    local valueText = addon:CreateFontString(toolbar, "OVERLAY", "GameFontNormal")
     valueText:SetPoint("LEFT", label, "RIGHT", 6, 0)
     valueText:SetTextColor(unpack(COLORS.GOLD))
     self.tileSizeValueText = valueText
@@ -248,7 +248,7 @@ function WishlistFrame:CreateToolbar()
     end)
 
     -- Item count (right side)
-    local countText = toolbar:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+    local countText = addon:CreateFontString(toolbar, "OVERLAY", "GameFontNormal")
     countText:SetPoint("RIGHT", toolbar, "RIGHT", -GRID_OUTER_PAD, 0)
     countText:SetTextColor(0.7, 0.7, 0.7, 1)
     self.itemCountText = countText
@@ -489,20 +489,18 @@ function WishlistFrame:SetupTileFrame(tile, tileSize)
     modelScene:TransitionToModelSceneID(MODEL_SCENE_ID, CAMERA_IMMEDIATE, CAMERA_DISCARD, true)
 
     -- Placed count
-    local placed = tile:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
+    local placed = addon:CreateFontString(tile, "OVERLAY", "GameFontHighlight")
     placed:SetPoint("BOTTOMRIGHT", -4, 3)
     placed:SetTextColor(0.4, 0.8, 0.4, 1)
-    local placedFont = placed:GetFont()
-    placed:SetFont(placedFont, 13, "OUTLINE")
+    addon:SetFontSize(placed, 13, "OUTLINE")
     placed:Hide()
     tile.placed = placed
 
     -- Quantity text
-    local qty = tile:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
+    local qty = addon:CreateFontString(tile, "OVERLAY", "GameFontHighlight")
     qty:SetPoint("BOTTOMRIGHT", -4, 3)
     qty:SetTextColor(unpack(COLORS.TEXT_DISABLED))
-    local font = qty:GetFont()
-    qty:SetFont(font, 13, "OUTLINE")
+    addon:SetFontSize(qty, 13, "OUTLINE")
     tile.quantity = qty
 
     -- Wishlist star badge
@@ -568,19 +566,19 @@ function WishlistFrame:CreatePreviewPanel()
     self.detailsName = name
 
     -- Owned count
-    local owned = addon:CreateFontString(detailsArea, "OVERLAY", "GameFontHighlightSmall")
+    local owned = addon:CreateFontString(detailsArea, "OVERLAY", "GameFontHighlight")
     owned:SetPoint("TOPLEFT", name, "BOTTOMLEFT", 0, -4)
     owned:SetTextColor(0.7, 0.7, 0.7)
     self.detailsOwned = owned
 
     -- Placed count
-    local placed = addon:CreateFontString(detailsArea, "OVERLAY", "GameFontHighlightSmall")
+    local placed = addon:CreateFontString(detailsArea, "OVERLAY", "GameFontHighlight")
     placed:SetPoint("LEFT", owned, "RIGHT", 8, 0)
     placed:SetTextColor(0.4, 0.8, 0.4)
     self.detailsPlaced = placed
 
     -- Source text (no MaxLines limit - sourceText can contain multiple lines with formatting)
-    local source = addon:CreateFontString(detailsArea, "OVERLAY", "GameFontHighlightSmall")
+    local source = addon:CreateFontString(detailsArea, "OVERLAY", "GameFontHighlight")
     source:SetPoint("TOPLEFT", owned, "BOTTOMLEFT", 0, -8)
     source:SetPoint("RIGHT", detailsArea, "RIGHT", 0, 0)
     source:SetJustifyH("LEFT")
@@ -668,13 +666,13 @@ function WishlistFrame:CreateEmptyState()
     bg:SetColorTexture(0.03, 0.03, 0.05, 0.95)
 
     -- Message
-    local msg = frame:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
+    local msg = addon:CreateFontString(frame, "OVERLAY", "GameFontNormalLarge")
     msg:SetPoint("CENTER", 0, 20)
     msg:SetText(L["WISHLIST_EMPTY"])
     msg:SetTextColor(0.6, 0.6, 0.6, 1)
 
     -- Description
-    local desc = frame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+    local desc = addon:CreateFontString(frame, "OVERLAY", "GameFontNormal")
     desc:SetPoint("TOP", msg, "BOTTOM", 0, -12)
     desc:SetText(L["WISHLIST_EMPTY_DESC"])
     desc:SetTextColor(0.5, 0.5, 0.5, 1)

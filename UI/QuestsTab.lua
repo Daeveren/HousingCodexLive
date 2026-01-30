@@ -11,7 +11,7 @@ local COLORS = CONSTS.COLORS
 -- Layout constants
 local TOOLBAR_HEIGHT = 32
 local SIDEBAR_WIDTH = CONSTS.SIDEBAR_WIDTH  -- 182 - same as main sidebar
-local EXPANSION_PANEL_WIDTH = 180           -- Left column for expansions
+local EXPANSION_PANEL_WIDTH = 198           -- Left column for expansions (10% wider)
 local HIERARCHY_PADDING = 8
 local HEADER_HEIGHT = 32  -- Expansion/zone header height
 local ROW_HEIGHT = 26     -- Quest row height
@@ -19,7 +19,6 @@ local GRID_OUTER_PAD = CONSTS.GRID_OUTER_PAD
 local WISHLIST_STAR_SIZE = 14  -- Small star for quest rows
 
 -- Button colors
-local COLOR_BG_NORMAL = { 0.06, 0.06, 0.08, 1 }
 local COLOR_GOLD_BORDER = { 1, 0.82, 0, 1 }
 
 -- Progress colors
@@ -111,13 +110,13 @@ local function CreateEmptyStateFrame(parent, messageKey, descKey, descWidth)
     bg:SetColorTexture(0.04, 0.04, 0.06, 0.95)
 
     local hasDesc = descKey ~= nil
-    local msg = frame:CreateFontString(nil, "OVERLAY", hasDesc and "GameFontNormal" or "GameFontNormalLarge")
+    local msg = addon:CreateFontString(frame, "OVERLAY", hasDesc and "GameFontNormal" or "GameFontNormalLarge")
     msg:SetPoint("CENTER", 0, hasDesc and 10 or 0)
     msg:SetText(L[messageKey])
     msg:SetTextColor(hasDesc and 0.6 or 0.5, hasDesc and 0.6 or 0.5, hasDesc and 0.6 or 0.5, 1)
 
     if hasDesc then
-        local desc = frame:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+        local desc = addon:CreateFontString(frame, "OVERLAY", "GameFontNormal")
         desc:SetPoint("TOP", msg, "BOTTOM", 0, -8)
         desc:SetText(L[descKey])
         desc:SetTextColor(0.5, 0.5, 0.5, 1)
@@ -199,9 +198,6 @@ function QuestsTab:Show()
         self.selectedExpansionKey = saved.selectedExpansionKey
         self.selectedQuestID = saved.selectedQuestID
         self.selectedRecordID = saved.selectedRecordID
-        if self.searchBox and saved.searchText then
-            self.searchBox:SetText(saved.searchText)
-        end
         self:SetCompletionFilter(saved.completionFilter or "incomplete")
     end
 
@@ -247,11 +243,18 @@ function QuestsTab:CreateToolbar(parent)
     searchBox.Instructions:SetText(L["QUESTS_SEARCH_PLACEHOLDER"])
     self.searchBox = searchBox
 
-    searchBox:SetScript("OnTextChanged", function(box, userInput)
+    searchBox:HookScript("OnTextChanged", function(box, userInput)
         if userInput then
             self:OnSearchTextChanged(box:GetText())
         end
     end)
+
+    -- Handle clear button click (X button)
+    if searchBox.clearButton then
+        searchBox.clearButton:HookScript("OnClick", function()
+            self:OnSearchTextChanged("")
+        end)
+    end
 
     searchBox:SetScript("OnEscapePressed", function(box)
         box:ClearFocus()
@@ -326,8 +329,6 @@ end
 
 function QuestsTab:OnSearchTextChanged(text)
     text = strtrim(text or "")
-    local db = GetQuestsDB()
-    if db then db.searchText = text end
     self:BuildExpansionDisplay()
     self:BuildZoneQuestDisplay()
 end
@@ -395,12 +396,12 @@ function QuestsTab:SetupExpansionButton(frame, elementData)
         border:Hide()
         frame.selectionBorder = border
 
-        local pct = frame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+        local pct = addon:CreateFontString(frame, "OVERLAY", "GameFontNormal")
         pct:SetPoint("RIGHT", -8, 0)
         pct:SetJustifyH("RIGHT")
         frame.percentLabel = pct
 
-        local label = frame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+        local label = addon:CreateFontString(frame, "OVERLAY", "GameFontNormal")
         label:SetPoint("LEFT", 10, 0)
         label:SetPoint("RIGHT", pct, "LEFT", -4, 0)
         label:SetJustifyH("LEFT")
@@ -418,14 +419,14 @@ function QuestsTab:SetupExpansionButton(frame, elementData)
     ApplyExpansionButtonState(frame, isSelected)
 
     frame.label:SetText(L[elementData.expansionKey] or elementData.expansionKey)
-    frame.label:SetFont(STANDARD_TEXT_FONT, 12, "")
+    addon:SetFontSize(frame.label, 13, "")
 
     -- Quest completion percentage
     local completed, total = addon:GetExpansionQuestCompletionProgress(elementData.expansionKey)
     local pctValue = total > 0 and (completed / total * 100) or 0
     frame.percentLabel:SetText(string.format("%.0f%%", pctValue))
     frame.percentLabel:SetTextColor(addon:GetCompletionProgressColor(pctValue))
-    frame.percentLabel:SetFont(STANDARD_TEXT_FONT, 11, "")
+    addon:SetFontSize(frame.percentLabel, 11, "")
 
     frame:SetScript("OnClick", function()
         self:SelectExpansion(elementData.expansionKey)
@@ -555,8 +556,8 @@ function QuestsTab:SetupZoneQuestButton(frame, elementData)
         frame.selectionBorder = border
 
         -- Collapse indicator (+/-) for zones, (o) for incomplete quests
-        local indicator = frame:CreateFontString(nil, "OVERLAY")
-        indicator:SetFont(STANDARD_TEXT_FONT, 14, "OUTLINE")
+        local indicator = addon:CreateFontString(frame, "OVERLAY", "GameFontNormal")
+        addon:SetFontSize(indicator, 14, "OUTLINE")
         indicator:SetPoint("LEFT", 8, 0)
         indicator:SetWidth(20)
         indicator:SetJustifyH("LEFT")
@@ -581,7 +582,7 @@ function QuestsTab:SetupZoneQuestButton(frame, elementData)
         frame.incompleteIcon = incompleteIcon
 
         -- Label
-        local label = frame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+        local label = addon:CreateFontString(frame, "OVERLAY", "GameFontNormal")
         label:SetPoint("LEFT", 28, 0)
         label:SetPoint("RIGHT", -80, 0)
         label:SetJustifyH("LEFT")
@@ -589,7 +590,7 @@ function QuestsTab:SetupZoneQuestButton(frame, elementData)
         frame.label = label
 
         -- Progress (right side)
-        local progress = frame:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+        local progress = addon:CreateFontString(frame, "OVERLAY", "GameFontNormal")
         progress:SetPoint("RIGHT", -8, 0)
         progress:SetJustifyH("RIGHT")
         frame.progress = progress
@@ -641,7 +642,7 @@ function QuestsTab:SetupZoneQuestButton(frame, elementData)
         -- Zone name (pure white)
         frame.label:SetText(elementData.zoneName)
         frame.label:SetTextColor(1, 1, 1, 1)
-        frame.label:SetFont(STANDARD_TEXT_FONT, 12, "")
+        addon:SetFontSize(frame.label, 12, "")
         frame.label:SetPoint("LEFT", 28, 0)
 
         -- Progress
@@ -699,7 +700,7 @@ function QuestsTab:SetupZoneQuestButton(frame, elementData)
             questTitle = questTitle .. " (" .. elementData.rewardIndex .. ")"
         end
         frame.label:SetText(questTitle)
-        frame.label:SetFont(STANDARD_TEXT_FONT, 11, "")
+        addon:SetFontSize(frame.label, 11, "")
         frame.label:SetPoint("LEFT", 40, 0)
 
         -- Wishlist star (show if item is wishlisted)

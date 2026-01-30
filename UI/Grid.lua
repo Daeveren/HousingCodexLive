@@ -104,20 +104,18 @@ local function SetupTileFrame(tile, tileSize)
     modelScene:TransitionToModelSceneID(MODEL_SCENE_ID, CAMERA_IMMEDIATE, CAMERA_MAINTAIN, forceSceneChange)
 
     -- Placed count at bottom right (green)
-    local placed = tile:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
+    local placed = addon:CreateFontString(tile, "OVERLAY", "GameFontHighlight")
     placed:SetPoint("BOTTOMRIGHT", -4, 3)
     placed:SetTextColor(0.4, 0.8, 0.4, 1)
-    local placedFont = placed:GetFont()
-    placed:SetFont(placedFont, 13, "OUTLINE")
+    addon:SetFontSize(placed, 13, "OUTLINE")
     placed:Hide()
     tile.placed = placed
 
     -- Quantity text at bottom right (larger, bold, subdued) - anchored dynamically
-    local qty = tile:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
+    local qty = addon:CreateFontString(tile, "OVERLAY", "GameFontHighlight")
     qty:SetPoint("BOTTOMRIGHT", -4, 3)
     qty:SetTextColor(unpack(COLORS.TEXT_DISABLED))
-    local font = qty:GetFont()
-    qty:SetFont(font, 13, "OUTLINE")
+    addon:SetFontSize(qty, 13, "OUTLINE")
     tile.quantity = qty
 
     -- Wishlist star badge (top-right corner)
@@ -155,13 +153,13 @@ function Grid:CreateToolbar(parent)
     -- === LEFT SIDE: Size slider + Collection buttons + Filter dropdown ===
 
     -- Size label (shortened from "Tile Size:")
-    local label = toolbar:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+    local label = addon:CreateFontString(toolbar, "OVERLAY", "GameFontNormalSmall")
     label:SetPoint("LEFT", toolbar, "LEFT", GRID_OUTER_PAD, 0)
     label:SetText(L["SIZE_LABEL"])
     label:SetTextColor(0.8, 0.8, 0.8, 1)
 
     -- Size value display
-    local valueText = toolbar:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+    local valueText = addon:CreateFontString(toolbar, "OVERLAY", "GameFontNormalSmall")
     valueText:SetPoint("LEFT", label, "RIGHT", 6, 0)
     valueText:SetTextColor(1, 0.82, 0, 1)
     valueText:SetText(tostring(self.tileSize))
@@ -214,7 +212,7 @@ function Grid:CreateToolbar(parent)
     self.sortDropdown = sortDropdown
 
     -- "Sort by" label (left of sort dropdown)
-    local sortLabel = toolbar:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+    local sortLabel = addon:CreateFontString(toolbar, "OVERLAY", "GameFontNormalSmall")
     sortLabel:SetPoint("RIGHT", sortDropdown, "LEFT", -6, 0)
     sortLabel:SetText(L["SORT_BY_LABEL"])
     sortLabel:SetTextColor(0.8, 0.8, 0.8, 1)
@@ -611,7 +609,7 @@ function Grid:CreateEmptyState(parent)
     bg:SetColorTexture(0.03, 0.03, 0.05, 0.9)
 
     -- Message text
-    local msg = frame:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
+    local msg = addon:CreateFontString(frame, "OVERLAY", "GameFontNormalLarge")
     msg:SetPoint("CENTER", frame, "CENTER", 0, 20)
     msg:SetText(addon.L["EMPTY_STATE_MESSAGE"])
     msg:SetTextColor(0.6, 0.6, 0.6, 1)

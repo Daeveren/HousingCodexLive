@@ -6,18 +6,20 @@
 
 local ADDON_NAME, addon = ...
 
--- Category display order (by decor count, descending)
+-- Category display order (WoW's official achievement categories)
 local CATEGORY_ORDER = {
-    ["Class Hall"] = 1,   -- 47 items
-    ["Delves"] = 2,       -- 31 items
-    ["Quests"] = 3,       -- 27 items
-    ["PvP"] = 4,          -- 24 items
-    ["Special"] = 5,      -- 20 items
-    ["Professions"] = 6,  -- 16 items
-    ["Exploration"] = 7,  -- 13 items
-    ["Reputation"] = 8,   -- 8 items
-    ["Dungeons"] = 9,     -- 5 items
-    ["Timewalking"] = 10, -- 2 items
+    ["General"] = 1,
+    ["Quests"] = 2,
+    ["Exploration"] = 3,
+    ["Player vs. Player"] = 4,
+    ["Dungeons & Raids"] = 5,
+    ["Professions"] = 6,
+    ["Reputation"] = 7,
+    ["World Events"] = 8,
+    ["Pet Battles"] = 9,
+    ["Collections"] = 10,
+    ["Expansion Features"] = 11,
+    ["Feats of Strength"] = 12,
 }
 
 -- Runtime data structures
@@ -70,6 +72,22 @@ function addon:BuildAchievementIndex()
         achievementCount, decorCount, elapsedMs))
 end
 
+-- Get top-level category name from WoW API
+-- Walks up the category hierarchy to find the root category
+function addon:GetWoWAchievementCategory(achievementId)
+    local categoryId = GetAchievementCategory(achievementId)
+    if not categoryId then return nil end
+
+    -- Walk up hierarchy to find top-level category (where parentCategoryId == -1)
+    local categoryName, parentCategoryId = GetCategoryInfo(categoryId)
+
+    while parentCategoryId and parentCategoryId ~= -1 do
+        categoryName, parentCategoryId = GetCategoryInfo(parentCategoryId)
+    end
+
+    return categoryName
+end
+
 -- Build achievement hierarchy (category -> achievements)
 function addon:BuildAchievementHierarchy()
     local startTime = debugprofilestop()
@@ -77,12 +95,11 @@ function addon:BuildAchievementHierarchy()
     -- Clear existing hierarchy
     wipe(self.achievementHierarchy)
 
-    -- Group achievements by category
+    -- Group achievements by category using WoW API
     for achievementId in pairs(self.achievementIndex) do
-        local achievementData = self.AchievementSourceData[achievementId]
-        if achievementData and achievementData.category then
-            local category = achievementData.category
+        local category = self:GetWoWAchievementCategory(achievementId)
 
+        if category then
             if not self.achievementHierarchy[category] then
                 self.achievementHierarchy[category] = {}
             end
@@ -153,11 +170,8 @@ function addon:GetAchievementName(achievementId)
     return name or string.format(self.L["ACHIEVEMENTS_UNKNOWN"], achievementId)
 end
 
--- Get achievement category from AchievementSourceData
-function addon:GetAchievementCategory(achievementId)
-    local achievementData = self.AchievementSourceData and self.AchievementSourceData[achievementId]
-    return achievementData and achievementData.category or nil
-end
+-- Alias for consistency with naming conventions in other modules
+addon.GetAchievementCategory = addon.GetWoWAchievementCategory
 
 -- Check if achievement is completed (uses WoW API, cached)
 -- Returns: true (complete), false (incomplete), or nil (invalid achievement)
