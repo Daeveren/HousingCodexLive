@@ -5,13 +5,10 @@
 
 local ADDON_NAME, addon = ...
 
-local L = addon.L
-local COLORS = addon.CONSTANTS.COLORS
-
 addon.Filters = {}
 local Filters = addon.Filters
 
--- Filter states (mutually exclusive: only one can be active)
+-- Filter states (can be combined: both, one, or none)
 Filters.showCollected = false
 Filters.showUncollected = true
 Filters.trackableState = "all"   -- "all", "trackable", "not_trackable"
@@ -19,34 +16,8 @@ Filters.showWishlistOnly = false
 Filters.showPlacedOnly = false
 Filters.initialized = false
 
--- Toggle button containers (created lazily)
-Filters.collectionToggles = nil
-Filters.toggleContainer = nil
-
--- Toggle button styling constants
-local TOGGLE_MIN_WIDTH = 50
-local TOGGLE_PADDING_H = 12  -- 6px each side
-local TOGGLE_HEIGHT = 20
-local TOGGLE_SPACING = 4
-
--- Toggle button colors (derived from DaevTools palette)
-local COLOR_BTN_NORMAL = { 0.15, 0.15, 0.18, 0.9 }
-local COLOR_BTN_HOVER = { 0.2, 0.2, 0.24, 1 }
-local COLOR_BTN_ACTIVE = { 0.25, 0.22, 0.1, 1 }
-local COLOR_TEXT_NORMAL = { 0.5, 0.5, 0.5, 1 }
-local COLOR_TEXT_ACTIVE = COLORS.GOLD
-local COLOR_BORDER_NORMAL = COLORS.BORDER
-local COLOR_BORDER_ACTIVE = { 0.6, 0.5, 0.1, 1 }
-
 -- Valid states for trackable filter
 local TRACKABLE_STATES = { all = true, trackable = true, not_trackable = true }
-
-local BUTTON_BACKDROP = {
-    bgFile = "Interface\\Buttons\\WHITE8x8",
-    edgeFile = "Interface\\Tooltips\\UI-Tooltip-Border",
-    edgeSize = 10,
-    insets = { left = 2, right = 2, top = 2, bottom = 2 }
-}
 
 -- Migrate old collectionState format to new showCollected/showUncollected booleans
 local function MigrateCollectionState(filters)
@@ -64,13 +35,12 @@ function Filters:Initialize()
     local filters = addon.db and addon.db.browser and addon.db.browser.filters
     if filters then
         MigrateCollectionState(filters)
-        -- Mutually exclusive: if collected is explicitly true, use that; otherwise default to uncollected
-        if filters.showCollected then
-            self.showCollected = true
-            self.showUncollected = false
-        else
-            self.showCollected = false
-            self.showUncollected = true
+        -- Load saved state (both can be true/false independently)
+        if filters.showCollected ~= nil then
+            self.showCollected = filters.showCollected
+        end
+        if filters.showUncollected ~= nil then
+            self.showUncollected = filters.showUncollected
         end
         self.trackableState = filters.trackableState or "all"
         self.showWishlistOnly = filters.showWishlistOnly or false
@@ -82,66 +52,7 @@ function Filters:Initialize()
 end
 
 --------------------------------------------------------------------------------
--- Toggle Button Helper
---------------------------------------------------------------------------------
-
--- Creates a single toggle button
--- @param parent: Parent frame
--- @param label: Button text
--- @param isActive: Function returning current toggle state (boolean)
--- @param onToggle: Function called when button clicked
--- @return button: The button frame
-local function CreateToggleButton(parent, label, isActive, onToggle)
-    local btn = CreateFrame("Button", nil, parent, "BackdropTemplate")
-    btn:SetBackdrop(BUTTON_BACKDROP)
-
-    -- Create text first to measure width
-    local text = addon:CreateFontString(btn, "OVERLAY", "GameFontNormal")
-    text:SetText(label)
-
-    -- Calculate width from text, respecting minimum
-    local textWidth = text:GetStringWidth()
-    local btnWidth = math.max(TOGGLE_MIN_WIDTH, textWidth + TOGGLE_PADDING_H)
-    btn:SetSize(btnWidth, TOGGLE_HEIGHT)
-
-    text:SetPoint("CENTER")
-    btn.text = text
-
-    -- Update visuals based on active state
-    local function UpdateVisuals()
-        if isActive() then
-            btn:SetBackdropColor(unpack(COLOR_BTN_ACTIVE))
-            btn:SetBackdropBorderColor(unpack(COLOR_BORDER_ACTIVE))
-            btn.text:SetTextColor(unpack(COLOR_TEXT_ACTIVE))
-        else
-            btn:SetBackdropColor(unpack(COLOR_BTN_NORMAL))
-            btn:SetBackdropBorderColor(unpack(COLOR_BORDER_NORMAL))
-            btn.text:SetTextColor(unpack(COLOR_TEXT_NORMAL))
-        end
-    end
-    btn.UpdateVisuals = UpdateVisuals
-
-    btn:SetScript("OnClick", function()
-        onToggle()
-        UpdateVisuals()
-    end)
-
-    btn:SetScript("OnEnter", function(self)
-        if not isActive() then
-            self:SetBackdropColor(unpack(COLOR_BTN_HOVER))
-        end
-    end)
-
-    btn:SetScript("OnLeave", function(self)
-        UpdateVisuals()
-    end)
-
-    UpdateVisuals()
-    return btn
-end
-
---------------------------------------------------------------------------------
--- Collection Filter (Toggle Checkboxes)
+-- Collection Filter
 --------------------------------------------------------------------------------
 
 -- Helper to set a collection filter flag, persist it, and apply
@@ -158,24 +69,10 @@ local function SetCollectionFlag(filterKey, value)
 end
 
 function Filters:SetShowCollected(show)
-    -- Enforce mutual exclusivity: if enabling collected, disable uncollected
-    if show then
-        Filters.showUncollected = false
-        if addon.db and addon.db.browser and addon.db.browser.filters then
-            addon.db.browser.filters.showUncollected = false
-        end
-    end
     SetCollectionFlag("showCollected", show)
 end
 
 function Filters:SetShowUncollected(show)
-    -- Enforce mutual exclusivity: if enabling uncollected, disable collected
-    if show then
-        Filters.showCollected = false
-        if addon.db and addon.db.browser and addon.db.browser.filters then
-            addon.db.browser.filters.showCollected = false
-        end
-    end
     SetCollectionFlag("showUncollected", show)
 end
 
@@ -188,62 +85,6 @@ function Filters:ApplyCollectionFilter()
     addon.catalogSearcher:SetCollected(self.showCollected)
     addon.catalogSearcher:SetUncollected(self.showUncollected)
     addon.catalogSearcher:RunSearch()
-end
-
-function Filters:CreateCollectionButtons(parent)
-    if self.collectionToggles then return self.toggleContainer end
-
-    local container = CreateFrame("Frame", nil, parent)
-
-    -- Collected toggle (mutually exclusive with uncollected)
-    local collectedBtn = CreateToggleButton(
-        container,
-        L["FILTER_COLLECTED"],
-        function() return self.showCollected end,
-        function()
-            if not self.showCollected then
-                self:SetShowCollected(true)
-                self:UpdateCollectionButtons()
-            end
-        end
-    )
-    collectedBtn:SetPoint("LEFT", container, "LEFT", 0, 0)
-
-    -- Uncollected toggle (mutually exclusive with collected)
-    local uncollectedBtn = CreateToggleButton(
-        container,
-        L["FILTER_UNCOLLECTED"],
-        function() return self.showUncollected end,
-        function()
-            if not self.showUncollected then
-                self:SetShowUncollected(true)
-                self:UpdateCollectionButtons()
-            end
-        end
-    )
-    uncollectedBtn:SetPoint("LEFT", collectedBtn, "RIGHT", TOGGLE_SPACING, 0)
-
-    -- Calculate container width dynamically from button sizes
-    local totalWidth = collectedBtn:GetWidth() + TOGGLE_SPACING + uncollectedBtn:GetWidth()
-    container:SetSize(totalWidth, TOGGLE_HEIGHT)
-
-    self.toggleContainer = container
-    self.collectionToggles = {
-        collected = collectedBtn,
-        uncollected = uncollectedBtn,
-    }
-
-    return container
-end
-
-function Filters:UpdateCollectionButtons()
-    if not self.collectionToggles then return end
-
-    for _, btn in pairs(self.collectionToggles) do
-        if btn.UpdateVisuals then
-            btn.UpdateVisuals()
-        end
-    end
 end
 
 --------------------------------------------------------------------------------
@@ -342,23 +183,42 @@ end
 function Filters:PassesSearcherFilters(record)
     if not record then return false end
 
-    -- Collection filter (mutually exclusive toggles)
-    if self.showCollected and not self.showUncollected then
-        if not record.isCollected then return false end
-    elseif self.showUncollected and not self.showCollected then
-        if record.isCollected then return false end
-    end
+    -- Collection filter: record must match at least one enabled state
+    -- (both enabled = show all, neither enabled = show nothing)
+    local matchesCollection = (self.showCollected and record.isCollected)
+                           or (self.showUncollected and not record.isCollected)
+    if not matchesCollection then return false end
 
     -- Indoor/outdoor and dyeable filters (from searcher state)
     local searcher = addon.catalogSearcher
     if searcher then
-        local allowIndoors = searcher:IsAllowedIndoorsActive()
-        local allowOutdoors = searcher:IsAllowedOutdoorsActive()
         local isIndoorOnly = record.isIndoors and not record.isOutdoors
         local isOutdoorOnly = record.isOutdoors and not record.isIndoors
-        if not allowIndoors and isIndoorOnly then return false end
-        if not allowOutdoors and isOutdoorOnly then return false end
+        if not searcher:IsAllowedIndoorsActive() and isIndoorOnly then return false end
+        if not searcher:IsAllowedOutdoorsActive() and isOutdoorOnly then return false end
         if searcher:IsCustomizableOnlyActive() and not record.canCustomize then return false end
+    end
+
+    return true
+end
+
+-- Check if advanced filters are at default (for client-side search safety)
+function Filters:AreAdvancedFiltersAtDefault()
+    local searcher = addon.catalogSearcher
+    if not searcher then return true end
+
+    -- First Acquisition must be disabled (default is false)
+    if searcher:IsFirstAcquisitionBonusOnlyActive() then return false end
+
+    -- All tag filters must be enabled (default is true)
+    if addon.FilterBar and addon.FilterBar.tagGroups then
+        for _, group in ipairs(addon.FilterBar.tagGroups) do
+            for _, tag in pairs(group.tags) do
+                if not searcher:GetFilterTagStatus(group.groupID, tag.tagID) then
+                    return false
+                end
+            end
+        end
     end
 
     return true
@@ -385,6 +245,7 @@ function Filters:SaveState()
         db.indoors = searcher:IsAllowedIndoorsActive()
         db.outdoors = searcher:IsAllowedOutdoorsActive()
         db.dyeable = searcher:IsCustomizableOnlyActive()
+        db.firstAcquisition = searcher:IsFirstAcquisitionBonusOnlyActive()
 
         -- Save tag filter states
         if addon.FilterBar and addon.FilterBar.tagGroups then
@@ -413,16 +274,14 @@ function Filters:RestoreState()
         searcher:SetAutoUpdateOnParamChanges(false)
     end
 
-    -- Restore collection toggles (mutually exclusive)
+    -- Restore collection filters (can be combined)
     MigrateCollectionState(db)
-    if db.showCollected then
-        self.showCollected = true
-        self.showUncollected = false
-    else
-        self.showCollected = false
-        self.showUncollected = true
+    if db.showCollected ~= nil then
+        self.showCollected = db.showCollected
     end
-    self:UpdateCollectionButtons()
+    if db.showUncollected ~= nil then
+        self.showUncollected = db.showUncollected
+    end
 
     -- Apply collection filter to searcher
     if searcher then
@@ -450,6 +309,7 @@ function Filters:RestoreState()
         searcher:SetAllowedIndoors(db.indoors ~= false)
         searcher:SetAllowedOutdoors(db.outdoors ~= false)
         searcher:SetCustomizableOnly(db.dyeable or false)
+        searcher:SetFirstAcquisitionBonusOnly(db.firstAcquisition or false)
 
         -- Restore tag filters
         if db.tagFilters and addon.FilterBar and addon.FilterBar.tagGroups then
@@ -470,11 +330,6 @@ function Filters:RestoreState()
         -- Re-enable auto-update and run search once
         searcher:SetAutoUpdateOnParamChanges(true)
         searcher:RunSearch()
-    end
-
-    -- Update FilterBar reset button state
-    if addon.FilterBar and addon.FilterBar.dropdownButton then
-        addon.FilterBar.dropdownButton:ValidateResetState()
     end
 
     addon:Debug("Filter state restored")
@@ -501,10 +356,9 @@ function Filters:ResetAllFilters()
         end
     end
 
-    -- Reset collection toggles (default to showing uncollected)
+    -- Reset collection filters (default to showing uncollected)
     self.showCollected = false
     self.showUncollected = true
-    self:UpdateCollectionButtons()
 
     -- Apply collection filter to searcher
     if searcher then
@@ -537,23 +391,6 @@ function Filters:ResetAllFilters()
     self:SaveState()
 
     addon:Debug("All filters reset to defaults")
-end
-
-function Filters:ResetFilters()
-    -- Legacy method - redirect to full reset
-    self:ResetAllFilters()
-end
-
-function Filters:Show()
-    if self.toggleContainer then
-        self.toggleContainer:Show()
-    end
-end
-
-function Filters:Hide()
-    if self.toggleContainer then
-        self.toggleContainer:Hide()
-    end
 end
 
 -- Apply saved filters after data loads

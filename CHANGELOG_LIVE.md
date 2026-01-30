@@ -2,6 +2,11 @@
 
 All notable changes to Housing Codex.
 
+## [0.8.2] - 2026-01-30
+
+### Fixed
+- Bug fixes and UI tweaks
+
 ## [0.8.1] - 2026-01-30
 
 ### Fixed

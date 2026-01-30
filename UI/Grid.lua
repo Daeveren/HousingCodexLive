@@ -189,14 +189,9 @@ function Grid:CreateToolbar(parent)
         end)
     end)
 
-    -- Collection filter buttons
-    local filterContainer = addon.Filters:CreateCollectionButtons(toolbar)
-    filterContainer:SetPoint("LEFT", slider, "RIGHT", 16, 0)
-    self.filterContainer = filterContainer
-
-    -- Tag/trackable filter dropdown
+    -- Filter dropdown (includes collection, trackable, special filters, tags)
     local filterDropdown = addon.FilterBar:CreateDropdown(toolbar)
-    filterDropdown:SetPoint("LEFT", filterContainer, "RIGHT", 12, 0)
+    filterDropdown:SetPoint("LEFT", slider, "RIGHT", 16, 0)
     self.filterDropdown = filterDropdown
 
     -- === RIGHT SIDE: Preview toggle + Sort dropdown + Sort label ===
@@ -831,7 +826,6 @@ function Grid:Show()
     if self.toolbar then self.toolbar:Show() end
     if self.container then self.container:Show() end
     if self.scrollBar then self.scrollBar:Show() end
-    if addon.Filters then addon.Filters:Show() end
     self:UpdateEmptyState()
 end
 
@@ -840,7 +834,6 @@ function Grid:Hide()
     if self.container then self.container:Hide() end
     if self.scrollBar then self.scrollBar:Hide() end
     if self.emptyState then self.emptyState:Hide() end
-    if addon.Filters then addon.Filters:Hide() end
 end
 
 -- Event handlers
@@ -884,7 +877,7 @@ addon:RegisterInternalEvent("SEARCH_RESULTS_UPDATED", function(recordIDs)
     -- Supplement native searcher results with client-side text search matches
     local searchText = addon.SearchBox and addon.SearchBox:GetText() or ""
     searchText = strtrim(searchText)
-    if searchText ~= "" and addon.indexesBuilt then
+    if searchText ~= "" and addon.indexesBuilt and addon.Filters:AreAdvancedFiltersAtDefault() then
         local clientIDs = addon:SearchByText(searchText)
         local filteredClientIDs = addon.Filters:FilterBySearcherRules(clientIDs)
         recordIDs = Grid:MergeResults(recordIDs, filteredClientIDs)

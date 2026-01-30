@@ -46,10 +46,6 @@ function FilterBar:CreateDropdown(parent)
     dropdown:SetText(L["FILTERS"])
     self.dropdownButton = dropdown
 
-    -- Setup isDefault and reset callbacks for the reset button
-    dropdown:SetIsDefaultCallback(function() return self:IsAtDefault() end)
-    dropdown:SetDefaultCallback(function() self:ResetToDefault() end)
-
     -- Setup the menu
     dropdown:SetupMenu(function(dropdownFrame, rootDescription)
         self:SetupMenu(rootDescription)
@@ -72,6 +68,26 @@ local SPECIAL_FILTERS = {
 function FilterBar:SetupMenu(rootDescription)
     local searcher = addon.catalogSearcher
     if not searcher then return end
+
+    -- Collection filters (can be combined: both, one, or none)
+    rootDescription:CreateCheckbox(
+        L["FILTER_COLLECTED"],
+        function() return addon.Filters.showCollected end,
+        function()
+            addon.Filters:SetShowCollected(not addon.Filters.showCollected)
+            addon.Filters:SaveState()
+        end
+    )
+    rootDescription:CreateCheckbox(
+        L["FILTER_NOT_COLLECTED"],
+        function() return addon.Filters.showUncollected end,
+        function()
+            addon.Filters:SetShowUncollected(not addon.Filters.showUncollected)
+            addon.Filters:SaveState()
+        end
+    )
+
+    rootDescription:CreateSpacer()
 
     -- Wishlist-only filter (post-search filter via addon.Filters)
     rootDescription:CreateCheckbox(
@@ -169,48 +185,16 @@ function FilterBar:SetupMenu(rootDescription)
     end
 end
 
-function FilterBar:IsAtDefault()
-    local searcher = addon.catalogSearcher
-    if not searcher then return true end
-
-    -- Check wishlist-only filter (default is false)
-    if addon.Filters.showWishlistOnly then
-        return false
-    end
-
-    -- Check trackable filter (default is "all")
-    if addon.Filters.trackableState ~= "all" then
-        return false
-    end
-
-    -- Check special filters using their default values
-    for _, filter in ipairs(SPECIAL_FILTERS) do
-        local isActive = searcher[filter.getter](searcher)
-        if isActive ~= filter.default then
-            return false
-        end
-    end
-
-    -- Check tag groups - all tags should be enabled in default state
-    if self.tagGroups then
-        for _, tagGroup in ipairs(self.tagGroups) do
-            for _, tagInfo in pairs(tagGroup.tags) do
-                if not searcher:GetFilterTagStatus(tagGroup.groupID, tagInfo.tagID) then
-                    return false
-                end
-            end
-        end
-    end
-
-    return true
-end
-
 function FilterBar:ResetToDefault()
     local searcher = addon.catalogSearcher
     if not searcher then return end
 
     -- Disable auto-update to batch all changes into a single search
     searcher:SetAutoUpdateOnParamChanges(false)
+
+    -- Reset collection filters (default: collected=false, uncollected=true)
+    addon.Filters:SetShowCollected(false)
+    addon.Filters:SetShowUncollected(true)
 
     -- Reset wishlist-only filter (post-search filter)
     addon.Filters:SetWishlistOnly(false)
@@ -235,10 +219,6 @@ function FilterBar:ResetToDefault()
     searcher:SetAutoUpdateOnParamChanges(true)
     searcher:RunSearch()
 
-    if self.dropdownButton then
-        self.dropdownButton:ValidateResetState()
-    end
-
     -- Save the reset state
     addon.Filters:SaveState()
 
@@ -248,8 +228,4 @@ end
 -- Initialize after data loads
 addon:RegisterInternalEvent("DATA_LOADED", function()
     FilterBar:Initialize()
-    -- Validate reset button state after initialization
-    if FilterBar.dropdownButton then
-        FilterBar.dropdownButton:ValidateResetState()
-    end
 end)

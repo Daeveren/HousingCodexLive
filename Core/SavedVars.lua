@@ -27,6 +27,7 @@ local defaults = {
             showUncollected = true,
             trackableState = "all",
             showWishlistOnly = false,
+            showPlacedOnly = false,
             searchText = "",
             indoors = true,
             outdoors = true,

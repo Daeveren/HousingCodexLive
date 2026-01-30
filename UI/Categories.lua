@@ -369,11 +369,13 @@ function Categories:CreateCategoryButton(label, iconAtlas)
     -- Label (default to grayed out, selected buttons get white text)
     if not btn.label then
         local text = addon:CreateFontString(btn, "OVERLAY", "GameFontNormal")
-        text:SetPoint("RIGHT", -PADDING, 0)
         text:SetJustifyH("LEFT")
         btn.label = text
     end
+    -- Clear and reset anchors on each reuse (Blizzard pattern for pooled frames)
+    btn.label:ClearAllPoints()
     btn.label:SetPoint("LEFT", iconOffset, 0)
+    btn.label:SetPoint("RIGHT", -PADDING, 0)
     btn.label:SetText(label or "")
     btn.label:SetTextColor(0.6, 0.6, 0.6, 1)  -- Grayed out by default
 
