@@ -2,6 +2,15 @@
 
 All notable changes to Housing Codex.
 
+## [0.8.5] - 2026-01-31
+
+### Changed
+- Adjusted preview panel width presets (Small: 300px, Medium: 500px, Large: 700px)
+- Decor details panel in the preview section now adapts to panel width (two rows when narrow, one row when wide)
+
+### Fixed
+- Several code improvements to make the addon use less resources
+
 ## [0.8.4] - 2026-01-31
 
 ### Changed

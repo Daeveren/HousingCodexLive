@@ -8,42 +8,28 @@ local ADDON_NAME, addon = ...
 local CONSTS = addon.CONSTANTS
 local COLORS = CONSTS.COLORS
 
--- Layout constants
-local TOOLBAR_HEIGHT = 32
-local SIDEBAR_WIDTH = CONSTS.SIDEBAR_WIDTH  -- 182 - same as main sidebar
-local CATEGORY_PANEL_WIDTH = 198            -- Left column for categories (10% wider)
-local HIERARCHY_PADDING = 8
-local ROW_HEIGHT = 26     -- Achievement row height
+-- Layout constants (using centralized values where available)
+local TOOLBAR_HEIGHT = CONSTS.HEADER_HEIGHT
+local SIDEBAR_WIDTH = CONSTS.SIDEBAR_WIDTH
+local CATEGORY_PANEL_WIDTH = CONSTS.HIERARCHY_PANEL_WIDTH
+local HIERARCHY_PADDING = CONSTS.HIERARCHY_PADDING
+local ROW_HEIGHT = CONSTS.HIERARCHY_ROW_HEIGHT
 local GRID_OUTER_PAD = CONSTS.GRID_OUTER_PAD
-local WISHLIST_STAR_SIZE = 14  -- Small star for achievement rows
-local CATEGORY_BUTTON_HEIGHT = 32  -- Category button height
+local WISHLIST_STAR_SIZE = CONSTS.WISHLIST_STAR_SIZE_HIERARCHY
+local CATEGORY_BUTTON_HEIGHT = CONSTS.HIERARCHY_HEADER_HEIGHT
 
 -- Category IDs are used for logic, GetCategoryInfo(id) gets localized names for display
-
--- Button colors
-local COLOR_GOLD_BORDER = { 1, 0.82, 0, 1 }
-
--- Progress colors (used for collection progress display)
-local COLOR_PROGRESS_COMPLETE = { 0.2, 1, 0.2, 1 }   -- Green for 100%
-local COLOR_PROGRESS_LOW = { 0.7, 0.7, 0.7, 1 }      -- Gray for incomplete
-
--- Solid colors for category buttons
-local COLOR_CATEGORY_NORMAL = { 0.14, 0.14, 0.16, 0.9 }
-local COLOR_CATEGORY_HOVER = { 0.19, 0.19, 0.21, 1 }
-
--- Selected achievement row background
-local COLOR_ACHIEVEMENT_SELECTED = { 0.20, 0.20, 0.22, 1 }
 
 -- Helper to apply category button visual state
 local function ApplyCategoryButtonState(frame, isSelected)
     if isSelected then
-        frame.bg:SetColorTexture(unpack(COLOR_CATEGORY_HOVER))
+        frame.bg:SetColorTexture(unpack(COLORS.PANEL_HOVER))
         frame.selectionBorder:Show()
-        frame.label:SetTextColor(1, 0.82, 0, 1)
+        frame.label:SetTextColor(unpack(COLORS.GOLD))
     else
-        frame.bg:SetColorTexture(unpack(COLOR_CATEGORY_NORMAL))
+        frame.bg:SetColorTexture(unpack(COLORS.PANEL_NORMAL))
         frame.selectionBorder:Hide()
-        frame.label:SetTextColor(0.9, 0.9, 0.9, 1)
+        frame.label:SetTextColor(unpack(COLORS.TEXT_SECONDARY))
     end
 end
 
@@ -51,9 +37,9 @@ end
 local function ApplyAchievementRowState(frame, isSelected)
     addon:ResetBackgroundTexture(frame.bg)
     if isSelected then
-        frame.bg:SetColorTexture(unpack(COLOR_ACHIEVEMENT_SELECTED))
+        frame.bg:SetColorTexture(unpack(COLORS.ROW_SELECTED))
         frame.selectionBorder:Show()
-        frame.label:SetTextColor(unpack(COLOR_GOLD_BORDER))
+        frame.label:SetTextColor(unpack(COLORS.GOLD))
     else
         frame.bg:SetColorTexture(0.08, 0.08, 0.10, 0.9)
         frame.selectionBorder:Hide()
@@ -62,15 +48,7 @@ local function ApplyAchievementRowState(frame, isSelected)
     end
 end
 
--- Helper to update wishlist star visibility and position
-local function UpdateWishlistStar(frame, isWishlisted)
-    if not frame or not frame.wishlistStar or not frame.label then return end
-    frame.wishlistStar:SetShown(isWishlisted)
-    if isWishlisted then
-        frame.wishlistStar:ClearAllPoints()
-        frame.wishlistStar:SetPoint("LEFT", frame.label, "LEFT", frame.label:GetStringWidth() + 4, 0)
-    end
-end
+-- Wishlist star helper is now provided by TabBaseMixin:UpdateWishlistStar()
 
 -- Helper to initialize shared achievement row visuals
 local function InitializeAchievementRowFrame(frame)
@@ -86,7 +64,7 @@ local function InitializeAchievementRowFrame(frame)
     border:SetWidth(3)
     border:SetPoint("TOPLEFT", 0, 0)
     border:SetPoint("BOTTOMLEFT", 0, 0)
-    border:SetColorTexture(unpack(COLOR_GOLD_BORDER))
+    border:SetColorTexture(unpack(COLORS.GOLD))
     border:Hide()
     frame.selectionBorder = border
 
@@ -175,14 +153,14 @@ local function SetupAchievementRow(self, frame, elementData)
     -- Wishlist star
     if frame.wishlistStar and elementData.recordID then
         local isWishlisted = addon:IsWishlisted(elementData.recordID)
-        UpdateWishlistStar(frame, isWishlisted)
+        addon.TabBaseMixin:UpdateWishlistStar(frame, isWishlisted)
     end
 
     -- Progress (collection progress for the achievement's decors)
     local owned, total = addon:GetAchievementCollectionProgress(elementData.achievementID)
     frame.progress:SetText(string.format("%d/%d", owned, total))
     local progressComplete = owned == total and total > 0
-    frame.progress:SetTextColor(unpack(progressComplete and COLOR_PROGRESS_COMPLETE or COLOR_PROGRESS_LOW))
+    frame.progress:SetTextColor(unpack(progressComplete and COLORS.PROGRESS_COMPLETE or COLORS.TEXT_TERTIARY))
 
     frame:SetScript("OnMouseDown", function(f, button)
         if button == "RightButton" then
@@ -301,6 +279,10 @@ local function SetupAchievementRow(self, frame, elementData)
 end
 addon.AchievementsTab = {}
 local AchievementsTab = addon.AchievementsTab
+
+-- Apply shared mixin for common tab functionality
+Mixin(AchievementsTab, addon.TabBaseMixin)
+AchievementsTab.tabName = "AchievementsTab"
 
 -- Helper to get achievements db state
 local function GetAchievementsDB()
@@ -471,16 +453,7 @@ function AchievementsTab:CreateToolbar(parent)
     end)
 end
 
--- Update toolbar element visibility based on available width
-function AchievementsTab:UpdateToolbarLayout(toolbarWidth)
-    local newLayout = addon:UpdateSimpleToolbarLayout(
-        self.toolbarLayout, toolbarWidth, self.searchBox, self.filterContainer
-    )
-    if newLayout then
-        self.toolbarLayout = newLayout
-        addon:Debug("AchievementsTab toolbar layout: " .. newLayout .. " (width: " .. math.floor(toolbarWidth) .. ")")
-    end
-end
+-- Note: UpdateToolbarLayout is provided by TabBaseMixin
 
 function AchievementsTab:SetCompletionFilter(filterKey)
     for key, btn in pairs(self.filterButtons) do
@@ -560,7 +533,7 @@ function AchievementsTab:SetupCategoryButton(frame, elementData)
         border:SetWidth(3)
         border:SetPoint("TOPLEFT", 0, 0)
         border:SetPoint("BOTTOMLEFT", 0, 0)
-        border:SetColorTexture(unpack(COLOR_GOLD_BORDER))
+        border:SetColorTexture(unpack(COLORS.GOLD))
         border:Hide()
         frame.selectionBorder = border
 
@@ -604,7 +577,7 @@ function AchievementsTab:SetupCategoryButton(frame, elementData)
 
     frame:SetScript("OnEnter", function(f)
         if self.selectedCategory ~= f.categoryId then
-            f.bg:SetColorTexture(unpack(COLOR_CATEGORY_HOVER))
+            f.bg:SetColorTexture(unpack(COLORS.PANEL_HOVER))
         end
     end)
 
@@ -939,7 +912,7 @@ addon:RegisterInternalEvent("WISHLIST_CHANGED", function(recordID, isWishlisted)
     if AchievementsTab:IsShown() and AchievementsTab.achievementScrollBox then
         AchievementsTab.achievementScrollBox:ForEachFrame(function(frame)
             if frame.recordID == recordID and frame.wishlistStar then
-                UpdateWishlistStar(frame, isWishlisted)
+                addon.TabBaseMixin:UpdateWishlistStar(frame, isWishlisted)
             end
         end)
     end

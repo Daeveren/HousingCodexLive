@@ -8,57 +8,26 @@ local ADDON_NAME, addon = ...
 local CONSTS = addon.CONSTANTS
 local COLORS = CONSTS.COLORS
 
--- Layout constants
-local TOOLBAR_HEIGHT = 32
-local SIDEBAR_WIDTH = CONSTS.SIDEBAR_WIDTH  -- 182 - same as main sidebar
-local EXPANSION_PANEL_WIDTH = 198           -- Left column for expansions (10% wider)
-local HIERARCHY_PADDING = 8
-local HEADER_HEIGHT = 32  -- Expansion/zone header height
-local ROW_HEIGHT = 26     -- Quest row height
+-- Layout constants (using centralized values where available)
+local TOOLBAR_HEIGHT = CONSTS.HEADER_HEIGHT
+local SIDEBAR_WIDTH = CONSTS.SIDEBAR_WIDTH
+local EXPANSION_PANEL_WIDTH = CONSTS.HIERARCHY_PANEL_WIDTH
+local HIERARCHY_PADDING = CONSTS.HIERARCHY_PADDING
+local HEADER_HEIGHT = CONSTS.HIERARCHY_HEADER_HEIGHT
+local ROW_HEIGHT = CONSTS.HIERARCHY_ROW_HEIGHT
 local GRID_OUTER_PAD = CONSTS.GRID_OUTER_PAD
-local WISHLIST_STAR_SIZE = 14  -- Small star for quest rows
-
--- Button colors
-local COLOR_GOLD_BORDER = { 1, 0.82, 0, 1 }
-
--- Progress colors
-local COLOR_PROGRESS_COMPLETE = { 0.2, 1, 0.2, 1 }   -- Green for 100%
-local COLOR_PROGRESS_PARTIAL = { 1, 0.82, 0, 1 }     -- Gold for 50%+
-local COLOR_PROGRESS_LOW = { 0.7, 0.7, 0.7, 1 }      -- Gray for <50%
-local COLOR_PROGRESS_LOW_DIM = { 0.6, 0.6, 0.6, 1 }  -- Slightly dimmer for zones
-
--- Solid colors for expansion headers (flat, no gradient)
-local COLOR_EXPANSION_NORMAL = { 0.14, 0.14, 0.16, 0.9 }
-local COLOR_EXPANSION_HOVER = { 0.19, 0.19, 0.21, 1 }
-
--- Solid colors for zone headers (darker, distinct from expansion)
-local COLOR_ZONE_NORMAL = { 0.12, 0.12, 0.14, 0.95 }
-local COLOR_ZONE_HOVER = { 0.16, 0.16, 0.18, 1 }
-
--- Selected quest row background (neutral gray, not gold-tinted)
-local COLOR_QUEST_SELECTED = { 0.20, 0.20, 0.22, 1 }
-
--- Helper to get progress text color based on percentage
-local function GetProgressColor(percent, useZoneDim)
-    if percent == 100 then
-        return COLOR_PROGRESS_COMPLETE
-    elseif percent >= 50 then
-        return COLOR_PROGRESS_PARTIAL
-    else
-        return useZoneDim and COLOR_PROGRESS_LOW_DIM or COLOR_PROGRESS_LOW
-    end
-end
+local WISHLIST_STAR_SIZE = CONSTS.WISHLIST_STAR_SIZE_HIERARCHY
 
 -- Helper to apply expansion button visual state
 local function ApplyExpansionButtonState(frame, isSelected)
     if isSelected then
-        frame.bg:SetColorTexture(unpack(COLOR_EXPANSION_HOVER))
+        frame.bg:SetColorTexture(unpack(COLORS.PANEL_HOVER))
         frame.selectionBorder:Show()
-        frame.label:SetTextColor(1, 0.82, 0, 1)
+        frame.label:SetTextColor(unpack(COLORS.GOLD))
     else
-        frame.bg:SetColorTexture(unpack(COLOR_EXPANSION_NORMAL))
+        frame.bg:SetColorTexture(unpack(COLORS.PANEL_NORMAL))
         frame.selectionBorder:Hide()
-        frame.label:SetTextColor(0.9, 0.9, 0.9, 1)
+        frame.label:SetTextColor(unpack(COLORS.TEXT_SECONDARY))
     end
 end
 
@@ -66,9 +35,9 @@ end
 local function ApplyQuestRowState(frame, isSelected)
     addon:ResetBackgroundTexture(frame.bg)
     if isSelected then
-        frame.bg:SetColorTexture(unpack(COLOR_QUEST_SELECTED))
+        frame.bg:SetColorTexture(unpack(COLORS.ROW_SELECTED))
         frame.selectionBorder:Show()
-        frame.label:SetTextColor(unpack(COLOR_GOLD_BORDER))  -- Gold/yellow text for selected
+        frame.label:SetTextColor(unpack(COLORS.GOLD))
     else
         frame.bg:SetColorTexture(0.08, 0.08, 0.10, 0.9)
         frame.selectionBorder:Hide()
@@ -78,15 +47,7 @@ local function ApplyQuestRowState(frame, isSelected)
     end
 end
 
--- Helper to update wishlist star visibility and position
-local function UpdateWishlistStar(frame, isWishlisted)
-    if not frame or not frame.wishlistStar or not frame.label then return end
-    frame.wishlistStar:SetShown(isWishlisted)
-    if isWishlisted then
-        frame.wishlistStar:ClearAllPoints()
-        frame.wishlistStar:SetPoint("LEFT", frame.label, "LEFT", frame.label:GetStringWidth() + 4, 0)
-    end
-end
+-- Wishlist star helper is now provided by TabBaseMixin:UpdateWishlistStar()
 
 -- Helper to initialize shared zone/quest row visuals
 local function InitializeZoneQuestFrame(frame)
@@ -103,7 +64,7 @@ local function InitializeZoneQuestFrame(frame)
     border:SetWidth(3)
     border:SetPoint("TOPLEFT", 0, 0)
     border:SetPoint("BOTTOMLEFT", 0, 0)
-    border:SetColorTexture(unpack(COLOR_GOLD_BORDER))
+    border:SetColorTexture(unpack(COLORS.GOLD))
     border:Hide()
     frame.selectionBorder = border
 
@@ -183,7 +144,7 @@ local function SetupZoneHeader(self, frame, elementData)
     addon:ResetBackgroundTexture(frame.bg)
 
     -- Solid dark background
-    frame.bg:SetColorTexture(unpack(COLOR_ZONE_NORMAL))
+    frame.bg:SetColorTexture(unpack(COLORS.PANEL_NORMAL_ALT))
 
     -- Collapse indicator
     frame.indicator:SetText(isExpanded and "-" or "+")
@@ -201,18 +162,18 @@ local function SetupZoneHeader(self, frame, elementData)
     local owned, total = addon:GetZoneCollectionProgress(elementData.expansionKey, elementData.zoneName)
     local percent = total > 0 and math.floor((owned / total) * 100) or 0
     frame.progress:SetText(string.format("%d/%d (%d%%)", owned, total, percent))
-    frame.progress:SetTextColor(unpack(GetProgressColor(percent, true)))
+    frame.progress:SetTextColor(unpack(addon.TabBaseMixin:GetProgressColor(percent, true)))
 
     frame:SetScript("OnClick", function()
         self:ToggleZone(elementData.expansionKey, elementData.zoneName)
     end)
 
     frame:SetScript("OnEnter", function(f)
-        f.bg:SetColorTexture(unpack(COLOR_ZONE_HOVER))
+        f.bg:SetColorTexture(unpack(COLORS.PANEL_HOVER_ALT))
     end)
 
     frame:SetScript("OnLeave", function(f)
-        f.bg:SetColorTexture(unpack(COLOR_ZONE_NORMAL))
+        f.bg:SetColorTexture(unpack(COLORS.PANEL_NORMAL_ALT))
     end)
 end
 
@@ -258,14 +219,14 @@ local function SetupQuestRow(self, frame, elementData)
     -- Wishlist star (show if item is wishlisted)
     if frame.wishlistStar and elementData.recordID then
         local isWishlisted = addon:IsWishlisted(elementData.recordID)
-        UpdateWishlistStar(frame, isWishlisted)
+        addon.TabBaseMixin:UpdateWishlistStar(frame, isWishlisted)
     end
 
     -- Progress
     local owned, total = addon:GetQuestCollectionProgress(elementData.questID)
     frame.progress:SetText(string.format("%d/%d", owned, total))
     local progressComplete = owned == total and total > 0
-    frame.progress:SetTextColor(unpack(progressComplete and COLOR_PROGRESS_COMPLETE or COLOR_PROGRESS_LOW))
+    frame.progress:SetTextColor(unpack(progressComplete and COLORS.PROGRESS_COMPLETE or COLORS.TEXT_TERTIARY))
 
     frame:SetScript("OnMouseDown", function(f, button)
         if button == "RightButton" then
@@ -357,6 +318,10 @@ local function SetupQuestRow(self, frame, elementData)
 end
 addon.QuestsTab = {}
 local QuestsTab = addon.QuestsTab
+
+-- Apply shared mixin for common tab functionality
+Mixin(QuestsTab, addon.TabBaseMixin)
+QuestsTab.tabName = "QuestsTab"
 
 -- Helper to get quests db state (avoids repeated nil checks)
 local function GetQuestsDB()
@@ -527,16 +492,7 @@ function QuestsTab:CreateToolbar(parent)
     end)
 end
 
--- Update toolbar element visibility based on available width
-function QuestsTab:UpdateToolbarLayout(toolbarWidth)
-    local newLayout = addon:UpdateSimpleToolbarLayout(
-        self.toolbarLayout, toolbarWidth, self.searchBox, self.filterContainer
-    )
-    if newLayout then
-        self.toolbarLayout = newLayout
-        addon:Debug("QuestsTab toolbar layout: " .. newLayout .. " (width: " .. math.floor(toolbarWidth) .. ")")
-    end
-end
+-- Note: UpdateToolbarLayout is provided by TabBaseMixin
 
 function QuestsTab:SetCompletionFilter(filterKey)
     for key, btn in pairs(self.filterButtons) do
@@ -618,7 +574,7 @@ function QuestsTab:SetupExpansionButton(frame, elementData)
         border:SetWidth(3)
         border:SetPoint("TOPLEFT", 0, 0)
         border:SetPoint("BOTTOMLEFT", 0, 0)
-        border:SetColorTexture(unpack(COLOR_GOLD_BORDER))
+        border:SetColorTexture(unpack(COLORS.GOLD))
         border:Hide()
         frame.selectionBorder = border
 
@@ -660,7 +616,7 @@ function QuestsTab:SetupExpansionButton(frame, elementData)
 
     frame:SetScript("OnEnter", function(f)
         if self.selectedExpansionKey ~= f.expansionKey then
-            f.bg:SetColorTexture(unpack(COLOR_EXPANSION_HOVER))
+            f.bg:SetColorTexture(unpack(COLORS.PANEL_HOVER))
         end
     end)
 
@@ -1066,7 +1022,7 @@ addon:RegisterInternalEvent("WISHLIST_CHANGED", function(recordID, isWishlisted)
     if QuestsTab:IsShown() and QuestsTab.zoneQuestScrollBox then
         QuestsTab.zoneQuestScrollBox:ForEachFrame(function(frame)
             if frame.recordID == recordID and frame.wishlistStar then
-                UpdateWishlistStar(frame, isWishlisted)
+                addon.TabBaseMixin:UpdateWishlistStar(frame, isWishlisted)
             end
         end)
     end

@@ -6,7 +6,7 @@
 local ADDON_NAME, addon = ...
 
 -- Add preview constants to central CONSTANTS table
-addon.CONSTANTS.PREVIEW_DEFAULT_WIDTH = 400  -- Fixed docked width
+addon.CONSTANTS.PREVIEW_DEFAULT_WIDTH = 500  -- Fixed docked width
 
 local COLORS = addon.CONSTANTS.COLORS
 
@@ -22,7 +22,7 @@ local CAMERA_IMMEDIATE = CAMERA_TRANSITION_TYPE_IMMEDIATE or 1
 local CAMERA_DISCARD = CAMERA_MODIFICATION_TYPE_DISCARD or 0
 
 -- Width preset buttons (widths only, labels generated from index)
-local WIDTH_PRESETS = { 500, 600, 700 }
+local WIDTH_PRESETS = { 300, 500, 700 }
 
 -- Preset button colors
 local COLOR_PRESET_INACTIVE = { 0.5, 0.5, 0.5, 0.8 }
@@ -136,6 +136,7 @@ function Preview:CreateModelScene()
     modelScene:SetAllPoints()
     modelScene:TransitionToModelSceneID(DEFAULT_SCENE_ID, CAMERA_IMMEDIATE, CAMERA_DISCARD, true)
     self.modelScene = modelScene
+    self.currentSceneID = DEFAULT_SCENE_ID  -- Track current scene to avoid unnecessary transitions
 
     -- Enable mouse wheel zoom
     modelScene:EnableMouseWheel(true)
@@ -211,6 +212,7 @@ function Preview:CreateWidthPresets()
             if addon.MainFrame then
                 addon.MainFrame:SetPreviewWidth(presetWidth)
                 self:UpdateWidthPresetHighlight()
+                self:UpdateMetadataLayout()
             end
         end)
 
@@ -273,18 +275,18 @@ function Preview:CreateIdentityBlock()
     self.detailsSource = source
 
     -- ========== Metadata Section (1C.7) ==========
-    -- Size row (anchored below source text with extra spacing)
+    -- Row 1: Size + Place (always on first row)
     local sizeLabel = addon:CreateFontString(details, "OVERLAY", "GameFontHighlight")
     sizeLabel:SetPoint("TOPLEFT", source, "BOTTOMLEFT", 0, -PADDING - METADATA_GAP)
     sizeLabel:SetText(addon.L["DETAILS_SIZE"])
     sizeLabel:SetTextColor(0.5, 0.5, 0.5)
+    self.detailsSizeLabel = sizeLabel
 
     local sizeValue = addon:CreateFontString(details, "OVERLAY", "GameFontHighlight")
     sizeValue:SetPoint("LEFT", sizeLabel, "RIGHT", 4, 0)
     sizeValue:SetTextColor(1, 1, 1)
     self.detailsSize = sizeValue
 
-    -- Place (same line, after size)
     local placeLabel = addon:CreateFontString(details, "OVERLAY", "GameFontHighlight")
     placeLabel:SetPoint("LEFT", sizeValue, "RIGHT", 12, 0)
     placeLabel:SetText(addon.L["DETAILS_PLACE"])
@@ -295,19 +297,20 @@ function Preview:CreateIdentityBlock()
     placeValue:SetTextColor(1, 1, 1)
     self.detailsPlacement = placeValue
 
-    -- Dyeable (same line, after place)
+    -- Dyeable + Category (position set dynamically based on preview width)
     local dyeableValue = addon:CreateFontString(details, "OVERLAY", "GameFontHighlight")
-    dyeableValue:SetPoint("LEFT", placeValue, "RIGHT", 12, 0)
     self.detailsDyeable = dyeableValue
 
-    -- Category (same line, after dyeable)
     local categoryValue = addon:CreateFontString(details, "OVERLAY", "GameFontHighlight")
-    categoryValue:SetPoint("LEFT", dyeableValue, "RIGHT", 12, 0)
+    categoryValue:SetJustifyH("LEFT")
     categoryValue:SetTextColor(unpack(COLOR_CATEGORY))
     self.detailsCategory = categoryValue
 
     -- ========== Actions Row (1C.9) ==========
-    self:CreateActionsRow(details, sizeLabel)
+    self:CreateActionsRow(details, sizeLabel)  -- Initial anchor, updated by UpdateMetadataLayout
+
+    -- Set initial metadata layout based on preview width
+    self:UpdateMetadataLayout()
 
     -- Initialize with placeholder state
     self:ClearDetails()
@@ -544,8 +547,13 @@ function Preview:RecalculateDetailsHeight()
         height = height + PADDING + METADATA_GAP
     end
 
-    -- Metadata row (Size + Placement, single line)
+    -- Metadata row(s) - layout depends on preview width
     height = height + self.detailsSize:GetStringHeight()
+    if self.metadataTwoRows then
+        -- Two-row layout: Size+Place on row 1, Dyeable+Category on row 2
+        height = height + SPACING_SMALL
+        height = height + self.detailsDyeable:GetStringHeight()
+    end
     height = height + PADDING
 
     -- Actions row (1C.9) - uses shared button height constant
@@ -555,6 +563,47 @@ function Preview:RecalculateDetailsHeight()
 
     -- Apply calculated height (with minimum)
     self.detailsArea:SetHeight(math.max(DETAILS_MIN_HEIGHT, height))
+end
+
+-- Small preset threshold for switching to two-row metadata layout
+local SMALL_WIDTH_THRESHOLD = 300
+
+function Preview:UpdateMetadataLayout()
+    if not self.detailsDyeable or not self.detailsCategory then return end
+
+    local currentWidth = addon.MainFrame and addon.MainFrame:GetPreviewWidth()
+        or addon.CONSTANTS.PREVIEW_DEFAULT_WIDTH
+    local useTwoRows = (currentWidth <= SMALL_WIDTH_THRESHOLD)
+
+    -- Skip if layout hasn't changed
+    if self.metadataTwoRows == useTwoRows then return end
+    self.metadataTwoRows = useTwoRows
+
+    -- Clear existing points before repositioning
+    self.detailsDyeable:ClearAllPoints()
+    self.detailsCategory:ClearAllPoints()
+    self.actionsRow:ClearAllPoints()
+
+    -- Position elements based on layout mode
+    if useTwoRows then
+        -- Two-row layout: Dyeable + Category on separate row below Size/Place
+        self.detailsDyeable:SetPoint("TOPLEFT", self.detailsSizeLabel, "BOTTOMLEFT", 0, -SPACING_SMALL)
+        self.detailsCategory:SetPoint("LEFT", self.detailsDyeable, "RIGHT", 12, 0)
+        self.detailsCategory:SetPoint("RIGHT", self.detailsArea, "RIGHT", -PADDING, 0)
+        self.actionsRow:SetPoint("TOPLEFT", self.detailsDyeable, "BOTTOMLEFT", 0, -PADDING)
+    else
+        -- Single-row layout: All metadata on one line
+        self.detailsDyeable:SetPoint("LEFT", self.detailsPlacement, "RIGHT", 12, 0)
+        self.detailsCategory:SetPoint("LEFT", self.detailsDyeable, "RIGHT", 12, 0)
+        self.actionsRow:SetPoint("TOPLEFT", self.detailsSizeLabel, "BOTTOMLEFT", 0, -PADDING)
+    end
+    self.actionsRow:SetPoint("RIGHT", self.detailsArea, "RIGHT", -PADDING, 0)
+
+    -- Category text truncation: only needed in two-row layout where width is constrained
+    self.detailsCategory:SetWordWrap(not useTwoRows)
+
+    -- Recalculate height for new layout
+    self:RecalculateDetailsHeight()
 end
 
 -- Note: ESC handling is done by MainFrame (cascading: preview closes first, then MainFrame)
@@ -698,9 +747,12 @@ function Preview:ShowDecor(recordID)
         return
     end
 
-    -- Transition to appropriate scene preset
+    -- Transition to appropriate scene preset (only if changed to avoid flash)
     local sceneID = record.modelSceneID or SCENE_PRESETS[record.size] or DEFAULT_SCENE_ID
-    self.modelScene:TransitionToModelSceneID(sceneID, CAMERA_IMMEDIATE, CAMERA_DISCARD, true)
+    if sceneID ~= self.currentSceneID then
+        self.modelScene:TransitionToModelSceneID(sceneID, CAMERA_IMMEDIATE, CAMERA_DISCARD, true)
+        self.currentSceneID = sceneID
+    end
 
     local actor = self:GetActor()
     if not actor then
@@ -742,6 +794,7 @@ function Preview:ClearModel()
     if self.modelScene then self.modelScene:Hide() end
 
     self.currentRecordID = nil
+    self.currentSceneID = nil  -- Reset scene tracking for fresh state
     self:ClearDetails()
     self.fallbackContainer:Hide()
     self.placeholderText:Show()
@@ -825,9 +878,8 @@ addon:RegisterInternalEvent("TRACKING_CHANGED", function(recordID)
 end)
 
 -- Listen for WoW's tracking update event (catches changes from other UI)
-local trackingFrame = CreateFrame("Frame")
-trackingFrame:RegisterEvent("CONTENT_TRACKING_UPDATE")
-trackingFrame:SetScript("OnEvent", function(_, event, trackingType)
+-- Event payload: trackingType (ContentTrackingType), id (number), isTracked (bool)
+addon:RegisterWoWEvent("CONTENT_TRACKING_UPDATE", function(trackingType, id, isTracked)
     if trackingType == Enum.ContentTrackingType.Decor then
         RefreshCurrentActionButtons()
     end

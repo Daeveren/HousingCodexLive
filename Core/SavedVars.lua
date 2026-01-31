@@ -5,14 +5,14 @@
 
 local ADDON_NAME, addon = ...
 
-local CURRENT_DB_VERSION = 2
+local CURRENT_DB_VERSION = 3
 
 local defaults = {
     version = CURRENT_DB_VERSION,
     framePosition = { point = "CENTER", relativePoint = "CENTER", xOfs = 0, yOfs = 0 },
     frameSize = { width = 1200, height = 800 },
     preview = {
-        width = 400,     -- Docked panel width
+        width = 500,     -- Docked panel width (middle preset)
     },
     options = {
         position = { point = "CENTER", relativePoint = "CENTER", xOfs = 0, yOfs = 0 },
@@ -81,6 +81,17 @@ local function MigrateDB(db)
         end
         db.version = 2
     end
+
+    -- v2 -> v3: Preview width presets changed from {400,500,600,700} to {300,500,700}
+    -- Map discontinued presets to middle preset (500), preserve 700 and custom values
+    if db.version < 3 then
+        local width = db.preview and db.preview.width
+        if width == 400 or width == 600 then
+            db.preview.width = 500
+        end
+        db.version = 3
+    end
+
     return db
 end
 

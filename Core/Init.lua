@@ -43,7 +43,7 @@ addon.CONSTANTS = {
     MIN_FRAME_HEIGHT = 600,
 
     -- Layout
-    SIDEBAR_WIDTH = 182,
+    SIDEBAR_WIDTH = 167,
     HEADER_HEIGHT = 32,
 
     -- Horizontal tabs (in title bar)
@@ -60,6 +60,13 @@ addon.CONSTANTS = {
     -- Wishlist star badge
     WISHLIST_STAR_SIZE_GRID = 20,     -- Star size on grid tiles
     WISHLIST_STAR_SIZE_PREVIEW = 24,  -- Star button size in preview details
+    WISHLIST_STAR_SIZE_HIERARCHY = 14, -- Small star for hierarchy rows (quests/achievements)
+
+    -- Hierarchy layout (QuestsTab, AchievementsTab)
+    HIERARCHY_PADDING = 8,              -- Padding for quest/achievement hierarchies
+    HIERARCHY_ROW_HEIGHT = 26,          -- Quest/achievement row height
+    HIERARCHY_HEADER_HEIGHT = 32,       -- Expansion/zone/category header height
+    HIERARCHY_PANEL_WIDTH = 198,        -- Left panel width (expansions/categories)
 
     -- Colors (DaevTools palette)
     COLORS = {
@@ -76,6 +83,19 @@ addon.CONSTANTS = {
         TEXT_TERTIARY = { 0.7, 0.7, 0.7, 1 },
         TEXT_DISABLED = { 0.5, 0.5, 0.5, 1 },
         BORDER = { 0.3, 0.3, 0.3, 1 },
+
+        -- Progress indicators (hierarchy tabs)
+        PROGRESS_COMPLETE = { 0.2, 1, 0.2, 1 },     -- Green for 100%
+        PROGRESS_LOW_DIM = { 0.6, 0.6, 0.6, 1 },    -- Dimmer gray for zones
+
+        -- Panel backgrounds (hierarchy panels)
+        PANEL_NORMAL = { 0.14, 0.14, 0.16, 0.9 },
+        PANEL_HOVER = { 0.19, 0.19, 0.21, 1 },
+        PANEL_NORMAL_ALT = { 0.12, 0.12, 0.14, 0.95 },  -- Zone/darker variant
+        PANEL_HOVER_ALT = { 0.16, 0.16, 0.18, 1 },
+
+        -- Selection state
+        ROW_SELECTED = { 0.20, 0.20, 0.22, 1 },
     },
 
     -- Font path
