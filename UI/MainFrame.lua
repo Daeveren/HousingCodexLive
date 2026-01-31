@@ -30,9 +30,9 @@ function MainFrame:Create()
     -- Main frame
     local frame = CreateFrame("Frame", "HousingCodexMainFrame", UIParent, "BackdropTemplate")
     frame:SetSize(DEFAULT_WIDTH, DEFAULT_HEIGHT)
-    frame:SetPoint("CENTER")
+    frame:SetPoint("TOPLEFT", UIParent, "TOPLEFT", 100, -100)
     frame:SetFrameStrata("HIGH")
-    frame:SetClampedToScreen(true)
+    frame:SetClampedToScreen(false)
     frame:SetMovable(true)
     frame:SetResizable(true)
     frame:SetResizeBounds(MIN_WIDTH, MIN_HEIGHT, GetScreenWidth(), GetScreenHeight())
@@ -122,6 +122,7 @@ function MainFrame:CreateTitleBar()
     end)
     titleBar:SetScript("OnDragStop", function()
         frame:StopMovingOrSizing()
+        frame:SetUserPlaced(false)
         MainFrame:SavePosition()
     end)
 end
@@ -342,12 +343,13 @@ function MainFrame:SetupResizing()
 
     grip:SetScript("OnMouseDown", function(_, button)
         if button == "LeftButton" then
-            frame:StartSizing("BOTTOMRIGHT", true)
+            frame:StartSizing("BOTTOMRIGHT")
         end
     end)
 
     grip:SetScript("OnMouseUp", function()
         frame:StopMovingOrSizing()
+        frame:SetUserPlaced(false)
         MainFrame:SaveSize()
     end)
 end
@@ -356,13 +358,17 @@ function MainFrame:SavePosition()
     local frame = self.frame
     if not frame or not addon.db then return end
 
-    local point, _, relativePoint, xOfs, yOfs = frame:GetPoint()
-    if point then
+    -- Always save TOPLEFT position for consistent resize behavior
+    local left = frame:GetLeft()
+    local top = frame:GetTop()
+    local screenHeight = GetScreenHeight()
+
+    if left and top then
         addon.db.framePosition = {
-            point = point,
-            relativePoint = relativePoint or "CENTER",
-            xOfs = xOfs or 0,
-            yOfs = yOfs or 0,
+            point = "TOPLEFT",
+            relativePoint = "TOPLEFT",
+            xOfs = left,
+            yOfs = top - screenHeight,
         }
     end
 end
@@ -405,7 +411,7 @@ function MainFrame:RestoreLayout()
         local pos = posData.position or posData
         if pos.point then
             frame:ClearAllPoints()
-            frame:SetPoint(pos.point, UIParent, pos.relativePoint or "CENTER", pos.xOfs or 0, pos.yOfs or 0)
+            frame:SetPoint(pos.point, UIParent, pos.relativePoint or "TOPLEFT", pos.xOfs or 0, pos.yOfs or 0)
         end
     end
 

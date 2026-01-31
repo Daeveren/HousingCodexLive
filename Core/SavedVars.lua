@@ -5,11 +5,11 @@
 
 local ADDON_NAME, addon = ...
 
-local CURRENT_DB_VERSION = 3
+local CURRENT_DB_VERSION = 4
 
 local defaults = {
     version = CURRENT_DB_VERSION,
-    framePosition = { point = "CENTER", relativePoint = "CENTER", xOfs = 0, yOfs = 0 },
+    framePosition = { point = "TOPLEFT", relativePoint = "TOPLEFT", xOfs = 100, yOfs = -100 },
     frameSize = { width = 1200, height = 800 },
     preview = {
         width = 500,     -- Docked panel width (middle preset)
@@ -90,6 +90,38 @@ local function MigrateDB(db)
             db.preview.width = 500
         end
         db.version = 3
+    end
+
+    -- v3 -> v4: Convert CENTER anchor to TOPLEFT for stable resize behavior
+    if db.version < 4 then
+        local pos = db.framePosition
+
+        -- Set default point if missing
+        if pos and not pos.point then
+            pos.point = "CENTER"
+        end
+
+        if pos and pos.point == "CENTER" then
+            local size = db.frameSize or { width = 1200, height = 800 }
+            local screenW = GetScreenWidth()
+            local screenH = GetScreenHeight()
+
+            -- CENTER offsets are relative to screen center
+            local centerX = (screenW / 2) + (pos.xOfs or 0)
+            local centerY = (screenH / 2) + (pos.yOfs or 0)
+
+            -- Calculate TOPLEFT corner in screen coords (Y from bottom, top is ABOVE center)
+            local topLeftX = centerX - (size.width / 2)
+            local topLeftY = centerY + (size.height / 2)
+
+            db.framePosition = {
+                point = "TOPLEFT",
+                relativePoint = "TOPLEFT",
+                xOfs = topLeftX,
+                yOfs = topLeftY - screenH,
+            }
+        end
+        db.version = 4
     end
 
     return db

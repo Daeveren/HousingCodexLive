@@ -119,14 +119,6 @@ function addon:ApplyFontSettings()
     self:Debug("Applied font settings to " .. count .. " FontStrings")
 end
 
-function addon:ToggleCustomFont()
-    if not self.db then return false end
-
-    self.db.settings.useCustomFont = not self.db.settings.useCustomFont
-    self:ApplyFontSettings()
-    return self.db.settings.useCustomFont
-end
-
 addon:RegisterInternalEvent("DATA_LOADED", function()
     addon:ApplyFontSettings()
 end)

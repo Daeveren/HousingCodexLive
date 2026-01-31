@@ -2,6 +2,15 @@
 
 All notable changes to Housing Codex.
 
+## [0.8.6] - 2026-01-31
+
+### Changed
+- Changed the way window resizing works
+- Disabled screen clamp, now the window resize is more smooth and consistent
+
+### Fixed
+- Codebase improvements in order to make the addon run more smooth
+
 ## [0.8.5] - 2026-01-31
 
 ### Changed

@@ -12,8 +12,8 @@ local ADDON_NAME, addon = ...
 -- Export addon table globally for other files and debugging
 HousingCodex = addon
 
--- Version info
-addon.version = "0.8.3"
+-- Version info (read from TOC at runtime - single source of truth)
+addon.version = C_AddOns.GetAddOnMetadata("HousingCodex", "Version") or "unknown"
 addon.addonName = ADDON_NAME
 
 -- Localization table (populated by Locales/*.lua)
@@ -127,7 +127,6 @@ addon.CONSTANTS = {
     BUILTIN_ALL_CATEGORY_ID = Constants.HousingCatalogConsts.HOUSING_CATALOG_ALL_CATEGORY_ID,
 
     -- Button styling
-    TOGGLE_BUTTON_SIZE = 34,
     TOGGLE_BUTTON_BACKDROP = {
         bgFile = "Interface\\Buttons\\WHITE8x8",
         edgeFile = "Interface\\Tooltips\\UI-Tooltip-Border",
@@ -275,49 +274,6 @@ function addon:PrintTrackingResult(errorCode, startedKey, failedKey, maxKey, alr
     else
         self:Print(L[failedKey])
     end
-end
-
--- Creates a styled button with symbol text
--- Returns button with .text FontString for updating the symbol
-function addon:CreateToggleButton(parent, symbol, tooltipKey, onClick)
-    local COLORS = self.CONSTANTS.COLORS
-    local SIZE = self.CONSTANTS.TOGGLE_BUTTON_SIZE
-
-    local btn = CreateFrame("Button", nil, parent, "BackdropTemplate")
-    btn:SetSize(SIZE, SIZE)
-    btn:SetBackdrop(self.CONSTANTS.TOGGLE_BUTTON_BACKDROP)
-    btn:SetBackdropColor(0.15, 0.15, 0.18, 0.9)
-    btn:SetBackdropBorderColor(unpack(COLORS.BORDER))
-
-    local btnText = self:CreateFontString(btn, "OVERLAY", "GameFontNormalLarge")
-    local xOffset = (symbol == "<") and -1 or 1
-    btnText:SetPoint("CENTER", xOffset, 0)
-    btnText:SetText(symbol)
-    btnText:SetTextColor(unpack(COLORS.GOLD))
-    self:SetFontSize(btnText, 20, "OUTLINE")
-    btn.text = btnText
-
-    btn:SetScript("OnEnter", function(b)
-        b:SetBackdropColor(0.2, 0.2, 0.24, 1)
-        b:SetBackdropBorderColor(0.6, 0.5, 0.1, 1)
-        if tooltipKey then
-            GameTooltip:SetOwner(b, "ANCHOR_TOP")
-            GameTooltip:SetText(self.L[tooltipKey] or tooltipKey)
-            GameTooltip:Show()
-        end
-    end)
-
-    btn:SetScript("OnLeave", function(b)
-        b:SetBackdropColor(0.15, 0.15, 0.18, 0.9)
-        b:SetBackdropBorderColor(unpack(COLORS.BORDER))
-        GameTooltip:Hide()
-    end)
-
-    if onClick then
-        btn:SetScript("OnClick", onClick)
-    end
-
-    return btn
 end
 
 -- Creates a text-based action button (same style as Collected/Uncollected filters)
