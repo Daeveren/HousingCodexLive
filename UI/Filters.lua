@@ -55,7 +55,7 @@ end
 -- Collection Filter
 --------------------------------------------------------------------------------
 
--- Helper to set a collection filter flag, persist it, and apply
+-- Helper to set a collection filter flag and persist it (does NOT apply)
 local function SetCollectionFlag(filterKey, value)
     Filters[filterKey] = value
 
@@ -64,16 +64,29 @@ local function SetCollectionFlag(filterKey, value)
         addon.db.browser.filters[filterKey] = value
     end
 
-    Filters:ApplyCollectionFilter()
     addon:Debug(filterKey .. " set to: " .. tostring(value))
 end
 
 function Filters:SetShowCollected(show)
     SetCollectionFlag("showCollected", show)
+    self:ApplyCollectionFilter()
 end
 
 function Filters:SetShowUncollected(show)
     SetCollectionFlag("showUncollected", show)
+    self:ApplyCollectionFilter()
+end
+
+-- Set collection filters without triggering a search (for batched operations)
+function Filters:SetCollectionDirect(showCollected, showUncollected)
+    SetCollectionFlag("showCollected", showCollected)
+    SetCollectionFlag("showUncollected", showUncollected)
+
+    -- Update searcher state without running search
+    if addon.catalogSearcher then
+        addon.catalogSearcher:SetCollected(showCollected)
+        addon.catalogSearcher:SetUncollected(showUncollected)
+    end
 end
 
 function Filters:ApplyCollectionFilter()
@@ -356,15 +369,8 @@ function Filters:ResetAllFilters()
         end
     end
 
-    -- Reset collection filters (default to showing uncollected)
-    self.showCollected = false
-    self.showUncollected = true
-
-    -- Apply collection filter to searcher
-    if searcher then
-        searcher:SetCollected(false)
-        searcher:SetUncollected(true)
-    end
+    -- Reset collection filters (default: show uncollected only)
+    self:SetCollectionDirect(false, true)
 
     -- Reset trackable state
     self:SetTrackableState("all")

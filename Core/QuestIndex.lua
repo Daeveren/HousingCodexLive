@@ -452,6 +452,7 @@ function addon:GetRecordsForQuest(questKey)
     for recordID in pairs(records) do
         table.insert(result, recordID)
     end
+    table.sort(result)  -- Deterministic "(1)", "(2)" order
     return result
 end
 

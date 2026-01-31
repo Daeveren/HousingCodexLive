@@ -18,6 +18,13 @@ local SHADOW_COLOR = { 0, 0, 0, 0.7 }
 -- Storage for button overlays
 local buttonOverlays = {}
 
+-- Session cache for catalog lookups (cleared on storage updates and merchant close)
+local sessionCache = {}
+
+local function ClearSessionCache()
+    wipe(sessionCache)
+end
+
 -- Create icon with shadow (shadow is slightly larger and offset)
 local function CreateIconWithShadow(button, size, shadowOffset)
     local shadow = button:CreateTexture(nil, "OVERLAY", nil, 6)
@@ -88,7 +95,13 @@ function MerchantOverlay:UpdateMerchantButtons()
             local overlay = self:GetOverlay(button, i)
             local index = pageOffset + i
             local itemID = index <= numItems and GetMerchantItemID(index)
-            local catalogInfo = itemID and C_HousingCatalog.GetCatalogEntryInfoByItem(itemID, true)
+
+            -- Use cached catalog info or fetch and cache
+            local catalogInfo = itemID and sessionCache[itemID]
+            if itemID and not catalogInfo then
+                catalogInfo = C_HousingCatalog.GetCatalogEntryInfoByItem(itemID, true)
+                sessionCache[itemID] = catalogInfo
+            end
 
             local isDecor = catalogInfo ~= nil
             local isOwned = catalogInfo and IsDecorOwned(catalogInfo)
@@ -129,9 +142,11 @@ function MerchantOverlay:Initialize()
     self.eventFrame:RegisterEvent("HOUSING_STORAGE_ENTRY_UPDATED")
     self.eventFrame:RegisterEvent("MERCHANT_CLOSED")
     self.eventFrame:SetScript("OnEvent", function(_, event)
+        ClearSessionCache()
         if event == "MERCHANT_CLOSED" then
             self:HideAllOverlays()
         else
+            -- Storage updated - refresh so checkmarks appear after purchase
             self:UpdateMerchantButtons()
         end
     end)

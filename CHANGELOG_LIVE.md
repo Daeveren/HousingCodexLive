@@ -2,6 +2,14 @@
 
 All notable changes to Housing Codex.
 
+## [0.8.4] - 2026-01-31
+
+### Changed
+- UI is more responsive
+- Window size can be made smaller
+- Toolbar elements hide progressively when window is narrow
+- Several code improvements
+
 ## [0.8.3] - 2026-01-30
 
 ### Added

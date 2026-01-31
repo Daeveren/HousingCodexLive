@@ -13,7 +13,7 @@ local ADDON_NAME, addon = ...
 HousingCodex = addon
 
 -- Version info
-addon.version = "0.5.1"
+addon.version = "0.8.3"
 addon.addonName = ADDON_NAME
 
 -- Localization table (populated by Locales/*.lua)
@@ -39,7 +39,7 @@ addon.CONSTANTS = {
     -- Frame dimensions
     DEFAULT_FRAME_WIDTH = 1200,
     DEFAULT_FRAME_HEIGHT = 800,
-    MIN_FRAME_WIDTH = 800,
+    MIN_FRAME_WIDTH = 400,
     MIN_FRAME_HEIGHT = 600,
 
     -- Layout
@@ -106,7 +106,7 @@ addon.CONSTANTS = {
     -- Category navigation
     BUILTIN_ALL_CATEGORY_ID = Constants.HousingCatalogConsts.HOUSING_CATALOG_ALL_CATEGORY_ID,
 
-    -- Shared button styling (toolbar toggle, preview collapse)
+    -- Button styling
     TOGGLE_BUTTON_SIZE = 34,
     TOGGLE_BUTTON_BACKDROP = {
         bgFile = "Interface\\Buttons\\WHITE8x8",
@@ -208,7 +208,56 @@ function addon:Debug(msg)
     end
 end
 
--- Creates a styled toggle button (used for preview toggle and collapse buttons)
+-- Resets a background texture to a solid color mode (clears gradients)
+function addon:ResetBackgroundTexture(bg)
+    if not bg then return end
+    bg:SetTexture("Interface\\Buttons\\WHITE8x8")
+    bg:SetGradient("HORIZONTAL", CreateColor(1, 1, 1, 1), CreateColor(1, 1, 1, 1))
+end
+
+-- Helper to create a centered empty-state frame with optional description
+function addon:CreateEmptyStateFrame(parent, messageKey, descKey, descWidth)
+    local L = self.L
+    local frame = CreateFrame("Frame", nil, parent)
+    frame:SetAllPoints()
+    frame:Hide()
+
+    local bg = frame:CreateTexture(nil, "BACKGROUND")
+    bg:SetAllPoints()
+    bg:SetColorTexture(0.04, 0.04, 0.06, 0.95)
+
+    local hasDesc = descKey ~= nil
+    local msg = self:CreateFontString(frame, "OVERLAY", hasDesc and "GameFontNormal" or "GameFontNormalLarge")
+    msg:SetPoint("CENTER", 0, hasDesc and 10 or 0)
+    msg:SetText(L[messageKey])
+    msg:SetTextColor(hasDesc and 0.6 or 0.5, hasDesc and 0.6 or 0.5, hasDesc and 0.6 or 0.5, 1)
+
+    if hasDesc then
+        local desc = self:CreateFontString(frame, "OVERLAY", "GameFontNormal")
+        desc:SetPoint("TOP", msg, "BOTTOM", 0, -8)
+        desc:SetText(L[descKey])
+        desc:SetTextColor(0.5, 0.5, 0.5, 1)
+        if descWidth then desc:SetWidth(descWidth) end
+    end
+
+    return frame
+end
+
+-- Helper to print content tracking results with standard error handling
+function addon:PrintTrackingResult(errorCode, startedKey, failedKey, maxKey, alreadyKey)
+    local L = self.L
+    if errorCode == nil then
+        self:Print(L[startedKey])
+    elseif errorCode == Enum.ContentTrackingError.MaxTracked then
+        self:Print(L[maxKey])
+    elseif errorCode == Enum.ContentTrackingError.AlreadyTracked then
+        self:Print(L[alreadyKey])
+    else
+        self:Print(L[failedKey])
+    end
+end
+
+-- Creates a styled button with symbol text
 -- Returns button with .text FontString for updating the symbol
 function addon:CreateToggleButton(parent, symbol, tooltipKey, onClick)
     local COLORS = self.CONSTANTS.COLORS
@@ -366,43 +415,37 @@ SlashCmdList["HOUSINGCODEX"] = function(msg)
     if cmd == "help" or cmd == "?" then
         addon:Print("|cFFFFD100" .. L["HELP_TITLE"] .. "|r")
         addon:Print("  " .. L["HELP_TOGGLE"])
-        addon:Print("  " .. L["HELP_PREVIEW"])
         addon:Print("  " .. L["HELP_SETTINGS"])
         addon:Print("  " .. L["HELP_RETRY"])
         addon:Print("  " .. L["HELP_HELP"])
         addon:Print("  " .. L["HELP_DEBUG"])
-    elseif cmd == "preview" then
-        if addon.Preview then
-            addon.Preview:Toggle()
-        else
-            addon:Print("Preview window not yet available")
-        end
     elseif cmd == "settings" or cmd == "options" then
         if addon.Settings then
             addon.Settings:Open()
         else
-            addon:Print("Settings not yet available")
+            addon:Print(L["SETTINGS_NOT_AVAILABLE"])
         end
     elseif cmd == "retry" or cmd == "reload" then
-        addon:Print("Retrying data load...")
+        addon:Print(L["RETRYING_DATA_LOAD"])
         addon.loadRetryCount = 0
         addon.dataLoaded = false
         addon:LoadData()
     elseif cmd == "debug" then
         if addon.db then
             addon.db.settings.debugMode = not addon.db.settings.debugMode
-            addon:Print("Debug mode: " .. (addon.db.settings.debugMode and "ON" or "OFF"))
+            local status = addon.db.settings.debugMode and L["DEBUG_ON"] or L["DEBUG_OFF"]
+            addon:Print(string.format(L["DEBUG_MODE_STATUS"], status))
         end
     elseif cmd:find("^inspect ") then
         -- Debug: inspect a record by partial name match
         local searchName = cmd:sub(9):lower()
         if not addon.dataLoaded then
-            addon:Print("Data not loaded yet")
+            addon:Print(L["DATA_NOT_LOADED"])
             return
         end
         for recordID, record in pairs(addon.decorRecords) do
             if record.name:lower():find(searchName) then
-                addon:Print("Found: " .. record.name .. " (ID: " .. recordID .. ")")
+                addon:Print(string.format(L["INSPECT_FOUND"], record.name, recordID))
                 addon:Print("  icon: " .. tostring(record.icon) .. " (type: " .. type(record.icon) .. ")")
                 addon:Print("  iconType: " .. tostring(record.iconType))
                 addon:Print("  hasModelAsset: " .. tostring(record.hasModelAsset))
@@ -421,11 +464,11 @@ SlashCmdList["HOUSINGCODEX"] = function(msg)
                 return
             end
         end
-        addon:Print("No item found matching: " .. searchName)
+        addon:Print(string.format(L["INSPECT_NOT_FOUND"], searchName))
     elseif addon.MainFrame then
         addon.MainFrame:Toggle()
     else
-        addon:Print("v" .. addon.version .. " - Main window not yet available")
+        addon:Print("v" .. addon.version .. " - " .. L["MAIN_WINDOW_NOT_AVAILABLE"])
     end
 end
 
@@ -439,6 +482,31 @@ function addon:GetCompletionProgressColor(percent)
     local g = 0.5 + (0.25 * t)  -- 0.5 -> 0.75
     local b = 0.2 + (0.15 * t)  -- 0.2 -> 0.35
     return r, g, b, 1
+end
+
+-- Helper: Update simple toolbar layout (search + filter container)
+-- Used by QuestsTab and AchievementsTab for responsive toolbar hiding
+-- Breakpoints: >= 350px (full), >= 200px (noFilter), < 200px (minimal)
+-- Returns the new layout string, or nil if unchanged
+function addon:UpdateSimpleToolbarLayout(currentLayout, toolbarWidth, searchBox, filterContainer)
+    local newLayout
+    if toolbarWidth >= 350 then
+        newLayout = "full"
+    elseif toolbarWidth >= 200 then
+        newLayout = "noFilter"
+    else
+        newLayout = "minimal"
+    end
+
+    if currentLayout == newLayout then return nil end
+
+    local showFilter = (newLayout == "full")
+    local showSearch = (newLayout ~= "minimal")
+
+    if filterContainer then filterContainer:SetShown(showFilter) end
+    if searchBox then searchBox:SetShown(showSearch) end
+
+    return newLayout
 end
 
 -- Helper: Generate Wowhead URL for a decor item

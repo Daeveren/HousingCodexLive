@@ -171,8 +171,6 @@ L["PREVIEW_ERROR"] = "Error loading model"
 L["PREVIEW_ZOOM_IN"] = "Zoom In"
 L["PREVIEW_ZOOM_OUT"] = "Zoom Out"
 L["PREVIEW_RESET"] = "Reset View"
-L["PREVIEW_COLLAPSE"] = "Hide Preview"
-L["PREVIEW_EXPAND"] = "Show Preview"
 
 --------------------------------------------------------------------------------
 -- Settings (WoW Native Settings UI)
@@ -203,11 +201,23 @@ L["OPTIONS_KEYBIND_HINT"] = "Click to set keybind. Right-click to clear. ESC to 
 --------------------------------------------------------------------------------
 L["HELP_TITLE"] = "Housing Codex Commands:"
 L["HELP_TOGGLE"] = "/hc - Toggle main window"
-L["HELP_PREVIEW"] = "/hc preview - Toggle preview window"
 L["HELP_SETTINGS"] = "/hc settings - Open settings"
 L["HELP_RETRY"] = "/hc retry - Retry loading data"
 L["HELP_HELP"] = "/hc help - Show this help"
 L["HELP_DEBUG"] = "/hc debug - Toggle debug mode"
+
+--------------------------------------------------------------------------------
+-- Slash Commands
+--------------------------------------------------------------------------------
+L["SETTINGS_NOT_AVAILABLE"] = "Settings not yet available"
+L["RETRYING_DATA_LOAD"] = "Retrying data load..."
+L["DEBUG_MODE_STATUS"] = "Debug mode: %s"
+L["DEBUG_ON"] = "ON"
+L["DEBUG_OFF"] = "OFF"
+L["DATA_NOT_LOADED"] = "Data not loaded yet"
+L["INSPECT_FOUND"] = "Found: %s (ID: %d)"
+L["INSPECT_NOT_FOUND"] = "No item found matching: %s"
+L["MAIN_WINDOW_NOT_AVAILABLE"] = "Main window not yet available"
 
 --------------------------------------------------------------------------------
 -- Errors

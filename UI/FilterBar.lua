@@ -192,9 +192,8 @@ function FilterBar:ResetToDefault()
     -- Disable auto-update to batch all changes into a single search
     searcher:SetAutoUpdateOnParamChanges(false)
 
-    -- Reset collection filters (default: collected=false, uncollected=true)
-    addon.Filters:SetShowCollected(false)
-    addon.Filters:SetShowUncollected(true)
+    -- Reset collection filters (default: show uncollected only)
+    addon.Filters:SetCollectionDirect(false, true)
 
     -- Reset wishlist-only filter (post-search filter)
     addon.Filters:SetWishlistOnly(false)

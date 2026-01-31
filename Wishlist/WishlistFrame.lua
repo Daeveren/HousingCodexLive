@@ -38,8 +38,8 @@ local COLOR_BG_HOVER = { 0.1, 0.1, 0.12, 1 }
 local COLOR_BORDER_NORMAL = COLORS.BORDER
 local COLOR_COLLECTED = { 0.2, 0.8, 0.2 }
 
--- ModelScene constants for 3D preview
-local MODEL_SCENE_ID = 691  -- Housing decor preview scene
+-- ModelScene constants for 3D preview (HOUSING_CATALOG_DECOR_MODELSCENEID_DEFAULT = 1317)
+local MODEL_SCENE_ID = 1317
 local MODEL_ACTOR_TAG = "decor"
 
 -- Camera constants
@@ -463,6 +463,10 @@ function WishlistFrame:CreateGrid()
     ScrollUtil.InitScrollBoxListWithScrollBar(scrollBox, scrollBar, view)
     self.view = view
     self.currentColumnCount = columns
+
+    -- Initialize DataProvider once (reused via Flush/InsertTable in RefreshData)
+    self.dataProvider = CreateDataProvider()
+    scrollBox:SetDataProvider(self.dataProvider)
 
     addon:Debug("WishlistFrame grid created with " .. columns .. " columns")
 end
@@ -947,7 +951,7 @@ end
 --------------------------------------------------------------------------------
 
 function WishlistFrame:RefreshData()
-    if not self.scrollBox then return end
+    if not self.scrollBox or not self.dataProvider then return end
 
     -- Get all wishlisted record IDs
     local recordIDs = {}
@@ -994,9 +998,11 @@ function WishlistFrame:RefreshData()
         table.insert(elements, { recordID = recordID })
     end
 
-    -- Set data provider
-    local dataProvider = CreateDataProvider(elements)
-    self.scrollBox:SetDataProvider(dataProvider, ScrollBoxConstants.RetainScrollPosition)
+    -- Reuse DataProvider: Flush existing data and insert new elements
+    self.dataProvider:Flush()
+    if #elements > 0 then
+        self.dataProvider:InsertTable(elements)
+    end
 
     addon:Debug("WishlistFrame refreshed with " .. #recordIDs .. " items")
 end
@@ -1034,6 +1040,8 @@ function WishlistFrame:RebuildGrid()
         self.scrollBar:SetParent(nil)
         self.scrollBar = nil
     end
+    self.view = nil
+    self.dataProvider = nil
 
     self:CreateGrid()
     self.selectedRecordID = savedSelection

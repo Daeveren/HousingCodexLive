@@ -7,6 +7,7 @@
 local ADDON_NAME, addon = ...
 
 local DEBOUNCE_DELAY = 0.2  -- 200ms
+local MIN_CHARACTER_SEARCH = 3  -- Blizzard pattern: minimum chars before search triggers
 
 addon.SearchBox = {}
 local SearchBox = addon.SearchBox
@@ -14,6 +15,19 @@ local SearchBox = addon.SearchBox
 SearchBox.frame = nil
 SearchBox.debounceTimer = nil
 SearchBox.lastSearchText = nil
+SearchBox.pendingSearchText = nil  -- Stores search text typed before catalogSearcher is ready
+
+-- Normalize search text: trim whitespace, enforce minimum length, convert empty to nil
+local function NormalizeSearchText(text)
+    if not text then return nil end
+
+    local trimmed = strtrim(text)
+    if trimmed == "" or #trimmed < MIN_CHARACTER_SEARCH then
+        return nil
+    end
+
+    return trimmed
+end
 
 function SearchBox:Create(parent)
     if self.frame then return self.frame end
@@ -78,19 +92,21 @@ function SearchBox:CancelDebounce()
 end
 
 function SearchBox:ApplySearch(text)
-    -- Normalize empty/whitespace to nil
-    local searchText = text and strtrim(text)
-    if searchText == "" then searchText = nil end
+    local searchText = NormalizeSearchText(text)
 
     -- Skip if same as last search
     if searchText == self.lastSearchText then return end
-    self.lastSearchText = searchText
 
-    -- Check if searcher is available
+    -- Save for later if searcher not yet available
     if not addon.catalogSearcher then
-        addon:Debug("SearchBox: Searcher not available")
+        addon:Debug("SearchBox: Searcher not available, saving pending search")
+        self.pendingSearchText = searchText
         return
     end
+
+    -- Apply search
+    self.lastSearchText = searchText
+    self.pendingSearchText = nil
 
     addon:Debug("SearchBox: Applying search: " .. tostring(searchText))
 
@@ -110,7 +126,7 @@ function SearchBox:ApplySearch(text)
 
     addon:FireEvent("SEARCH_TEXT_CHANGED", searchText)
 
-    -- Save filter state (search text is part of filter state)
+    -- Save filter state
     if addon.Filters then
         addon.Filters:SaveState()
     end
@@ -142,3 +158,11 @@ function SearchBox:Hide()
     if not self.frame then return end
     self.frame:Hide()
 end
+
+-- Re-apply pending search when data loads
+addon:RegisterInternalEvent("DATA_LOADED", function()
+    if SearchBox.pendingSearchText then
+        addon:Debug("SearchBox: Re-applying pending search after data load")
+        SearchBox:ApplySearch(SearchBox.pendingSearchText)
+    end
+end)

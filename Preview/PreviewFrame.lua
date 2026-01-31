@@ -87,22 +87,10 @@ function Preview:Create()
     self.frame = region  -- Reuse region for API compatibility
 
     -- Create content directly in region (no backdrop needed - inherits main window)
-    self:CreateCollapseButton()
     self:CreateContentArea()
 
     addon:Debug("PreviewFrame created (integrated)")
     return region
-end
-
-function Preview:CreateCollapseButton()
-    local region = self.frame
-
-    -- Collapse button floats at top-right of preview region (no title bar)
-    local collapseBtn = addon:CreateToggleButton(region, "<", "PREVIEW_COLLAPSE", function()
-        Preview:Hide()
-    end)
-    collapseBtn:SetPoint("TOPRIGHT", region, "TOPRIGHT", -2, -4)
-    self.collapseButton = collapseBtn
 end
 
 function Preview:CreateContentArea()
@@ -785,33 +773,7 @@ function Preview:Show()
     end
 
     addon.MainFrame:ExpandForPreview()
-
-    if addon.db then
-        addon.db.preview.isOpen = true
-    end
-
-    addon:FireEvent("PREVIEW_VISIBILITY_CHANGED")
     return true
-end
-
-function Preview:Hide()
-    if not self:IsShown() then return end
-
-    addon.MainFrame:CollapsePreview()
-
-    if addon.db then
-        addon.db.preview.isOpen = false
-    end
-
-    addon:FireEvent("PREVIEW_VISIBILITY_CHANGED")
-end
-
-function Preview:Toggle()
-    if self:IsShown() then
-        self:Hide()
-    else
-        self:Show()
-    end
 end
 
 function Preview:IsShown()
@@ -833,8 +795,7 @@ addon:RegisterInternalEvent("RECORD_SELECTED", function(recordID)
         return
     end
 
-    -- Only update preview content if preview is already visible
-    -- Preview does NOT auto-open on selection (user must click tile or use preview button)
+    -- Update preview content when selection changes
     if Preview:IsShown() then
         Preview:ShowDecor(recordID)
     end

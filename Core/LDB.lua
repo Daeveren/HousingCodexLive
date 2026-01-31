@@ -126,7 +126,7 @@ addon:RegisterInternalEvent("DATA_LOADED", function()
     LDB:UpdateText()
 end)
 
-addon:RegisterInternalEvent("RECORD_UPDATED", function()
+addon:RegisterInternalEvent("RECORD_OWNERSHIP_UPDATED", function()
     DebouncedRefresh(0.1)
 end)
 

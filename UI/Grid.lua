@@ -42,8 +42,8 @@ local CLIENT_SORT_FIELDS = {
     [CONSTS.SORT_CLIENT_PLACED] = "numPlaced",   -- Most placed first
 }
 
--- ModelScene constants for 3D preview (from Blizzard_HousingCatalogEntry.lua)
-local MODEL_SCENE_ID = 691  -- Housing decor preview scene
+-- ModelScene constants for 3D preview (HOUSING_CATALOG_DECOR_MODELSCENEID_DEFAULT = 1317)
+local MODEL_SCENE_ID = 1317
 local MODEL_ACTOR_TAG = "decor"
 
 -- Camera constants (WoW globals with fallbacks)
@@ -71,6 +71,10 @@ Grid.container = nil
 Grid.sortDropdown = nil
 Grid.sortLabel = nil
 Grid.emptyState = nil
+
+-- Responsive toolbar state
+Grid.toolbarLayout = nil  -- "full", "noSlider", "noFilter", "minimal"
+Grid.toolbarElements = {} -- References to toolbar elements for responsive hiding
 
 local TILE_BACKDROP = {
     bgFile = "Interface\\Buttons\\WHITE8x8",
@@ -194,16 +198,11 @@ function Grid:CreateToolbar(parent)
     filterDropdown:SetPoint("LEFT", slider, "RIGHT", 16, 0)
     self.filterDropdown = filterDropdown
 
-    -- === RIGHT SIDE: Preview toggle + Sort dropdown + Sort label ===
+    -- === RIGHT SIDE: Sort dropdown + Sort label ===
 
-    -- Preview toggle button (rightmost element in toolbar)
-    local toggleBtn = self:CreatePreviewToggleButton(toolbar)
-    toggleBtn:SetPoint("RIGHT", toolbar, "RIGHT", -GRID_OUTER_PAD, 0)
-    self.previewToggleButton = toggleBtn
-
-    -- Sort dropdown (left of toggle button)
+    -- Sort dropdown (rightmost element in toolbar)
     local sortDropdown = self:CreateSortDropdown(toolbar)
-    sortDropdown:SetPoint("RIGHT", toggleBtn, "LEFT", -8, 0)
+    sortDropdown:SetPoint("RIGHT", toolbar, "RIGHT", -GRID_OUTER_PAD, 0)
     self.sortDropdown = sortDropdown
 
     -- "Sort by" label (left of sort dropdown)
@@ -219,7 +218,89 @@ function Grid:CreateToolbar(parent)
     searchBox:SetPoint("RIGHT", sortLabel, "LEFT", -16, 0)
     self.searchBox = searchBox
 
+    -- Store element references for responsive hiding
+    self.toolbarElements = {
+        sizeLabel = label,
+        sizeValue = valueText,
+        sizeSlider = slider,
+        filterDropdown = filterDropdown,
+        searchBox = searchBox,
+        sortLabel = sortLabel,
+        sortDropdown = sortDropdown,
+    }
+
+    -- Setup responsive toolbar updates
+    toolbar:SetScript("OnSizeChanged", function(_, width)
+        self:UpdateToolbarLayout(width)
+    end)
+
     return toolbar
+end
+
+-- Update toolbar element visibility based on available width
+-- Hide order: Size slider -> Filter dropdown -> Search box -> Sort dropdown (always visible)
+-- Breakpoints (content area width):
+--   >= 450px: All visible
+--   350-449px: Hide size slider
+--   250-349px: Hide size slider + filter dropdown
+--   < 250px: Hide size slider + filter dropdown + search box
+function Grid:UpdateToolbarLayout(toolbarWidth)
+    local newLayout
+    if toolbarWidth >= 450 then
+        newLayout = "full"
+    elseif toolbarWidth >= 350 then
+        newLayout = "noSlider"
+    elseif toolbarWidth >= 250 then
+        newLayout = "noFilter"
+    else
+        newLayout = "minimal"
+    end
+
+    if self.toolbarLayout == newLayout then return end
+    self.toolbarLayout = newLayout
+
+    local elems = self.toolbarElements
+    if not elems or not elems.sizeLabel then return end
+
+    -- Determine visibility based on layout
+    local showSlider = (newLayout == "full")
+    local showFilter = (newLayout == "full" or newLayout == "noSlider")
+    local showSearch = (newLayout ~= "minimal")
+
+    -- Apply visibility
+    elems.sizeLabel:SetShown(showSlider)
+    elems.sizeValue:SetShown(showSlider)
+    elems.sizeSlider:SetShown(showSlider)
+    elems.filterDropdown:SetShown(showFilter)
+    elems.searchBox:SetShown(showSearch)
+
+    -- Determine left anchor for filter dropdown (slider if visible, otherwise toolbar edge)
+    local filterLeftAnchor = showSlider and elems.sizeSlider or self.toolbar
+    local filterLeftPoint = showSlider and "RIGHT" or "LEFT"
+    local filterLeftOffset = showSlider and 16 or GRID_OUTER_PAD
+
+    elems.filterDropdown:ClearAllPoints()
+    if showFilter then
+        elems.filterDropdown:SetPoint("LEFT", filterLeftAnchor, filterLeftPoint, filterLeftOffset, 0)
+    end
+
+    -- Determine left anchor for search box (rightmost visible element on the left)
+    local searchLeftAnchor, searchLeftPoint, searchLeftOffset
+    if showFilter then
+        searchLeftAnchor, searchLeftPoint, searchLeftOffset = elems.filterDropdown, "RIGHT", 16
+    elseif showSlider then
+        searchLeftAnchor, searchLeftPoint, searchLeftOffset = elems.sizeSlider, "RIGHT", 16
+    else
+        searchLeftAnchor, searchLeftPoint, searchLeftOffset = self.toolbar, "LEFT", GRID_OUTER_PAD
+    end
+
+    elems.searchBox:ClearAllPoints()
+    if showSearch then
+        elems.searchBox:SetPoint("LEFT", searchLeftAnchor, searchLeftPoint, searchLeftOffset, 0)
+        elems.searchBox:SetPoint("RIGHT", elems.sortLabel, "LEFT", -16, 0)
+    end
+
+    addon:Debug("Toolbar layout: " .. newLayout .. " (width: " .. math.floor(toolbarWidth) .. ")")
 end
 
 -- Get localized label for a sort type value
@@ -279,40 +360,6 @@ function Grid:UpdateSortDropdownText(dropdown)
 
     local sortType = addon.db and addon.db.browser and addon.db.browser.sortType or 0
     dropdown:SetDefaultText(GetSortLabel(sortType))
-end
-
--- Create preview toggle button for toolbar (uses shared helper)
-function Grid:CreatePreviewToggleButton(parent)
-    local btn = addon:CreateToggleButton(parent, ">", nil, function()
-        if InCombatLockdown() then
-            addon:Print(addon.L["COMBAT_LOCKDOWN_MESSAGE"])
-            return
-        end
-        if addon.Preview then
-            addon.Preview:Toggle()
-        end
-    end)
-
-    -- Custom tooltip that changes based on preview state
-    btn:SetScript("OnEnter", function(b)
-        b:SetBackdropColor(0.2, 0.2, 0.24, 1)
-        b:SetBackdropBorderColor(0.6, 0.5, 0.1, 1)
-        GameTooltip:SetOwner(b, "ANCHOR_TOP")
-        local isOpen = addon.Preview and addon.Preview:IsShown()
-        local key = isOpen and "PREVIEW_COLLAPSE" or "PREVIEW_EXPAND"
-        GameTooltip:SetText(addon.L[key])
-        GameTooltip:Show()
-    end)
-
-    return btn
-end
-
-function Grid:UpdatePreviewToggleButton()
-    if not self.previewToggleButton then return end
-
-    -- Hide toolbar button when preview is open (title bar collapse button is sufficient)
-    local isOpen = addon.Preview and addon.Preview:IsShown()
-    self.previewToggleButton:SetShown(not isOpen)
 end
 
 function Grid:CreateScrollBox(parent, tileSize)
@@ -516,10 +563,20 @@ function Grid:CreateScrollBox(parent, tileSize)
     self.view = view
     self.currentColumnCount = columns
 
+    -- Initialize DataProvider once (reused via Flush/InsertTable in SetData)
+    self.dataProvider = CreateDataProvider()
+    scrollBox:SetDataProvider(self.dataProvider)
+
     addon:Debug("Grid created with " .. columns .. " columns, tile size " .. tileSize)
 end
 
 function Grid:DestroyScrollBox()
+    -- Cancel pending resize timer to prevent errors after teardown
+    if self.resizeTimer then
+        self.resizeTimer:Cancel()
+        self.resizeTimer = nil
+    end
+
     if self.scrollBox then
         self.scrollBox:Hide()
         self.scrollBox:SetParent(nil)
@@ -722,15 +779,14 @@ function Grid:ApplyClientSideSort(recordIDs, sortType)
 end
 
 function Grid:SetData(recordIDs)
-    if not self.scrollBox then return end
+    if not self.scrollBox or not self.dataProvider then return end
 
     -- Store unfiltered IDs for re-filtering
     self.unfilteredRecordIDs = recordIDs or {}
 
     if not recordIDs or #recordIDs == 0 then
         self.currentRecordIDs = {}
-        self.dataProvider = CreateDataProvider()
-        self.scrollBox:SetDataProvider(self.dataProvider)
+        self.dataProvider:Flush()
         self:UpdateResultCount()
         self:UpdateEmptyState()
         addon:Debug("Grid cleared - no items")
@@ -754,9 +810,11 @@ function Grid:SetData(recordIDs)
         table.insert(elements, { recordID = recordID })
     end
 
-    -- Create and set data provider
-    self.dataProvider = CreateDataProvider(elements)
-    self.scrollBox:SetDataProvider(self.dataProvider, ScrollBoxConstants.RetainScrollPosition)
+    -- Reuse DataProvider: Flush existing data and insert new elements
+    self.dataProvider:Flush()
+    if #elements > 0 then
+        self.dataProvider:InsertTable(elements)
+    end
 
     -- Update result count and empty state
     self:UpdateResultCount()
@@ -820,6 +878,18 @@ function Grid:Refresh()
     if self.scrollBox then
         self.scrollBox:FullUpdate(ScrollBoxConstants.UpdateImmediately)
     end
+end
+
+-- Debounced refresh to coalesce rapid successive storage events
+Grid.refreshDebounceTimer = nil
+
+function Grid:DebouncedRefresh()
+    if self.refreshDebounceTimer then return end
+
+    self.refreshDebounceTimer = C_Timer.NewTimer(0.05, function()
+        self.refreshDebounceTimer = nil
+        self:Refresh()
+    end)
 end
 
 function Grid:Show()
@@ -913,15 +983,10 @@ addon:RegisterInternalEvent("FILTER_CHANGED", function()
     end
 end)
 
--- Update preview toggle button when preview visibility changes
-addon:RegisterInternalEvent("PREVIEW_VISIBILITY_CHANGED", function()
-    Grid:UpdatePreviewToggleButton()
-end)
-
--- Refresh grid when a record's ownership data changes
+-- Refresh grid when a record's ownership data changes (debounced to coalesce rapid events)
 addon:RegisterInternalEvent("RECORD_OWNERSHIP_UPDATED", function()
     if addon.Tabs and addon.Tabs:GetCurrentTab() == "DECOR" then
-        Grid:Refresh()
+        Grid:DebouncedRefresh()
     end
 end)
 

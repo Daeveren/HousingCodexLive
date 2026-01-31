@@ -13,7 +13,6 @@ local defaults = {
     frameSize = { width = 1200, height = 800 },
     preview = {
         width = 400,     -- Docked panel width
-        isOpen = false,  -- Toggle state persistence
     },
     options = {
         position = { point = "CENTER", relativePoint = "CENTER", xOfs = 0, yOfs = 0 },
@@ -28,7 +27,6 @@ local defaults = {
             trackableState = "all",
             showWishlistOnly = false,
             showPlacedOnly = false,
-            searchText = "",
             indoors = true,
             outdoors = true,
             dyeable = false,

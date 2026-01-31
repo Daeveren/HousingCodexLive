@@ -268,12 +268,15 @@ function addon:ProcessSearchResults()
     local recordCount = 0
 
     for _, entryID in ipairs(allEntries) do
-        local info = C_HousingCatalog.GetCatalogEntryInfo(entryID)
-        if info and not info.isPrefab and not records[entryID.recordID] then
-            local record = BuildRecord(entryID, info)
-            if record then
-                records[entryID.recordID] = record
-                recordCount = recordCount + 1
+        -- Check duplicate first to avoid unnecessary API call
+        if not records[entryID.recordID] then
+            local info = C_HousingCatalog.GetCatalogEntryInfo(entryID)
+            if info and not info.isPrefab then
+                local record = BuildRecord(entryID, info)
+                if record then
+                    records[entryID.recordID] = record
+                    recordCount = recordCount + 1
+                end
             end
         end
     end
@@ -304,20 +307,24 @@ function addon:OnSearchResultsUpdated(entries)
     local refreshing = self.needsRecordRefresh
     self.needsRecordRefresh = false
 
-    -- Single pass: refresh ownership (first entry per recordID only) and collect unique IDs
+    -- If refreshing, update ALL records (not just filtered ones)
+    -- This ensures ownership counts stay accurate for items outside current filters
+    if refreshing then
+        for _, record in pairs(self.decorRecords) do
+            local info = C_HousingCatalog.GetCatalogEntryInfo(record.entryID)
+            if info then
+                RefreshRecordOwnership(record, info)
+            end
+        end
+        self:Debug("Refreshed ownership for all records")
+    end
+
+    -- Collect unique IDs from search results
     for _, entryID in ipairs(entries or {}) do
         local recordID = entryID.recordID
         local record = self.decorRecords[recordID]
         if record and not seen[recordID] then
             seen[recordID] = true
-
-            if refreshing then
-                local info = C_HousingCatalog.GetCatalogEntryInfo(entryID)
-                if info then
-                    RefreshRecordOwnership(record, info)
-                end
-            end
-
             table.insert(recordIDs, recordID)
         end
     end

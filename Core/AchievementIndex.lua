@@ -6,25 +6,26 @@
 
 local ADDON_NAME, addon = ...
 
--- Category display order (WoW's official achievement categories)
+-- WoW achievement root category IDs (stable across locales)
+-- Source: ACHIEVEMENTUI_SUMMARYCATEGORIES in Blizzard_AchievementUI.lua
 local CATEGORY_ORDER = {
-    ["General"] = 1,
-    ["Quests"] = 2,
-    ["Exploration"] = 3,
-    ["Player vs. Player"] = 4,
-    ["Dungeons & Raids"] = 5,
-    ["Professions"] = 6,
-    ["Reputation"] = 7,
-    ["World Events"] = 8,
-    ["Pet Battles"] = 9,
-    ["Collections"] = 10,
-    ["Expansion Features"] = 11,
-    ["Feats of Strength"] = 12,
+    [92] = 1,      -- General
+    [96] = 2,      -- Quests
+    [97] = 3,      -- Exploration
+    [95] = 4,      -- Player vs. Player
+    [168] = 5,     -- Dungeons & Raids
+    [169] = 6,     -- Professions
+    [201] = 7,     -- Reputation
+    [155] = 8,     -- World Events
+    [15117] = 9,   -- Pet Battles
+    [15246] = 10,  -- Collections
+    [15522] = 11,  -- Expansion Features
+    [81] = 12,     -- Feats of Strength
 }
 
 -- Runtime data structures
 addon.achievementIndex = {}           -- achievementId -> { [recordID] = true, ... }
-addon.achievementHierarchy = {}       -- category -> { achievements[] }
+addon.achievementHierarchy = {}       -- categoryId -> { achievements[] }
 addon.achievementCompletionCache = {} -- achievementId -> boolean
 addon.achievementIndexBuilt = false
 
@@ -72,44 +73,51 @@ function addon:BuildAchievementIndex()
         achievementCount, decorCount, elapsedMs))
 end
 
--- Get top-level category name from WoW API
--- Walks up the category hierarchy to find the root category
+-- Get top-level category ID from WoW API
+-- Walks up the category hierarchy to find the root category ID
 function addon:GetWoWAchievementCategory(achievementId)
     local categoryId = GetAchievementCategory(achievementId)
     if not categoryId then return nil end
 
     -- Walk up hierarchy to find top-level category (where parentCategoryId == -1)
-    local categoryName, parentCategoryId = GetCategoryInfo(categoryId)
+    local _, parentCategoryId = GetCategoryInfo(categoryId)
 
     while parentCategoryId and parentCategoryId ~= -1 do
-        categoryName, parentCategoryId = GetCategoryInfo(parentCategoryId)
+        categoryId = parentCategoryId
+        _, parentCategoryId = GetCategoryInfo(categoryId)
     end
 
-    return categoryName
+    return categoryId
 end
 
--- Build achievement hierarchy (category -> achievements)
+-- Get localized category name from category ID
+function addon:GetCategoryName(categoryId)
+    if not categoryId then return nil end
+    return (GetCategoryInfo(categoryId))
+end
+
+-- Build achievement hierarchy (categoryId -> achievements)
 function addon:BuildAchievementHierarchy()
     local startTime = debugprofilestop()
 
     -- Clear existing hierarchy
     wipe(self.achievementHierarchy)
 
-    -- Group achievements by category using WoW API
+    -- Group achievements by category ID using WoW API
     for achievementId in pairs(self.achievementIndex) do
-        local category = self:GetWoWAchievementCategory(achievementId)
+        local categoryId = self:GetWoWAchievementCategory(achievementId)
 
-        if category then
-            if not self.achievementHierarchy[category] then
-                self.achievementHierarchy[category] = {}
+        if categoryId then
+            if not self.achievementHierarchy[categoryId] then
+                self.achievementHierarchy[categoryId] = {}
             end
 
-            table.insert(self.achievementHierarchy[category], achievementId)
+            table.insert(self.achievementHierarchy[categoryId], achievementId)
         end
     end
 
     -- Sort achievements within each category alphabetically by name
-    for category, achievements in pairs(self.achievementHierarchy) do
+    for categoryId, achievements in pairs(self.achievementHierarchy) do
         table.sort(achievements, function(a, b)
             local nameA = self:GetAchievementName(a) or ""
             local nameB = self:GetAchievementName(b) or ""
@@ -123,25 +131,25 @@ function addon:BuildAchievementHierarchy()
     self:Debug(string.format("Built achievement hierarchy in %d ms", elapsedMs))
 end
 
--- Get sorted list of achievement categories (by predefined order)
+-- Get sorted list of achievement category IDs (by predefined order)
 function addon:GetSortedAchievementCategories()
-    local categories = {}
-    for category in pairs(self.achievementHierarchy) do
-        table.insert(categories, category)
+    local categoryIds = {}
+    for categoryId in pairs(self.achievementHierarchy) do
+        table.insert(categoryIds, categoryId)
     end
 
-    table.sort(categories, function(a, b)
+    table.sort(categoryIds, function(a, b)
         local orderA = CATEGORY_ORDER[a] or 999
         local orderB = CATEGORY_ORDER[b] or 999
         return orderA < orderB
     end)
 
-    return categories
+    return categoryIds
 end
 
--- Get achievements for a specific category
-function addon:GetAchievementsForCategory(category)
-    return self.achievementHierarchy[category] or {}
+-- Get achievements for a specific category (by ID)
+function addon:GetAchievementsForCategory(categoryId)
+    return self.achievementHierarchy[categoryId] or {}
 end
 
 -- Get record IDs for a specific achievement
@@ -157,17 +165,19 @@ function addon:GetRecordsForAchievement(achievementId)
     return result
 end
 
--- Get achievement name from AchievementSourceData
+-- Get achievement name (prefers localized API name)
 function addon:GetAchievementName(achievementId)
-    -- Check scraped data first
+    -- Prefer localized API name
+    local _, name = GetAchievementInfo(achievementId)
+    if name then return name end
+
+    -- Fallback to scraped data if API unavailable
     local achievementData = self.AchievementSourceData and self.AchievementSourceData[achievementId]
     if achievementData and achievementData.achievementName then
         return achievementData.achievementName
     end
 
-    -- Fallback to WoW API
-    local _, name = GetAchievementInfo(achievementId)
-    return name or string.format(self.L["ACHIEVEMENTS_UNKNOWN"], achievementId)
+    return string.format(self.L["ACHIEVEMENTS_UNKNOWN"], achievementId)
 end
 
 -- Alias for consistency with naming conventions in other modules
@@ -211,9 +221,9 @@ function addon:GetAchievementCollectionProgress(achievementId)
     return owned, total
 end
 
--- Get collection progress for a category
-function addon:GetCategoryCollectionProgress(category)
-    local achievements = self:GetAchievementsForCategory(category)
+-- Get collection progress for a category (by ID)
+function addon:GetCategoryCollectionProgress(categoryId)
+    local achievements = self:GetAchievementsForCategory(categoryId)
     local owned, total = 0, 0
 
     for _, achievementId in ipairs(achievements) do
@@ -225,9 +235,9 @@ function addon:GetCategoryCollectionProgress(category)
     return owned, total
 end
 
--- Get achievement completion progress for a category (earned/total)
-function addon:GetCategoryAchievementCompletionProgress(category)
-    local achievements = self:GetAchievementsForCategory(category)
+-- Get achievement completion progress for a category (earned/total, by ID)
+function addon:GetCategoryAchievementCompletionProgress(categoryId)
+    local achievements = self:GetAchievementsForCategory(categoryId)
     local completed, total = 0, 0
 
     for _, achievementId in ipairs(achievements) do

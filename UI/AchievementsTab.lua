@@ -18,8 +18,7 @@ local GRID_OUTER_PAD = CONSTS.GRID_OUTER_PAD
 local WISHLIST_STAR_SIZE = 14  -- Small star for achievement rows
 local CATEGORY_BUTTON_HEIGHT = 32  -- Category button height
 
--- Category names from WoW API are already localized by the game
--- No lookup table needed - we display GetCategoryInfo() results directly
+-- Category IDs are used for logic, GetCategoryInfo(id) gets localized names for display
 
 -- Button colors
 local COLOR_GOLD_BORDER = { 1, 0.82, 0, 1 }
@@ -48,15 +47,9 @@ local function ApplyCategoryButtonState(frame, isSelected)
     end
 end
 
--- Helper to reset background texture to solid color mode
-local function ResetBackgroundTexture(bg)
-    bg:SetTexture("Interface\\Buttons\\WHITE8x8")
-    bg:SetGradient("HORIZONTAL", CreateColor(1,1,1,1), CreateColor(1,1,1,1))
-end
-
 -- Helper to apply achievement row visual state
 local function ApplyAchievementRowState(frame, isSelected)
-    ResetBackgroundTexture(frame.bg)
+    addon:ResetBackgroundTexture(frame.bg)
     if isSelected then
         frame.bg:SetColorTexture(unpack(COLOR_ACHIEVEMENT_SELECTED))
         frame.selectionBorder:Show()
@@ -69,48 +62,243 @@ local function ApplyAchievementRowState(frame, isSelected)
     end
 end
 
--- Helper to print tracking result messages
-local function PrintTrackingResult(errorCode, startedKey, failedKey)
-    local L = addon.L
-    if errorCode == nil then
-        addon:Print(L[startedKey])
-    elseif errorCode == Enum.ContentTrackingError.MaxTracked then
-        addon:Print(L["ACHIEVEMENTS_TRACKING_MAX_REACHED"])
-    elseif errorCode == Enum.ContentTrackingError.AlreadyTracked then
-        addon:Print(L["ACHIEVEMENTS_TRACKING_ALREADY"])
-    else
-        addon:Print(L[failedKey])
+-- Helper to update wishlist star visibility and position
+local function UpdateWishlistStar(frame, isWishlisted)
+    if not frame or not frame.wishlistStar or not frame.label then return end
+    frame.wishlistStar:SetShown(isWishlisted)
+    if isWishlisted then
+        frame.wishlistStar:ClearAllPoints()
+        frame.wishlistStar:SetPoint("LEFT", frame.label, "LEFT", frame.label:GetStringWidth() + 4, 0)
     end
 end
 
--- Helper to create an empty state frame with centered message
-local function CreateEmptyStateFrame(parent, messageKey, descKey, descWidth)
-    local L = addon.L
-    local frame = CreateFrame("Frame", nil, parent)
-    frame:SetAllPoints()
-    frame:Hide()
+-- Helper to initialize shared achievement row visuals
+local function InitializeAchievementRowFrame(frame)
+    if frame.bg then return end
 
     local bg = frame:CreateTexture(nil, "BACKGROUND")
     bg:SetAllPoints()
-    bg:SetColorTexture(0.04, 0.04, 0.06, 0.95)
+    bg:SetTexture("Interface\\Buttons\\WHITE8x8")
+    frame.bg = bg
 
-    local hasDesc = descKey ~= nil
-    local msg = addon:CreateFontString(frame, "OVERLAY", hasDesc and "GameFontNormal" or "GameFontNormalLarge")
-    msg:SetPoint("CENTER", 0, hasDesc and 10 or 0)
-    msg:SetText(L[messageKey])
-    msg:SetTextColor(hasDesc and 0.6 or 0.5, hasDesc and 0.6 or 0.5, hasDesc and 0.6 or 0.5, 1)
+    -- Selection border
+    local border = frame:CreateTexture(nil, "ARTWORK")
+    border:SetWidth(3)
+    border:SetPoint("TOPLEFT", 0, 0)
+    border:SetPoint("BOTTOMLEFT", 0, 0)
+    border:SetColorTexture(unpack(COLOR_GOLD_BORDER))
+    border:Hide()
+    frame.selectionBorder = border
 
-    if hasDesc then
-        local desc = addon:CreateFontString(frame, "OVERLAY", "GameFontNormal")
-        desc:SetPoint("TOP", msg, "BOTTOM", 0, -8)
-        desc:SetText(L[descKey])
-        desc:SetTextColor(0.5, 0.5, 0.5, 1)
-        if descWidth then desc:SetWidth(descWidth) end
-    end
+    -- Checkmark icon for completed achievements
+    local checkIcon = frame:CreateTexture(nil, "OVERLAY")
+    checkIcon:SetSize(14, 14)
+    checkIcon:SetPoint("LEFT", 8, 0)
+    checkIcon:SetAtlas("common-icon-checkmark")
+    checkIcon:SetVertexColor(0.4, 0.9, 0.4, 1)
+    checkIcon:Hide()
+    frame.checkIcon = checkIcon
 
-    return frame
+    -- Incomplete icon (small pip)
+    local incompleteIcon = frame:CreateTexture(nil, "OVERLAY")
+    incompleteIcon:SetSize(8, 8)
+    incompleteIcon:SetPoint("LEFT", 11, 0)
+    incompleteIcon:SetTexture("Interface\\Buttons\\WHITE8x8")
+    incompleteIcon:SetVertexColor(0.7, 0.5, 0.2, 0.8)
+    incompleteIcon:Hide()
+    frame.incompleteIcon = incompleteIcon
+
+    -- Label
+    local label = addon:CreateFontString(frame, "OVERLAY", "GameFontNormal")
+    label:SetPoint("LEFT", 28, 0)
+    label:SetPoint("RIGHT", -80, 0)
+    label:SetJustifyH("LEFT")
+    label:SetWordWrap(false)
+    frame.label = label
+
+    -- Progress (right side)
+    local progress = addon:CreateFontString(frame, "OVERLAY", "GameFontNormal")
+    progress:SetPoint("RIGHT", -8, 0)
+    progress:SetJustifyH("RIGHT")
+    frame.progress = progress
+
+    -- Wishlist star badge
+    local wishlistStar = frame:CreateTexture(nil, "OVERLAY")
+    wishlistStar:SetSize(WISHLIST_STAR_SIZE, WISHLIST_STAR_SIZE)
+    wishlistStar:SetPoint("LEFT", 40, 0)
+    wishlistStar:SetAtlas("PetJournal-FavoritesIcon")
+    wishlistStar:SetVertexColor(unpack(COLORS.GOLD))
+    wishlistStar:Hide()
+    frame.wishlistStar = wishlistStar
+
+    frame:EnableMouse(true)
 end
 
+local function ResetAchievementRowState(frame)
+    frame.selectionBorder:Hide()
+    frame.checkIcon:Hide()
+    frame.incompleteIcon:Hide()
+    frame.wishlistStar:Hide()
+    frame.achievementID = nil
+    frame.recordID = nil
+end
+
+local function SetupAchievementRow(self, frame, elementData)
+    local L = addon.L
+
+    frame.achievementID = elementData.achievementID
+    frame.recordID = elementData.recordID
+
+    -- Achievement completion is based on achievement earned status
+    local isComplete = addon:IsAchievementCompleted(elementData.achievementID)
+    frame.isComplete = isComplete
+
+    local isSelected = self.selectedAchievementID == elementData.achievementID and
+        (not elementData.recordID or self.selectedRecordID == elementData.recordID)
+    ApplyAchievementRowState(frame, isSelected)
+
+    -- Completion indicator
+    if isComplete then
+        frame.checkIcon:Show()
+    else
+        frame.incompleteIcon:Show()
+    end
+
+    -- Achievement name (multi-decor shows "Name (1)", "Name (2)")
+    local achievementName = addon:GetAchievementName(elementData.achievementID)
+    if elementData.totalRewards and elementData.totalRewards > 1 then
+        achievementName = achievementName .. " (" .. elementData.rewardIndex .. ")"
+    end
+    frame.label:SetText(achievementName)
+    addon:SetFontSize(frame.label, 11, "")
+
+    -- Wishlist star
+    if frame.wishlistStar and elementData.recordID then
+        local isWishlisted = addon:IsWishlisted(elementData.recordID)
+        UpdateWishlistStar(frame, isWishlisted)
+    end
+
+    -- Progress (collection progress for the achievement's decors)
+    local owned, total = addon:GetAchievementCollectionProgress(elementData.achievementID)
+    frame.progress:SetText(string.format("%d/%d", owned, total))
+    local progressComplete = owned == total and total > 0
+    frame.progress:SetTextColor(unpack(progressComplete and COLOR_PROGRESS_COMPLETE or COLOR_PROGRESS_LOW))
+
+    frame:SetScript("OnMouseDown", function(f, button)
+        if button == "RightButton" then
+            -- Right-Click: Copy Wowhead URL to clipboard
+            if elementData.achievementID then
+                local url = "https://www.wowhead.com/achievement=" .. elementData.achievementID
+                CopyToClipboard(url)
+                addon:Print(string.format(L["WOWHEAD_LINK_COPIED"], url))
+            end
+            return
+        end
+
+        if IsShiftKeyDown() and elementData.achievementID then
+            -- Shift+Click: Toggle tracking the achievement
+            local trackingType = Enum.ContentTrackingType.Achievement
+            local achievementID = elementData.achievementID
+            if C_ContentTracking.IsTracking(trackingType, achievementID) then
+                C_ContentTracking.StopTracking(trackingType, achievementID, Enum.ContentTrackingStopType.Manual)
+                addon:Print(L["ACHIEVEMENTS_TRACKING_STOPPED"])
+            else
+                local err = C_ContentTracking.StartTracking(trackingType, achievementID)
+                addon:PrintTrackingResult(err, "ACHIEVEMENTS_TRACKING_STARTED_ACHIEVEMENT", "ACHIEVEMENTS_TRACKING_FAILED", "ACHIEVEMENTS_TRACKING_MAX_REACHED", "ACHIEVEMENTS_TRACKING_ALREADY")
+            end
+        elseif IsControlKeyDown() and elementData.recordID then
+            -- Ctrl+Click: Start tracking the decor reward
+            local err = C_ContentTracking.StartTracking(Enum.ContentTrackingType.Decor, elementData.recordID)
+            addon:PrintTrackingResult(err, "ACHIEVEMENTS_TRACKING_STARTED", "ACHIEVEMENTS_TRACKING_FAILED", "ACHIEVEMENTS_TRACKING_MAX_REACHED", "ACHIEVEMENTS_TRACKING_ALREADY")
+        else
+            self:SelectAchievement(elementData)
+        end
+    end)
+
+    frame:SetScript("OnEnter", function(f)
+        -- Visual feedback
+        if self.selectedAchievementID ~= f.achievementID or self.selectedRecordID ~= f.recordID then
+            f.bg:SetColorTexture(0.08, 0.08, 0.10, 1)
+        end
+
+        -- Fire preview event for hover
+        local recordID = f.recordID
+        if not recordID then
+            local recordIDs = addon:GetRecordsForAchievement(f.achievementID)
+            recordID = recordIDs and recordIDs[1]
+        end
+        if recordID then
+            self.hoveringRecordID = recordID
+            addon:FireEvent("RECORD_SELECTED", recordID)
+        end
+
+        -- Show achievement tooltip at cursor with live criteria progress
+        GameTooltip:SetOwner(UIParent, "ANCHOR_NONE")
+        local x, y = GetCursorPosition()
+        local scale = UIParent:GetEffectiveScale()
+        GameTooltip:SetPoint("BOTTOMLEFT", UIParent, "BOTTOMLEFT", (x / scale) + 15, (y / scale) + 15)
+
+        local achievementID = f.achievementID
+        local _, name, _, completed, month, day, year, description = GetAchievementInfo(achievementID)
+
+        -- Achievement name (gold if completed, white otherwise)
+        local r, g, b = 1, 1, 1
+        if completed then r, g, b = 1, 0.82, 0 end
+        GameTooltip:AddLine(name, r, g, b)
+
+        -- Description
+        if description then
+            GameTooltip:AddLine(description, 1, 1, 1, true)
+        end
+
+        -- Criteria progress
+        local numCriteria = GetAchievementNumCriteria(achievementID)
+        if numCriteria and numCriteria > 0 then
+            GameTooltip:AddLine(" ")
+            for i = 1, numCriteria do
+                local criteriaString, _, criteriaCompleted, quantity, reqQuantity, _, _, _, quantityString
+                    = GetAchievementCriteriaInfo(achievementID, i)
+                if criteriaString then
+                    if criteriaCompleted then
+                        GameTooltip:AddLine("  |cff00ff00" .. criteriaString .. "|r")
+                    elseif reqQuantity and reqQuantity > 1 then
+                        local progressText = quantityString or (quantity .. "/" .. reqQuantity)
+                        GameTooltip:AddLine("  |cff808080- " .. criteriaString .. " (" .. progressText .. ")|r")
+                    else
+                        GameTooltip:AddLine("  |cff808080- " .. criteriaString .. "|r")
+                    end
+                end
+            end
+        end
+
+        -- Completion date
+        if completed and month and day and year then
+            GameTooltip:AddLine(" ")
+            GameTooltip:AddLine(string.format(ACHIEVEMENT_TOOLTIP_COMPLETE, day, month, year), 0.6, 0.6, 0.6)
+        end
+
+        GameTooltip:Show()
+    end)
+
+    frame:SetScript("OnLeave", function(f)
+        GameTooltip:Hide()
+
+        ApplyAchievementRowState(f, self.selectedAchievementID == f.achievementID and
+            (not f.recordID or self.selectedRecordID == f.recordID))
+
+        self.hoveringRecordID = nil
+
+        -- Restore preview to selected achievement
+        if self.selectedRecordID then
+            addon:FireEvent("RECORD_SELECTED", self.selectedRecordID)
+        elseif self.selectedAchievementID then
+            local recordIDs = addon:GetRecordsForAchievement(self.selectedAchievementID)
+            if recordIDs and recordIDs[1] then
+                addon:FireEvent("RECORD_SELECTED", recordIDs[1])
+            end
+        end
+    end)
+end
 addon.AchievementsTab = {}
 local AchievementsTab = addon.AchievementsTab
 
@@ -138,6 +326,10 @@ AchievementsTab.selectedCategory = nil
 AchievementsTab.selectedAchievementID = nil
 AchievementsTab.selectedRecordID = nil
 AchievementsTab.hoveringRecordID = nil
+
+-- Responsive toolbar state
+AchievementsTab.toolbarLayout = nil  -- "full", "noFilter", "minimal"
+AchievementsTab.filterContainer = nil  -- Reference for responsive hiding
 
 --------------------------------------------------------------------------------
 -- Main Frame
@@ -249,6 +441,7 @@ function AchievementsTab:CreateToolbar(parent)
     local filterContainer = CreateFrame("Frame", nil, toolbar)
     filterContainer:SetPoint("LEFT", searchBox, "RIGHT", 16, 0)
     filterContainer:SetHeight(22)
+    self.filterContainer = filterContainer
 
     local filters = {
         { key = "all", label = L["ACHIEVEMENTS_FILTER_ALL"] },
@@ -269,32 +462,24 @@ function AchievementsTab:CreateToolbar(parent)
 
     filterContainer:SetWidth(xOffset - 4)
 
-    -- Preview toggle button (right side)
-    local toggleBtn = addon:CreateToggleButton(toolbar, ">", nil, function()
-        if InCombatLockdown() then
-            addon:Print(L["COMBAT_LOCKDOWN_MESSAGE"])
-            return
-        end
-        if addon.Preview then
-            addon.Preview:Toggle()
-        end
-    end)
-    toggleBtn:SetPoint("RIGHT", toolbar, "RIGHT", -GRID_OUTER_PAD, 0)
-
-    toggleBtn:SetScript("OnEnter", function(b)
-        b:SetBackdropColor(0.2, 0.2, 0.24, 1)
-        b:SetBackdropBorderColor(0.6, 0.5, 0.1, 1)
-        GameTooltip:SetOwner(b, "ANCHOR_TOP")
-        local isOpen = addon.Preview and addon.Preview:IsShown()
-        local key = isOpen and "PREVIEW_COLLAPSE" or "PREVIEW_EXPAND"
-        GameTooltip:SetText(L[key])
-        GameTooltip:Show()
-    end)
-
-    self.previewToggleButton = toggleBtn
-
     -- Set default filter
     self:SetCompletionFilter("incomplete")
+
+    -- Setup responsive toolbar updates
+    toolbar:SetScript("OnSizeChanged", function(_, width)
+        self:UpdateToolbarLayout(width)
+    end)
+end
+
+-- Update toolbar element visibility based on available width
+function AchievementsTab:UpdateToolbarLayout(toolbarWidth)
+    local newLayout = addon:UpdateSimpleToolbarLayout(
+        self.toolbarLayout, toolbarWidth, self.searchBox, self.filterContainer
+    )
+    if newLayout then
+        self.toolbarLayout = newLayout
+        addon:Debug("AchievementsTab toolbar layout: " .. newLayout .. " (width: " .. math.floor(toolbarWidth) .. ")")
+    end
 end
 
 function AchievementsTab:SetCompletionFilter(filterKey)
@@ -396,50 +581,51 @@ function AchievementsTab:SetupCategoryButton(frame, elementData)
 
     -- Reset state
     frame.selectionBorder:Hide()
-    frame.category = elementData.category
+    frame.categoryId = elementData.categoryId
 
-    local isSelected = self.selectedCategory == elementData.category
+    local isSelected = self.selectedCategory == elementData.categoryId
     ApplyCategoryButtonState(frame, isSelected)
 
-    -- Category names from WoW API are already localized
-    frame.label:SetText(elementData.category)
+    -- Get localized category name from ID
+    local categoryName = addon:GetCategoryName(elementData.categoryId) or tostring(elementData.categoryId)
+    frame.label:SetText(categoryName)
     addon:SetFontSize(frame.label, 13, "")
 
     -- Achievement completion percentage
-    local completed, total = addon:GetCategoryAchievementCompletionProgress(elementData.category)
+    local completed, total = addon:GetCategoryAchievementCompletionProgress(elementData.categoryId)
     local pctValue = total > 0 and (completed / total * 100) or 0
     frame.percentLabel:SetText(string.format("%.0f%%", pctValue))
     frame.percentLabel:SetTextColor(addon:GetCompletionProgressColor(pctValue))
     addon:SetFontSize(frame.percentLabel, 11, "")
 
     frame:SetScript("OnClick", function()
-        self:SelectCategory(elementData.category)
+        self:SelectCategory(elementData.categoryId)
     end)
 
     frame:SetScript("OnEnter", function(f)
-        if self.selectedCategory ~= f.category then
+        if self.selectedCategory ~= f.categoryId then
             f.bg:SetColorTexture(unpack(COLOR_CATEGORY_HOVER))
         end
     end)
 
     frame:SetScript("OnLeave", function(f)
-        ApplyCategoryButtonState(f, self.selectedCategory == f.category)
+        ApplyCategoryButtonState(f, self.selectedCategory == f.categoryId)
     end)
 end
 
-function AchievementsTab:SelectCategory(category)
+function AchievementsTab:SelectCategory(categoryId)
     local prevSelected = self.selectedCategory
-    self.selectedCategory = category
+    self.selectedCategory = categoryId
 
     -- Save to DB
     local db = GetAchievementsDB()
-    if db then db.selectedCategory = category end
+    if db then db.selectedCategory = categoryId end
 
     -- Update category panel visuals
     if self.categoryScrollBox then
         self.categoryScrollBox:ForEachFrame(function(frame)
-            if frame.category then
-                ApplyCategoryButtonState(frame, frame.category == category)
+            if frame.categoryId then
+                ApplyCategoryButtonState(frame, frame.categoryId == categoryId)
             end
         end)
     end
@@ -448,7 +634,7 @@ function AchievementsTab:SelectCategory(category)
     self:BuildAchievementDisplay()
 
     -- Clear selection and preview when switching categories
-    if prevSelected ~= category then
+    if prevSelected ~= categoryId then
         self.selectedAchievementID = nil
         self.selectedRecordID = nil
         if db then
@@ -504,241 +690,22 @@ function AchievementsTab:CreateAchievementPanel(parent)
 end
 
 function AchievementsTab:SetupAchievementButton(frame, elementData)
-    local L = addon.L
-
-    -- Setup frame if needed (one-time initialization)
-    if not frame.bg then
-        local bg = frame:CreateTexture(nil, "BACKGROUND")
-        bg:SetAllPoints()
-        bg:SetTexture("Interface\\Buttons\\WHITE8x8")
-        frame.bg = bg
-
-        -- Selection border
-        local border = frame:CreateTexture(nil, "ARTWORK")
-        border:SetWidth(3)
-        border:SetPoint("TOPLEFT", 0, 0)
-        border:SetPoint("BOTTOMLEFT", 0, 0)
-        border:SetColorTexture(unpack(COLOR_GOLD_BORDER))
-        border:Hide()
-        frame.selectionBorder = border
-
-        -- Checkmark icon for completed achievements
-        local checkIcon = frame:CreateTexture(nil, "OVERLAY")
-        checkIcon:SetSize(14, 14)
-        checkIcon:SetPoint("LEFT", 8, 0)
-        checkIcon:SetAtlas("common-icon-checkmark")
-        checkIcon:SetVertexColor(0.4, 0.9, 0.4, 1)
-        checkIcon:Hide()
-        frame.checkIcon = checkIcon
-
-        -- Incomplete icon (small pip)
-        local incompleteIcon = frame:CreateTexture(nil, "OVERLAY")
-        incompleteIcon:SetSize(8, 8)
-        incompleteIcon:SetPoint("LEFT", 11, 0)
-        incompleteIcon:SetTexture("Interface\\Buttons\\WHITE8x8")
-        incompleteIcon:SetVertexColor(0.7, 0.5, 0.2, 0.8)
-        incompleteIcon:Hide()
-        frame.incompleteIcon = incompleteIcon
-
-        -- Label
-        local label = addon:CreateFontString(frame, "OVERLAY", "GameFontNormal")
-        label:SetPoint("LEFT", 28, 0)
-        label:SetPoint("RIGHT", -80, 0)
-        label:SetJustifyH("LEFT")
-        label:SetWordWrap(false)
-        frame.label = label
-
-        -- Progress (right side)
-        local progress = addon:CreateFontString(frame, "OVERLAY", "GameFontNormal")
-        progress:SetPoint("RIGHT", -8, 0)
-        progress:SetJustifyH("RIGHT")
-        frame.progress = progress
-
-        -- Wishlist star badge
-        local wishlistStar = frame:CreateTexture(nil, "OVERLAY")
-        wishlistStar:SetSize(WISHLIST_STAR_SIZE, WISHLIST_STAR_SIZE)
-        wishlistStar:SetPoint("LEFT", 40, 0)
-        wishlistStar:SetAtlas("PetJournal-FavoritesIcon")
-        wishlistStar:SetVertexColor(unpack(COLORS.GOLD))
-        wishlistStar:Hide()
-        frame.wishlistStar = wishlistStar
-
-        frame:EnableMouse(true)
-    end
-
-    -- Reset state
-    frame.selectionBorder:Hide()
-    frame.checkIcon:Hide()
-    frame.incompleteIcon:Hide()
-    frame.wishlistStar:Hide()
-    frame.achievementID = elementData.achievementID
-    frame.recordID = elementData.recordID
-
-    -- Achievement completion is based on achievement earned status
-    local isComplete = addon:IsAchievementCompleted(elementData.achievementID)
-    frame.isComplete = isComplete
-
-    local isSelected = self.selectedAchievementID == elementData.achievementID and
-        (not elementData.recordID or self.selectedRecordID == elementData.recordID)
-    ApplyAchievementRowState(frame, isSelected)
-
-    -- Completion indicator
-    if isComplete then
-        frame.checkIcon:Show()
-    else
-        frame.incompleteIcon:Show()
-    end
-
-    -- Achievement name (multi-decor shows "Name (1)", "Name (2)")
-    local achievementName = addon:GetAchievementName(elementData.achievementID)
-    if elementData.totalRewards and elementData.totalRewards > 1 then
-        achievementName = achievementName .. " (" .. elementData.rewardIndex .. ")"
-    end
-    frame.label:SetText(achievementName)
-    addon:SetFontSize(frame.label, 11, "")
-
-    -- Wishlist star
-    if frame.wishlistStar and elementData.recordID then
-        local isWishlisted = addon:IsWishlisted(elementData.recordID)
-        frame.wishlistStar:SetShown(isWishlisted)
-        if isWishlisted then
-            frame.wishlistStar:ClearAllPoints()
-            frame.wishlistStar:SetPoint("LEFT", frame.label, "LEFT", frame.label:GetStringWidth() + 4, 0)
-        end
-    end
-
-    -- Progress (collection progress for the achievement's decors)
-    local owned, total = addon:GetAchievementCollectionProgress(elementData.achievementID)
-    frame.progress:SetText(string.format("%d/%d", owned, total))
-    local progressComplete = owned == total and total > 0
-    frame.progress:SetTextColor(unpack(progressComplete and COLOR_PROGRESS_COMPLETE or COLOR_PROGRESS_LOW))
-
-    frame:SetScript("OnMouseDown", function(f, button)
-        if button == "RightButton" then
-            -- Right-Click: Copy Wowhead URL to clipboard
-            if elementData.achievementID then
-                local url = "https://www.wowhead.com/achievement=" .. elementData.achievementID
-                CopyToClipboard(url)
-                addon:Print(string.format(L["WOWHEAD_LINK_COPIED"], url))
-            end
-            return
-        end
-
-        if IsShiftKeyDown() and elementData.achievementID then
-            -- Shift+Click: Toggle tracking the achievement
-            local trackingType = Enum.ContentTrackingType.Achievement
-            local achievementID = elementData.achievementID
-            if C_ContentTracking.IsTracking(trackingType, achievementID) then
-                C_ContentTracking.StopTracking(trackingType, achievementID, Enum.ContentTrackingStopType.Manual)
-                addon:Print(L["ACHIEVEMENTS_TRACKING_STOPPED"])
-            else
-                local err = C_ContentTracking.StartTracking(trackingType, achievementID)
-                PrintTrackingResult(err, "ACHIEVEMENTS_TRACKING_STARTED_ACHIEVEMENT", "ACHIEVEMENTS_TRACKING_FAILED")
-            end
-        elseif IsControlKeyDown() and elementData.recordID then
-            -- Ctrl+Click: Start tracking the decor reward
-            local err = C_ContentTracking.StartTracking(Enum.ContentTrackingType.Decor, elementData.recordID)
-            PrintTrackingResult(err, "ACHIEVEMENTS_TRACKING_STARTED", "ACHIEVEMENTS_TRACKING_FAILED")
-        else
-            self:SelectAchievement(elementData)
-        end
-    end)
-
-    frame:SetScript("OnEnter", function(f)
-        -- Visual feedback
-        if self.selectedAchievementID ~= f.achievementID or self.selectedRecordID ~= f.recordID then
-            f.bg:SetColorTexture(0.08, 0.08, 0.10, 1)
-        end
-
-        -- Fire preview event for hover
-        local recordID = f.recordID
-        if not recordID then
-            local recordIDs = addon:GetRecordsForAchievement(f.achievementID)
-            recordID = recordIDs and recordIDs[1]
-        end
-        if recordID then
-            self.hoveringRecordID = recordID
-            addon:FireEvent("RECORD_SELECTED", recordID)
-        end
-
-        -- Show achievement tooltip at cursor with live criteria progress
-        GameTooltip:SetOwner(UIParent, "ANCHOR_NONE")
-        local x, y = GetCursorPosition()
-        local scale = UIParent:GetEffectiveScale()
-        GameTooltip:SetPoint("BOTTOMLEFT", UIParent, "BOTTOMLEFT", (x / scale) + 15, (y / scale) + 15)
-
-        local achievementID = f.achievementID
-        local _, name, _, completed, month, day, year, description = GetAchievementInfo(achievementID)
-
-        -- Achievement name (gold if completed, white otherwise)
-        local r, g, b = 1, 1, 1
-        if completed then r, g, b = 1, 0.82, 0 end
-        GameTooltip:AddLine(name, r, g, b)
-
-        -- Description
-        if description then
-            GameTooltip:AddLine(description, 1, 1, 1, true)
-        end
-
-        -- Criteria progress
-        local numCriteria = GetAchievementNumCriteria(achievementID)
-        if numCriteria and numCriteria > 0 then
-            GameTooltip:AddLine(" ")
-            for i = 1, numCriteria do
-                local criteriaString, _, criteriaCompleted, quantity, reqQuantity, _, _, _, quantityString
-                    = GetAchievementCriteriaInfo(achievementID, i)
-                if criteriaString then
-                    if criteriaCompleted then
-                        GameTooltip:AddLine("  |cff00ff00" .. criteriaString .. "|r")
-                    elseif reqQuantity and reqQuantity > 1 then
-                        local progressText = quantityString or (quantity .. "/" .. reqQuantity)
-                        GameTooltip:AddLine("  |cff808080- " .. criteriaString .. " (" .. progressText .. ")|r")
-                    else
-                        GameTooltip:AddLine("  |cff808080- " .. criteriaString .. "|r")
-                    end
-                end
-            end
-        end
-
-        -- Completion date
-        if completed and month and day and year then
-            GameTooltip:AddLine(" ")
-            GameTooltip:AddLine(string.format(ACHIEVEMENT_TOOLTIP_COMPLETE, day, month, year), 0.6, 0.6, 0.6)
-        end
-
-        GameTooltip:Show()
-    end)
-
-    frame:SetScript("OnLeave", function(f)
-        GameTooltip:Hide()
-
-        ApplyAchievementRowState(f, self.selectedAchievementID == f.achievementID and
-            (not f.recordID or self.selectedRecordID == f.recordID))
-
-        self.hoveringRecordID = nil
-
-        -- Restore preview to selected achievement
-        if self.selectedRecordID then
-            addon:FireEvent("RECORD_SELECTED", self.selectedRecordID)
-        elseif self.selectedAchievementID then
-            local recordIDs = addon:GetRecordsForAchievement(self.selectedAchievementID)
-            if recordIDs and recordIDs[1] then
-                addon:FireEvent("RECORD_SELECTED", recordIDs[1])
-            end
-        end
-    end)
+    InitializeAchievementRowFrame(frame)
+    ResetAchievementRowState(frame)
+    SetupAchievementRow(self, frame, elementData)
 end
 
 -- Check if achievement matches search text
-local function AchievementMatchesSearch(achievementID, searchText, category)
+local function AchievementMatchesSearch(achievementID, searchText, categoryId)
     if searchText == "" then return true end
 
     -- Check achievement name
     local name = addon:GetAchievementName(achievementID) or ""
     if strlower(name):find(searchText, 1, true) then return true end
 
-    -- Check category name (already localized from WoW API)
-    if strlower(category):find(searchText, 1, true) then return true end
+    -- Check category name (get localized name from ID)
+    local categoryName = addon:GetCategoryName(categoryId) or ""
+    if strlower(categoryName):find(searchText, 1, true) then return true end
 
     -- Check decor reward names
     local records = addon:GetRecordsForAchievement(achievementID)
@@ -758,11 +725,11 @@ local function AchievementPassesCompletionFilter(achievementID, filter)
 
     -- Invalid achievement (nil) - hide from all views
     if isComplete == nil then return false end
-
     if filter == "all" then return true end
     if filter == "complete" then return isComplete end
-    if filter == "incomplete" then return not isComplete end
-    return true
+
+    -- "incomplete" or any other value defaults to showing incomplete
+    return not isComplete
 end
 
 function AchievementsTab:BuildCategoryDisplay()
@@ -772,38 +739,35 @@ function AchievementsTab:BuildCategoryDisplay()
     local filter = self:GetCompletionFilter()
     local searchText = strlower(strtrim(self.searchBox and self.searchBox:GetText() or ""))
 
-    for _, category in ipairs(addon:GetSortedAchievementCategories()) do
+    for _, categoryId in ipairs(addon:GetSortedAchievementCategories()) do
         local hasVisibleContent = false
-        for _, achievementID in ipairs(addon:GetAchievementsForCategory(category)) do
+        for _, achievementID in ipairs(addon:GetAchievementsForCategory(categoryId)) do
             if AchievementPassesCompletionFilter(achievementID, filter)
-                and AchievementMatchesSearch(achievementID, searchText, category) then
+                and AchievementMatchesSearch(achievementID, searchText, categoryId) then
                 hasVisibleContent = true
                 break
             end
         end
         if hasVisibleContent then
-            table.insert(elements, { category = category })
+            table.insert(elements, { categoryId = categoryId })
         end
     end
 
     local dataProvider = CreateDataProvider(elements)
     self.categoryScrollBox:SetDataProvider(dataProvider)
 
-    -- Check if a category exists in the filtered elements
-    local function CategoryExists(cat)
-        for _, elem in ipairs(elements) do
-            if elem.category == cat then return true end
-        end
-        return false
+    -- Build lookup for visible categories
+    local visibleCategories = {}
+    for _, elem in ipairs(elements) do
+        visibleCategories[elem.categoryId] = true
     end
 
-    -- Auto-select first category if none selected
+    -- Auto-select first category if none selected or current selection is no longer visible
     if not self.selectedCategory and #elements > 0 then
-        self:SelectCategory(elements[1].category)
-    elseif self.selectedCategory and not CategoryExists(self.selectedCategory) then
-        -- Current selection no longer visible after filtering
+        self:SelectCategory(elements[1].categoryId)
+    elseif self.selectedCategory and not visibleCategories[self.selectedCategory] then
         if #elements > 0 then
-            self:SelectCategory(elements[1].category)
+            self:SelectCategory(elements[1].categoryId)
         else
             self.selectedCategory = nil
             self:BuildAchievementDisplay()
@@ -815,15 +779,15 @@ function AchievementsTab:BuildAchievementDisplay()
     if not self.achievementScrollBox then return end
 
     local elements = {}
-    local category = self.selectedCategory
+    local categoryId = self.selectedCategory
 
-    if category then
+    if categoryId then
         local filter = self:GetCompletionFilter()
         local searchText = strlower(strtrim(self.searchBox and self.searchBox:GetText() or ""))
 
-        for _, achievementID in ipairs(addon:GetAchievementsForCategory(category)) do
+        for _, achievementID in ipairs(addon:GetAchievementsForCategory(categoryId)) do
             if AchievementPassesCompletionFilter(achievementID, filter)
-                and AchievementMatchesSearch(achievementID, searchText, category) then
+                and AchievementMatchesSearch(achievementID, searchText, categoryId) then
                 -- Multi-reward achievements: show one entry per reward
                 local recordIDs = addon:GetRecordsForAchievement(achievementID)
                 local numRewards = recordIDs and #recordIDs or 0
@@ -900,7 +864,7 @@ end
 
 function AchievementsTab:CreateEmptyStates()
     -- No achievement sources found state
-    self.emptyState = CreateEmptyStateFrame(
+    self.emptyState = addon:CreateEmptyStateFrame(
         self.categoryPanel,
         "ACHIEVEMENTS_EMPTY_NO_SOURCES",
         "ACHIEVEMENTS_EMPTY_NO_SOURCES_DESC",
@@ -908,53 +872,32 @@ function AchievementsTab:CreateEmptyStates()
     )
 
     -- "Select a category" state
-    self.noCategoryState = CreateEmptyStateFrame(self.achievementPanel, "ACHIEVEMENTS_SELECT_CATEGORY")
+    self.noCategoryState = addon:CreateEmptyStateFrame(self.achievementPanel, "ACHIEVEMENTS_SELECT_CATEGORY")
 
     -- No search results state
-    self.noResultsState = CreateEmptyStateFrame(self.achievementPanel, "ACHIEVEMENTS_EMPTY_NO_RESULTS")
+    self.noResultsState = addon:CreateEmptyStateFrame(self.achievementPanel, "ACHIEVEMENTS_EMPTY_NO_RESULTS")
 end
 
 function AchievementsTab:UpdateEmptyStates()
     local hasAchievements = addon:GetAchievementCount() > 0
+    local hasCategory = self.selectedCategory ~= nil
 
     -- Check if current display has results
     local dataProvider = self.achievementScrollBox and self.achievementScrollBox:GetDataProvider()
     local hasResults = dataProvider and dataProvider:GetSize() > 0
 
     -- Determine visibility states
-    local showNoSources = not hasAchievements
-    local showSelectCategory = hasAchievements and not self.selectedCategory
-    local showNoResults = hasAchievements and self.selectedCategory and not hasResults
-    local showAchievementList = hasAchievements and self.selectedCategory and hasResults
+    local showAchievementList = hasAchievements and hasCategory and hasResults
 
     -- Apply visibility to empty states
-    if self.emptyState then
-        self.emptyState:SetShown(showNoSources)
-    end
-    if self.noCategoryState then
-        self.noCategoryState:SetShown(showSelectCategory)
-    end
-    if self.noResultsState then
-        self.noResultsState:SetShown(showNoResults)
-    end
+    self.emptyState:SetShown(not hasAchievements)
+    self.noCategoryState:SetShown(hasAchievements and not hasCategory)
+    self.noResultsState:SetShown(hasAchievements and hasCategory and not hasResults)
 
     -- Apply visibility to scroll elements
-    if self.categoryScrollBox then
-        self.categoryScrollBox:SetShown(hasAchievements)
-    end
-    if self.achievementScrollBox then
-        self.achievementScrollBox:SetShown(showAchievementList)
-    end
-    if self.achievementScrollBar then
-        self.achievementScrollBar:SetShown(showAchievementList)
-    end
-end
-
-function AchievementsTab:UpdatePreviewToggleButton()
-    if not self.previewToggleButton then return end
-
-    local isOpen = addon.Preview and addon.Preview:IsShown()
-    self.previewToggleButton:SetShown(not isOpen)
+    self.categoryScrollBox:SetShown(hasAchievements)
+    self.achievementScrollBox:SetShown(showAchievementList)
+    self.achievementScrollBar:SetShown(showAchievementList)
 end
 
 --------------------------------------------------------------------------------
@@ -989,10 +932,6 @@ end
 
 addon:RegisterInternalEvent("ACHIEVEMENT_COMPLETION_CHANGED", RefreshAchievementDisplays)
 
-addon:RegisterInternalEvent("PREVIEW_VISIBILITY_CHANGED", function()
-    AchievementsTab:UpdatePreviewToggleButton()
-end)
-
 addon:RegisterInternalEvent("RECORD_OWNERSHIP_UPDATED", RefreshAchievementDisplays)
 
 -- Update wishlist stars when wishlist changes
@@ -1000,11 +939,7 @@ addon:RegisterInternalEvent("WISHLIST_CHANGED", function(recordID, isWishlisted)
     if AchievementsTab:IsShown() and AchievementsTab.achievementScrollBox then
         AchievementsTab.achievementScrollBox:ForEachFrame(function(frame)
             if frame.recordID == recordID and frame.wishlistStar then
-                frame.wishlistStar:SetShown(isWishlisted)
-                if isWishlisted then
-                    frame.wishlistStar:ClearAllPoints()
-                    frame.wishlistStar:SetPoint("LEFT", frame.label, "LEFT", frame.label:GetStringWidth() + 4, 0)
-                end
+                UpdateWishlistStar(frame, isWishlisted)
             end
         end)
     end

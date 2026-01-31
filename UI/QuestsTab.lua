@@ -62,15 +62,9 @@ local function ApplyExpansionButtonState(frame, isSelected)
     end
 end
 
--- Helper to reset background texture to solid color mode (clears gradient from recycled frames)
-local function ResetBackgroundTexture(bg)
-    bg:SetTexture("Interface\\Buttons\\WHITE8x8")
-    bg:SetGradient("HORIZONTAL", CreateColor(1,1,1,1), CreateColor(1,1,1,1))  -- Clear gradient
-end
-
 -- Helper to apply quest row visual state
 local function ApplyQuestRowState(frame, isSelected)
-    ResetBackgroundTexture(frame.bg)
+    addon:ResetBackgroundTexture(frame.bg)
     if isSelected then
         frame.bg:SetColorTexture(unpack(COLOR_QUEST_SELECTED))
         frame.selectionBorder:Show()
@@ -84,48 +78,283 @@ local function ApplyQuestRowState(frame, isSelected)
     end
 end
 
--- Helper to print tracking result messages
-local function PrintTrackingResult(errorCode, startedKey, failedKey)
-    local L = addon.L
-    if errorCode == nil then
-        addon:Print(L[startedKey])
-    elseif errorCode == Enum.ContentTrackingError.MaxTracked then
-        addon:Print(L["QUESTS_TRACKING_MAX_REACHED"])
-    elseif errorCode == Enum.ContentTrackingError.AlreadyTracked then
-        addon:Print(L["QUESTS_TRACKING_ALREADY"])
-    else
-        addon:Print(L[failedKey])
+-- Helper to update wishlist star visibility and position
+local function UpdateWishlistStar(frame, isWishlisted)
+    if not frame or not frame.wishlistStar or not frame.label then return end
+    frame.wishlistStar:SetShown(isWishlisted)
+    if isWishlisted then
+        frame.wishlistStar:ClearAllPoints()
+        frame.wishlistStar:SetPoint("LEFT", frame.label, "LEFT", frame.label:GetStringWidth() + 4, 0)
     end
 end
 
--- Helper to create an empty state frame with centered message
-local function CreateEmptyStateFrame(parent, messageKey, descKey, descWidth)
-    local L = addon.L
-    local frame = CreateFrame("Frame", nil, parent)
-    frame:SetAllPoints()
-    frame:Hide()
+-- Helper to initialize shared zone/quest row visuals
+local function InitializeZoneQuestFrame(frame)
+    if frame.bg then return end
 
+    -- Background texture for gradient effects
     local bg = frame:CreateTexture(nil, "BACKGROUND")
     bg:SetAllPoints()
-    bg:SetColorTexture(0.04, 0.04, 0.06, 0.95)
+    bg:SetTexture("Interface\\Buttons\\WHITE8x8")
+    frame.bg = bg
 
-    local hasDesc = descKey ~= nil
-    local msg = addon:CreateFontString(frame, "OVERLAY", hasDesc and "GameFontNormal" or "GameFontNormalLarge")
-    msg:SetPoint("CENTER", 0, hasDesc and 10 or 0)
-    msg:SetText(L[messageKey])
-    msg:SetTextColor(hasDesc and 0.6 or 0.5, hasDesc and 0.6 or 0.5, hasDesc and 0.6 or 0.5, 1)
+    -- Selection border (left edge gold bar)
+    local border = frame:CreateTexture(nil, "ARTWORK")
+    border:SetWidth(3)
+    border:SetPoint("TOPLEFT", 0, 0)
+    border:SetPoint("BOTTOMLEFT", 0, 0)
+    border:SetColorTexture(unpack(COLOR_GOLD_BORDER))
+    border:Hide()
+    frame.selectionBorder = border
 
-    if hasDesc then
-        local desc = addon:CreateFontString(frame, "OVERLAY", "GameFontNormal")
-        desc:SetPoint("TOP", msg, "BOTTOM", 0, -8)
-        desc:SetText(L[descKey])
-        desc:SetTextColor(0.5, 0.5, 0.5, 1)
-        if descWidth then desc:SetWidth(descWidth) end
-    end
+    -- Collapse indicator (+/-) for zones, (o) for incomplete quests
+    local indicator = addon:CreateFontString(frame, "OVERLAY", "GameFontNormal")
+    addon:SetFontSize(indicator, 14, "OUTLINE")
+    indicator:SetPoint("LEFT", 8, 0)
+    indicator:SetWidth(20)
+    indicator:SetJustifyH("LEFT")
+    frame.indicator = indicator
 
-    return frame
+    -- Checkmark icon for completed quests
+    local checkIcon = frame:CreateTexture(nil, "OVERLAY")
+    checkIcon:SetSize(14, 14)
+    checkIcon:SetPoint("LEFT", 20, 0)
+    checkIcon:SetAtlas("common-icon-checkmark")
+    checkIcon:SetVertexColor(0.4, 0.9, 0.4, 1)  -- Green tint
+    checkIcon:Hide()
+    frame.checkIcon = checkIcon
+
+    -- Incomplete icon (small pip for incomplete quests)
+    local incompleteIcon = frame:CreateTexture(nil, "OVERLAY")
+    incompleteIcon:SetSize(8, 8)
+    incompleteIcon:SetPoint("LEFT", 23, 0)
+    incompleteIcon:SetTexture("Interface\\Buttons\\WHITE8x8")
+    incompleteIcon:SetVertexColor(0.7, 0.5, 0.2, 0.8)  -- Muted orange
+    incompleteIcon:Hide()
+    frame.incompleteIcon = incompleteIcon
+
+    -- Label
+    local label = addon:CreateFontString(frame, "OVERLAY", "GameFontNormal")
+    label:SetPoint("LEFT", 28, 0)
+    label:SetPoint("RIGHT", -80, 0)
+    label:SetJustifyH("LEFT")
+    label:SetWordWrap(false)
+    frame.label = label
+
+    -- Progress (right side)
+    local progress = addon:CreateFontString(frame, "OVERLAY", "GameFontNormal")
+    progress:SetPoint("RIGHT", -8, 0)
+    progress:SetJustifyH("RIGHT")
+    frame.progress = progress
+
+    -- Wishlist star badge (next to quest name)
+    local wishlistStar = frame:CreateTexture(nil, "OVERLAY")
+    wishlistStar:SetSize(WISHLIST_STAR_SIZE, WISHLIST_STAR_SIZE)
+    wishlistStar:SetPoint("LEFT", 40, 0)  -- Will be repositioned after label
+    wishlistStar:SetAtlas("PetJournal-FavoritesIcon")
+    wishlistStar:SetVertexColor(unpack(COLORS.GOLD))
+    wishlistStar:Hide()
+    frame.wishlistStar = wishlistStar
+
+    frame:EnableMouse(true)
 end
 
+local function ResetZoneQuestFrameState(frame)
+    frame.selectionBorder:Hide()
+    frame.checkIcon:Hide()
+    if frame.incompleteIcon then frame.incompleteIcon:Hide() end
+    if frame.wishlistStar then frame.wishlistStar:Hide() end
+    frame.questID = nil
+    frame.recordID = nil
+    frame.expansionKey = nil
+    frame.zoneName = nil
+    frame.isZone = nil
+end
+
+local function SetupZoneHeader(self, frame, elementData)
+    frame:SetHeight(HEADER_HEIGHT)
+    frame.expansionKey = elementData.expansionKey
+    frame.zoneName = elementData.zoneName
+    frame.isZone = true
+
+    local isExpanded = self:IsZoneExpanded(elementData.expansionKey, elementData.zoneName)
+
+    -- Reset background texture state (clears gradient from recycled quest rows)
+    addon:ResetBackgroundTexture(frame.bg)
+
+    -- Solid dark background
+    frame.bg:SetColorTexture(unpack(COLOR_ZONE_NORMAL))
+
+    -- Collapse indicator
+    frame.indicator:SetText(isExpanded and "-" or "+")
+    frame.indicator:SetTextColor(1, 1, 1, 1)
+    frame.indicator:SetPoint("LEFT", 8, 0)
+    frame.indicator:Show()
+
+    -- Zone name (pure white)
+    frame.label:SetText(elementData.zoneName)
+    frame.label:SetTextColor(1, 1, 1, 1)
+    addon:SetFontSize(frame.label, 12, "")
+    frame.label:SetPoint("LEFT", 28, 0)
+
+    -- Progress
+    local owned, total = addon:GetZoneCollectionProgress(elementData.expansionKey, elementData.zoneName)
+    local percent = total > 0 and math.floor((owned / total) * 100) or 0
+    frame.progress:SetText(string.format("%d/%d (%d%%)", owned, total, percent))
+    frame.progress:SetTextColor(unpack(GetProgressColor(percent, true)))
+
+    frame:SetScript("OnClick", function()
+        self:ToggleZone(elementData.expansionKey, elementData.zoneName)
+    end)
+
+    frame:SetScript("OnEnter", function(f)
+        f.bg:SetColorTexture(unpack(COLOR_ZONE_HOVER))
+    end)
+
+    frame:SetScript("OnLeave", function(f)
+        f.bg:SetColorTexture(unpack(COLOR_ZONE_NORMAL))
+    end)
+end
+
+local function SetupQuestRow(self, frame, elementData)
+    frame:SetHeight(ROW_HEIGHT)
+    frame.questID = elementData.questID
+    frame.recordID = elementData.recordID
+
+    -- For multi-reward quests, check if this specific reward is collected
+    -- For single-reward quests, use quest completion status
+    local isComplete
+    if elementData.recordID then
+        local record = addon:GetRecord(elementData.recordID)
+        isComplete = record and record.isCollected or false
+    else
+        isComplete = addon:IsQuestCompleted(elementData.questID)
+    end
+    frame.isComplete = isComplete  -- Store for ApplyQuestRowState to use
+    local isSelected = self.selectedQuestID == elementData.questID and
+        (not elementData.recordID or self.selectedRecordID == elementData.recordID)
+    ApplyQuestRowState(frame, isSelected)
+
+    -- Completion indicator: checkmark for complete, orange pip for incomplete
+    frame.indicator:Hide()  -- indicator only used for zone +/-
+    if isComplete then
+        frame.checkIcon:Show()
+        frame.incompleteIcon:Hide()
+    else
+        frame.checkIcon:Hide()
+        frame.incompleteIcon:Show()
+    end
+
+    -- Quest name (text color handled by ApplyQuestRowState)
+    -- Multi-reward quests show "Quest Name (1)", "Quest Name (2)", etc.
+    local questTitle = addon:GetQuestTitle(elementData.questID)
+    if elementData.totalRewards and elementData.totalRewards > 1 then
+        questTitle = questTitle .. " (" .. elementData.rewardIndex .. ")"
+    end
+    frame.label:SetText(questTitle)
+    addon:SetFontSize(frame.label, 11, "")
+    frame.label:SetPoint("LEFT", 40, 0)
+
+    -- Wishlist star (show if item is wishlisted)
+    if frame.wishlistStar and elementData.recordID then
+        local isWishlisted = addon:IsWishlisted(elementData.recordID)
+        UpdateWishlistStar(frame, isWishlisted)
+    end
+
+    -- Progress
+    local owned, total = addon:GetQuestCollectionProgress(elementData.questID)
+    frame.progress:SetText(string.format("%d/%d", owned, total))
+    local progressComplete = owned == total and total > 0
+    frame.progress:SetTextColor(unpack(progressComplete and COLOR_PROGRESS_COMPLETE or COLOR_PROGRESS_LOW))
+
+    frame:SetScript("OnMouseDown", function(f, button)
+        if button == "RightButton" then
+            -- Right-Click: Copy Wowhead URL to clipboard
+            if type(elementData.questID) == "number" then
+                local url = "https://www.wowhead.com/quest=" .. elementData.questID
+                CopyToClipboard(url)
+                addon:Print(string.format(addon.L["WOWHEAD_LINK_COPIED"], url))
+            else
+                addon:Print(addon.L["WOWHEAD_LINK_NO_ID"])
+            end
+            return
+        end
+
+        if IsShiftKeyDown() then
+            -- Shift+Click: Toggle tracking the decor reward
+            local recordID = elementData.recordID or (addon:GetRecordsForQuest(elementData.questID) or {})[1]
+            if not recordID then
+                addon:Print(addon.L["QUESTS_TRACKING_FAILED"])
+                return
+            end
+
+            local trackingType = Enum.ContentTrackingType.Decor
+            if C_ContentTracking.IsTracking(trackingType, recordID) then
+                C_ContentTracking.StopTracking(trackingType, recordID, Enum.ContentTrackingStopType.Manual)
+                addon:Print(addon.L["QUESTS_TRACKING_STOPPED"])
+            else
+                local err = C_ContentTracking.StartTracking(trackingType, recordID)
+                addon:PrintTrackingResult(err, "QUESTS_TRACKING_STARTED", "QUESTS_TRACKING_FAILED", "QUESTS_TRACKING_MAX_REACHED", "QUESTS_TRACKING_ALREADY")
+            end
+        elseif IsControlKeyDown() and elementData.recordID then
+            -- Ctrl+Click: Start tracking decor (kept for compatibility)
+            local err = C_ContentTracking.StartTracking(Enum.ContentTrackingType.Decor, elementData.recordID)
+            addon:PrintTrackingResult(err, "QUESTS_TRACKING_STARTED", "QUESTS_TRACKING_FAILED", "QUESTS_TRACKING_MAX_REACHED", "QUESTS_TRACKING_ALREADY")
+        else
+            self:SelectQuest(elementData)
+        end
+    end)
+
+    frame:SetScript("OnEnter", function(f)
+        -- Visual feedback
+        if self.selectedQuestID ~= f.questID or self.selectedRecordID ~= f.recordID then
+            f.bg:SetColorTexture(0.08, 0.08, 0.10, 1)
+        end
+
+        -- Fire preview event for hover
+        local recordID = f.recordID
+        if not recordID then
+            local recordIDs = addon:GetRecordsForQuest(f.questID)
+            recordID = recordIDs and recordIDs[1]
+        end
+        if recordID then
+            self.hoveringRecordID = recordID
+            addon:FireEvent("RECORD_SELECTED", recordID)
+        end
+
+        -- Show quest tooltip at cursor
+        GameTooltip:SetOwner(UIParent, "ANCHOR_NONE")
+        local x, y = GetCursorPosition()
+        local scale = UIParent:GetEffectiveScale()
+        GameTooltip:SetPoint("BOTTOMLEFT", UIParent, "BOTTOMLEFT", (x / scale) + 15, (y / scale) + 15)
+        if type(f.questID) == "number" then
+            GameTooltip:SetHyperlink("quest:" .. f.questID)
+        else
+            local questTitle = addon:GetQuestTitle(f.questID) or f.questID
+            GameTooltip:SetText(questTitle, 1, 1, 1)
+        end
+        GameTooltip:Show()
+    end)
+
+    frame:SetScript("OnLeave", function(f)
+        GameTooltip:Hide()
+
+        ApplyQuestRowState(f, self.selectedQuestID == f.questID and
+            (not f.recordID or self.selectedRecordID == f.recordID))
+
+        self.hoveringRecordID = nil
+
+        -- Restore preview to selected quest
+        if self.selectedRecordID then
+            addon:FireEvent("RECORD_SELECTED", self.selectedRecordID)
+        elseif self.selectedQuestID then
+            local recordIDs = addon:GetRecordsForQuest(self.selectedQuestID)
+            if recordIDs and recordIDs[1] then
+                addon:FireEvent("RECORD_SELECTED", recordIDs[1])
+            end
+        end
+    end)
+end
 addon.QuestsTab = {}
 local QuestsTab = addon.QuestsTab
 
@@ -152,6 +381,10 @@ QuestsTab.selectedExpansionKey = nil
 QuestsTab.selectedQuestID = nil
 QuestsTab.selectedRecordID = nil  -- For multi-reward quests
 QuestsTab.hoveringRecordID = nil  -- For hover-to-preview
+
+-- Responsive toolbar state
+QuestsTab.toolbarLayout = nil  -- "full", "noFilter", "minimal"
+QuestsTab.filterContainer = nil  -- Reference for responsive hiding
 
 
 --------------------------------------------------------------------------------
@@ -264,6 +497,7 @@ function QuestsTab:CreateToolbar(parent)
     local filterContainer = CreateFrame("Frame", nil, toolbar)
     filterContainer:SetPoint("LEFT", searchBox, "RIGHT", 16, 0)
     filterContainer:SetHeight(22)
+    self.filterContainer = filterContainer
 
     local filters = {
         { key = "all", label = L["QUESTS_FILTER_ALL"] },
@@ -284,32 +518,24 @@ function QuestsTab:CreateToolbar(parent)
 
     filterContainer:SetWidth(xOffset - 4)
 
-    -- Preview toggle button (right side)
-    local toggleBtn = addon:CreateToggleButton(toolbar, ">", nil, function()
-        if InCombatLockdown() then
-            addon:Print(L["COMBAT_LOCKDOWN_MESSAGE"])
-            return
-        end
-        if addon.Preview then
-            addon.Preview:Toggle()
-        end
-    end)
-    toggleBtn:SetPoint("RIGHT", toolbar, "RIGHT", -GRID_OUTER_PAD, 0)
-
-    toggleBtn:SetScript("OnEnter", function(b)
-        b:SetBackdropColor(0.2, 0.2, 0.24, 1)
-        b:SetBackdropBorderColor(0.6, 0.5, 0.1, 1)
-        GameTooltip:SetOwner(b, "ANCHOR_TOP")
-        local isOpen = addon.Preview and addon.Preview:IsShown()
-        local key = isOpen and "PREVIEW_COLLAPSE" or "PREVIEW_EXPAND"
-        GameTooltip:SetText(L[key])
-        GameTooltip:Show()
-    end)
-
-    self.previewToggleButton = toggleBtn
-
     -- Set default filter
     self:SetCompletionFilter("incomplete")
+
+    -- Setup responsive toolbar updates
+    toolbar:SetScript("OnSizeChanged", function(_, width)
+        self:UpdateToolbarLayout(width)
+    end)
+end
+
+-- Update toolbar element visibility based on available width
+function QuestsTab:UpdateToolbarLayout(toolbarWidth)
+    local newLayout = addon:UpdateSimpleToolbarLayout(
+        self.toolbarLayout, toolbarWidth, self.searchBox, self.filterContainer
+    )
+    if newLayout then
+        self.toolbarLayout = newLayout
+        addon:Debug("QuestsTab toolbar layout: " .. newLayout .. " (width: " .. math.floor(toolbarWidth) .. ")")
+    end
 end
 
 function QuestsTab:SetCompletionFilter(filterKey)
@@ -536,277 +762,13 @@ function QuestsTab:CreateZoneQuestPanel(parent)
 end
 
 function QuestsTab:SetupZoneQuestButton(frame, elementData)
-    local L = addon.L
-
-    -- Setup frame if needed (one-time initialization)
-    if not frame.bg then
-        -- Background texture for gradient effects
-        local bg = frame:CreateTexture(nil, "BACKGROUND")
-        bg:SetAllPoints()
-        bg:SetTexture("Interface\\Buttons\\WHITE8x8")
-        frame.bg = bg
-
-        -- Selection border (left edge gold bar)
-        local border = frame:CreateTexture(nil, "ARTWORK")
-        border:SetWidth(3)
-        border:SetPoint("TOPLEFT", 0, 0)
-        border:SetPoint("BOTTOMLEFT", 0, 0)
-        border:SetColorTexture(unpack(COLOR_GOLD_BORDER))
-        border:Hide()
-        frame.selectionBorder = border
-
-        -- Collapse indicator (+/-) for zones, (o) for incomplete quests
-        local indicator = addon:CreateFontString(frame, "OVERLAY", "GameFontNormal")
-        addon:SetFontSize(indicator, 14, "OUTLINE")
-        indicator:SetPoint("LEFT", 8, 0)
-        indicator:SetWidth(20)
-        indicator:SetJustifyH("LEFT")
-        frame.indicator = indicator
-
-        -- Checkmark icon for completed quests
-        local checkIcon = frame:CreateTexture(nil, "OVERLAY")
-        checkIcon:SetSize(14, 14)
-        checkIcon:SetPoint("LEFT", 20, 0)
-        checkIcon:SetAtlas("common-icon-checkmark")
-        checkIcon:SetVertexColor(0.4, 0.9, 0.4, 1)  -- Green tint
-        checkIcon:Hide()
-        frame.checkIcon = checkIcon
-
-        -- Incomplete icon (small pip for incomplete quests)
-        local incompleteIcon = frame:CreateTexture(nil, "OVERLAY")
-        incompleteIcon:SetSize(8, 8)
-        incompleteIcon:SetPoint("LEFT", 23, 0)
-        incompleteIcon:SetTexture("Interface\\Buttons\\WHITE8x8")
-        incompleteIcon:SetVertexColor(0.7, 0.5, 0.2, 0.8)  -- Muted orange
-        incompleteIcon:Hide()
-        frame.incompleteIcon = incompleteIcon
-
-        -- Label
-        local label = addon:CreateFontString(frame, "OVERLAY", "GameFontNormal")
-        label:SetPoint("LEFT", 28, 0)
-        label:SetPoint("RIGHT", -80, 0)
-        label:SetJustifyH("LEFT")
-        label:SetWordWrap(false)
-        frame.label = label
-
-        -- Progress (right side)
-        local progress = addon:CreateFontString(frame, "OVERLAY", "GameFontNormal")
-        progress:SetPoint("RIGHT", -8, 0)
-        progress:SetJustifyH("RIGHT")
-        frame.progress = progress
-
-        -- Wishlist star badge (next to quest name)
-        local wishlistStar = frame:CreateTexture(nil, "OVERLAY")
-        wishlistStar:SetSize(WISHLIST_STAR_SIZE, WISHLIST_STAR_SIZE)
-        wishlistStar:SetPoint("LEFT", 40, 0)  -- Will be repositioned after label
-        wishlistStar:SetAtlas("PetJournal-FavoritesIcon")
-        wishlistStar:SetVertexColor(unpack(COLORS.GOLD))
-        wishlistStar:Hide()
-        frame.wishlistStar = wishlistStar
-
-        frame:EnableMouse(true)
-    end
-
-    -- Reset state
-    frame.selectionBorder:Hide()
-    frame.checkIcon:Hide()
-    if frame.incompleteIcon then frame.incompleteIcon:Hide() end
-    if frame.wishlistStar then frame.wishlistStar:Hide() end
-    frame.questID = nil
-    frame.recordID = nil
-    frame.expansionKey = nil
-    frame.zoneName = nil
-    frame.isZone = nil
+    InitializeZoneQuestFrame(frame)
+    ResetZoneQuestFrameState(frame)
 
     if elementData.isZone then
-        -- ZONE HEADER (first-level item)
-        frame:SetHeight(HEADER_HEIGHT)
-        frame.expansionKey = elementData.expansionKey
-        frame.zoneName = elementData.zoneName
-        frame.isZone = true
-
-        local isExpanded = self:IsZoneExpanded(elementData.expansionKey, elementData.zoneName)
-
-        -- Reset background texture state (clears gradient from recycled quest rows)
-        ResetBackgroundTexture(frame.bg)
-
-        -- Solid dark background
-        frame.bg:SetColorTexture(unpack(COLOR_ZONE_NORMAL))
-
-        -- Collapse indicator
-        frame.indicator:SetText(isExpanded and "-" or "+")
-        frame.indicator:SetTextColor(1, 1, 1, 1)
-        frame.indicator:SetPoint("LEFT", 8, 0)
-        frame.indicator:Show()
-
-        -- Zone name (pure white)
-        frame.label:SetText(elementData.zoneName)
-        frame.label:SetTextColor(1, 1, 1, 1)
-        addon:SetFontSize(frame.label, 12, "")
-        frame.label:SetPoint("LEFT", 28, 0)
-
-        -- Progress
-        local owned, total = addon:GetZoneCollectionProgress(elementData.expansionKey, elementData.zoneName)
-        local percent = total > 0 and math.floor((owned / total) * 100) or 0
-        frame.progress:SetText(string.format("%d/%d (%d%%)", owned, total, percent))
-        frame.progress:SetTextColor(unpack(GetProgressColor(percent, true)))
-
-        frame:SetScript("OnClick", function()
-            self:ToggleZone(elementData.expansionKey, elementData.zoneName)
-        end)
-
-        frame:SetScript("OnEnter", function(f)
-            f.bg:SetColorTexture(unpack(COLOR_ZONE_HOVER))
-        end)
-
-        frame:SetScript("OnLeave", function(f)
-            f.bg:SetColorTexture(unpack(COLOR_ZONE_NORMAL))
-        end)
-
+        SetupZoneHeader(self, frame, elementData)
     else
-        -- QUEST ROW (indented under zone)
-        frame:SetHeight(ROW_HEIGHT)
-        frame.questID = elementData.questID
-        frame.recordID = elementData.recordID
-
-        -- For multi-reward quests, check if this specific reward is collected
-        -- For single-reward quests, use quest completion status
-        local isComplete
-        if elementData.recordID then
-            local record = addon:GetRecord(elementData.recordID)
-            isComplete = record and record.isCollected or false
-        else
-            isComplete = addon:IsQuestCompleted(elementData.questID)
-        end
-        frame.isComplete = isComplete  -- Store for ApplyQuestRowState to use
-        local isSelected = self.selectedQuestID == elementData.questID and
-            (not elementData.recordID or self.selectedRecordID == elementData.recordID)
-        ApplyQuestRowState(frame, isSelected)
-
-        -- Completion indicator: checkmark for complete, orange pip for incomplete
-        frame.indicator:Hide()  -- indicator only used for zone +/-
-        if isComplete then
-            frame.checkIcon:Show()
-            frame.incompleteIcon:Hide()
-        else
-            frame.checkIcon:Hide()
-            frame.incompleteIcon:Show()
-        end
-
-        -- Quest name (text color handled by ApplyQuestRowState)
-        -- Multi-reward quests show "Quest Name (1)", "Quest Name (2)", etc.
-        local questTitle = addon:GetQuestTitle(elementData.questID)
-        if elementData.totalRewards and elementData.totalRewards > 1 then
-            questTitle = questTitle .. " (" .. elementData.rewardIndex .. ")"
-        end
-        frame.label:SetText(questTitle)
-        addon:SetFontSize(frame.label, 11, "")
-        frame.label:SetPoint("LEFT", 40, 0)
-
-        -- Wishlist star (show if item is wishlisted)
-        if frame.wishlistStar and elementData.recordID then
-            local isWishlisted = addon:IsWishlisted(elementData.recordID)
-            frame.wishlistStar:SetShown(isWishlisted)
-            if isWishlisted then
-                -- Position star after label text
-                frame.wishlistStar:ClearAllPoints()
-                frame.wishlistStar:SetPoint("LEFT", frame.label, "LEFT", frame.label:GetStringWidth() + 4, 0)
-            end
-        end
-
-        -- Progress
-        local owned, total = addon:GetQuestCollectionProgress(elementData.questID)
-        frame.progress:SetText(string.format("%d/%d", owned, total))
-        local progressComplete = owned == total and total > 0
-        frame.progress:SetTextColor(unpack(progressComplete and COLOR_PROGRESS_COMPLETE or COLOR_PROGRESS_LOW))
-
-        frame:SetScript("OnMouseDown", function(f, button)
-            if button == "RightButton" then
-                -- Right-Click: Copy Wowhead URL to clipboard
-                if type(elementData.questID) == "number" then
-                    local url = "https://www.wowhead.com/quest=" .. elementData.questID
-                    CopyToClipboard(url)
-                    addon:Print(string.format(addon.L["WOWHEAD_LINK_COPIED"], url))
-                else
-                    addon:Print(addon.L["WOWHEAD_LINK_NO_ID"])
-                end
-                return
-            end
-
-            if IsShiftKeyDown() then
-                -- Shift+Click: Toggle tracking the decor reward
-                local recordID = elementData.recordID or (addon:GetRecordsForQuest(elementData.questID) or {})[1]
-                if not recordID then
-                    addon:Print(addon.L["QUESTS_TRACKING_FAILED"])
-                    return
-                end
-
-                local trackingType = Enum.ContentTrackingType.Decor
-                if C_ContentTracking.IsTracking(trackingType, recordID) then
-                    C_ContentTracking.StopTracking(trackingType, recordID, Enum.ContentTrackingStopType.Manual)
-                    addon:Print(addon.L["QUESTS_TRACKING_STOPPED"])
-                else
-                    local err = C_ContentTracking.StartTracking(trackingType, recordID)
-                    PrintTrackingResult(err, "QUESTS_TRACKING_STARTED", "QUESTS_TRACKING_FAILED")
-                end
-            elseif IsControlKeyDown() and elementData.recordID then
-                -- Ctrl+Click: Start tracking decor (kept for compatibility)
-                local err = C_ContentTracking.StartTracking(Enum.ContentTrackingType.Decor, elementData.recordID)
-                PrintTrackingResult(err, "QUESTS_TRACKING_STARTED", "QUESTS_TRACKING_FAILED")
-            else
-                self:SelectQuest(elementData)
-            end
-        end)
-
-        frame:SetScript("OnEnter", function(f)
-            -- Visual feedback
-            if self.selectedQuestID ~= f.questID or self.selectedRecordID ~= f.recordID then
-                f.bg:SetColorTexture(0.08, 0.08, 0.10, 1)
-            end
-
-            -- Fire preview event for hover
-            local recordID = f.recordID
-            if not recordID then
-                local recordIDs = addon:GetRecordsForQuest(f.questID)
-                recordID = recordIDs and recordIDs[1]
-            end
-            if recordID then
-                self.hoveringRecordID = recordID
-                addon:FireEvent("RECORD_SELECTED", recordID)
-            end
-
-            -- Show quest tooltip at cursor
-            GameTooltip:SetOwner(UIParent, "ANCHOR_NONE")
-            local x, y = GetCursorPosition()
-            local scale = UIParent:GetEffectiveScale()
-            GameTooltip:SetPoint("BOTTOMLEFT", UIParent, "BOTTOMLEFT", (x / scale) + 15, (y / scale) + 15)
-            if type(f.questID) == "number" then
-                GameTooltip:SetHyperlink("quest:" .. f.questID)
-            else
-                local questTitle = addon:GetQuestTitle(f.questID) or f.questID
-                GameTooltip:SetText(questTitle, 1, 1, 1)
-            end
-            GameTooltip:Show()
-        end)
-
-        frame:SetScript("OnLeave", function(f)
-            GameTooltip:Hide()
-
-            ApplyQuestRowState(f, self.selectedQuestID == f.questID and
-                (not f.recordID or self.selectedRecordID == f.recordID))
-
-            self.hoveringRecordID = nil
-
-            -- Restore preview to selected quest
-            if self.selectedRecordID then
-                addon:FireEvent("RECORD_SELECTED", self.selectedRecordID)
-            elseif self.selectedQuestID then
-                local recordIDs = addon:GetRecordsForQuest(self.selectedQuestID)
-                if recordIDs and recordIDs[1] then
-                    addon:FireEvent("RECORD_SELECTED", recordIDs[1])
-                end
-            end
-        end)
+        SetupQuestRow(self, frame, elementData)
     end
 end
 
@@ -1023,7 +985,7 @@ end
 
 function QuestsTab:CreateEmptyStates()
     -- No quest sources found state (shown in expansion panel)
-    self.emptyState = CreateEmptyStateFrame(
+    self.emptyState = addon:CreateEmptyStateFrame(
         self.expansionPanel,
         "QUESTS_EMPTY_NO_SOURCES",
         "QUESTS_EMPTY_NO_SOURCES_DESC",
@@ -1031,7 +993,7 @@ function QuestsTab:CreateEmptyStates()
     )
 
     -- "Select an expansion" state (shown in zone/quest panel when no expansion selected)
-    self.noExpansionState = CreateEmptyStateFrame(self.zoneQuestPanel, "QUESTS_SELECT_EXPANSION")
+    self.noExpansionState = addon:CreateEmptyStateFrame(self.zoneQuestPanel, "QUESTS_SELECT_EXPANSION")
 end
 
 function QuestsTab:UpdateEmptyStates()
@@ -1060,13 +1022,6 @@ function QuestsTab:UpdateEmptyStates()
     if self.zoneQuestScrollBar then
         self.zoneQuestScrollBar:SetShown(hasQuests and self.selectedExpansionKey ~= nil)
     end
-end
-
-function QuestsTab:UpdatePreviewToggleButton()
-    if not self.previewToggleButton then return end
-
-    local isOpen = addon.Preview and addon.Preview:IsShown()
-    self.previewToggleButton:SetShown(not isOpen)
 end
 
 --------------------------------------------------------------------------------
@@ -1104,10 +1059,6 @@ addon:RegisterInternalEvent("QUEST_TITLE_LOADED", RefreshQuestDisplays)
 addon:RegisterInternalEvent("QUEST_COMPLETION_CHANGED", RefreshQuestDisplays)
 addon:RegisterInternalEvent("QUEST_COMPLETION_CACHE_INVALIDATED", RefreshQuestDisplays)
 
-addon:RegisterInternalEvent("PREVIEW_VISIBILITY_CHANGED", function()
-    QuestsTab:UpdatePreviewToggleButton()
-end)
-
 addon:RegisterInternalEvent("RECORD_OWNERSHIP_UPDATED", RefreshQuestDisplays)
 
 -- Update wishlist stars when wishlist changes
@@ -1115,12 +1066,7 @@ addon:RegisterInternalEvent("WISHLIST_CHANGED", function(recordID, isWishlisted)
     if QuestsTab:IsShown() and QuestsTab.zoneQuestScrollBox then
         QuestsTab.zoneQuestScrollBox:ForEachFrame(function(frame)
             if frame.recordID == recordID and frame.wishlistStar then
-                frame.wishlistStar:SetShown(isWishlisted)
-                if isWishlisted then
-                    -- Reposition star after label text
-                    frame.wishlistStar:ClearAllPoints()
-                    frame.wishlistStar:SetPoint("LEFT", frame.label, "LEFT", frame.label:GetStringWidth() + 4, 0)
-                end
+                UpdateWishlistStar(frame, isWishlisted)
             end
         end)
     end

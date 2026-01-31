@@ -278,7 +278,7 @@ function MainFrame:CreatePreviewRegion()
     local frame = self.frame
     local DIVIDER_WIDTH = 1
 
-    -- Preview region (starts hidden, expanded via ExpandForPreview)
+    -- Preview region (always visible, expanded on first MainFrame:Show)
     local region = CreateFrame("Frame", nil, frame)
     region:SetPoint("TOPRIGHT", frame, "TOPRIGHT", -3, -3 - HEADER_HEIGHT)
     region:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", -3, 3)
@@ -318,20 +318,6 @@ function MainFrame:ExpandForPreview()
     self.contentArea:SetPoint("BOTTOMRIGHT", self.previewRegion, "BOTTOMLEFT", 0, 0)
 
     self.previewRegion:Show()
-end
-
-function MainFrame:CollapsePreview()
-    local frame = self.frame
-    local previewWidth = self:GetPreviewWidth()
-
-    -- Anchor content back to frame edge
-    self.contentArea:ClearAllPoints()
-    self.contentArea:SetPoint("TOPLEFT", self.sidebar, "TOPRIGHT", 0, 0)
-    self.contentArea:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", -3, 3)
-
-    self.previewRegion:Hide()
-    frame:SetWidth(frame:GetWidth() - previewWidth)
-    frame:SetResizeBounds(MIN_WIDTH, MIN_HEIGHT, GetScreenWidth(), GetScreenHeight())
 end
 
 function MainFrame:SetPreviewWidth(newWidth)
@@ -454,8 +440,8 @@ function MainFrame:Show()
     self.frame:Show()
     self.frame:Raise()
 
-    -- Restore preview state from last session (only on first show after login/reload)
-    if isFirstShow and addon.db and addon.db.preview.isOpen then
+    -- Always show preview on first show (preview is always visible)
+    if isFirstShow then
         C_Timer.After(0.05, function()
             if addon.Preview then
                 addon.Preview:Show()
