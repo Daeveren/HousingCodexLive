@@ -446,6 +446,18 @@ function MainFrame:Show()
     self.frame:Show()
     self.frame:Raise()
 
+    -- Handle deferred refreshes from when frame was hidden
+    local needsRefresh = addon.needsFullRefresh or addon.needsGridRefresh
+    if needsRefresh then
+        addon.needsFullRefresh = false
+        addon.needsGridRefresh = false
+        if addon.catalogSearcher then
+            addon.catalogSearcher:RunSearch()
+        elseif addon.Grid and addon.Tabs and addon.Tabs:GetCurrentTab() == "DECOR" then
+            addon.Grid:Refresh()
+        end
+    end
+
     -- Always show preview on first show (preview is always visible)
     if isFirstShow then
         C_Timer.After(0.05, function()
@@ -459,11 +471,12 @@ function MainFrame:Show()
 end
 
 function MainFrame:Hide()
-    if self.frame then
-        self.frame:Hide()
-    end
+    if not self.frame then return end
 
-    -- Disable searcher auto-update when hidden (Blizzard pattern)
+    self.frame:Hide()
+    addon:CancelPendingSearch()
+
+    -- Disable searcher auto-update when hidden
     if addon.catalogSearcher then
         addon.catalogSearcher:SetAutoUpdateOnParamChanges(false)
     end

@@ -25,7 +25,6 @@ addon.catalogSearcher = nil
 addon.loadRetryCount = 0
 addon.loadingInProgress = false
 addon.loadStartTime = 0
-addon.filterTagGroups = nil
 addon.categoryCache = {}
 addon.subcategoryCache = {}
 addon.needsRecordRefresh = false
@@ -93,14 +92,11 @@ local function BuildRecord(entryID, info)
         entryID = entryID,
         recordID = recordID,
         name = info.name or "",
-        entryType = entryID.entryType,  -- 1 = Decor, 2 = Room
 
         -- Display
         icon = icon,
         iconType = iconType,
-        hasModelAsset = info.asset ~= nil,
         isModelOnly = isModelOnly or false,  -- true if no 2D icon available
-        quality = info.quality,
 
         -- Collection state (total = placed + storage + redeemable)
         quantity = info.quantity or 0,
@@ -109,10 +105,9 @@ local function BuildRecord(entryID, info)
         totalOwned = totalOwned,
         isCollected = totalOwned > 0,
 
-        -- Categories
+        -- Categories (used by PreviewFrame for breadcrumb display)
         categoryIDs = info.categoryIDs or {},
         subcategoryIDs = info.subcategoryIDs or {},
-        dataTags = info.dataTagsByID or {},
 
         -- Attributes
         size = info.size or 0,
@@ -120,7 +115,6 @@ local function BuildRecord(entryID, info)
         isIndoors = info.isAllowedIndoors or false,
         isOutdoors = info.isAllowedOutdoors or false,
         canCustomize = info.canCustomize or false,
-        isPrefab = info.isPrefab or false,
 
         -- Preview
         modelAsset = info.asset,
@@ -128,8 +122,6 @@ local function BuildRecord(entryID, info)
 
         -- Source/Acquisition
         sourceText = info.sourceText or "",
-        marketInfo = info.marketInfo,
-        placementCost = info.placementCost or 0,
 
         -- Tracking (populated later)
         isTrackable = false,
@@ -283,9 +275,6 @@ function addon:ProcessSearchResults()
 
     self.decorRecords = records
 
-    -- Load filter tag groups
-    self:LoadFilterTagGroups()
-
     -- Update tracking status for all records
     self:UpdateAllTrackingStatus()
 
@@ -331,19 +320,6 @@ function addon:OnSearchResultsUpdated(entries)
 
     self:Debug("Search results updated: " .. #recordIDs .. " items")
     self:FireEvent("SEARCH_RESULTS_UPDATED", recordIDs)
-end
-
-function addon:LoadFilterTagGroups()
-    if not C_HousingCatalog.GetAllFilterTagGroups then return end
-
-    self.filterTagGroups = C_HousingCatalog.GetAllFilterTagGroups()
-    if self.filterTagGroups then
-        self:Debug("Loaded " .. #self.filterTagGroups .. " filter tag groups")
-    end
-end
-
-function addon:GetFilterTagGroups()
-    return self.filterTagGroups or {}
 end
 
 function addon:GetCategoryInfo(categoryID)
@@ -515,6 +491,28 @@ local function TriggerRecordRefresh()
     end
 end
 
+-- Central debounced search request to coalesce rapid UI interactions
+local pendingSearchTimer = nil
+
+function addon:RequestSearch()
+    if pendingSearchTimer then return end  -- Coalesce rapid calls
+    if not self.catalogSearcher then return end
+
+    pendingSearchTimer = C_Timer.NewTimer(0.05, function()
+        pendingSearchTimer = nil
+        if self.catalogSearcher then
+            self.catalogSearcher:RunSearch()
+        end
+    end)
+end
+
+function addon:CancelPendingSearch()
+    if pendingSearchTimer then
+        pendingSearchTimer:Cancel()
+        pendingSearchTimer = nil
+    end
+end
+
 -- Single-entry storage update (direct record update following Blizzard's pattern)
 addon:RegisterWoWEvent("HOUSING_STORAGE_ENTRY_UPDATED", function(entryID)
     if not addon.dataLoaded or not entryID then return end
@@ -536,8 +534,21 @@ end)
 -- Bulk storage update (refresh record data and re-run searcher)
 addon:RegisterWoWEvent("HOUSING_STORAGE_UPDATED", function()
     if not addon.dataLoaded then return end
-    addon:Debug("Storage updated, re-running search")
-    TriggerRecordRefresh()
+
+    -- ALWAYS: Lightweight index rebuild (needed by LDB, merchant overlay)
+    addon:BuildIndexes()
+
+    -- ALWAYS: Fire ownership event (needed by LDB, WishlistFrame, QuestsTab, AchievementsTab)
+    addon:FireEvent("RECORD_OWNERSHIP_UPDATED")
+
+    -- CONDITIONAL: Heavy search only when MainFrame visible
+    if addon.MainFrame and addon.MainFrame:IsShown() then
+        addon:Debug("Storage updated (visible), re-running search")
+        TriggerRecordRefresh()
+    else
+        addon:Debug("Storage updated (hidden), deferring search")
+        addon.needsFullRefresh = true
+    end
 end)
 
 -- Cache invalidation for categories (fired by Init.lua from WoW events)

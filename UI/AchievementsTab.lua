@@ -164,12 +164,7 @@ local function SetupAchievementRow(self, frame, elementData)
 
     frame:SetScript("OnMouseDown", function(f, button)
         if button == "RightButton" then
-            -- Right-Click: Copy Wowhead URL to clipboard
-            if elementData.achievementID then
-                local url = "https://www.wowhead.com/achievement=" .. elementData.achievementID
-                CopyToClipboard(url)
-                addon:Print(string.format(L["WOWHEAD_LINK_COPIED"], url))
-            end
+            addon.ContextMenu:ShowForAchievement(f, elementData.achievementID, elementData.recordID)
             return
         end
 
@@ -518,6 +513,10 @@ function AchievementsTab:CreateCategoryPanel(parent)
     end)
 
     scrollBox:Init(view)
+
+    -- Initialize DataProvider once (reused via Flush/InsertTable)
+    self.categoryDataProvider = CreateDataProvider()
+    scrollBox:SetDataProvider(self.categoryDataProvider)
 end
 
 function AchievementsTab:SetupCategoryButton(frame, elementData)
@@ -660,6 +659,10 @@ function AchievementsTab:CreateAchievementPanel(parent)
 
     ScrollUtil.InitScrollBoxListWithScrollBar(scrollBox, scrollBar, view)
     self.achievementView = view
+
+    -- Initialize DataProvider once (reused via Flush/InsertTable)
+    self.achievementDataProvider = CreateDataProvider()
+    scrollBox:SetDataProvider(self.achievementDataProvider)
 end
 
 function AchievementsTab:SetupAchievementButton(frame, elementData)
@@ -706,7 +709,7 @@ local function AchievementPassesCompletionFilter(achievementID, filter)
 end
 
 function AchievementsTab:BuildCategoryDisplay()
-    if not self.categoryScrollBox then return end
+    if not self.categoryScrollBox or not self.categoryDataProvider then return end
 
     local elements = {}
     local filter = self:GetCompletionFilter()
@@ -726,8 +729,11 @@ function AchievementsTab:BuildCategoryDisplay()
         end
     end
 
-    local dataProvider = CreateDataProvider(elements)
-    self.categoryScrollBox:SetDataProvider(dataProvider)
+    -- Reuse DataProvider: Flush and insert new elements
+    self.categoryDataProvider:Flush()
+    if #elements > 0 then
+        self.categoryDataProvider:InsertTable(elements)
+    end
 
     -- Build lookup for visible categories
     local visibleCategories = {}
@@ -749,7 +755,7 @@ function AchievementsTab:BuildCategoryDisplay()
 end
 
 function AchievementsTab:BuildAchievementDisplay()
-    if not self.achievementScrollBox then return end
+    if not self.achievementScrollBox or not self.achievementDataProvider then return end
 
     local elements = {}
     local categoryId = self.selectedCategory
@@ -783,8 +789,11 @@ function AchievementsTab:BuildAchievementDisplay()
         end
     end
 
-    local dataProvider = CreateDataProvider(elements)
-    self.achievementScrollBox:SetDataProvider(dataProvider)
+    -- Reuse DataProvider: Flush and insert new elements
+    self.achievementDataProvider:Flush()
+    if #elements > 0 then
+        self.achievementDataProvider:InsertTable(elements)
+    end
     self:UpdateEmptyStates()
 end
 

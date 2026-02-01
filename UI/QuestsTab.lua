@@ -230,14 +230,7 @@ local function SetupQuestRow(self, frame, elementData)
 
     frame:SetScript("OnMouseDown", function(f, button)
         if button == "RightButton" then
-            -- Right-Click: Copy Wowhead URL to clipboard
-            if type(elementData.questID) == "number" then
-                local url = "https://www.wowhead.com/quest=" .. elementData.questID
-                CopyToClipboard(url)
-                addon:Print(string.format(addon.L["WOWHEAD_LINK_COPIED"], url))
-            else
-                addon:Print(addon.L["WOWHEAD_LINK_NO_ID"])
-            end
+            addon.ContextMenu:ShowForQuest(f, elementData.questID, elementData.recordID)
             return
         end
 
@@ -559,6 +552,10 @@ function QuestsTab:CreateExpansionPanel(parent)
 
     -- Initialize ScrollBox without scrollbar (call Init directly)
     scrollBox:Init(view)
+
+    -- Initialize DataProvider once (reused via Flush/InsertTable)
+    self.expansionDataProvider = CreateDataProvider()
+    scrollBox:SetDataProvider(self.expansionDataProvider)
 end
 
 function QuestsTab:SetupExpansionButton(frame, elementData)
@@ -715,6 +712,10 @@ function QuestsTab:CreateZoneQuestPanel(parent)
     -- Initialize ScrollBox
     ScrollUtil.InitScrollBoxListWithScrollBar(scrollBox, scrollBar, view)
     self.zoneQuestView = view
+
+    -- Initialize DataProvider once (reused via Flush/InsertTable)
+    self.zoneQuestDataProvider = CreateDataProvider()
+    scrollBox:SetDataProvider(self.zoneQuestDataProvider)
 end
 
 function QuestsTab:SetupZoneQuestButton(frame, elementData)
@@ -769,7 +770,7 @@ local function QuestPassesCompletionFilter(questKey, filter)
 end
 
 function QuestsTab:BuildExpansionDisplay()
-    if not self.expansionScrollBox then return end
+    if not self.expansionScrollBox or not self.expansionDataProvider then return end
 
     local elements = {}
     local filter = self:GetCompletionFilter()
@@ -792,8 +793,11 @@ function QuestsTab:BuildExpansionDisplay()
         end
     end
 
-    local dataProvider = CreateDataProvider(elements)
-    self.expansionScrollBox:SetDataProvider(dataProvider)
+    -- Reuse DataProvider: Flush and insert new elements
+    self.expansionDataProvider:Flush()
+    if #elements > 0 then
+        self.expansionDataProvider:InsertTable(elements)
+    end
 
     -- Helper to check if expansion key exists in elements
     local function HasExpansion(key)
@@ -821,7 +825,7 @@ function QuestsTab:BuildExpansionDisplay()
 end
 
 function QuestsTab:BuildZoneQuestDisplay()
-    if not self.zoneQuestScrollBox then return end
+    if not self.zoneQuestScrollBox or not self.zoneQuestDataProvider then return end
 
     local elements = {}
     local expansionKey = self.selectedExpansionKey
@@ -866,8 +870,11 @@ function QuestsTab:BuildZoneQuestDisplay()
         end
     end
 
-    local dataProvider = CreateDataProvider(elements)
-    self.zoneQuestScrollBox:SetDataProvider(dataProvider)
+    -- Reuse DataProvider: Flush and insert new elements
+    self.zoneQuestDataProvider:Flush()
+    if #elements > 0 then
+        self.zoneQuestDataProvider:InsertTable(elements)
+    end
     self:UpdateEmptyStates()
 end
 

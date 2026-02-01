@@ -38,11 +38,7 @@ local COLOR_BG_HOVER = { 0.1, 0.1, 0.12, 1 }
 local COLOR_BORDER_NORMAL = COLORS.BORDER
 local COLOR_COLLECTED = { 0.2, 0.8, 0.2 }
 
--- ModelScene constants for 3D preview (HOUSING_CATALOG_DECOR_MODELSCENEID_DEFAULT = 1317)
-local MODEL_SCENE_ID = 1317
-local MODEL_ACTOR_TAG = "decor"
-
--- Camera constants
+-- Camera constants for preview panel ModelScene
 local CAMERA_IMMEDIATE = CAMERA_TRANSITION_TYPE_IMMEDIATE or 1
 local CAMERA_DISCARD = CAMERA_MODIFICATION_TYPE_DISCARD or 0
 
@@ -367,32 +363,8 @@ function WishlistFrame:CreateGrid()
         local record = addon:GetRecord(recordID)
         tile.recordID = recordID
 
-        -- Display based on icon availability
-        local useModelScene = record and record.isModelOnly and record.modelAsset
-
-        if useModelScene and tile.modelScene then
-            tile.icon:Hide()
-            local modelScene = tile.modelScene
-            local actor = modelScene:GetActorByTag(MODEL_ACTOR_TAG)
-            if not actor then
-                actor = modelScene:CreateActor()
-                if actor then actor:SetTag(MODEL_ACTOR_TAG) end
-            end
-            if actor then
-                actor:SetModelByFileID(record.modelAsset)
-                modelScene:Show()
-            end
-        else
-            if tile.modelScene then tile.modelScene:Hide() end
-            if record and record.iconType == "atlas" then
-                tile.icon:SetAtlas(record.icon)
-            elseif record then
-                tile.icon:SetTexture(record.icon)
-            else
-                tile.icon:SetTexture("Interface\\Icons\\INV_Misc_QuestionMark")
-            end
-            tile.icon:Show()
-        end
+        -- Display 3D model or 2D icon (shared utility handles lazy ModelScene creation)
+        addon:SetupTileDisplay(tile, record, CAMERA_DISCARD)
 
         -- Placed count
         if record and record.numPlaced and record.numPlaced > 0 then
@@ -424,6 +396,10 @@ function WishlistFrame:CreateGrid()
 
         -- Click handler
         tile:SetScript("OnMouseDown", function(_, button)
+            if button == "RightButton" then
+                addon.ContextMenu:ShowForDecor(tile, recordID)
+                return
+            end
             if button == "LeftButton" and IsShiftKeyDown() then
                 -- Shift+Click: Remove from wishlist
                 addon:SetWishlisted(recordID, false)
@@ -484,13 +460,8 @@ function WishlistFrame:SetupTileFrame(tile, tileSize)
     icon:SetPoint("BOTTOMRIGHT", -6, 20)
     tile.icon = icon
 
-    -- ModelScene for 3D preview
-    local modelScene = CreateFrame("ModelScene", nil, tile, "NonInteractableModelSceneMixinTemplate")
-    modelScene:SetPoint("TOPLEFT", 6, -6)
-    modelScene:SetPoint("BOTTOMRIGHT", -6, 20)
-    modelScene:Hide()
-    tile.modelScene = modelScene
-    modelScene:TransitionToModelSceneID(MODEL_SCENE_ID, CAMERA_IMMEDIATE, CAMERA_DISCARD, true)
+    -- ModelScene created lazily on first use (see element initializer)
+    -- Most items use 2D icons; only ~10% are model-only
 
     -- Placed count
     local placed = addon:CreateFontString(tile, "OVERLAY", "GameFontHighlight")
@@ -1107,6 +1078,9 @@ function WishlistFrame:RecalculateDetailsHeight()
 end
 
 function WishlistFrame:ShowPreview(recordID)
+    -- Guard against preview updates when frame is hidden (edge case from hover transitions)
+    if not self.frame or not self.frame:IsShown() then return end
+
     local L = addon.L
     local record = addon:GetRecord(recordID)
 
@@ -1250,8 +1224,21 @@ function WishlistFrame:Show()
 end
 
 function WishlistFrame:Hide()
-    if self.frame then
-        self.frame:Hide()
+    if not self.frame then return end
+
+    -- Cancel pending timers before hiding
+    self:CancelTimers()
+    self.frame:Hide()
+end
+
+function WishlistFrame:CancelTimers()
+    if self.tileSizeSlider and self.tileSizeSlider.debounceTimer then
+        self.tileSizeSlider.debounceTimer:Cancel()
+        self.tileSizeSlider.debounceTimer = nil
+    end
+    if self.resizeTimer then
+        self.resizeTimer:Cancel()
+        self.resizeTimer = nil
     end
 end
 
@@ -1352,15 +1339,6 @@ end)
 -- Update track button when tracking state changes externally
 addon:RegisterInternalEvent("TRACKING_CHANGED", function(recordID)
     if WishlistFrame.currentRecordID == recordID then
-        RefreshCurrentActionButtons()
-    end
-end)
-
--- Listen for WoW's tracking update event
-local wishlistTrackingFrame = CreateFrame("Frame")
-wishlistTrackingFrame:RegisterEvent("CONTENT_TRACKING_UPDATE")
-wishlistTrackingFrame:SetScript("OnEvent", function(_, event, trackingType)
-    if trackingType == Enum.ContentTrackingType.Decor then
         RefreshCurrentActionButtons()
     end
 end)

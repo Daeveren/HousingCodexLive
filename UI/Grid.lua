@@ -42,12 +42,7 @@ local CLIENT_SORT_FIELDS = {
     [CONSTS.SORT_CLIENT_PLACED] = "numPlaced",   -- Most placed first
 }
 
--- ModelScene constants for 3D preview (HOUSING_CATALOG_DECOR_MODELSCENEID_DEFAULT = 1317)
-local MODEL_SCENE_ID = 1317
-local MODEL_ACTOR_TAG = "decor"
-
--- Camera constants (WoW globals with fallbacks)
-local CAMERA_IMMEDIATE = CAMERA_TRANSITION_TYPE_IMMEDIATE or 1
+-- Camera modification type for tile ModelScene (MAINTAIN keeps zoom/rotation on recycle)
 local CAMERA_MAINTAIN = CAMERA_MODIFICATION_TYPE_MAINTAIN or 1
 
 -- Tile color values
@@ -96,16 +91,8 @@ local function SetupTileFrame(tile, tileSize)
     icon:SetPoint("BOTTOMRIGHT", -6, 20)
     tile.icon = icon
 
-    -- ModelScene for 3D preview of model-only items (hidden by default)
-    local modelScene = CreateFrame("ModelScene", nil, tile, "NonInteractableModelSceneMixinTemplate")
-    modelScene:SetPoint("TOPLEFT", 6, -6)
-    modelScene:SetPoint("BOTTOMRIGHT", -6, 20)
-    modelScene:Hide()
-    tile.modelScene = modelScene
-
-    -- Initialize the scene with the housing decor preset
-    local forceSceneChange = true
-    modelScene:TransitionToModelSceneID(MODEL_SCENE_ID, CAMERA_IMMEDIATE, CAMERA_MAINTAIN, forceSceneChange)
+    -- ModelScene created lazily on first use (see element initializer)
+    -- Most items use 2D icons; only ~10% are model-only
 
     -- Placed count at bottom right (green)
     local placed = addon:CreateFontString(tile, "OVERLAY", "GameFontHighlight")
@@ -345,7 +332,7 @@ function Grid:SetSortType(sortType)
     if isNative then
         if addon.catalogSearcher then
             addon.catalogSearcher:SetSortType(sortType)
-            addon.catalogSearcher:RunSearch()
+            addon:RequestSearch()
         end
     else
         self:ReapplyFilters()
@@ -464,36 +451,8 @@ function Grid:CreateScrollBox(parent, tileSize)
         local record = addon:GetRecord(recordID)
         tile.recordID = recordID
 
-        -- Display based on icon availability (following Blizzard's pattern)
-        local useModelScene = record and record.isModelOnly and record.modelAsset
-
-        if useModelScene and tile.modelScene then
-            -- Model-only item: show 3D preview instead of 2D icon
-            tile.icon:Hide()
-            local modelScene = tile.modelScene
-            local actor = modelScene:GetActorByTag(MODEL_ACTOR_TAG)
-            if not actor then
-                -- Fallback: create actor if scene doesn't define one
-                actor = modelScene:CreateActor()
-                if actor then actor:SetTag(MODEL_ACTOR_TAG) end
-            end
-            if actor then
-                actor:SetModelByFileID(record.modelAsset)
-                modelScene:Show()
-            end
-        else
-            -- Show 2D icon (texture or atlas)
-            if tile.modelScene then tile.modelScene:Hide() end
-
-            if record and record.iconType == "atlas" then
-                tile.icon:SetAtlas(record.icon)
-            elseif record then
-                tile.icon:SetTexture(record.icon)
-            else
-                tile.icon:SetTexture("Interface\\Icons\\INV_Misc_QuestionMark")
-            end
-            tile.icon:Show()
-        end
+        -- Display 3D model or 2D icon (shared utility handles lazy ModelScene creation)
+        addon:SetupTileDisplay(tile, record, CAMERA_MAINTAIN)
 
         -- Placed count (green, right side)
         if record and record.numPlaced and record.numPlaced > 0 then
@@ -525,6 +484,10 @@ function Grid:CreateScrollBox(parent, tileSize)
 
         -- Click handler
         tile:SetScript("OnMouseDown", function(_, button)
+            if button == "RightButton" then
+                addon.ContextMenu:ShowForDecor(tile, recordID)
+                return
+            end
             if button == "LeftButton" and IsShiftKeyDown() then
                 addon:ToggleTracking(recordID)
                 return
@@ -904,6 +867,20 @@ function Grid:Hide()
     if self.container then self.container:Hide() end
     if self.scrollBar then self.scrollBar:Hide() end
     if self.emptyState then self.emptyState:Hide() end
+
+    -- Cancel pending timers
+    self:CancelTimers()
+end
+
+function Grid:CancelTimers()
+    if self.tileSizeSlider and self.tileSizeSlider.debounceTimer then
+        self.tileSizeSlider.debounceTimer:Cancel()
+        self.tileSizeSlider.debounceTimer = nil
+    end
+    if self.refreshDebounceTimer then
+        self.refreshDebounceTimer:Cancel()
+        self.refreshDebounceTimer = nil
+    end
 end
 
 -- Event handlers
@@ -940,7 +917,13 @@ function Grid:MergeResults(listA, listB)
 end
 
 addon:RegisterInternalEvent("SEARCH_RESULTS_UPDATED", function(recordIDs)
+    -- Skip grid updates when MainFrame is hidden (defer until reopened)
+    if not addon.MainFrame or not addon.MainFrame:IsShown() then
+        addon.needsGridRefresh = true
+        return
+    end
     if not addon.Tabs or addon.Tabs:GetCurrentTab() ~= "DECOR" then return end
+    addon.needsGridRefresh = false
 
     Grid:ClearSelection()
 
@@ -985,6 +968,11 @@ end)
 
 -- Refresh grid when a record's ownership data changes (debounced to coalesce rapid events)
 addon:RegisterInternalEvent("RECORD_OWNERSHIP_UPDATED", function()
+    -- Skip grid updates when MainFrame is hidden
+    if not addon.MainFrame or not addon.MainFrame:IsShown() then
+        addon.needsGridRefresh = true
+        return
+    end
     if addon.Tabs and addon.Tabs:GetCurrentTab() == "DECOR" then
         Grid:DebouncedRefresh()
     end

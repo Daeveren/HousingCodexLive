@@ -2,6 +2,18 @@
 
 All notable changes to Housing Codex.
 
+## [0.8.7] - 2026-02-01
+
+### Added
+- Right-click context menu on all item lists
+  - Add or remove items from wishlist
+  - Track items on the map (if trackable)
+  - Link items to chat
+  - Copy Wowhead link to clipboard
+
+### Fixed
+- Reduced memory usage and improved performance
+
 ## [0.8.6] - 2026-01-31
 
 ### Changed

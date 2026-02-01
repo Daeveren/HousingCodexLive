@@ -72,6 +72,11 @@ function SearchBox:Create(parent)
         editBox:ClearFocus()
     end)
 
+    -- Cancel debounce when EditBox is hidden (e.g., parent frame closes)
+    frame:HookScript("OnHide", function()
+        self:CancelDebounce()
+    end)
+
     return frame
 end
 
@@ -122,7 +127,7 @@ function SearchBox:ApplySearch(text)
         addon.catalogSearcher:SetFilteredSubcategoryID(nil)
     end
 
-    addon.catalogSearcher:RunSearch()
+    addon:RequestSearch()
 
     addon:FireEvent("SEARCH_TEXT_CHANGED", searchText)
 

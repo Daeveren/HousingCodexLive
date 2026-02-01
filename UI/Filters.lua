@@ -97,7 +97,7 @@ function Filters:ApplyCollectionFilter()
 
     addon.catalogSearcher:SetCollected(self.showCollected)
     addon.catalogSearcher:SetUncollected(self.showUncollected)
-    addon.catalogSearcher:RunSearch()
+    addon:RequestSearch()
 end
 
 --------------------------------------------------------------------------------

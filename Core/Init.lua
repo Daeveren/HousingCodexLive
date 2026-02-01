@@ -40,7 +40,7 @@ addon.CONSTANTS = {
     DEFAULT_FRAME_WIDTH = 1200,
     DEFAULT_FRAME_HEIGHT = 800,
     MIN_FRAME_WIDTH = 400,
-    MIN_FRAME_HEIGHT = 600,
+    MIN_FRAME_HEIGHT = 400,
 
     -- Layout
     SIDEBAR_WIDTH = 167,
@@ -377,6 +377,69 @@ function addon:MergeDefaults(target, defaults)
             self:MergeDefaults(target[key], value)
         end
     end
+end
+
+-- ModelScene constants for tile 3D preview
+local TILE_MODEL_SCENE_ID = 1317  -- HOUSING_CATALOG_DECOR_MODELSCENEID_DEFAULT
+local TILE_MODEL_ACTOR_TAG = "decor"
+local TILE_CAMERA_IMMEDIATE = CAMERA_TRANSITION_TYPE_IMMEDIATE or 1
+
+-- Sets up a tile to display either a 3D model or 2D icon based on record data.
+-- Creates ModelScene lazily on first use (most items use icons).
+-- @param tile: The tile frame (must have .icon, optionally .modelScene)
+-- @param record: The decor record (from addon:GetRecord)
+-- @param cameraModType: Camera modification type (MAINTAIN or DISCARD)
+function addon:SetupTileDisplay(tile, record, cameraModType)
+    local useModelScene = record and record.isModelOnly and record.modelAsset
+
+    if useModelScene then
+        -- Lazy create ModelScene on first use
+        if not tile.modelScene then
+            local modelScene = CreateFrame("ModelScene", nil, tile, "NonInteractableModelSceneMixinTemplate")
+            modelScene:SetPoint("TOPLEFT", 6, -6)
+            modelScene:SetPoint("BOTTOMRIGHT", -6, 20)
+            tile.modelScene = modelScene
+            modelScene:TransitionToModelSceneID(TILE_MODEL_SCENE_ID, TILE_CAMERA_IMMEDIATE, cameraModType, true)
+        end
+
+        tile.icon:Hide()
+        local modelScene = tile.modelScene
+        local actor = modelScene:GetActorByTag(TILE_MODEL_ACTOR_TAG)
+        if not actor then
+            actor = modelScene:AcquireActor()
+            if actor then
+                modelScene.tagToActor = modelScene.tagToActor or {}
+                modelScene.tagToActor[TILE_MODEL_ACTOR_TAG] = actor
+            end
+        end
+
+        if actor then
+            local success = actor:SetModelByFileID(record.modelAsset)
+            if success then
+                modelScene:Show()
+                return true
+            end
+        end
+
+        -- Fallback: model/actor failed, show icon instead
+        if tile.modelScene then tile.modelScene:Hide() end
+        tile.icon:SetTexture(record.icon or "Interface\\Icons\\INV_Misc_QuestionMark")
+        tile.icon:Show()
+        return false
+    end
+
+    -- Show 2D icon (texture or atlas)
+    if tile.modelScene then tile.modelScene:Hide() end
+
+    if record and record.iconType == "atlas" then
+        tile.icon:SetAtlas(record.icon)
+    elseif record then
+        tile.icon:SetTexture(record.icon)
+    else
+        tile.icon:SetTexture("Interface\\Icons\\INV_Misc_QuestionMark")
+    end
+    tile.icon:Show()
+    return true
 end
 
 -- Slash Commands

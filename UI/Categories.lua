@@ -167,7 +167,7 @@ function Categories:ApplyFilter()
 
     addon.catalogSearcher:SetFilteredCategoryID(self.focusedCategoryID)
     addon.catalogSearcher:SetFilteredSubcategoryID(self.focusedSubcategoryID)
-    addon.catalogSearcher:RunSearch()
+    addon:RequestSearch()
 end
 
 function Categories:BuildDisplay()
@@ -316,7 +316,7 @@ function Categories:OnCategoryClick(categoryInfo)
     if addon.catalogSearcher then
         addon.catalogSearcher:SetFilteredCategoryID(categoryInfo.ID)
         addon.catalogSearcher:SetFilteredSubcategoryID(nil)
-        addon.catalogSearcher:RunSearch()
+        addon:RequestSearch()
     end
     self:BuildDisplay()  -- Refresh selection highlight
 end

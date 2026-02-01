@@ -296,5 +296,11 @@ L["ACHIEVEMENTS_TRACKING_FAILED"] = "Cannot track this achievement"
 L["WOWHEAD_LINK_COPIED"] = "Copied to clipboard: %s"
 L["WOWHEAD_LINK_NO_ID"] = "Cannot copy link - quest ID unknown"
 
+--------------------------------------------------------------------------------
+-- Context Menu
+--------------------------------------------------------------------------------
+L["CONTEXT_MENU_LINK_TO_CHAT"] = "Link to Chat"
+L["CONTEXT_MENU_COPY_WOWHEAD"] = "Copy Wowhead Link"
+
 -- Note: Achievement category names come from WoW's GetCategoryInfo() API
 -- which returns already-localized strings, so no L[] entries needed

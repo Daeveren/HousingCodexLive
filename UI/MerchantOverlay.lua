@@ -151,6 +151,14 @@ function MerchantOverlay:Initialize()
         end
     end)
 
+    -- Listen for internal ownership updates (split from HOUSING_STORAGE_UPDATED)
+    addon:RegisterInternalEvent("RECORD_OWNERSHIP_UPDATED", function()
+        if not MerchantFrame or not MerchantFrame:IsShown() then return end
+        -- Clear session cache to force fresh ownership checks
+        ClearSessionCache()
+        self:UpdateMerchantButtons()
+    end)
+
     addon:Debug("MerchantOverlay initialized")
 end
 
