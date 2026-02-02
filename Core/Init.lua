@@ -694,59 +694,6 @@ function addon:ShowURLPopup(url, anchorButton)
     popup:Show()
 end
 
--- ============================================================================
--- Currency FileID → ID Mapping (for tooltip display)
--- ============================================================================
-
--- Known housing-related currencies (IDs verified via WoW API)
-local HOUSING_CURRENCIES = {
-    1220,   -- Order Resources
-    1560,   -- War Resources
-    3126,   -- Community Coupons
-    1813,   -- Honor
-    1166,   -- Timewarped Badge
-    2003,   -- Dragon Isles Supplies
-    824,    -- Garrison Resources
-    823,    -- Apexis Crystal
-    2815,   -- Resonance Crystals
-    3090,   -- Memories of the Wilds
-    2806,   -- Voidlight Marl
-}
-
-addon.currencyFileIDMap = {}  -- fileID → currencyID
-
-function addon:BuildCurrencyMap()
-    self.currencyFileIDMap = {}
-    local mappedCount = 0
-
-    for _, currencyID in ipairs(HOUSING_CURRENCIES) do
-        local info = C_CurrencyInfo.GetCurrencyInfo(currencyID)
-        if info and info.iconFileID then
-            self.currencyFileIDMap[info.iconFileID] = currencyID
-            mappedCount = mappedCount + 1
-        end
-    end
-
-    self:Debug(string.format("Currency map built: %d currencies", mappedCount))
-end
-
--- Extract currency ID from sourceText by matching texture fileIDs
--- @param sourceText: The raw sourceText from record (may contain |T<fileID>:...|t patterns)
--- @return currencyID, fileID if found, or nil
-function addon:ExtractCurrencyFromSource(sourceText)
-    if not sourceText or sourceText == "" then return nil end
-    if not self.currencyFileIDMap or not next(self.currencyFileIDMap) then return nil end
-
-    -- Match texture escape sequences: |T<fileID>:...|t
-    for fileID in sourceText:gmatch("|T(%d+):") do
-        local id = tonumber(fileID)
-        if id and self.currencyFileIDMap[id] then
-            return self.currencyFileIDMap[id], id
-        end
-    end
-    return nil
-end
-
 -- Addon Initialization
 addon:RegisterWoWEvent("ADDON_LOADED", function(loadedAddon)
     if loadedAddon ~= ADDON_NAME then return end
@@ -767,9 +714,6 @@ end)
 
 addon:RegisterWoWEvent("PLAYER_ENTERING_WORLD", function()
     C_Timer.After(0.5, function()
-        -- Build currency fileID → ID mapping for tooltip display
-        addon:BuildCurrencyMap()
-
         if addon.LoadData then
             addon:LoadData()
         end

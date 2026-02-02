@@ -2,6 +2,11 @@
 
 All notable changes to Housing Codex.
 
+## [0.8.9] - 2026-02-02
+
+### Fixed
+- The currency tooltip now actually works
+
 ## [0.8.8] - 2026-02-02
 
 ### Added

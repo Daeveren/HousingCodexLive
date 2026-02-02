@@ -254,42 +254,34 @@ function Preview:CreateIdentityBlock()
     placed:SetTextColor(0.4, 0.8, 0.4)
     self.detailsPlaced = placed
 
-    -- Currency icon (hoverable for tooltip, shown inline before source text)
-    local CURRENCY_ICON_SIZE = 16
-    local currencyIcon = CreateFrame("Button", nil, details)
-    currencyIcon:SetSize(CURRENCY_ICON_SIZE, CURRENCY_ICON_SIZE)
-    currencyIcon:SetPoint("TOPLEFT", owned, "BOTTOMLEFT", 0, -PADDING)
-    currencyIcon.texture = currencyIcon:CreateTexture(nil, "ARTWORK")
-    currencyIcon.texture:SetAllPoints()
-    currencyIcon:Hide()
-
-    currencyIcon:SetScript("OnEnter", function(self)
-        if self.currencyID then
-            GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
-            GameTooltip:SetCurrencyByID(self.currencyID)
-            GameTooltip:Show()
-        end
+    -- Source text container (hyperlink-enabled for currency/quest/item tooltips)
+    local sourceContainer = CreateFrame("Frame", nil, details)
+    sourceContainer:SetPoint("TOPLEFT", owned, "BOTTOMLEFT", 0, -PADDING)
+    sourceContainer:SetPoint("RIGHT", details, "RIGHT", -PADDING, 0)
+    sourceContainer:SetHeight(60)  -- Resized based on content
+    sourceContainer:SetHyperlinksEnabled(true)
+    sourceContainer:SetScript("OnHyperlinkEnter", function(frame, link)
+        GameTooltip:SetOwner(frame, "ANCHOR_CURSOR_RIGHT", 10, 0)
+        GameTooltip:SetHyperlink(link)
+        GameTooltip:Show()
     end)
-
-    currencyIcon:SetScript("OnLeave", function()
+    sourceContainer:SetScript("OnHyperlinkLeave", function()
         GameTooltip:Hide()
     end)
+    self.sourceContainer = sourceContainer
 
-    self.detailsCurrencyIcon = currencyIcon
-
-    -- Source text (below owned, spans full width - anchored dynamically based on currency icon)
-    -- No MaxLines limit - sourceText can contain multiple vendor sources with full formatting
-    local source = addon:CreateFontString(details, "OVERLAY", "GameFontHighlight")
+    local source = sourceContainer:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
+    source:SetAllPoints()
     source:SetJustifyH("LEFT")
+    source:SetJustifyV("TOP")
     source:SetWordWrap(true)
     source:SetTextColor(0.8, 0.8, 0.8)
     self.detailsSource = source
-    self:AnchorSourceText(false)  -- Initialize with default anchor (no currency)
 
     -- ========== Metadata Section (1C.7) ==========
     -- Row 1: Size + Place (always on first row)
     local sizeLabel = addon:CreateFontString(details, "OVERLAY", "GameFontHighlight")
-    sizeLabel:SetPoint("TOPLEFT", source, "BOTTOMLEFT", 0, -PADDING - METADATA_GAP)
+    sizeLabel:SetPoint("TOPLEFT", sourceContainer, "BOTTOMLEFT", 0, -PADDING - METADATA_GAP)
     sizeLabel:SetText(addon.L["DETAILS_SIZE"])
     sizeLabel:SetTextColor(0.5, 0.5, 0.5)
     self.detailsSizeLabel = sizeLabel
@@ -328,17 +320,6 @@ function Preview:CreateIdentityBlock()
     self:ClearDetails()
 end
 
--- Helper: Anchor source text based on currency icon visibility
-function Preview:AnchorSourceText(showCurrencyIcon)
-    if not self.detailsSource then return end
-    self.detailsSource:ClearAllPoints()
-    if showCurrencyIcon then
-        self.detailsSource:SetPoint("LEFT", self.detailsCurrencyIcon, "RIGHT", 4, 0)
-    else
-        self.detailsSource:SetPoint("TOPLEFT", self.detailsOwned, "BOTTOMLEFT", 0, -PADDING)
-    end
-    self.detailsSource:SetPoint("RIGHT", self.detailsArea, "RIGHT", -PADDING, 0)
-end
 
 function Preview:CreateActionsRow(details, anchorElement)
     local AB = addon.CONSTANTS.ACTION_BUTTON
@@ -481,28 +462,13 @@ function Preview:UpdateDetails(record)
         self.detailsPlaced:Hide()
     end
 
-    -- Source (use raw sourceText - FontStrings render texture escape sequences natively)
-    local sourceText = record.sourceText
-    if sourceText and sourceText ~= "" then
-        self.detailsSource:SetText(sourceText)
+    -- Source (hyperlink-enabled container handles tooltips automatically)
+    if record.sourceText and record.sourceText ~= "" then
+        self.detailsSource:SetText(record.sourceText)
     else
         self.detailsSource:SetText(addon.L["DETAILS_SOURCE_UNKNOWN"])
     end
-
-    -- Currency icon tooltip (shown when source contains a recognized currency)
-    local currencyID = addon:ExtractCurrencyFromSource(record.sourceText)
-    local currencyInfo = currencyID and C_CurrencyInfo.GetCurrencyInfo(currencyID)
-    local showCurrency = currencyInfo and currencyInfo.iconFileID
-
-    if showCurrency then
-        self.detailsCurrencyIcon.texture:SetTexture(currencyInfo.iconFileID)
-        self.detailsCurrencyIcon.currencyID = currencyID
-        self.detailsCurrencyIcon:Show()
-    else
-        self.detailsCurrencyIcon:Hide()
-        self.detailsCurrencyIcon.currencyID = nil
-    end
-    self:AnchorSourceText(showCurrency)
+    self.sourceContainer:SetHeight(self.detailsSource:GetStringHeight() or 20)
 
     -- ========== Metadata (1C.7) ==========
 
@@ -548,16 +514,6 @@ function Preview:ClearDetails()
     self.detailsDyeable:SetText("")
     self.detailsCategory:SetText("")
 
-    -- Reset currency icon and source anchor
-    if self.detailsCurrencyIcon then
-        if GameTooltip:IsOwned(self.detailsCurrencyIcon) then
-            GameTooltip:Hide()
-        end
-        self.detailsCurrencyIcon:Hide()
-        self.detailsCurrencyIcon.currencyID = nil
-    end
-    self:AnchorSourceText(false)
-
     -- Reset action buttons to disabled state (wishlist uses UpdateWishlistButton which handles nil recordID)
     self:UpdateWishlistButton()
     if self.trackButton then
@@ -589,7 +545,7 @@ function Preview:RecalculateDetailsHeight()
     end
     height = height + PADDING
 
-    -- Source (up to 5 lines, word wrapped)
+    -- Source (FontString)
     local sourceText = self.detailsSource:GetText()
     if sourceText and sourceText ~= "" then
         height = height + self.detailsSource:GetStringHeight()
