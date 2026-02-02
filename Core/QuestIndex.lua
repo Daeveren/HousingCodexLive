@@ -137,6 +137,41 @@ addon.questZoneCache = {}       -- questKey -> { zoneName, expansionKey }
 addon.questIndexBuilt = false
 addon.pendingQuestLoads = {}    -- questID -> true (for async title loading)
 addon.questZoneFromScrape = {}  -- questKey -> { zoneName, expansionKey } (from scraped QuestSourceData)
+addon.questStringsInterned = false
+
+-- Intern quest name strings to reduce memory (Lua 5.1 doesn't auto-intern table strings)
+local function InternQuestStrings()
+    local intern = {}
+    local count = 0
+
+    -- Build intern table from QuestSourceData
+    if addon.QuestSourceData then
+        for _, quests in pairs(addon.QuestSourceData) do
+            for _, quest in ipairs(quests) do
+                local name = quest.questName
+                if name then
+                    if not intern[name] then
+                        intern[name] = name
+                        count = count + 1
+                    end
+                    quest.questName = intern[name]
+                end
+            end
+        end
+    end
+
+    -- Reuse interned strings in DecorToQuestLookup
+    if addon.DecorToQuestLookup then
+        for _, data in pairs(addon.DecorToQuestLookup) do
+            local name = data.questName
+            if name then
+                data.questName = intern[name] or name
+            end
+        end
+    end
+
+    addon:Debug(string.format("Interned %d unique quest names", count))
+end
 
 -- Parse quest ID from sourceText using multiple strategies
 local function ParseQuestID(sourceText)
@@ -174,6 +209,7 @@ end
 
 -- Get quest location (zone name and expansion) from quest key
 -- questKey can be a numeric questID or a string questName (for quests without IDs)
+-- Simplified: Uses scraped data only (covers 99%+ of housing quests)
 local function GetQuestLocation(questKey)
     if not questKey then
         return addon.L["QUESTS_UNKNOWN_ZONE"], "QUESTS_UNKNOWN_EXPANSION"
@@ -185,59 +221,15 @@ local function GetQuestLocation(questKey)
         return cached.zoneName, cached.expansionKey
     end
 
-    -- Check scraped zone data (primary source)
+    -- Check scraped zone data (primary and only source for housing quests)
     local scraped = addon.questZoneFromScrape[questKey]
     if scraped then
         addon.questZoneCache[questKey] = scraped
         return scraped.zoneName, scraped.expansionKey
     end
 
-    -- For string keys (quests without IDs), we can't use WoW APIs
-    if type(questKey) ~= "number" then
-        return CacheUnknownLocation(questKey)
-    end
-
-    -- Fallback to WoW API for numeric quest IDs
-    local questID = questKey
-
-    -- Get zone map ID from quest (try world quest API first, then quest log)
-    local zoneMapID = C_TaskQuest and C_TaskQuest.GetQuestZoneID and C_TaskQuest.GetQuestZoneID(questID)
-    if (not zoneMapID or zoneMapID == 0) and C_QuestLog and C_QuestLog.GetQuestZoneID then
-        zoneMapID = C_QuestLog.GetQuestZoneID(questID)
-    end
-    if not zoneMapID or zoneMapID == 0 then
-        return CacheUnknownLocation(questID)
-    end
-
-    -- Get zone info
-    local mapInfo = C_Map and C_Map.GetMapInfo and C_Map.GetMapInfo(zoneMapID)
-    if not mapInfo then
-        return CacheUnknownLocation(questID)
-    end
-
-    local zoneName = mapInfo.name or addon.L["QUESTS_UNKNOWN_ZONE"]
-
-    -- Walk up to continent level to determine expansion
-    local continentMapID = nil
-    local currentInfo = mapInfo
-    while currentInfo do
-        if currentInfo.mapType == Enum.UIMapType.Continent then
-            continentMapID = currentInfo.mapID
-            break
-        end
-        if not currentInfo.parentMapID or currentInfo.parentMapID == 0 then
-            break
-        end
-        currentInfo = C_Map.GetMapInfo(currentInfo.parentMapID)
-    end
-
-    -- Map continent to expansion
-    local expData = continentMapID and CONTINENT_TO_EXPANSION[continentMapID]
-    local expansionKey = expData and expData.key or "QUESTS_UNKNOWN_EXPANSION"
-
-    -- Cache and return
-    addon.questZoneCache[questID] = { zoneName = zoneName, expansionKey = expansionKey }
-    return zoneName, expansionKey
+    -- No scraped data available - cache and return unknown
+    return CacheUnknownLocation(questKey)
 end
 
 -- Request async loading of quest title
@@ -256,6 +248,12 @@ function addon:BuildQuestIndex()
     if not self.dataLoaded then
         self:Debug("Cannot build quest index: data not loaded")
         return
+    end
+
+    -- Intern strings before building index (first run only)
+    if not self.questStringsInterned then
+        InternQuestStrings()
+        self.questStringsInterned = true
     end
 
     local startTime = debugprofilestop()

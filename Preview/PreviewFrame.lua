@@ -17,9 +17,12 @@ local SPACING_SMALL = 2
 local METADATA_GAP = 4          -- Extra spacing before metadata row
 local DIVIDER_OFFSET = 1        -- Inset from left edge to clear MainFrame divider
 
--- Camera constants (WoW globals with fallbacks)
-local CAMERA_IMMEDIATE = CAMERA_TRANSITION_TYPE_IMMEDIATE or 1
-local CAMERA_DISCARD = CAMERA_MODIFICATION_TYPE_DISCARD or 0
+-- Camera constants (from centralized CONSTANTS)
+local CONSTS = addon.CONSTANTS
+local CAMERA_IMMEDIATE = CONSTS.CAMERA.TRANSITION_IMMEDIATE
+local CAMERA_DISCARD = CONSTS.CAMERA.MODIFICATION_DISCARD
+local SCENE_PRESETS = CONSTS.SCENE_PRESETS
+local DEFAULT_SCENE_ID = CONSTS.DEFAULT_SCENE_ID
 
 -- Width preset buttons (widths only, labels generated from index)
 local WIDTH_PRESETS = { 300, 500, 700 }
@@ -28,19 +31,6 @@ local WIDTH_PRESETS = { 300, 500, 700 }
 local COLOR_PRESET_INACTIVE = { 0.5, 0.5, 0.5, 0.8 }
 local COLOR_PRESET_HOVER = { 0.8, 0.8, 0.8, 1 }
 local COLOR_PRESET_ACTIVE = { 0.9, 0.75, 0.3, 1 }  -- Gold
-
--- Scene presets by Enum.HousingCatalogEntrySize values (0, 65-69)
--- record.size uses these actual enum values, not 0-5 indices
-local ScenePresets = Enum.HousingCatalogEntryModelScenePresets
-local SCENE_PRESETS = {
-    [0]  = ScenePresets.DecorDefault,   -- None
-    [65] = ScenePresets.DecorTiny,
-    [66] = ScenePresets.DecorSmall,
-    [67] = ScenePresets.DecorMedium,
-    [68] = ScenePresets.DecorLarge,
-    [69] = ScenePresets.DecorHuge,
-}
-local DEFAULT_SCENE_ID = ScenePresets.DecorDefault
 
 -- Zoom constant: 2% per wheel notch (50 steps for full range)
 local ZOOM_STEP = 0.02
@@ -264,15 +254,37 @@ function Preview:CreateIdentityBlock()
     placed:SetTextColor(0.4, 0.8, 0.4)
     self.detailsPlaced = placed
 
-    -- Source text (below owned, spans full width)
+    -- Currency icon (hoverable for tooltip, shown inline before source text)
+    local CURRENCY_ICON_SIZE = 16
+    local currencyIcon = CreateFrame("Button", nil, details)
+    currencyIcon:SetSize(CURRENCY_ICON_SIZE, CURRENCY_ICON_SIZE)
+    currencyIcon:SetPoint("TOPLEFT", owned, "BOTTOMLEFT", 0, -PADDING)
+    currencyIcon.texture = currencyIcon:CreateTexture(nil, "ARTWORK")
+    currencyIcon.texture:SetAllPoints()
+    currencyIcon:Hide()
+
+    currencyIcon:SetScript("OnEnter", function(self)
+        if self.currencyID then
+            GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
+            GameTooltip:SetCurrencyByID(self.currencyID)
+            GameTooltip:Show()
+        end
+    end)
+
+    currencyIcon:SetScript("OnLeave", function()
+        GameTooltip:Hide()
+    end)
+
+    self.detailsCurrencyIcon = currencyIcon
+
+    -- Source text (below owned, spans full width - anchored dynamically based on currency icon)
     -- No MaxLines limit - sourceText can contain multiple vendor sources with full formatting
     local source = addon:CreateFontString(details, "OVERLAY", "GameFontHighlight")
-    source:SetPoint("TOPLEFT", owned, "BOTTOMLEFT", 0, -PADDING)
-    source:SetPoint("RIGHT", details, "RIGHT", -PADDING, 0)
     source:SetJustifyH("LEFT")
     source:SetWordWrap(true)
     source:SetTextColor(0.8, 0.8, 0.8)
     self.detailsSource = source
+    self:AnchorSourceText(false)  -- Initialize with default anchor (no currency)
 
     -- ========== Metadata Section (1C.7) ==========
     -- Row 1: Size + Place (always on first row)
@@ -314,6 +326,18 @@ function Preview:CreateIdentityBlock()
 
     -- Initialize with placeholder state
     self:ClearDetails()
+end
+
+-- Helper: Anchor source text based on currency icon visibility
+function Preview:AnchorSourceText(showCurrencyIcon)
+    if not self.detailsSource then return end
+    self.detailsSource:ClearAllPoints()
+    if showCurrencyIcon then
+        self.detailsSource:SetPoint("LEFT", self.detailsCurrencyIcon, "RIGHT", 4, 0)
+    else
+        self.detailsSource:SetPoint("TOPLEFT", self.detailsOwned, "BOTTOMLEFT", 0, -PADDING)
+    end
+    self.detailsSource:SetPoint("RIGHT", self.detailsArea, "RIGHT", -PADDING, 0)
 end
 
 function Preview:CreateActionsRow(details, anchorElement)
@@ -465,6 +489,21 @@ function Preview:UpdateDetails(record)
         self.detailsSource:SetText(addon.L["DETAILS_SOURCE_UNKNOWN"])
     end
 
+    -- Currency icon tooltip (shown when source contains a recognized currency)
+    local currencyID = addon:ExtractCurrencyFromSource(record.sourceText)
+    local currencyInfo = currencyID and C_CurrencyInfo.GetCurrencyInfo(currencyID)
+    local showCurrency = currencyInfo and currencyInfo.iconFileID
+
+    if showCurrency then
+        self.detailsCurrencyIcon.texture:SetTexture(currencyInfo.iconFileID)
+        self.detailsCurrencyIcon.currencyID = currencyID
+        self.detailsCurrencyIcon:Show()
+    else
+        self.detailsCurrencyIcon:Hide()
+        self.detailsCurrencyIcon.currencyID = nil
+    end
+    self:AnchorSourceText(showCurrency)
+
     -- ========== Metadata (1C.7) ==========
 
     -- Size (use localized name or dash if no size)
@@ -508,6 +547,16 @@ function Preview:ClearDetails()
     self.detailsPlacement:SetText("-")
     self.detailsDyeable:SetText("")
     self.detailsCategory:SetText("")
+
+    -- Reset currency icon and source anchor
+    if self.detailsCurrencyIcon then
+        if GameTooltip:IsOwned(self.detailsCurrencyIcon) then
+            GameTooltip:Hide()
+        end
+        self.detailsCurrencyIcon:Hide()
+        self.detailsCurrencyIcon.currencyID = nil
+    end
+    self:AnchorSourceText(false)
 
     -- Reset action buttons to disabled state (wishlist uses UpdateWishlistButton which handles nil recordID)
     self:UpdateWishlistButton()

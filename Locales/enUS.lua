@@ -14,7 +14,6 @@ L["ADDON_NAME"] = "Housing Codex"
 L["LOADING"] = "Loading..."
 L["LOADING_DATA"] = "Loading decor data..."
 L["LOADED_MESSAGE"] = "Loaded |cFF88EE88%d decor|r items. Type |cFF88BBFF/hc|r to open."
-L["LOADED_MESSAGE_TIME"] = "Loaded %d decor items in %d ms"
 L["COMBAT_LOCKDOWN_MESSAGE"] = "Cannot open during combat"
 
 --------------------------------------------------------------------------------
@@ -93,20 +92,12 @@ L["DETAILS_NO_SELECTION"] = "Select an item"
 L["DETAILS_OWNED"] = "Owned: %d"
 L["DETAILS_PLACED"] = "Placed: %d"
 L["DETAILS_NOT_OWNED"] = "Not Owned"
-L["DETAILS_METADATA"] = "Metadata"
 L["DETAILS_SIZE"] = "Size:"
 L["DETAILS_PLACE"] = "Place:"
 L["DETAILS_DYEABLE"] = "Dyeable"
 L["DETAILS_NOT_DYEABLE"] = "Not Dyeable"
-L["DETAILS_TRACKING"] = "Track:"
-L["DETAILS_SOURCE"] = "Source"
 L["DETAILS_SOURCE_UNKNOWN"] = "Unknown source"
-L["DETAILS_TRACKING_ACTIVE"] = "Tracking"
-L["DETAILS_TRACKING_AVAILABLE"] = "Available"
-L["DETAILS_TRACKING_UNAVAILABLE"] = "N/A"
 L["UNKNOWN"] = "Unknown"
-L["YES"] = "Yes"
-L["NO"] = "No"
 
 -- Size names
 L["SIZE_NONE"] = "None"
@@ -163,20 +154,13 @@ L["LINK_INSERTED"] = "Link inserted into chat"
 --------------------------------------------------------------------------------
 -- Preview
 --------------------------------------------------------------------------------
-L["PREVIEW_TITLE"] = "Preview"
-L["PREVIEW_LOADING"] = "Loading model..."
 L["PREVIEW_NO_MODEL"] = "No 3D model available"
 L["PREVIEW_NO_SELECTION"] = "Select an item to preview"
 L["PREVIEW_ERROR"] = "Error loading model"
-L["PREVIEW_ZOOM_IN"] = "Zoom In"
-L["PREVIEW_ZOOM_OUT"] = "Zoom Out"
-L["PREVIEW_RESET"] = "Reset View"
 
 --------------------------------------------------------------------------------
 -- Settings (WoW Native Settings UI)
 --------------------------------------------------------------------------------
-L["SETTINGS"] = "Settings"
-L["OPTIONS_TITLE"] = "Housing Codex Settings"
 L["OPTIONS_SECTION_DISPLAY"] = "Display"
 L["OPTIONS_USE_CUSTOM_FONT"] = "Use Housing Codex font"
 L["OPTIONS_USE_CUSTOM_FONT_TOOLTIP"] = "When disabled, the addon uses the default WoW font instead"

@@ -25,7 +25,6 @@ addon.modules = {}
 -- Data state
 addon.dataLoaded = false
 addon.decorRecords = {}
-addon.recordIDToKey = {}
 
 -- Constants
 addon.CONSTANTS = {
@@ -125,6 +124,25 @@ addon.CONSTANTS = {
 
     -- Category navigation
     BUILTIN_ALL_CATEGORY_ID = Constants.HousingCatalogConsts.HOUSING_CATALOG_ALL_CATEGORY_ID,
+
+    -- Camera constants (WoW globals with correct fallback values per API)
+    CAMERA = {
+        TRANSITION_IMMEDIATE = CAMERA_TRANSITION_TYPE_IMMEDIATE or 1,
+        MODIFICATION_DISCARD = CAMERA_MODIFICATION_TYPE_DISCARD or 1,
+        MODIFICATION_MAINTAIN = CAMERA_MODIFICATION_TYPE_MAINTAIN or 1,
+    },
+
+    -- Scene presets by Enum.HousingCatalogEntrySize values (0, 65-69)
+    -- record.size uses these actual enum values, not 0-5 indices
+    SCENE_PRESETS = {
+        [0]  = Enum.HousingCatalogEntryModelScenePresets.DecorDefault,   -- None
+        [65] = Enum.HousingCatalogEntryModelScenePresets.DecorTiny,
+        [66] = Enum.HousingCatalogEntryModelScenePresets.DecorSmall,
+        [67] = Enum.HousingCatalogEntryModelScenePresets.DecorMedium,
+        [68] = Enum.HousingCatalogEntryModelScenePresets.DecorLarge,
+        [69] = Enum.HousingCatalogEntryModelScenePresets.DecorHuge,
+    },
+    DEFAULT_SCENE_ID = Enum.HousingCatalogEntryModelScenePresets.DecorDefault,
 
     -- Button styling
     TOGGLE_BUTTON_BACKDROP = {
@@ -379,10 +397,73 @@ function addon:MergeDefaults(target, defaults)
     end
 end
 
+-- Shared tile backdrop (used by Grid and WishlistFrame)
+addon.TILE_BACKDROP = {
+    bgFile = "Interface\\Buttons\\WHITE8x8",
+    edgeFile = "Interface\\Tooltips\\UI-Tooltip-Border",
+    edgeSize = 12,
+    insets = { left = 2, right = 2, top = 2, bottom = 2 }
+}
+
+-- Shared tile setup: creates icon, placed count, quantity, and wishlist star
+-- Used by Grid.lua and WishlistFrame.lua to eliminate code duplication
+-- @param tile: The tile frame (BackdropTemplate)
+-- @param tileSize: Size of the tile
+-- @param onLeaveCallback: Function(tile) called on mouse leave (for custom behavior)
+function addon:SetupTileFrame(tile, tileSize, onLeaveCallback)
+    local COLORS = self.CONSTANTS.COLORS
+    local WISHLIST_STAR_SIZE = self.CONSTANTS.WISHLIST_STAR_SIZE_GRID
+
+    tile:SetSize(tileSize, tileSize)
+    tile:EnableMouse(true)
+    tile:SetBackdrop(self.TILE_BACKDROP)
+    tile:SetBackdropColor(0.06, 0.06, 0.08, 1)
+    tile:SetBackdropBorderColor(unpack(COLORS.BORDER))
+
+    -- Icon fills most of tile, leaving room for quantity at bottom
+    local icon = tile:CreateTexture(nil, "ARTWORK")
+    icon:SetPoint("TOPLEFT", 6, -6)
+    icon:SetPoint("BOTTOMRIGHT", -6, 20)
+    tile.icon = icon
+
+    -- ModelScene created lazily on first use (see element initializer)
+    -- Most items use 2D icons; only ~10% are model-only
+
+    -- Placed count at bottom right (green)
+    local placed = self:CreateFontString(tile, "OVERLAY", "GameFontHighlight")
+    placed:SetPoint("BOTTOMRIGHT", -4, 3)
+    placed:SetTextColor(0.4, 0.8, 0.4, 1)
+    self:SetFontSize(placed, 13, "OUTLINE")
+    placed:Hide()
+    tile.placed = placed
+
+    -- Quantity text at bottom right (subdued) - anchored dynamically
+    local qty = self:CreateFontString(tile, "OVERLAY", "GameFontHighlight")
+    qty:SetPoint("BOTTOMRIGHT", -4, 3)
+    qty:SetTextColor(unpack(COLORS.TEXT_DISABLED))
+    self:SetFontSize(qty, 13, "OUTLINE")
+    tile.quantity = qty
+
+    -- Wishlist star badge (top-right corner)
+    local wishlistStar = tile:CreateTexture(nil, "OVERLAY")
+    wishlistStar:SetSize(WISHLIST_STAR_SIZE, WISHLIST_STAR_SIZE)
+    wishlistStar:SetPoint("TOPRIGHT", -2, -2)
+    wishlistStar:SetAtlas("PetJournal-FavoritesIcon")
+    wishlistStar:SetVertexColor(unpack(COLORS.GOLD))
+    wishlistStar:Hide()
+    tile.wishlistStar = wishlistStar
+
+    -- OnLeave handler (OnEnter is set per-element in initializer)
+    tile:SetScript("OnLeave", function(t)
+        if onLeaveCallback then
+            onLeaveCallback(t)
+        end
+    end)
+end
+
 -- ModelScene constants for tile 3D preview
 local TILE_MODEL_SCENE_ID = 1317  -- HOUSING_CATALOG_DECOR_MODELSCENEID_DEFAULT
 local TILE_MODEL_ACTOR_TAG = "decor"
-local TILE_CAMERA_IMMEDIATE = CAMERA_TRANSITION_TYPE_IMMEDIATE or 1
 
 -- Sets up a tile to display either a 3D model or 2D icon based on record data.
 -- Creates ModelScene lazily on first use (most items use icons).
@@ -399,7 +480,7 @@ function addon:SetupTileDisplay(tile, record, cameraModType)
             modelScene:SetPoint("TOPLEFT", 6, -6)
             modelScene:SetPoint("BOTTOMRIGHT", -6, 20)
             tile.modelScene = modelScene
-            modelScene:TransitionToModelSceneID(TILE_MODEL_SCENE_ID, TILE_CAMERA_IMMEDIATE, cameraModType, true)
+            modelScene:TransitionToModelSceneID(TILE_MODEL_SCENE_ID, addon.CONSTANTS.CAMERA.TRANSITION_IMMEDIATE, cameraModType, true)
         end
 
         tile.icon:Hide()
@@ -613,6 +694,59 @@ function addon:ShowURLPopup(url, anchorButton)
     popup:Show()
 end
 
+-- ============================================================================
+-- Currency FileID → ID Mapping (for tooltip display)
+-- ============================================================================
+
+-- Known housing-related currencies (IDs verified via WoW API)
+local HOUSING_CURRENCIES = {
+    1220,   -- Order Resources
+    1560,   -- War Resources
+    3126,   -- Community Coupons
+    1813,   -- Honor
+    1166,   -- Timewarped Badge
+    2003,   -- Dragon Isles Supplies
+    824,    -- Garrison Resources
+    823,    -- Apexis Crystal
+    2815,   -- Resonance Crystals
+    3090,   -- Memories of the Wilds
+    2806,   -- Voidlight Marl
+}
+
+addon.currencyFileIDMap = {}  -- fileID → currencyID
+
+function addon:BuildCurrencyMap()
+    self.currencyFileIDMap = {}
+    local mappedCount = 0
+
+    for _, currencyID in ipairs(HOUSING_CURRENCIES) do
+        local info = C_CurrencyInfo.GetCurrencyInfo(currencyID)
+        if info and info.iconFileID then
+            self.currencyFileIDMap[info.iconFileID] = currencyID
+            mappedCount = mappedCount + 1
+        end
+    end
+
+    self:Debug(string.format("Currency map built: %d currencies", mappedCount))
+end
+
+-- Extract currency ID from sourceText by matching texture fileIDs
+-- @param sourceText: The raw sourceText from record (may contain |T<fileID>:...|t patterns)
+-- @return currencyID, fileID if found, or nil
+function addon:ExtractCurrencyFromSource(sourceText)
+    if not sourceText or sourceText == "" then return nil end
+    if not self.currencyFileIDMap or not next(self.currencyFileIDMap) then return nil end
+
+    -- Match texture escape sequences: |T<fileID>:...|t
+    for fileID in sourceText:gmatch("|T(%d+):") do
+        local id = tonumber(fileID)
+        if id and self.currencyFileIDMap[id] then
+            return self.currencyFileIDMap[id], id
+        end
+    end
+    return nil
+end
+
 -- Addon Initialization
 addon:RegisterWoWEvent("ADDON_LOADED", function(loadedAddon)
     if loadedAddon ~= ADDON_NAME then return end
@@ -633,6 +767,9 @@ end)
 
 addon:RegisterWoWEvent("PLAYER_ENTERING_WORLD", function()
     C_Timer.After(0.5, function()
+        -- Build currency fileID → ID mapping for tooltip display
+        addon:BuildCurrencyMap()
+
         if addon.LoadData then
             addon:LoadData()
         end

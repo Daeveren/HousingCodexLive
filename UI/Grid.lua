@@ -43,7 +43,7 @@ local CLIENT_SORT_FIELDS = {
 }
 
 -- Camera modification type for tile ModelScene (MAINTAIN keeps zoom/rotation on recycle)
-local CAMERA_MAINTAIN = CAMERA_MODIFICATION_TYPE_MAINTAIN or 1
+local CAMERA_MAINTAIN = CONSTS.CAMERA.MODIFICATION_MAINTAIN
 
 -- Tile color values
 local COLOR_BG_NORMAL = { 0.06, 0.06, 0.08, 1 }
@@ -71,56 +71,10 @@ Grid.emptyState = nil
 Grid.toolbarLayout = nil  -- "full", "noSlider", "noFilter", "minimal"
 Grid.toolbarElements = {} -- References to toolbar elements for responsive hiding
 
-local TILE_BACKDROP = {
-    bgFile = "Interface\\Buttons\\WHITE8x8",
-    edgeFile = "Interface\\Tooltips\\UI-Tooltip-Border",
-    edgeSize = 12,
-    insets = { left = 2, right = 2, top = 2, bottom = 2 }
-}
-
+-- Grid uses shared SetupTileFrame with simple OnLeave (just reset color and hide tooltip)
 local function SetupTileFrame(tile, tileSize)
-    tile:SetSize(tileSize, tileSize)
-    tile:EnableMouse(true)
-    tile:SetBackdrop(TILE_BACKDROP)
-    tile:SetBackdropColor(unpack(COLOR_BG_NORMAL))
-    tile:SetBackdropBorderColor(unpack(COLOR_BORDER_NORMAL))
-
-    -- Icon fills most of tile, leaving room for quantity at bottom
-    local icon = tile:CreateTexture(nil, "ARTWORK")
-    icon:SetPoint("TOPLEFT", 6, -6)
-    icon:SetPoint("BOTTOMRIGHT", -6, 20)
-    tile.icon = icon
-
-    -- ModelScene created lazily on first use (see element initializer)
-    -- Most items use 2D icons; only ~10% are model-only
-
-    -- Placed count at bottom right (green)
-    local placed = addon:CreateFontString(tile, "OVERLAY", "GameFontHighlight")
-    placed:SetPoint("BOTTOMRIGHT", -4, 3)
-    placed:SetTextColor(0.4, 0.8, 0.4, 1)
-    addon:SetFontSize(placed, 13, "OUTLINE")
-    placed:Hide()
-    tile.placed = placed
-
-    -- Quantity text at bottom right (larger, bold, subdued) - anchored dynamically
-    local qty = addon:CreateFontString(tile, "OVERLAY", "GameFontHighlight")
-    qty:SetPoint("BOTTOMRIGHT", -4, 3)
-    qty:SetTextColor(unpack(COLORS.TEXT_DISABLED))
-    addon:SetFontSize(qty, 13, "OUTLINE")
-    tile.quantity = qty
-
-    -- Wishlist star badge (top-right corner)
-    local wishlistStar = tile:CreateTexture(nil, "OVERLAY")
-    wishlistStar:SetSize(WISHLIST_STAR_SIZE, WISHLIST_STAR_SIZE)
-    wishlistStar:SetPoint("TOPRIGHT", -2, -2)
-    wishlistStar:SetAtlas("PetJournal-FavoritesIcon")
-    wishlistStar:SetVertexColor(unpack(COLORS.GOLD))
-    wishlistStar:Hide()
-    tile.wishlistStar = wishlistStar
-
-    -- OnLeave handler (OnEnter is set per-element in initializer)
-    tile:SetScript("OnLeave", function(self)
-        self:SetBackdropColor(unpack(COLOR_BG_NORMAL))
+    addon:SetupTileFrame(tile, tileSize, function(t)
+        t:SetBackdropColor(unpack(COLOR_BG_NORMAL))
         GameTooltip:Hide()
     end)
 end
@@ -418,7 +372,7 @@ function Grid:CreateScrollBox(parent, tileSize)
             tile.icon:Show()  -- Reset to default visible state
         end
         if tile.modelScene then
-            local actor = tile.modelScene:GetActorByTag(MODEL_ACTOR_TAG)
+            local actor = tile.modelScene:GetActorByTag("decor")
             if actor then
                 actor:ClearModel()
             end

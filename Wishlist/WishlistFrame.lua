@@ -38,24 +38,14 @@ local COLOR_BG_HOVER = { 0.1, 0.1, 0.12, 1 }
 local COLOR_BORDER_NORMAL = COLORS.BORDER
 local COLOR_COLLECTED = { 0.2, 0.8, 0.2 }
 
--- Camera constants for preview panel ModelScene
-local CAMERA_IMMEDIATE = CAMERA_TRANSITION_TYPE_IMMEDIATE or 1
-local CAMERA_DISCARD = CAMERA_MODIFICATION_TYPE_DISCARD or 0
+-- Camera constants (from centralized CONSTANTS)
+local CAMERA_IMMEDIATE = CONSTS.CAMERA.TRANSITION_IMMEDIATE
+local CAMERA_DISCARD = CONSTS.CAMERA.MODIFICATION_DISCARD
+local SCENE_PRESETS = CONSTS.SCENE_PRESETS
+local DEFAULT_SCENE_ID = CONSTS.DEFAULT_SCENE_ID
 
 -- Zoom constant
 local ZOOM_STEP = 0.02
-
--- Scene presets by size
-local ScenePresets = Enum.HousingCatalogEntryModelScenePresets
-local SCENE_PRESETS = {
-    [0]  = ScenePresets.DecorDefault,
-    [65] = ScenePresets.DecorTiny,
-    [66] = ScenePresets.DecorSmall,
-    [67] = ScenePresets.DecorMedium,
-    [68] = ScenePresets.DecorLarge,
-    [69] = ScenePresets.DecorHuge,
-}
-local DEFAULT_SCENE_ID = ScenePresets.DecorDefault
 
 local MAIN_BACKDROP = {
     bgFile = "Interface\\DialogFrame\\UI-DialogBox-Background",
@@ -63,13 +53,6 @@ local MAIN_BACKDROP = {
     tileSize = 16,
     edgeSize = 14,
     insets = { left = 3, right = 3, top = 3, bottom = 3 }
-}
-
-local TILE_BACKDROP = {
-    bgFile = "Interface\\Buttons\\WHITE8x8",
-    edgeFile = "Interface\\Tooltips\\UI-Tooltip-Border",
-    edgeSize = 12,
-    insets = { left = 2, right = 2, top = 2, bottom = 2 }
 }
 
 addon.WishlistFrame = {}
@@ -333,7 +316,7 @@ function WishlistFrame:CreateGrid()
             tile.icon:Show()
         end
         if tile.modelScene then
-            local actor = tile.modelScene:GetActorByTag(MODEL_ACTOR_TAG)
+            local actor = tile.modelScene:GetActorByTag("decor")
             if actor then actor:ClearModel() end
             tile.modelScene:Hide()
         end
@@ -447,48 +430,9 @@ function WishlistFrame:CreateGrid()
     addon:Debug("WishlistFrame grid created with " .. columns .. " columns")
 end
 
+-- WishlistFrame uses shared SetupTileFrame with custom OnLeave (restores preview)
 function WishlistFrame:SetupTileFrame(tile, tileSize)
-    tile:SetSize(tileSize, tileSize)
-    tile:EnableMouse(true)
-    tile:SetBackdrop(TILE_BACKDROP)
-    tile:SetBackdropColor(unpack(COLOR_BG_NORMAL))
-    tile:SetBackdropBorderColor(unpack(COLOR_BORDER_NORMAL))
-
-    -- Icon
-    local icon = tile:CreateTexture(nil, "ARTWORK")
-    icon:SetPoint("TOPLEFT", 6, -6)
-    icon:SetPoint("BOTTOMRIGHT", -6, 20)
-    tile.icon = icon
-
-    -- ModelScene created lazily on first use (see element initializer)
-    -- Most items use 2D icons; only ~10% are model-only
-
-    -- Placed count
-    local placed = addon:CreateFontString(tile, "OVERLAY", "GameFontHighlight")
-    placed:SetPoint("BOTTOMRIGHT", -4, 3)
-    placed:SetTextColor(0.4, 0.8, 0.4, 1)
-    addon:SetFontSize(placed, 13, "OUTLINE")
-    placed:Hide()
-    tile.placed = placed
-
-    -- Quantity text
-    local qty = addon:CreateFontString(tile, "OVERLAY", "GameFontHighlight")
-    qty:SetPoint("BOTTOMRIGHT", -4, 3)
-    qty:SetTextColor(unpack(COLORS.TEXT_DISABLED))
-    addon:SetFontSize(qty, 13, "OUTLINE")
-    tile.quantity = qty
-
-    -- Wishlist star badge
-    local wishlistStar = tile:CreateTexture(nil, "OVERLAY")
-    wishlistStar:SetSize(WISHLIST_STAR_SIZE, WISHLIST_STAR_SIZE)
-    wishlistStar:SetPoint("TOPRIGHT", -2, -2)
-    wishlistStar:SetAtlas("PetJournal-FavoritesIcon")
-    wishlistStar:SetVertexColor(unpack(COLORS.GOLD))
-    wishlistStar:Hide()
-    tile.wishlistStar = wishlistStar
-
-    -- OnLeave handler
-    tile:SetScript("OnLeave", function(t)
+    addon:SetupTileFrame(tile, tileSize, function(t)
         t:SetBackdropColor(unpack(COLOR_BG_NORMAL))
         GameTooltip:Hide()
 

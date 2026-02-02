@@ -2,6 +2,14 @@
 
 All notable changes to Housing Codex.
 
+## [0.8.8] - 2026-02-02
+
+### Added
+- Currency tooltips for vendor items - hover the currency icon to see more details
+
+### Fixed
+- Reduced memory usage
+
 ## [0.8.7] - 2026-02-01
 
 ### Added
