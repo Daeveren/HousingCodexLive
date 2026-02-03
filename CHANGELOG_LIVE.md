@@ -2,6 +2,18 @@
 
 All notable changes to Housing Codex.
 
+## [0.8.10] - 2026-02-03
+
+### Added
+- New "Reset Window Position" button in addon settings to reset the window to the center of the screen
+- New `/hc reset` slash command for the same purpose
+
+### Changed
+- If the window was dragged off-screen, after a relog or reloadui it will be moved onscreen
+
+### Fixed
+- Improved checks for the green checkmarks at the vendor screen
+
 ## [0.8.9] - 2026-02-02
 
 ### Fixed

@@ -184,6 +184,26 @@ function addon.Settings:Initialize()
     self.vendorOwnedCheck = vendorOwnedCheck
     yOffset = yOffset - 40
 
+    -- Reset Position button
+    local resetBtn = CreateFrame("Button", nil, panel, "UIPanelButtonTemplate")
+    resetBtn:SetPoint("TOPLEFT", 16, yOffset)
+    resetBtn:SetSize(160, 24)
+    resetBtn:SetText(L["OPTIONS_RESET_POSITION"])
+    resetBtn:SetScript("OnClick", function()
+        if addon.MainFrame then
+            addon.MainFrame:ResetPosition()
+        end
+    end)
+    resetBtn:SetScript("OnEnter", function(self)
+        GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
+        GameTooltip:SetText(L["OPTIONS_RESET_POSITION_TOOLTIP"])
+        GameTooltip:Show()
+    end)
+    resetBtn:SetScript("OnLeave", function()
+        GameTooltip:Hide()
+    end)
+    yOffset = yOffset - 40
+
     --------------------------------------------------------------------------------
     -- KEYBIND SECTION
     --------------------------------------------------------------------------------

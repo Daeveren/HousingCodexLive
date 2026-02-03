@@ -536,6 +536,7 @@ SlashCmdList["HOUSINGCODEX"] = function(msg)
         addon:Print("|cFFFFD100" .. L["HELP_TITLE"] .. "|r")
         addon:Print("  " .. L["HELP_TOGGLE"])
         addon:Print("  " .. L["HELP_SETTINGS"])
+        addon:Print("  " .. L["HELP_RESET"])
         addon:Print("  " .. L["HELP_RETRY"])
         addon:Print("  " .. L["HELP_HELP"])
         addon:Print("  " .. L["HELP_DEBUG"])
@@ -550,6 +551,12 @@ SlashCmdList["HOUSINGCODEX"] = function(msg)
         addon.loadRetryCount = 0
         addon.dataLoaded = false
         addon:LoadData()
+    elseif cmd == "reset" then
+        if addon.MainFrame then
+            addon.MainFrame:ResetPosition()
+        else
+            addon:Print(L["MAIN_WINDOW_NOT_AVAILABLE"])
+        end
     elseif cmd == "debug" then
         if addon.db then
             addon.db.settings.debugMode = not addon.db.settings.debugMode

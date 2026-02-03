@@ -839,6 +839,14 @@ function Preview:IsShown()
     return region and region:IsShown()
 end
 
+function Preview:OnMainFrameHide()
+    -- Explicitly hide ModelScene to free GPU resources
+    -- (Frame hierarchy hides it, but explicit hide is Blizzard's pattern)
+    if self.modelScene then
+        self.modelScene:Hide()
+    end
+end
+
 -- ============================================================================
 -- Event Handlers
 -- ============================================================================

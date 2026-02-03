@@ -425,6 +425,74 @@ function MainFrame:RestoreLayout()
             frame:SetSize(w, h)
         end
     end
+
+    -- Validate position for users with off-screen saved positions
+    self:ValidatePosition()
+end
+
+function MainFrame:ValidatePosition()
+    local frame = self.frame
+    if not frame then return end
+
+    local left, bottom, width, height = frame:GetRect()
+    if not left then return end
+
+    local screenWidth = GetScreenWidth()
+    local screenHeight = GetScreenHeight()
+    local top = bottom + height
+    local right = left + width
+
+    -- If any edge is significantly off-screen, reset to center
+    if left < -50 or right > screenWidth + 50 or
+       top > screenHeight + 50 or bottom < -50 then
+        self:ResetPosition()
+    end
+end
+
+function MainFrame:ClampToScreen()
+    local frame = self.frame
+    if not frame then return end
+
+    local left, bottom, width, height = frame:GetRect()
+    if not left then return end
+
+    local screenWidth, screenHeight = GetScreenWidth(), GetScreenHeight()
+    local MIN_VISIBLE_H, MIN_VISIBLE_V = 100, 50
+
+    -- Clamp horizontally (ensure at least MIN_VISIBLE_H pixels visible)
+    local newLeft = left
+    if left + width < MIN_VISIBLE_H then
+        newLeft = MIN_VISIBLE_H - width
+    elseif left > screenWidth - MIN_VISIBLE_H then
+        newLeft = screenWidth - MIN_VISIBLE_H
+    end
+
+    -- Clamp vertically (ensure at least MIN_VISIBLE_V pixels visible)
+    local newBottom = bottom
+    if bottom + height < MIN_VISIBLE_V then
+        newBottom = MIN_VISIBLE_V - height
+    elseif bottom > screenHeight - MIN_VISIBLE_V then
+        newBottom = screenHeight - MIN_VISIBLE_V
+    end
+
+    if newLeft ~= left or newBottom ~= bottom then
+        frame:ClearAllPoints()
+        frame:SetPoint("BOTTOMLEFT", UIParent, "BOTTOMLEFT", newLeft, newBottom)
+    end
+end
+
+function MainFrame:ResetPosition()
+    local frame = self.frame
+    if not frame then return end
+
+    frame:ClearAllPoints()
+    frame:SetPoint("CENTER", UIParent, "CENTER")
+
+    if addon.db then
+        addon.db.framePosition = nil
+    end
+
+    addon:Print(addon.L["POSITION_RESET"])
 end
 
 function MainFrame:Show()
@@ -437,6 +505,9 @@ function MainFrame:Show()
     if not self.frame then
         self:Create()
     end
+
+    -- Ensure frame is on screen
+    self:ClampToScreen()
 
     -- Enable searcher auto-update while visible (Blizzard pattern)
     if addon.catalogSearcher then
@@ -475,6 +546,11 @@ function MainFrame:Hide()
 
     self.frame:Hide()
     addon:CancelPendingSearch()
+
+    -- Cleanup preview ModelScene
+    if addon.Preview then
+        addon.Preview:OnMainFrameHide()
+    end
 
     -- Disable searcher auto-update when hidden
     if addon.catalogSearcher then

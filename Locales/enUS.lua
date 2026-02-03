@@ -172,6 +172,8 @@ L["OPTIONS_VENDOR_INDICATORS"] = "Mark decor items at vendors"
 L["OPTIONS_VENDOR_INDICATORS_TOOLTIP"] = "Display Housing Codex icon on vendor items that are housing decor"
 L["OPTIONS_VENDOR_OWNED_CHECKMARK"] = "Show checkmark for owned decor"
 L["OPTIONS_VENDOR_OWNED_CHECKMARK_TOOLTIP"] = "Display a green checkmark on vendor decor items you already own"
+L["OPTIONS_RESET_POSITION"] = "Reset Window Position"
+L["OPTIONS_RESET_POSITION_TOOLTIP"] = "Reset the window to the center of your screen"
 
 L["OPTIONS_SECTION_KEYBIND"] = "Keybind"
 L["OPTIONS_TOGGLE_KEYBIND"] = "Toggle Window:"
@@ -186,6 +188,7 @@ L["OPTIONS_KEYBIND_HINT"] = "Click to set keybind. Right-click to clear. ESC to 
 L["HELP_TITLE"] = "Housing Codex Commands:"
 L["HELP_TOGGLE"] = "/hc - Toggle main window"
 L["HELP_SETTINGS"] = "/hc settings - Open settings"
+L["HELP_RESET"] = "/hc reset - Reset window position"
 L["HELP_RETRY"] = "/hc retry - Retry loading data"
 L["HELP_HELP"] = "/hc help - Show this help"
 L["HELP_DEBUG"] = "/hc debug - Toggle debug mode"
@@ -202,6 +205,7 @@ L["DATA_NOT_LOADED"] = "Data not loaded yet"
 L["INSPECT_FOUND"] = "Found: %s (ID: %d)"
 L["INSPECT_NOT_FOUND"] = "No item found matching: %s"
 L["MAIN_WINDOW_NOT_AVAILABLE"] = "Main window not yet available"
+L["POSITION_RESET"] = "Window position reset to center"
 
 --------------------------------------------------------------------------------
 -- Errors

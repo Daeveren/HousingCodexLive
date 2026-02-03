@@ -21,6 +21,9 @@ local buttonOverlays = {}
 -- Session cache for catalog lookups (cleared on storage updates and merchant close)
 local sessionCache = {}
 
+-- State tracking for market data refresh
+local waitingForMarketData = false
+
 local function ClearSessionCache()
     wipe(sessionCache)
 end
@@ -136,17 +139,40 @@ end
 function MerchantOverlay:Initialize()
     self:HookMerchantFrame()
 
-    -- Listen for housing storage updates and merchant close
+    -- Listen for housing storage updates, merchant events, and market data
     self.eventFrame = CreateFrame("Frame")
     self.eventFrame:RegisterEvent("HOUSING_STORAGE_UPDATED")
     self.eventFrame:RegisterEvent("HOUSING_STORAGE_ENTRY_UPDATED")
     self.eventFrame:RegisterEvent("MERCHANT_CLOSED")
+    self.eventFrame:RegisterEvent("MERCHANT_SHOW")
+    self.eventFrame:RegisterEvent("HOUSING_MARKET_AVAILABILITY_UPDATED")
     self.eventFrame:SetScript("OnEvent", function(_, event)
-        ClearSessionCache()
-        if event == "MERCHANT_CLOSED" then
+        if event == "MERCHANT_SHOW" then
+            -- Request housing market data refresh when merchant opens
+            C_HousingCatalog.RequestHousingMarketInfoRefresh()
+            waitingForMarketData = true
+            -- Fallback timer in case event doesn't fire
+            C_Timer.After(0.5, function()
+                if waitingForMarketData and MerchantFrame and MerchantFrame:IsShown() then
+                    waitingForMarketData = false
+                    ClearSessionCache()
+                    self:UpdateMerchantButtons()
+                end
+            end)
+        elseif event == "HOUSING_MARKET_AVAILABILITY_UPDATED" then
+            -- Market data is now ready - refresh if we're waiting
+            if waitingForMarketData and MerchantFrame and MerchantFrame:IsShown() then
+                waitingForMarketData = false
+                ClearSessionCache()
+                self:UpdateMerchantButtons()
+            end
+        elseif event == "MERCHANT_CLOSED" then
+            waitingForMarketData = false
+            ClearSessionCache()
             self:HideAllOverlays()
         else
-            -- Storage updated - refresh so checkmarks appear after purchase
+            -- HOUSING_STORAGE_UPDATED / HOUSING_STORAGE_ENTRY_UPDATED
+            ClearSessionCache()
             self:UpdateMerchantButtons()
         end
     end)
