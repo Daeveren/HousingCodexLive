@@ -232,7 +232,7 @@ addon.VendorSourceData = {
         ["Searing Gorge"] = {
             { npcId = 14624, npcName = "Master Smith Burninate", cost = 700, decorIds = {1315, 2226} },
         },
-        ["Shadowmoon Valley (Draenor"] = {
+        ["Shadowmoon Valley (Draenor)"] = {
             { npcId = 81133, npcName = "Artificer Kallaes", cost = 200, currencyName = "Garrison Resources", decorIds = {11451} },
         },
         ["Sholazar Basin"] = {
@@ -390,7 +390,7 @@ addon.VendorSourceData = {
             { npcId = 231407, npcName = "Shredz the Scrapper", cost = 650, currencyName = "Resonance Crystals", decorIds = {1269, 10857} },
             { npcId = 231409, npcName = "Smaks Topskimmer", decorIds = {1257, 1258, 1262, 1263} },
         },
-        ["Unknown"] = {
+        ["Founder's Point"] = {
             { npcId = 257307, npcName = "\"Den\" Nightshade", cost = 5, currencyName = "Community Coupons", decorIds = {14677, 14678, 14679, 14680, 14793, 14800, 14829, 14830, 14831, 14832, 14833, 14834} },
         },
         ["Val'sharah"] = {
