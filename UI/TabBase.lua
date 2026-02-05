@@ -38,11 +38,15 @@ end
 -- @return color table {r, g, b, a}
 function TabBaseMixin:GetProgressColor(percent, useAltDim)
     if percent == 100 then
-        return COLORS.PROGRESS_COMPLETE
-    elseif percent >= 50 then
-        return COLORS.GOLD
+        return COLORS.PROGRESS_COMPLETE        -- Green
+    elseif percent >= 91 then
+        return COLORS.PROGRESS_NEAR_COMPLETE   -- Yellow-green
+    elseif percent >= 66 then
+        return COLORS.GOLD                     -- Gold/yellow
+    elseif percent >= 34 then
+        return COLORS.PROGRESS_MID             -- Muted tan
     else
-        return useAltDim and COLORS.PROGRESS_LOW_DIM or COLORS.TEXT_TERTIARY
+        return useAltDim and COLORS.PROGRESS_LOW_DIM or COLORS.TEXT_TERTIARY  -- Gray
     end
 end
 

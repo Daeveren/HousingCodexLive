@@ -85,7 +85,9 @@ addon.CONSTANTS = {
 
         -- Progress indicators (hierarchy tabs)
         PROGRESS_COMPLETE = { 0.2, 1, 0.2, 1 },     -- Green for 100%
-        PROGRESS_LOW_DIM = { 0.6, 0.6, 0.6, 1 },    -- Dimmer gray for zones
+        PROGRESS_NEAR_COMPLETE = { 0.6, 0.9, 0.1, 1 }, -- Yellow-green for 91-99%
+        PROGRESS_MID = { 0.75, 0.65, 0.35, 1 },     -- Muted tan for 34-65%
+        PROGRESS_LOW_DIM = { 0.6, 0.6, 0.6, 1 },    -- Dimmer gray for 0-33%
 
         -- Panel backgrounds (hierarchy panels)
         PANEL_NORMAL = { 0.14, 0.14, 0.16, 0.9 },
@@ -612,27 +614,63 @@ function addon:GetCompletionProgressColor(percent)
 end
 
 -- Helper: Update simple toolbar layout (search + filter container)
--- Used by QuestsTab and AchievementsTab for responsive toolbar hiding
--- Breakpoints: >= 350px (full), >= 200px (noFilter), < 200px (minimal)
+-- Used by QuestsTab, AchievementsTab, VendorsTab for responsive toolbar
+-- Search box shrinks first, then hides; filter hides at narrower widths
 -- Returns the new layout string, or nil if unchanged
+local SEARCH_MAX_WIDTH = 200
+local SEARCH_MIN_WIDTH = 80
+local FILTER_WIDTH_ESTIMATE = 180  -- Approximate width of filter buttons + padding
+
 function addon:UpdateSimpleToolbarLayout(currentLayout, toolbarWidth, searchBox, filterContainer)
+    local paddingAndOffset = 60  -- GRID_OUTER_PAD + 40 + extra spacing
+
+    -- Determine layout and search width
     local newLayout
-    if toolbarWidth >= 350 then
+    local searchWidth = SEARCH_MAX_WIDTH
+    local showFilter = true
+
+    -- Calculate available width assuming filter is shown
+    local availableWithFilter = toolbarWidth - paddingAndOffset - FILTER_WIDTH_ESTIMATE
+
+    if availableWithFilter >= SEARCH_MAX_WIDTH then
+        -- Full width search box fits with filter
         newLayout = "full"
-    elseif toolbarWidth >= 200 then
-        newLayout = "noFilter"
+        searchWidth = SEARCH_MAX_WIDTH
+    elseif availableWithFilter >= SEARCH_MIN_WIDTH then
+        -- Shrink search box, keep filter
+        newLayout = "full"
+        searchWidth = availableWithFilter
     else
-        newLayout = "minimal"
+        -- Hide filter to make room for search
+        showFilter = false
+        local availableWithoutFilter = toolbarWidth - paddingAndOffset
+
+        if availableWithoutFilter >= SEARCH_MAX_WIDTH then
+            newLayout = "noFilter"
+            searchWidth = SEARCH_MAX_WIDTH
+        elseif availableWithoutFilter >= SEARCH_MIN_WIDTH then
+            newLayout = "noFilter"
+            searchWidth = availableWithoutFilter
+        else
+            -- Too narrow, hide search too
+            newLayout = "minimal"
+        end
     end
 
-    if currentLayout == newLayout then return nil end
+    -- Update search box width and visibility
+    if searchBox then
+        if newLayout == "minimal" then
+            searchBox:Hide()
+        else
+            searchBox:SetWidth(searchWidth)
+            searchBox:Show()
+        end
+    end
 
-    local showFilter = (newLayout == "full")
-    local showSearch = (newLayout ~= "minimal")
-
+    -- Update filter visibility
     if filterContainer then filterContainer:SetShown(showFilter) end
-    if searchBox then searchBox:SetShown(showSearch) end
 
+    if currentLayout == newLayout then return nil end
     return newLayout
 end
 

@@ -391,7 +391,7 @@ function AchievementsTab:CreateToolbar(parent)
 
     -- Search box (left side)
     local searchBox = CreateFrame("EditBox", nil, toolbar, "SearchBoxTemplate")
-    searchBox:SetPoint("LEFT", toolbar, "LEFT", GRID_OUTER_PAD, 0)
+    searchBox:SetPoint("LEFT", toolbar, "LEFT", GRID_OUTER_PAD + 40, 0)
     searchBox:SetSize(200, 20)
     searchBox:SetAutoFocus(false)
     searchBox.Instructions:SetText(L["ACHIEVEMENTS_SEARCH_PLACEHOLDER"])

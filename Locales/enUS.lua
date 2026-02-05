@@ -292,3 +292,45 @@ L["CONTEXT_MENU_COPY_WOWHEAD"] = "Copy Wowhead Link"
 
 -- Note: Achievement category names come from WoW's GetCategoryInfo() API
 -- which returns already-localized strings, so no L[] entries needed
+
+--------------------------------------------------------------------------------
+-- Vendors Tab
+--------------------------------------------------------------------------------
+L["VENDORS_SEARCH_PLACEHOLDER"] = "Search vendors, zones, or items..."
+L["VENDORS_FILTER_ALL"] = "All"
+L["VENDORS_FILTER_INCOMPLETE"] = "Incomplete"
+L["VENDORS_FILTER_COMPLETE"] = "Complete"
+L["VENDORS_EMPTY_NO_SOURCES"] = "No vendor sources found"
+L["VENDORS_EMPTY_NO_SOURCES_DESC"] = "Vendor data may not be available"
+L["VENDORS_SELECT_EXPANSION"] = "Select an expansion"
+L["VENDORS_EMPTY_NO_RESULTS"] = "No vendors match your search"
+L["VENDORS_UNKNOWN_EXPANSION"] = "Other"
+L["VENDORS_UNKNOWN_ZONE"] = "Unknown Zone"
+
+-- Vendor waypoint messages
+L["VENDOR_SET_WAYPOINT"] = "Set Waypoint"
+L["VENDOR_NO_LOCATION"] = "Location unknown"
+L["VENDOR_WAYPOINT_SET"] = "Waypoint set for %s"
+L["VENDOR_MAP_RESTRICTED"] = "Cannot set waypoint on this map"
+
+-- Vendor fallback names
+L["VENDOR_UNKNOWN"] = "Unknown Vendor"
+L["VENDOR_FALLBACK_NAME"] = "vendor"
+
+-- Vendor faction indicators
+L["VENDOR_FACTION_ALLIANCE"] = "Alliance only"
+L["VENDOR_FACTION_HORDE"] = "Horde only"
+
+-- Vendor tracking messages
+L["VENDORS_TRACKING_STARTED"] = "Now tracking item"
+L["VENDORS_TRACKING_STOPPED"] = "Stopped tracking item"
+L["VENDORS_TRACKING_MAX_REACHED"] = "Cannot track - maximum items reached (15)"
+L["VENDORS_TRACKING_ALREADY"] = "Already tracking this item"
+L["VENDORS_TRACKING_FAILED"] = "Cannot track this item"
+
+-- Vendor cost display
+L["VENDOR_COST_GOLD"] = "%s gold"
+L["VENDOR_COST_CURRENCY"] = "%s %s"
+
+-- Vendor decor fallback
+L["VENDORS_DECOR_ID"] = "Decor #%d"

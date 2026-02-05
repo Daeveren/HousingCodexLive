@@ -660,7 +660,7 @@ function Preview:OnLinkButtonClick()
     if not record then return end
 
     -- Open chat and insert after a brief delay to ensure editbox is ready
-    ChatFrame_OpenChat("")
+    ChatFrameUtil.OpenChat("")
     C_Timer.After(0, function()
         local editBox = ChatFrame1EditBox
         if editBox and editBox:IsShown() then

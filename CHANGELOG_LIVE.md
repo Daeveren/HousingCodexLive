@@ -2,6 +2,16 @@
 
 All notable changes to Housing Codex.
 
+## [0.9.0] - 2026-02-05
+
+### Added
+- NEW Vendors tab - browse housing items by vendor source
+  - View vendors organized by expansion and zone
+  - See all decor items each vendor sells
+  - Set waypoints to vendor locations
+  - Alliance/Horde faction indicators for faction specific vendors
+  - Search across vendors, zones, and decor items
+
 ## [0.8.10] - 2026-02-03
 
 ### Added
