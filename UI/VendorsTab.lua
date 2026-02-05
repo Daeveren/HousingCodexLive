@@ -70,8 +70,6 @@ VendorsTab.noExpansionState = nil
 VendorsTab.selectedExpansionKey = nil
 VendorsTab.selectedVendorNpcId = nil
 VendorsTab.selectedDecorId = nil
-VendorsTab.selectedVendorFrame = nil
-VendorsTab.selectedDecorRow = nil
 VendorsTab.hoveringRecordID = nil
 
 VendorsTab.toolbarLayout = nil
@@ -115,8 +113,6 @@ function VendorsTab:Show()
         saved.expandedZones = {}
     end
 
-    self:BuildExpansionDisplay()
-    self:BuildVendorDisplay()
     self:UpdateEmptyStates()
 end
 
@@ -346,8 +342,6 @@ function VendorsTab:SelectExpansion(expansionKey)
     if prevSelected ~= expansionKey then
         self.selectedVendorNpcId = nil
         self.selectedDecorId = nil
-        self.selectedVendorFrame = nil
-        self.selectedDecorRow = nil
         addon:FireEvent("RECORD_SELECTED", nil)
     end
 
@@ -551,7 +545,67 @@ function VendorsTab:UpdateDecorSelectionVisual(row, isSelected, textBrightness)
     end
 end
 
+-- Shared selection toggle for vendor rows and decor rows
+function VendorsTab:HandleItemSelection(params)
+    local isCurrentlySelected
+    if params.isVendorRow then
+        isCurrentlySelected = self.selectedVendorNpcId == params.npcId and self.selectedDecorId == params.decorId
+    else
+        isCurrentlySelected = self.selectedDecorId == params.decorId
+    end
+
+    if isCurrentlySelected then
+        -- Deselect
+        if params.isVendorRow then
+            self:UpdateVendorSelectionVisual(params.vendorFrame, false)
+        else
+            self:UpdateDecorSelectionVisual(params.decorRow, false, params.decorRow.textBrightness)
+        end
+        self.selectedVendorNpcId = nil
+        self.selectedDecorId = nil
+        addon:FireEvent("RECORD_SELECTED", nil)
+    else
+        -- Clear previous vendor highlight
+        if self.selectedVendorNpcId then
+            self.vendorScrollBox:ForEachFrame(function(f)
+                if f.npcId == self.selectedVendorNpcId then
+                    self:UpdateVendorSelectionVisual(f, false)
+                end
+            end)
+        end
+        -- Clear previous decor highlight
+        if self.selectedDecorId then
+            self.vendorScrollBox:ForEachFrame(function(f)
+                if f.decorRows then
+                    for _, row in pairs(f.decorRows) do
+                        if row.decorId == self.selectedDecorId then
+                            self:UpdateDecorSelectionVisual(row, false, row.textBrightness or 0.7)
+                        end
+                    end
+                end
+            end)
+        end
+
+        -- Select new
+        self.selectedVendorNpcId = params.npcId
+        self.selectedDecorId = params.decorId
+        if params.isVendorRow then
+            self:UpdateVendorSelectionVisual(params.vendorFrame, true)
+        else
+            self:UpdateDecorSelectionVisual(params.decorRow, true, params.decorRow.textBrightness)
+        end
+        addon:FireEvent("RECORD_SELECTED", params.decorId)
+    end
+end
+
+-- Shared OnLeave handler to restore selection state
+function VendorsTab:RestoreSelectionOnLeave()
+    self.hoveringRecordID = nil
+    addon:FireEvent("RECORD_SELECTED", self.selectedDecorId)
+end
+
 function VendorsTab:SetupZoneHeader(frame, elementData)
+    local L = addon.L
     frame:SetHeight(ZONE_HEADER_HEIGHT)
     frame.isZoneHeader = true
     frame.zoneName = elementData.zoneName
@@ -574,10 +628,10 @@ function VendorsTab:SetupZoneHeader(frame, elementData)
     local housingZone = addon:GetHousingZoneAnnotation(elementData.zoneName)
     if classHall then
         -- Dimmer gray for the class hall annotation
-        frame.zoneLabel:SetText(elementData.zoneName .. " |cff888888(" .. classHall .. " class hall)|r")
+        frame.zoneLabel:SetText(elementData.zoneName .. " |cff888888(" .. classHall .. " " .. L["VENDOR_CLASS_HALL_SUFFIX"] .. ")|r")
     elseif housingZone then
         -- Dimmer gray for the housing zone annotation
-        frame.zoneLabel:SetText(elementData.zoneName .. " |cff888888(" .. housingZone .. " housing zone)|r")
+        frame.zoneLabel:SetText(elementData.zoneName .. " |cff888888(" .. housingZone .. " " .. L["VENDOR_HOUSING_ZONE_SUFFIX"] .. ")|r")
     else
         frame.zoneLabel:SetText(elementData.zoneName)
     end
@@ -655,32 +709,12 @@ function VendorsTab:SetupVendorRow(frame, elementData)
     frame:SetScript("OnClick", function(_, button)
         if button == "RightButton" then return end
         if decorCount == 0 then return end
-
-        local isCurrentlySelected = self.selectedVendorNpcId == elementData.npcId and self.selectedDecorId == decorIds[1]
-
-        if isCurrentlySelected then
-            -- Deselect current vendor
-            self.selectedVendorNpcId = nil
-            self.selectedDecorId = nil
-            self:UpdateVendorSelectionVisual(frame, false)
-            addon:FireEvent("RECORD_SELECTED", nil)
-        else
-            -- Clear previous selections
-            if self.selectedVendorFrame and self.selectedVendorFrame ~= frame then
-                self:UpdateVendorSelectionVisual(self.selectedVendorFrame, false)
-            end
-            if self.selectedDecorRow then
-                self:UpdateDecorSelectionVisual(self.selectedDecorRow, false, self.selectedDecorRow.textBrightness or 0.7)
-                self.selectedDecorRow = nil
-            end
-
-            -- Select this vendor
-            self.selectedVendorNpcId = elementData.npcId
-            self.selectedDecorId = decorIds[1]
-            self.selectedVendorFrame = frame
-            self:UpdateVendorSelectionVisual(frame, true)
-            addon:FireEvent("RECORD_SELECTED", decorIds[1])
-        end
+        self:HandleItemSelection({
+            decorId = decorIds[1],
+            npcId = elementData.npcId,
+            isVendorRow = true,
+            vendorFrame = frame,  -- live ref for immediate visual update only
+        })
     end)
 
     frame:SetScript("OnEnter", function(f)
@@ -697,12 +731,7 @@ function VendorsTab:SetupVendorRow(frame, elementData)
         if self.selectedVendorNpcId ~= elementData.npcId then
             f.bg:SetColorTexture(0.08, 0.08, 0.10, 0.9)
         end
-        self.hoveringRecordID = nil
-        if self.selectedDecorId then
-            addon:FireEvent("RECORD_SELECTED", self.selectedDecorId)
-        else
-            addon:FireEvent("RECORD_SELECTED", nil)
-        end
+        self:RestoreSelectionOnLeave()
     end)
 end
 
@@ -793,32 +822,12 @@ function VendorsTab:SetupDecorRows(frame, decorIds)
                 return
             end
 
-            local isCurrentlySelected = self.selectedDecorId == decorId
-
-            if isCurrentlySelected then
-                -- Deselect current item
-                self.selectedVendorNpcId = nil
-                self.selectedDecorId = nil
-                self.selectedDecorRow = nil
-                self:UpdateDecorSelectionVisual(row, false, row.textBrightness)
-                addon:FireEvent("RECORD_SELECTED", nil)
-            else
-                -- Clear previous selections
-                if self.selectedDecorRow and self.selectedDecorRow ~= row then
-                    self:UpdateDecorSelectionVisual(self.selectedDecorRow, false, self.selectedDecorRow.textBrightness or 0.7)
-                end
-                if self.selectedVendorFrame then
-                    self:UpdateVendorSelectionVisual(self.selectedVendorFrame, false)
-                    self.selectedVendorFrame = nil
-                end
-
-                -- Select this item
-                self.selectedVendorNpcId = frame.npcId
-                self.selectedDecorId = decorId
-                self.selectedDecorRow = row
-                self:UpdateDecorSelectionVisual(row, true, row.textBrightness)
-                addon:FireEvent("RECORD_SELECTED", decorId)
-            end
+            self:HandleItemSelection({
+                decorId = decorId,
+                npcId = frame.npcId,
+                isVendorRow = false,
+                decorRow = row,  -- live ref for immediate visual update only
+            })
         end)
 
         row:SetScript("OnEnter", function(r)
@@ -852,13 +861,8 @@ function VendorsTab:SetupDecorRows(frame, decorIds)
             if self.selectedDecorId ~= decorId then
                 r.name:SetTextColor(r.textBrightness, r.textBrightness, r.textBrightness, 1)
             end
-            self.hoveringRecordID = nil
             GameTooltip:Hide()
-            if self.selectedDecorId then
-                addon:FireEvent("RECORD_SELECTED", self.selectedDecorId)
-            else
-                addon:FireEvent("RECORD_SELECTED", nil)
-            end
+            self:RestoreSelectionOnLeave()
         end)
     end
 end
@@ -964,6 +968,22 @@ local function FindExpansionInList(elements, key)
     return false
 end
 
+-- Map WoW expansion level (from GetMaximumExpansionLevel) to addon expansion key
+local EXPANSION_LEVEL_TO_KEY = {
+    [0]  = "EXPANSION_CLASSIC",
+    [1]  = "EXPANSION_TBC",
+    [2]  = "EXPANSION_WRATH",
+    [3]  = "EXPANSION_CATA",
+    [4]  = "EXPANSION_MOP",
+    [5]  = "EXPANSION_WOD",
+    [6]  = "EXPANSION_LEGION",
+    [7]  = "EXPANSION_BFA",
+    [8]  = "EXPANSION_SL",
+    [9]  = "EXPANSION_DF",
+    [10] = "EXPANSION_TWW",
+    [11] = "EXPANSION_MIDNIGHT",
+}
+
 function VendorsTab:BuildExpansionDisplay()
     if not self.expansionScrollBox or not self.expansionDataProvider then return end
 
@@ -994,7 +1014,7 @@ function VendorsTab:BuildExpansionDisplay()
     end
 
     if not self.selectedExpansionKey and #elements > 0 then
-        local defaultKey = "EXPANSION_TWW"
+        local defaultKey = EXPANSION_LEVEL_TO_KEY[GetMaximumExpansionLevel()] or "EXPANSION_TWW"
         self:SelectExpansion(FindExpansionInList(elements, defaultKey) and defaultKey or elements[1].expansionKey)
     elseif self.selectedExpansionKey and not FindExpansionInList(elements, self.selectedExpansionKey) then
         if #elements > 0 then

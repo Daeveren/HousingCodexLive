@@ -182,6 +182,25 @@ function addon.Settings:Initialize()
     )
     vendorOwnedCheck:SetPoint("TOPLEFT", 16, yOffset)
     self.vendorOwnedCheck = vendorOwnedCheck
+    yOffset = yOffset - 30
+
+    -- Treasure Hunt Waypoints checkbox
+    local treasureHuntCheck = CreateCheckbox(
+        panel,
+        L["OPTIONS_TREASURE_HUNT_WAYPOINTS"],
+        L["OPTIONS_TREASURE_HUNT_WAYPOINTS_TOOLTIP"],
+        function() return addon.db and addon.db.settings.treasureHuntWaypoints end,
+        function(checked)
+            if addon.db then
+                addon.db.settings.treasureHuntWaypoints = checked
+                if addon.TreasureHuntWaypoints then
+                    addon.TreasureHuntWaypoints.UpdateListenerState()
+                end
+            end
+        end
+    )
+    treasureHuntCheck:SetPoint("TOPLEFT", 16, yOffset)
+    self.treasureHuntCheck = treasureHuntCheck
     yOffset = yOffset - 40
 
     -- Reset Position button
@@ -375,6 +394,9 @@ function addon.Settings:Refresh()
     end
     if self.vendorOwnedCheck then
         self.vendorOwnedCheck:SetChecked(addon.db.settings.showVendorOwnedCheckmark)
+    end
+    if self.treasureHuntCheck then
+        self.treasureHuntCheck:SetChecked(addon.db.settings.treasureHuntWaypoints)
     end
     if self.UpdateKeybindButtonText then
         self.UpdateKeybindButtonText()

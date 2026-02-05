@@ -61,6 +61,7 @@ local defaults = {
         showMinimapButton = true,  -- Show LibDBIcon minimap button
         showVendorDecorIndicators = true,  -- Show decor icons on vendor items
         showVendorOwnedCheckmark = true,   -- Show checkmark on owned decor at vendors
+        treasureHuntWaypoints = true,  -- Auto-set waypoints for Decor Treasure Hunts
     },
     wishlistUI = {
         tileSize = 152,      -- Separate from browser.tileSize

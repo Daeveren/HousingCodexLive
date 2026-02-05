@@ -500,23 +500,6 @@ function addon:GetExpansionCollectionProgress(expansionKey)
     return owned, total
 end
 
--- Get quest completion progress for an expansion (completed/total quests)
-function addon:GetExpansionQuestCompletionProgress(expansionKey)
-    local zones = self.questHierarchy[expansionKey] and self.questHierarchy[expansionKey].zones
-    if not zones then return 0, 0 end
-
-    local completed, total = 0, 0
-    for zoneName, quests in pairs(zones) do
-        for _, questKey in ipairs(quests) do
-            total = total + 1
-            if self:IsQuestCompleted(questKey) then
-                completed = completed + 1
-            end
-        end
-    end
-    return completed, total
-end
-
 -- Get quest title (with placeholder fallback)
 -- questKey can be a numeric questID or a string questName (for quests without IDs)
 function addon:GetQuestTitle(questKey)

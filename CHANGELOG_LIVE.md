@@ -2,6 +2,14 @@
 
 All notable changes to Housing Codex.
 
+## [1.0.0] - 2026-02-06
+
+### Added
+- Automatically adding a map pin for the daily treasure hunt secret quest. Enabled by default, can be disabled in addon options
+
+### Fixed
+- Minor fixes and UI tweaks
+
 ## [0.9.0] - 2026-02-05
 
 ### Added

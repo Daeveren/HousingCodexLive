@@ -149,7 +149,9 @@ function MerchantOverlay:Initialize()
     self.eventFrame:SetScript("OnEvent", function(_, event)
         if event == "MERCHANT_SHOW" then
             -- Request housing market data refresh when merchant opens
-            C_HousingCatalog.RequestHousingMarketInfoRefresh()
+            if C_HousingCatalog and C_HousingCatalog.RequestHousingMarketInfoRefresh then
+                C_HousingCatalog.RequestHousingMarketInfoRefresh()
+            end
             waitingForMarketData = true
             -- Fallback timer in case event doesn't fire
             C_Timer.After(0.5, function()

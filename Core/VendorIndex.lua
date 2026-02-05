@@ -249,6 +249,7 @@ addon.vendorIndex = {}
 addon.vendorHierarchy = {}
 addon.vendorIndexBuilt = false
 addon.vendorZoneCache = {}
+addon.vendorExpansionProgressCache = {}
 
 function addon:GetExpansionForVendorZone(zoneName)
     return zoneName and ZONE_TO_EXPANSION[zoneName] or "VENDORS_UNKNOWN_EXPANSION"
@@ -273,6 +274,7 @@ function addon:BuildVendorIndex()
     wipe(self.vendorIndex)
     wipe(self.vendorHierarchy)
     wipe(self.vendorZoneCache)
+    wipe(self.vendorExpansionProgressCache)
 
     local vendorCount, decorCount = 0, 0
 
@@ -421,6 +423,9 @@ function addon:GetVendorZoneCollectionProgress(expansionKey, zoneName)
 end
 
 function addon:GetVendorExpansionCollectionProgress(expansionKey)
+    local cached = self.vendorExpansionProgressCache[expansionKey]
+    if cached then return cached.owned, cached.total end
+
     local expData = self.vendorHierarchy[expansionKey]
     if not expData then return 0, 0 end
 
@@ -429,6 +434,8 @@ function addon:GetVendorExpansionCollectionProgress(expansionKey)
         local zOwned, zTotal = self:GetVendorZoneCollectionProgress(expansionKey, zoneName)
         owned, total = owned + zOwned, total + zTotal
     end
+
+    self.vendorExpansionProgressCache[expansionKey] = { owned = owned, total = total }
     return owned, total
 end
 
@@ -453,3 +460,7 @@ function addon:GetVendorFaction(npcId)
     local locData = self:GetNPCLocation(npcId)
     return locData and locData.faction
 end
+
+addon:RegisterInternalEvent("RECORD_OWNERSHIP_UPDATED", function()
+    wipe(addon.vendorExpansionProgressCache)
+end)

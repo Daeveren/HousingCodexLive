@@ -110,6 +110,7 @@ addon.VendorSourceData = {
             { npcId = 255218, npcName = "Argan Hammerfist", cost = 100, decorIds = {986, 990, 991, 992, 1155, 1165, 1350, 1356, 1486, 1488, 3827, 4484, 11720, 11721} },
             { npcId = 255222, npcName = "\"High Tides\" Ren", cost = 50, decorIds = {522, 526, 534, 535, 536, 1451, 1452, 1453, 1698, 1699, 1978, 1979, 2092, 2094, 2117, 2118, 2439, 2440, 2441, 2442, 2445, 2545, 5853, 5854, 7836, 8771, 8910, 8911, 8912, 9143, 10324, 10367, 10952, 11480, 11874} },
             { npcId = 255228, npcName = "\"Len\" Splinthoof", cost = 25, decorIds = {1436, 1439, 1724, 1737, 2087, 2088, 2090, 2098, 2443, 2444, 2447, 2448, 2534, 2546, 2547, 2548, 2549, 2550, 5561, 8236, 8769, 8770, 10791, 10892, 11139, 11437} },
+            { npcId = 257307, npcName = "\"Den\" Nightshade", cost = 5, currencyName = "Community Coupons", decorIds = {14677, 14678, 14679, 14680, 14793, 14800, 14829, 14830, 14831, 14832, 14833, 14834} },
         },
         ["Freywold Village, Isle of Dorn"] = {
             { npcId = 252901, npcName = "Cinnabar", cost = 400, currencyName = "Resonance Crystals", decorIds = {9179, 9183, 9240} },
@@ -389,9 +390,6 @@ addon.VendorSourceData = {
             { npcId = 226994, npcName = "Blair Bass", cost = 15, decorIds = {1277} },
             { npcId = 231407, npcName = "Shredz the Scrapper", cost = 650, currencyName = "Resonance Crystals", decorIds = {1269, 10857} },
             { npcId = 231409, npcName = "Smaks Topskimmer", decorIds = {1257, 1258, 1262, 1263} },
-        },
-        ["Founder's Point"] = {
-            { npcId = 257307, npcName = "\"Den\" Nightshade", cost = 5, currencyName = "Community Coupons", decorIds = {14677, 14678, 14679, 14680, 14793, 14800, 14829, 14830, 14831, 14832, 14833, 14834} },
         },
         ["Val'sharah"] = {
             { npcId = 252498, npcName = "Corbin Branbell", cost = 350, currencyName = "Order Resources", decorIds = {1801, 1802} },

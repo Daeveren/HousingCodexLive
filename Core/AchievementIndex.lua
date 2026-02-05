@@ -235,20 +235,6 @@ function addon:GetCategoryCollectionProgress(categoryId)
     return owned, total
 end
 
--- Get achievement completion progress for a category (earned/total, by ID)
-function addon:GetCategoryAchievementCompletionProgress(categoryId)
-    local achievements = self:GetAchievementsForCategory(categoryId)
-    local completed, total = 0, 0
-
-    for _, achievementId in ipairs(achievements) do
-        total = total + 1
-        if self:IsAchievementCompleted(achievementId) then
-            completed = completed + 1
-        end
-    end
-    return completed, total
-end
-
 -- Get total achievement count
 function addon:GetAchievementCount()
     local count = 0

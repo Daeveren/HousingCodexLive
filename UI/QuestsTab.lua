@@ -600,9 +600,9 @@ function QuestsTab:SetupExpansionButton(frame, elementData)
     frame.label:SetText(L[elementData.expansionKey] or elementData.expansionKey)
     addon:SetFontSize(frame.label, 13, "")
 
-    -- Quest completion percentage
-    local completed, total = addon:GetExpansionQuestCompletionProgress(elementData.expansionKey)
-    local pctValue = total > 0 and (completed / total * 100) or 0
+    -- Collection progress percentage (items owned / total items)
+    local owned, total = addon:GetExpansionCollectionProgress(elementData.expansionKey)
+    local pctValue = total > 0 and (owned / total * 100) or 0
     frame.percentLabel:SetText(string.format("%.0f%%", pctValue))
     frame.percentLabel:SetTextColor(addon:GetCompletionProgressColor(pctValue))
     addon:SetFontSize(frame.percentLabel, 11, "")

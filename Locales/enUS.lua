@@ -172,6 +172,8 @@ L["OPTIONS_VENDOR_INDICATORS"] = "Mark decor items at vendors"
 L["OPTIONS_VENDOR_INDICATORS_TOOLTIP"] = "Display Housing Codex icon on vendor items that are housing decor"
 L["OPTIONS_VENDOR_OWNED_CHECKMARK"] = "Show checkmark for owned decor"
 L["OPTIONS_VENDOR_OWNED_CHECKMARK_TOOLTIP"] = "Display a green checkmark on vendor decor items you already own"
+L["OPTIONS_TREASURE_HUNT_WAYPOINTS"] = "Auto-waypoint for Treasure Hunts"
+L["OPTIONS_TREASURE_HUNT_WAYPOINTS_TOOLTIP"] = "Automatically set a map waypoint when accepting a Decor Treasure Hunt quest in housing zones"
 L["OPTIONS_RESET_POSITION"] = "Reset Window Position"
 L["OPTIONS_RESET_POSITION_TOOLTIP"] = "Reset the window to the center of your screen"
 
@@ -334,3 +336,12 @@ L["VENDOR_COST_CURRENCY"] = "%s %s"
 
 -- Vendor decor fallback
 L["VENDORS_DECOR_ID"] = "Decor #%d"
+
+-- Vendor zone annotations
+L["VENDOR_CLASS_HALL_SUFFIX"] = "class hall"
+L["VENDOR_HOUSING_ZONE_SUFFIX"] = "housing zone"
+
+--------------------------------------------------------------------------------
+-- Treasure Hunt Waypoints
+--------------------------------------------------------------------------------
+L["TREASURE_HUNT_WAYPOINT_SET"] = "Marked treasure at"
