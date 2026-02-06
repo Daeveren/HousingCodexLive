@@ -155,7 +155,7 @@ local function SetupZoneHeader(self, frame, elementData)
     -- Zone name (pure white)
     frame.label:SetText(elementData.zoneName)
     frame.label:SetTextColor(1, 1, 1, 1)
-    addon:SetFontSize(frame.label, 12, "")
+    addon:SetFontSize(frame.label, 14, "")
     frame.label:SetPoint("LEFT", 28, 0)
 
     -- Progress
@@ -213,7 +213,7 @@ local function SetupQuestRow(self, frame, elementData)
         questTitle = questTitle .. " (" .. elementData.rewardIndex .. ")"
     end
     frame.label:SetText(questTitle)
-    addon:SetFontSize(frame.label, 11, "")
+    addon:SetFontSize(frame.label, 14, "")
     frame.label:SetPoint("LEFT", 40, 0)
 
     -- Wishlist star (show if item is wishlisted)

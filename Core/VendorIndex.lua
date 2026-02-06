@@ -448,7 +448,7 @@ function addon:GetVendorCount()
 end
 
 function addon:IsDecorCollected(decorId)
-    local record = self.decorRecords[decorId]
+    local record = self:GetRecord(decorId)
     return record and record.isCollected or false
 end
 

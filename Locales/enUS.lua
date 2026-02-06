@@ -157,6 +157,7 @@ L["LINK_INSERTED"] = "Link inserted into chat"
 L["PREVIEW_NO_MODEL"] = "No 3D model available"
 L["PREVIEW_NO_SELECTION"] = "Select an item to preview"
 L["PREVIEW_ERROR"] = "Error loading model"
+L["PREVIEW_NOT_IN_CATALOG"] = "Not yet in housing catalog"
 
 --------------------------------------------------------------------------------
 -- Settings (WoW Native Settings UI)
@@ -174,6 +175,8 @@ L["OPTIONS_VENDOR_OWNED_CHECKMARK"] = "Show checkmark for owned decor"
 L["OPTIONS_VENDOR_OWNED_CHECKMARK_TOOLTIP"] = "Display a green checkmark on vendor decor items you already own"
 L["OPTIONS_TREASURE_HUNT_WAYPOINTS"] = "Auto-waypoint for Treasure Hunts"
 L["OPTIONS_TREASURE_HUNT_WAYPOINTS_TOOLTIP"] = "Automatically set a map waypoint when accepting a Decor Treasure Hunt quest in housing zones"
+L["OPTIONS_SHOW_MIDNIGHT_DROPS"] = "Show Midnight expansion drops"
+L["OPTIONS_SHOW_MIDNIGHT_DROPS_TOOLTIP"] = "Include Midnight expansion items in the Drops tab (dungeons, raids, delves, treasures)"
 L["OPTIONS_RESET_POSITION"] = "Reset Window Position"
 L["OPTIONS_RESET_POSITION_TOOLTIP"] = "Reset the window to the center of your screen"
 
@@ -340,6 +343,32 @@ L["VENDORS_DECOR_ID"] = "Decor #%d"
 -- Vendor zone annotations
 L["VENDOR_CLASS_HALL_SUFFIX"] = "class hall"
 L["VENDOR_HOUSING_ZONE_SUFFIX"] = "housing zone"
+
+--------------------------------------------------------------------------------
+-- Drops Tab
+--------------------------------------------------------------------------------
+L["DROPS_SEARCH_PLACEHOLDER"] = "Search sources or items..."
+L["DROPS_FILTER_ALL"] = "All"
+L["DROPS_FILTER_INCOMPLETE"] = "Incomplete"
+L["DROPS_FILTER_COMPLETE"] = "Complete"
+L["DROPS_EMPTY_NO_SOURCES"] = "No drop sources found"
+L["DROPS_EMPTY_NO_SOURCES_DESC"] = "Drop data may not be available"
+L["DROPS_SELECT_CATEGORY"] = "Select a category"
+
+-- Drop source category labels
+L["DROPS_CATEGORY_DROP"] = "Drops"
+L["DROPS_CATEGORY_ENCOUNTER"] = "Bosses"
+L["DROPS_CATEGORY_TREASURE"] = "Treasure"
+
+-- Drop source display
+L["DROPS_DECOR_ID"] = "Decor #%d"
+
+-- Drop tracking messages
+L["DROPS_TRACKING_STARTED"] = "Now tracking item"
+L["DROPS_TRACKING_STOPPED"] = "Stopped tracking item"
+L["DROPS_TRACKING_MAX_REACHED"] = "Cannot track - maximum items reached (15)"
+L["DROPS_TRACKING_ALREADY"] = "Already tracking this item"
+L["DROPS_TRACKING_FAILED"] = "Cannot track this item"
 
 --------------------------------------------------------------------------------
 -- Treasure Hunt Waypoints

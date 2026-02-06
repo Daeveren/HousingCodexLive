@@ -148,7 +148,7 @@ local function SetupAchievementRow(self, frame, elementData)
         achievementName = achievementName .. " (" .. elementData.rewardIndex .. ")"
     end
     frame.label:SetText(achievementName)
-    addon:SetFontSize(frame.label, 11, "")
+    addon:SetFontSize(frame.label, 14, "")
 
     -- Wishlist star
     if frame.wishlistStar and elementData.recordID then

@@ -10,13 +10,14 @@ local HTAB_ICON_SIZE = addon.CONSTANTS.HTAB_ICON_SIZE
 local HTAB_HEIGHT = addon.CONSTANTS.HTAB_HEIGHT
 local HTAB_GAP = addon.CONSTANTS.HTAB_GAP
 local HTAB_PADDING_X = addon.CONSTANTS.HTAB_PADDING_X
+local ICON_CROP_COORDS = addon.CONSTANTS.ICON_CROP_COORDS
 
 local TAB_CONFIG = {
     { key = "DECOR", labelKey = "TAB_DECOR", descKey = "TAB_DECOR_DESC", atlas = "house-decor-budget-icon", enabled = true },
     { key = "QUESTS", labelKey = "TAB_QUESTS", descKey = "TAB_QUESTS_DESC", icon = "Interface\\Icons\\INV_Misc_Book_08", enabled = true },
     { key = "ACHIEVEMENTS", labelKey = "TAB_ACHIEVEMENTS", descKey = "TAB_ACHIEVEMENTS_DESC", icon = "Interface\\Icons\\Achievement_General", enabled = true },
     { key = "VENDORS", labelKey = "TAB_VENDORS", descKey = "TAB_VENDORS_DESC", icon = "Interface\\Icons\\INV_Misc_Coin_02", enabled = true },
-    { key = "DROPS", labelKey = "TAB_DROPS", descKey = "TAB_DROPS_DESC", icon = "Interface\\Icons\\INV_Misc_Bag_10_Blue", enabled = false },
+    { key = "DROPS", labelKey = "TAB_DROPS", descKey = "TAB_DROPS_DESC", icon = "Interface\\Icons\\INV_Misc_Bag_10_Blue", enabled = true },
     { key = "PROFESSIONS", labelKey = "TAB_PROFESSIONS", descKey = "TAB_PROFESSIONS_DESC", icon = "Interface\\Icons\\INV_Misc_Gear_01", enabled = false },
 }
 
@@ -47,13 +48,17 @@ local function CreateTabButton(parent, tabConfig, index)
 
     -- Icon (supports both atlas and texture paths)
     local icon = btn:CreateTexture(nil, "ARTWORK")
-    icon:SetSize(HTAB_ICON_SIZE, HTAB_ICON_SIZE)
     icon:SetPoint("LEFT", btn, "LEFT", HTAB_PADDING_X, 0)
+    local iconSize
     if tabConfig.atlas then
+        iconSize = math.floor(HTAB_ICON_SIZE * 1.2)
         icon:SetAtlas(tabConfig.atlas)
     else
+        iconSize = HTAB_ICON_SIZE
         icon:SetTexture(tabConfig.icon)
+        icon:SetTexCoord(unpack(ICON_CROP_COORDS))
     end
+    icon:SetSize(iconSize, iconSize)
     btn.icon = icon
 
     -- Label
@@ -64,7 +69,7 @@ local function CreateTabButton(parent, tabConfig, index)
 
     -- Calculate button width based on content
     local labelWidth = label:GetStringWidth()
-    local totalWidth = HTAB_PADDING_X + HTAB_ICON_SIZE + 6 + labelWidth + HTAB_PADDING_X
+    local totalWidth = HTAB_PADDING_X + iconSize + 6 + labelWidth + HTAB_PADDING_X
     btn:SetWidth(totalWidth)
 
     -- Store config
@@ -77,14 +82,7 @@ local function CreateTabButton(parent, tabConfig, index)
         icon:SetDesaturated(true)
         icon:SetAlpha(0.5)
         label:SetTextColor(0.35, 0.35, 0.35, 1)  -- Dimmer than TEXT_DISABLED
-        -- Tooltip for disabled tabs (no btn:Disable() so mouse events still fire)
-        btn:SetScript("OnEnter", function(self)
-            GameTooltip:SetOwner(self, "ANCHOR_BOTTOM")
-            GameTooltip:SetText(addon.L[tabConfig.labelKey], 0.5, 0.5, 0.5)
-            GameTooltip:AddLine(addon.L["TAB_COMING_SOON"], 0.5, 0.5, 0.5, true)
-            GameTooltip:Show()
-        end)
-        btn:SetScript("OnLeave", function() GameTooltip:Hide() end)
+        -- No tooltip or interaction for disabled tabs
         -- No OnClick = clicking does nothing
     else
         -- Enabled but not selected - set initial color (GameFontNormal default is yellow)
@@ -94,19 +92,12 @@ local function CreateTabButton(parent, tabConfig, index)
             if not Tabs:IsSelected(tabConfig.key) then
                 bg:SetColorTexture(unpack(COLORS.TAB_HOVER))
             end
-            GameTooltip:SetOwner(self, "ANCHOR_BOTTOM")
-            GameTooltip:SetText(addon.L[tabConfig.labelKey], 1, 1, 1)
-            if tabConfig.descKey then
-                GameTooltip:AddLine(addon.L[tabConfig.descKey], 0.8, 0.8, 0.8, true)
-            end
-            GameTooltip:Show()
         end)
 
         btn:SetScript("OnLeave", function()
             if not Tabs:IsSelected(tabConfig.key) then
                 bg:SetColorTexture(unpack(COLORS.TAB_NORMAL))
             end
-            GameTooltip:Hide()
         end)
 
         btn:SetScript("OnClick", function()

@@ -62,6 +62,7 @@ local defaults = {
         showVendorDecorIndicators = true,  -- Show decor icons on vendor items
         showVendorOwnedCheckmark = true,   -- Show checkmark on owned decor at vendors
         treasureHuntWaypoints = true,  -- Auto-set waypoints for Decor Treasure Hunts
+        showMidnightDrops = false,    -- Show Midnight expansion items in Drops tab
     },
     wishlistUI = {
         tileSize = 152,      -- Separate from browser.tileSize

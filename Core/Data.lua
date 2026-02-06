@@ -28,6 +28,7 @@ addon.loadStartTime = 0
 addon.categoryCache = {}
 addon.subcategoryCache = {}
 addon.needsRecordRefresh = false
+addon.fallbackRecords = {}  -- Cache for items resolved via direct API (HiddenInCatalog)
 
 local function IsValidFileID(id)
     -- File IDs must be positive numbers; 0 and negative are invalid
@@ -351,7 +352,81 @@ function addon:GetSubcategoryInfo(subcategoryID)
 end
 
 function addon:GetRecord(recordID)
-    return self.decorRecords[recordID]
+    return self.decorRecords[recordID] or self.fallbackRecords[recordID]
+end
+
+-- Resolve display name for a decorId with fallback chain:
+-- 1. Record name (catalog or resolved)  2. C_HousingDecor API  3. Scraped DropDecorNames  4. "Decor #XXXX"
+function addon:ResolveDecorName(decorId, record)
+    if record and record.name and record.name ~= "" then return record.name end
+    if C_HousingDecor and C_HousingDecor.GetDecorName then
+        local name = C_HousingDecor.GetDecorName(decorId)
+        if name then return name end
+    end
+    local scraped = self.DropDecorNames and self.DropDecorNames[decorId]
+    return scraped or string.format(self.L["DROPS_DECOR_ID"], decorId)
+end
+
+-- Resolve a record by trying direct API lookup when not in catalog search results.
+-- Used for items with HiddenInCatalog flag (e.g., boss drops not yet in catalog browser).
+-- Results are cached in fallbackRecords (false sentinel = tried and failed).
+function addon:ResolveRecord(recordID)
+    -- Check primary records first
+    local record = self.decorRecords[recordID]
+    if record then return record end
+
+    -- Check fallback cache
+    local cached = self.fallbackRecords[recordID]
+    if cached then return cached end
+    if cached == false then return nil end  -- Already tried, not found
+
+    -- Try direct API lookup (bypasses catalog search filter)
+    if not C_HousingCatalog or not C_HousingCatalog.GetCatalogEntryInfoByRecordID then
+        self.fallbackRecords[recordID] = false
+        return nil
+    end
+
+    local info = C_HousingCatalog.GetCatalogEntryInfoByRecordID(
+        Enum.HousingCatalogEntryType.Decor, recordID, true)
+    if not info then
+        self.fallbackRecords[recordID] = false
+        return nil
+    end
+
+    -- Reuse shared icon resolution (same priority chain as BuildRecord)
+    local icon, iconType, isModelOnly = GetEntryIcon(nil, info)
+    local totalOwned = CalculateTotalOwned(info)
+
+    record = {
+        entryID = { recordID = recordID, entryType = Enum.HousingCatalogEntryType.Decor,
+                     entrySubtype = 1, subtypeIdentifier = 0 },
+        recordID = recordID,
+        name = info.name or "",
+        icon = icon,
+        iconType = iconType,
+        isModelOnly = isModelOnly or false,
+        quantity = info.quantity or 0,
+        numPlaced = info.numPlaced or 0,
+        remainingRedeemable = info.remainingRedeemable or 0,
+        totalOwned = totalOwned,
+        isCollected = totalOwned > 0,
+        categoryIDs = info.categoryIDs or {},
+        subcategoryIDs = info.subcategoryIDs or {},
+        size = info.size or 0,
+        sizeKey = GetSizeKey(info.size),
+        isIndoors = info.isAllowedIndoors or false,
+        isOutdoors = info.isAllowedOutdoors or false,
+        canCustomize = info.canCustomize or false,
+        modelAsset = info.asset,
+        modelSceneID = info.uiModelSceneID,
+        sourceText = info.sourceText or "",
+        isTrackable = false,
+        isTracking = false,
+    }
+
+    self.fallbackRecords[recordID] = record
+    self:Debug("Resolved hidden catalog item: " .. (info.name or recordID))
+    return record
 end
 
 function addon:GetRecordCount()

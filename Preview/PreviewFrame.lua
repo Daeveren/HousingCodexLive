@@ -735,8 +735,13 @@ function Preview:ShowDecor(recordID)
 
     local record = addon:GetRecord(recordID)
     if not record then
-        self:ShowFallback(addon.L["PREVIEW_ERROR"])
+        -- Item not in catalog (HiddenInCatalog flag) - show name via shared fallback chain
+        self.placeholderText:Hide()
+        self.currentRecordID = recordID
         self:ClearDetails()
+        self.detailsName:SetText(addon:ResolveDecorName(recordID, nil))
+        self.detailsName:SetTextColor(1, 1, 1)
+        self:ShowFallback(addon.L["PREVIEW_NOT_IN_CATALOG"])
         return
     end
 

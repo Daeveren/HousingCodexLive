@@ -2,6 +2,16 @@
 
 All notable changes to Housing Codex.
 
+## [1.1.0] - 2026-02-07
+
+### Added
+- NEW Drops tab - find decor that drops from mobs, bosses or is found in treasure chests
+  - Option to show upcoming Midnight expansion drops (off by default)
+- Search vendors by currency name (ie: "resonance crystals")
+
+### Fixed
+- Minor fixes and UI tweaks
+
 ## [1.0.0] - 2026-02-06
 
 ### Added

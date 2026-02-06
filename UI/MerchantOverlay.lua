@@ -99,11 +99,16 @@ function MerchantOverlay:UpdateMerchantButtons()
             local index = pageOffset + i
             local itemID = index <= numItems and GetMerchantItemID(index)
 
-            -- Use cached catalog info or fetch and cache
-            local catalogInfo = itemID and sessionCache[itemID]
-            if itemID and not catalogInfo then
-                catalogInfo = C_HousingCatalog.GetCatalogEntryInfoByItem(itemID, true)
-                sessionCache[itemID] = catalogInfo
+            -- Session cache: table = decor info, false = queried but not decor, nil = not yet queried
+            local catalogInfo
+            if itemID then
+                local cached = sessionCache[itemID]
+                if cached == nil then
+                    catalogInfo = C_HousingCatalog.GetCatalogEntryInfoByItem(itemID, true)
+                    sessionCache[itemID] = catalogInfo or false
+                elseif cached then
+                    catalogInfo = cached
+                end
             end
 
             local isDecor = catalogInfo ~= nil

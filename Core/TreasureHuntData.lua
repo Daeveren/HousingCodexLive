@@ -1,9 +1,6 @@
 --[[
     Housing Codex - TreasureHuntData.lua
     Quest ID to location mapping for Decor Treasure Hunt daily quests
-    
-    Auto-generated from RiddleCompass database
-    Source: https://www.curseforge.com/wow/addons/riddlecompass
 ]]
 
 local ADDON_NAME, addon = ...

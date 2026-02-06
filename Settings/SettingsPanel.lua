@@ -201,6 +201,26 @@ function addon.Settings:Initialize()
     )
     treasureHuntCheck:SetPoint("TOPLEFT", 16, yOffset)
     self.treasureHuntCheck = treasureHuntCheck
+    yOffset = yOffset - 30
+
+    -- Show Midnight Drops checkbox
+    local midnightCheck = CreateCheckbox(
+        panel,
+        L["OPTIONS_SHOW_MIDNIGHT_DROPS"],
+        L["OPTIONS_SHOW_MIDNIGHT_DROPS_TOOLTIP"],
+        function() return addon.db and addon.db.settings.showMidnightDrops end,
+        function(checked)
+            if addon.db then
+                addon.db.settings.showMidnightDrops = checked
+                addon:BuildDropIndex()
+                if addon.DropsTab and addon.DropsTab:IsShown() then
+                    addon.DropsTab:RefreshDisplay()
+                end
+            end
+        end
+    )
+    midnightCheck:SetPoint("TOPLEFT", 16, yOffset)
+    self.midnightCheck = midnightCheck
     yOffset = yOffset - 40
 
     -- Reset Position button
@@ -397,6 +417,9 @@ function addon.Settings:Refresh()
     end
     if self.treasureHuntCheck then
         self.treasureHuntCheck:SetChecked(addon.db.settings.treasureHuntWaypoints)
+    end
+    if self.midnightCheck then
+        self.midnightCheck:SetChecked(addon.db.settings.showMidnightDrops)
     end
     if self.UpdateKeybindButtonText then
         self.UpdateKeybindButtonText()

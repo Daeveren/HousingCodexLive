@@ -32,7 +32,7 @@ local function SetWaypoint(questId)
         return
     end
 
-    -- Clear existing waypoint first (matches RiddleCompass behavior)
+    -- Clear existing waypoint first
     C_Map.ClearUserWaypoint()
 
     local point = UiMapPoint.CreateFromCoordinates(loc.mapID, loc.x, loc.y)

@@ -56,6 +56,9 @@ addon.CONSTANTS = {
     CATEGORY_ICON_SIZE = 20,
     CATEGORY_PADDING = 8,
 
+    -- Icon display
+    ICON_CROP_COORDS = { 0.08, 0.92, 0.08, 0.92 },  -- Standard WoW icon border crop
+
     -- Wishlist star badge
     WISHLIST_STAR_SIZE_GRID = 20,     -- Star size on grid tiles
     WISHLIST_STAR_SIZE_PREVIEW = 24,  -- Star button size in preview details

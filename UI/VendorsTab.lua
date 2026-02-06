@@ -192,14 +192,23 @@ function VendorsTab:CreateToolbar(parent)
     end)
 end
 
+-- Rebuild the expansion list and, if needed, the vendor list.
+-- BuildExpansionDisplay returns true when it already triggered BuildVendorDisplay
+-- internally (via SelectExpansion or direct call), so we only call it ourselves
+-- when that didn't happen.
+function VendorsTab:RefreshDisplay()
+    if not self:BuildExpansionDisplay() then
+        self:BuildVendorDisplay()
+    end
+end
+
 function VendorsTab:SetCompletionFilter(filterKey)
     for key, btn in pairs(self.filterButtons) do
         btn:SetActive(key == filterKey)
     end
     local db = GetVendorsDB()
     if db then db.completionFilter = filterKey end
-    self:BuildExpansionDisplay()
-    self:BuildVendorDisplay()
+    self:RefreshDisplay()
 end
 
 function VendorsTab:GetCompletionFilter()
@@ -209,8 +218,7 @@ end
 
 function VendorsTab:OnSearchTextChanged(text)
     text = strtrim(text or "")
-    self:BuildExpansionDisplay()
-    self:BuildVendorDisplay()
+    self:RefreshDisplay()
 end
 
 --------------------------------------------------------------------------------
@@ -932,6 +940,9 @@ local function VendorMatchesSearch(vendorData, searchText, zoneName, expansionKe
     local expName = strlower(addon.L[expansionKey] or expansionKey)
     if expName:find(searchText, 1, true) then return true end
 
+    local currency = vendorData.currencyName or "gold"
+    if strlower(currency):find(searchText, 1, true) then return true end
+
     for _, decorId in ipairs(vendorData.decorIds or {}) do
         local record = addon:GetRecord(decorId)
         if record and record.name and strlower(record.name):find(searchText, 1, true) then
@@ -1016,14 +1027,18 @@ function VendorsTab:BuildExpansionDisplay()
     if not self.selectedExpansionKey and #elements > 0 then
         local defaultKey = EXPANSION_LEVEL_TO_KEY[GetMaximumExpansionLevel()] or "EXPANSION_TWW"
         self:SelectExpansion(FindExpansionInList(elements, defaultKey) and defaultKey or elements[1].expansionKey)
+        return true
     elseif self.selectedExpansionKey and not FindExpansionInList(elements, self.selectedExpansionKey) then
         if #elements > 0 then
             self:SelectExpansion(elements[1].expansionKey)
+            return true
         else
             self.selectedExpansionKey = nil
             self:BuildVendorDisplay()
+            return true
         end
     end
+    return false
 end
 
 function VendorsTab:BuildVendorDisplay()
@@ -1103,16 +1118,14 @@ end)
 addon:RegisterInternalEvent("DATA_LOADED", function()
     if VendorsTab:IsShown() and not addon.vendorIndexBuilt then
         addon:BuildVendorIndex()
-        VendorsTab:BuildExpansionDisplay()
-        VendorsTab:BuildVendorDisplay()
+        VendorsTab:RefreshDisplay()
         VendorsTab:UpdateEmptyStates()
     end
 end)
 
 addon:RegisterInternalEvent("RECORD_OWNERSHIP_UPDATED", function()
     if VendorsTab:IsShown() then
-        VendorsTab:BuildExpansionDisplay()
-        VendorsTab:BuildVendorDisplay()
+        VendorsTab:RefreshDisplay()
     end
 end)
 
