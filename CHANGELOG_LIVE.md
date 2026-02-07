@@ -2,6 +2,16 @@
 
 All notable changes to Housing Codex.
 
+## [1.2.0] - 2026-02-07
+
+### Added
+- NEW feature - Decor vendors shown on map
+  - See where housing vendors are on the map
+  - Shows both in zone maps and continent maps
+  - Hover a pin to see collection progress and which items you're missing
+  - Click a pin to set a waypoint to the vendor
+  - Toggle on/off in addon settings
+
 ## [1.1.0] - 2026-02-07
 
 ### Added

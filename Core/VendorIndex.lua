@@ -275,6 +275,7 @@ function addon:BuildVendorIndex()
     wipe(self.vendorHierarchy)
     wipe(self.vendorZoneCache)
     wipe(self.vendorExpansionProgressCache)
+    self.vendorMapVendorsByMapID = nil
 
     local vendorCount, decorCount = 0, 0
 

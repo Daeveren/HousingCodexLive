@@ -57,6 +57,16 @@ local function CreateCheckbox(parent, label, tooltip, getValue, setValue)
     return check
 end
 
+local function RefreshVendorMapPins()
+    local provider = addon.vendorMapProvider
+    if not provider then return end
+
+    local map = provider:GetMap()
+    if map and map:IsShown() then
+        provider:RefreshAllData()
+    end
+end
+
 --------------------------------------------------------------------------------
 -- Settings Panel Initialization
 --------------------------------------------------------------------------------
@@ -182,6 +192,23 @@ function addon.Settings:Initialize()
     )
     vendorOwnedCheck:SetPoint("TOPLEFT", 16, yOffset)
     self.vendorOwnedCheck = vendorOwnedCheck
+    yOffset = yOffset - 30
+
+    -- Show Vendor Map Pins checkbox
+    local vendorMapPinsCheck = CreateCheckbox(
+        panel,
+        L["OPTIONS_VENDOR_MAP_PINS"],
+        L["OPTIONS_VENDOR_MAP_PINS_TOOLTIP"],
+        function() return addon.db and addon.db.settings.showVendorMapPins end,
+        function(checked)
+            if addon.db then
+                addon.db.settings.showVendorMapPins = checked
+                RefreshVendorMapPins()
+            end
+        end
+    )
+    vendorMapPinsCheck:SetPoint("TOPLEFT", 16, yOffset)
+    self.vendorMapPinsCheck = vendorMapPinsCheck
     yOffset = yOffset - 30
 
     -- Treasure Hunt Waypoints checkbox
@@ -380,11 +407,6 @@ function addon.Settings:Initialize()
 end
 
 --------------------------------------------------------------------------------
--- No longer needed - standard WoW binding system handles keybinds automatically
--- via Bindings.xml registration of HOUSINGCODEX_TOGGLE action
---------------------------------------------------------------------------------
-
---------------------------------------------------------------------------------
 -- Open the settings panel
 --------------------------------------------------------------------------------
 function addon.Settings:Open()
@@ -414,6 +436,9 @@ function addon.Settings:Refresh()
     end
     if self.vendorOwnedCheck then
         self.vendorOwnedCheck:SetChecked(addon.db.settings.showVendorOwnedCheckmark)
+    end
+    if self.vendorMapPinsCheck then
+        self.vendorMapPinsCheck:SetChecked(addon.db.settings.showVendorMapPins)
     end
     if self.treasureHuntCheck then
         self.treasureHuntCheck:SetChecked(addon.db.settings.treasureHuntWaypoints)

@@ -61,6 +61,7 @@ local defaults = {
         showMinimapButton = true,  -- Show LibDBIcon minimap button
         showVendorDecorIndicators = true,  -- Show decor icons on vendor items
         showVendorOwnedCheckmark = true,   -- Show checkmark on owned decor at vendors
+        showVendorMapPins = true,  -- Show vendor pins on world map
         treasureHuntWaypoints = true,  -- Auto-set waypoints for Decor Treasure Hunts
         showMidnightDrops = false,    -- Show Midnight expansion items in Drops tab
     },

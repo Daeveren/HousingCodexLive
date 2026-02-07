@@ -173,6 +173,8 @@ L["OPTIONS_VENDOR_INDICATORS"] = "Mark decor items at vendors"
 L["OPTIONS_VENDOR_INDICATORS_TOOLTIP"] = "Display Housing Codex icon on vendor items that are housing decor"
 L["OPTIONS_VENDOR_OWNED_CHECKMARK"] = "Show checkmark for owned decor"
 L["OPTIONS_VENDOR_OWNED_CHECKMARK_TOOLTIP"] = "Display a green checkmark on vendor decor items you already own"
+L["OPTIONS_VENDOR_MAP_PINS"] = "Show Vendor Map Pins"
+L["OPTIONS_VENDOR_MAP_PINS_TOOLTIP"] = "Display vendor pins on zone maps with collection progress"
 L["OPTIONS_TREASURE_HUNT_WAYPOINTS"] = "Auto-waypoint for Treasure Hunts"
 L["OPTIONS_TREASURE_HUNT_WAYPOINTS_TOOLTIP"] = "Automatically set a map waypoint when accepting a Decor Treasure Hunt quest in housing zones"
 L["OPTIONS_SHOW_MIDNIGHT_DROPS"] = "Show Midnight expansion drops"
@@ -325,6 +327,18 @@ L["VENDOR_FALLBACK_NAME"] = "vendor"
 -- Vendor faction indicators
 L["VENDOR_FACTION_ALLIANCE"] = "Alliance only"
 L["VENDOR_FACTION_HORDE"] = "Horde only"
+
+-- Vendor world map pins
+L["VENDOR_PIN_COLLECTED"] = "Collected: %d/%d"
+L["VENDOR_PIN_UNCOLLECTED_HEADER"] = "Decor uncollected:"
+L["VENDOR_PIN_MORE"] = "+%d more"
+L["VENDOR_PIN_CLICK_WAYPOINT"] = "Click to set waypoint"
+L["VENDOR_PIN_FACTION_ALLIANCE"] = "Alliance Only"
+L["VENDOR_PIN_FACTION_HORDE"] = "Horde Only"
+L["VENDOR_PIN_VENDOR_COUNT"] = "%dx Vendors"
+L["VENDOR_PIN_VENDOR_LIST_HEADER"] = "Vendor list:"
+L["VENDOR_PIN_VENDOR_ENTRY"] = "%s (%d/%d)"
+L["VENDOR_PIN_VENDORS_MORE"] = "+%d more vendors"
 
 -- Vendor tracking messages
 L["VENDORS_TRACKING_STARTED"] = "Now tracking item"

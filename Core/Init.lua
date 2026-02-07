@@ -172,6 +172,16 @@ addon.CONSTANTS = {
         COLOR_BORDER_NORMAL = { 0.3, 0.3, 0.3, 1 },
         COLOR_BORDER_ACTIVE = { 0.6, 0.5, 0.1, 1 },
     },
+
+    -- Vendor world map pins
+    VENDOR_PIN = {
+        SIZE = 22,
+        SCALE_FACTOR = 1,
+        SCALE_MIN = 0.7,
+        SCALE_MAX = 1.3,
+        TOOLTIP_ITEM_LIMIT = 10,
+        REFRESH_DEBOUNCE = 0.1,
+    },
 }
 
 -- Internal Event System
