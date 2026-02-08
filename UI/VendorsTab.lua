@@ -20,6 +20,7 @@ local DECOR_ROW_HEIGHT = 24
 local ZONE_HEADER_HEIGHT = 28
 local DECOR_ICON_SIZE = 22
 local WAYPOINT_BUTTON_SIZE = 20
+local WAYPOINT_MATCH_EPSILON = CONSTS.WAYPOINT_MATCH_EPSILON or 0.0001
 
 -- Helper to apply expansion button visual state
 local function ApplyExpansionButtonState(frame, isSelected)
@@ -71,6 +72,8 @@ VendorsTab.selectedExpansionKey = nil
 VendorsTab.selectedVendorNpcId = nil
 VendorsTab.selectedDecorId = nil
 VendorsTab.hoveringRecordID = nil
+VendorsTab.activeTrackedNpcId = nil
+VendorsTab.activeTrackedDecorId = nil
 
 VendorsTab.toolbarLayout = nil
 VendorsTab.filterContainer = nil
@@ -819,14 +822,7 @@ function VendorsTab:SetupDecorRows(frame, decorIds)
 
         row:SetScript("OnClick", function()
             if IsShiftKeyDown() then
-                local trackingType = Enum.ContentTrackingType.Decor
-                if C_ContentTracking.IsTracking(trackingType, decorId) then
-                    C_ContentTracking.StopTracking(trackingType, decorId, Enum.ContentTrackingStopType.Manual)
-                    addon:Print(L["VENDORS_TRACKING_STOPPED"])
-                else
-                    local err = C_ContentTracking.StartTracking(trackingType, decorId)
-                    addon:PrintTrackingResult(err, "VENDORS_TRACKING_STARTED", "VENDORS_TRACKING_FAILED", "VENDORS_TRACKING_MAX_REACHED", "VENDORS_TRACKING_ALREADY")
-                end
+                self:ToggleVendorDecorTracking(frame.npcId, decorId)
                 return
             end
 
@@ -879,24 +875,164 @@ end
 -- Waypoint Functionality
 --------------------------------------------------------------------------------
 
-function VendorsTab:SetWaypoint(npcId, npcName)
-    local L = addon.L
-    local locData = addon:GetNPCLocation(npcId)
+local function GetWaypointXY(point)
+    if not point or not point.position then return nil, nil end
+    local pos = point.position
+    if pos.x and pos.y then
+        return pos.x, pos.y
+    end
+    if pos.GetXY then
+        return pos:GetXY()
+    end
+    return nil, nil
+end
 
+local function GetVendorTrackingChatDetails(npcId)
+    local L = addon.L
+
+    local vendorEntry = addon.vendorIndex and addon.vendorIndex[npcId]
+    local vendorName = vendorEntry and vendorEntry.npcName
+    if not vendorName or vendorName == "" then
+        vendorName = L["VENDOR_FALLBACK_NAME"]
+    end
+
+    local zoneCache = addon.vendorZoneCache and addon.vendorZoneCache[npcId]
+    local zoneName = zoneCache and zoneCache.zoneName
+    if not zoneName or zoneName == "" then
+        local locData = addon:GetNPCLocation(npcId)
+        if locData and locData.uiMapId then
+            local mapInfo = C_Map.GetMapInfo(locData.uiMapId)
+            if mapInfo and mapInfo.name then
+                zoneName = mapInfo.name
+            end
+        end
+    end
+    if not zoneName or zoneName == "" then
+        zoneName = L["VENDORS_UNKNOWN_ZONE"]
+    end
+
+    return vendorName, zoneName
+end
+
+local function PrintVendorTrackingMessage(messageKey, npcId)
+    local L = addon.L
+    local vendorName, zoneName = GetVendorTrackingChatDetails(npcId)
+    local vendorText = string.format("|cff80ff80%s|r", vendorName)
+    local zoneText = string.format("|cff80c0ff%s|r", zoneName)
+    addon:Print(string.format(L[messageKey], vendorText, zoneText))
+end
+
+function VendorsTab:GetVendorTrackPoint(npcId)
+    local locData = addon:GetNPCLocation(npcId)
     if not locData then
-        addon:Print(L["VENDOR_NO_LOCATION"])
-        return
+        return nil, nil, "VENDOR_NO_LOCATION"
     end
 
     if not C_Map.CanSetUserWaypointOnMap(locData.uiMapId) then
-        addon:Print(L["VENDOR_MAP_RESTRICTED"])
-        return
+        return nil, nil, "VENDOR_MAP_RESTRICTED"
     end
 
     local point = UiMapPoint.CreateFromCoordinates(locData.uiMapId, locData.x / 100, locData.y / 100)
+    return point, locData, nil
+end
+
+function VendorsTab:CanVendorTrackDecor(npcId)
+    local point = self:GetVendorTrackPoint(npcId)
+    return point ~= nil
+end
+
+function VendorsTab:IsCurrentWaypointForVendor(npcId)
+    if not npcId or not C_Map.HasUserWaypoint() then
+        return false
+    end
+
+    local locData = addon:GetNPCLocation(npcId)
+    local point = C_Map.GetUserWaypoint()
+    if not locData or not point or point.uiMapID ~= locData.uiMapId then
+        return false
+    end
+
+    local x, y = GetWaypointXY(point)
+    if not x or not y then
+        return false
+    end
+
+    local vendorX = locData.x / 100
+    local vendorY = locData.y / 100
+    return math.abs(x - vendorX) <= WAYPOINT_MATCH_EPSILON
+        and math.abs(y - vendorY) <= WAYPOINT_MATCH_EPSILON
+end
+
+function VendorsTab:IsVendorDecorTracked(npcId, decorId)
+    if not npcId or not decorId then return false end
+
+    return self.activeTrackedNpcId == npcId
+        and self.activeTrackedDecorId == decorId
+        and self:IsCurrentWaypointForVendor(npcId)
+end
+
+function VendorsTab:ClearVendorTrackedState()
+    if not self.activeTrackedNpcId or not self.activeTrackedDecorId then
+        return
+    end
+
+    local oldNpcId = self.activeTrackedNpcId
+    local oldDecorId = self.activeTrackedDecorId
+    self.activeTrackedNpcId = nil
+    self.activeTrackedDecorId = nil
+    addon:FireEvent("VENDOR_TRACKING_CHANGED", oldNpcId, oldDecorId, false)
+end
+
+function VendorsTab:ReconcileVendorTrackingWithWaypoint()
+    if not self.activeTrackedNpcId or not self.activeTrackedDecorId then
+        return
+    end
+
+    if not self:IsCurrentWaypointForVendor(self.activeTrackedNpcId) then
+        self:ClearVendorTrackedState()
+    end
+end
+
+function VendorsTab:ToggleVendorDecorTracking(npcId, decorId)
+    local L = addon.L
+    if not npcId or not decorId then return end
+
+    self:ReconcileVendorTrackingWithWaypoint()
+
+    if self:IsVendorDecorTracked(npcId, decorId) then
+        C_Map.ClearUserWaypoint()
+        C_SuperTrack.SetSuperTrackedUserWaypoint(false)
+        self:ClearVendorTrackedState()
+        PrintVendorTrackingMessage("VENDORS_TRACKING_STOPPED", npcId)
+        return
+    end
+
+    local point, _, errorKey = self:GetVendorTrackPoint(npcId)
+    if not point then
+        addon:Print(L[errorKey] or L["VENDOR_MAP_RESTRICTED"])
+        return
+    end
+
+    C_Map.ClearUserWaypoint()
     C_Map.SetUserWaypoint(point)
     C_SuperTrack.SetSuperTrackedUserWaypoint(true)
 
+    self.activeTrackedNpcId = npcId
+    self.activeTrackedDecorId = decorId
+    addon:FireEvent("VENDOR_TRACKING_CHANGED", npcId, decorId, true)
+    PrintVendorTrackingMessage("VENDORS_TRACKING_STARTED", npcId)
+end
+
+function VendorsTab:SetWaypoint(npcId, npcName)
+    local L = addon.L
+    local point, locData, errorKey = self:GetVendorTrackPoint(npcId)
+    if not point then
+        addon:Print(L[errorKey] or L["VENDOR_MAP_RESTRICTED"])
+        return
+    end
+
+    C_Map.SetUserWaypoint(point)
+    C_SuperTrack.SetSuperTrackedUserWaypoint(true)
     addon:Print(string.format(L["VENDOR_WAYPOINT_SET"], npcName or L["VENDOR_FALLBACK_NAME"]))
 
     if not InCombatLockdown() then
@@ -1127,6 +1263,10 @@ addon:RegisterInternalEvent("RECORD_OWNERSHIP_UPDATED", function()
     if VendorsTab:IsShown() then
         VendorsTab:RefreshDisplay()
     end
+end)
+
+addon:RegisterWoWEvent("USER_WAYPOINT_UPDATED", function()
+    VendorsTab:ReconcileVendorTrackingWithWaypoint()
 end)
 
 local originalCreateContent = addon.MainFrame.CreateContentArea

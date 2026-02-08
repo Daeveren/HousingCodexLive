@@ -341,11 +341,14 @@ L["VENDOR_PIN_VENDOR_ENTRY"] = "%s (%d/%d)"
 L["VENDOR_PIN_VENDORS_MORE"] = "+%d more vendors"
 
 -- Vendor tracking messages
-L["VENDORS_TRACKING_STARTED"] = "Now tracking item"
-L["VENDORS_TRACKING_STOPPED"] = "Stopped tracking item"
+L["VENDORS_TRACKING_STARTED"] = "Added a map pin to %s in %s"
+L["VENDORS_TRACKING_STOPPED"] = "Removed map pin for %s in %s"
 L["VENDORS_TRACKING_MAX_REACHED"] = "Cannot track - maximum items reached (15)"
 L["VENDORS_TRACKING_ALREADY"] = "Already tracking this item"
 L["VENDORS_TRACKING_FAILED"] = "Cannot track this item"
+L["VENDORS_ACTION_TRACK_TOOLTIP"] = "Track this vendor item by setting a waypoint to its vendor"
+L["VENDORS_ACTION_UNTRACK_TOOLTIP"] = "Stop vendor waypoint tracking for this item"
+L["VENDORS_ACTION_TRACK_DISABLED_TOOLTIP"] = "This vendor has no valid waypoint location"
 
 -- Vendor cost display
 L["VENDOR_COST_GOLD"] = "%s gold"

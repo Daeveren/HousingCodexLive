@@ -108,6 +108,7 @@ addon.CONSTANTS = {
     -- Content tracking (Blizzard enums resolved at load time)
     TRACKING_TYPE_DECOR = Enum.ContentTrackingType.Decor,
     MAX_TRACKED = Constants.ContentTrackingConsts.MaxTrackedCollectableSources,
+    WAYPOINT_MATCH_EPSILON = 0.0001, -- Tolerance for comparing waypoint coordinates
 
     -- Housing sizes (Enum.HousingCatalogEntrySize values → localization keys)
     -- Use these instead of magic numbers for patch-proof code

@@ -2,6 +2,12 @@
 
 All notable changes to Housing Codex.
 
+## [1.2.1] - 2026-02-08
+
+### Changed
+- Shift-clicking items in the Vendors tab now places a map pin on the vendor instead of tracking the item
+- Chat messages when tracking/untracking a vendor now show the vendor name and zone
+
 ## [1.2.0] - 2026-02-07
 
 ### Added

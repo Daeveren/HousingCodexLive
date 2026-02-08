@@ -617,26 +617,66 @@ end
 -- Actions (1C.9)
 -- ============================================================================
 
+local function GetVendorsTrackingContext()
+    if not addon.Tabs or not addon.Tabs:IsSelected("VENDORS") then
+        return nil, nil
+    end
+
+    local vendorsTab = addon.VendorsTab
+    if not vendorsTab or not vendorsTab.IsShown or not vendorsTab:IsShown() then
+        return nil, nil
+    end
+
+    local npcId = vendorsTab.selectedVendorNpcId
+    if not npcId then
+        return nil, nil
+    end
+
+    return vendorsTab, npcId
+end
+
 function Preview:UpdateActionButtons(record)
     if not self.trackButton or not self.linkButton then return end
 
     -- Wishlist button state
     self:UpdateWishlistButton()
 
-    -- Track button state
-    if record and record.isTrackable then
-        self.trackButton:SetEnabled(true)
-        local isTracking = addon:IsRecordTracked(record.recordID)
-        self.trackButton:SetActive(isTracking)  -- Gold highlight when tracking
-        if isTracking then
-            self.trackButton:SetText(addon.L["ACTION_UNTRACK"])
+    local recordID = (record and record.recordID) or self.currentRecordID
+    local vendorsTab, npcId = GetVendorsTrackingContext()
+
+    -- Vendors tab: all items use vendor waypoint tracking
+    if vendorsTab and recordID then
+        local canTrack = vendorsTab:CanVendorTrackDecor(npcId)
+        if canTrack then
+            self.trackButton:SetEnabled(true)
+            local isTracking = vendorsTab:IsVendorDecorTracked(npcId, recordID)
+            self.trackButton:SetActive(isTracking)
+            if isTracking then
+                self.trackButton:SetText(addon.L["ACTION_UNTRACK"])
+            else
+                self.trackButton:SetText(addon.L["ACTION_TRACK"])
+            end
         else
+            self.trackButton:SetEnabled(false)
+            self.trackButton:SetActive(false)
             self.trackButton:SetText(addon.L["ACTION_TRACK"])
         end
     else
-        self.trackButton:SetEnabled(false)
-        self.trackButton:SetActive(false)
-        self.trackButton:SetText(addon.L["ACTION_TRACK"])
+        -- Native tracking behavior on non-Vendors tabs
+        if record and record.isTrackable then
+            self.trackButton:SetEnabled(true)
+            local isTracking = addon:IsRecordTracked(record.recordID)
+            self.trackButton:SetActive(isTracking)  -- Gold highlight when tracking
+            if isTracking then
+                self.trackButton:SetText(addon.L["ACTION_UNTRACK"])
+            else
+                self.trackButton:SetText(addon.L["ACTION_TRACK"])
+            end
+        else
+            self.trackButton:SetEnabled(false)
+            self.trackButton:SetActive(false)
+            self.trackButton:SetText(addon.L["ACTION_TRACK"])
+        end
     end
 
     -- Link button is always enabled when an item is selected
@@ -645,13 +685,16 @@ end
 
 function Preview:OnTrackButtonClick()
     local recordID = self.currentRecordID
-    addon:ToggleTracking(recordID)
+    local vendorsTab, npcId = GetVendorsTrackingContext()
+    if vendorsTab and recordID then
+        vendorsTab:ToggleVendorDecorTracking(npcId, recordID)
+    else
+        addon:ToggleTracking(recordID)
+    end
 
     -- Update preview button state
     local record = recordID and addon:GetRecord(recordID)
-    if record then
-        self:UpdateActionButtons(record)
-    end
+    self:UpdateActionButtons(record)
 end
 
 function Preview:OnLinkButtonClick()
@@ -688,6 +731,29 @@ function Preview:ShowTrackButtonTooltip(btn)
     local recordID = self.currentRecordID
     local record = recordID and addon:GetRecord(recordID)
     local L = addon.L
+    local vendorsTab, npcId = GetVendorsTrackingContext()
+
+    if vendorsTab and recordID then
+        local title, description, r, g, b
+        if not vendorsTab:CanVendorTrackDecor(npcId) then
+            title = L["ACTION_TRACK"]
+            description = L["VENDORS_ACTION_TRACK_DISABLED_TOOLTIP"]
+            r, g, b = 1, 0.5, 0.5
+        elseif vendorsTab:IsVendorDecorTracked(npcId, recordID) then
+            title = L["ACTION_UNTRACK"]
+            description = L["VENDORS_ACTION_UNTRACK_TOOLTIP"]
+            r, g, b = 1, 1, 1
+        else
+            title = L["ACTION_TRACK"]
+            description = L["VENDORS_ACTION_TRACK_TOOLTIP"]
+            r, g, b = 1, 1, 1
+        end
+
+        GameTooltip:SetText(title)
+        GameTooltip:AddLine(description, r, g, b)
+        GameTooltip:Show()
+        return
+    end
 
     -- Determine tooltip content based on tracking state
     local title, description, r, g, b
@@ -739,6 +805,7 @@ function Preview:ShowDecor(recordID)
         self.placeholderText:Hide()
         self.currentRecordID = recordID
         self:ClearDetails()
+        self:UpdateActionButtons(nil)
         self.detailsName:SetText(addon:ResolveDecorName(recordID, nil))
         self.detailsName:SetTextColor(1, 1, 1)
         self:ShowFallback(addon.L["PREVIEW_NOT_IN_CATALOG"])
@@ -883,9 +950,7 @@ end)
 local function RefreshCurrentActionButtons()
     if not Preview:IsShown() or not Preview.currentRecordID then return end
     local record = addon:GetRecord(Preview.currentRecordID)
-    if record then
-        Preview:UpdateActionButtons(record)
-    end
+    Preview:UpdateActionButtons(record)
 end
 
 -- Update track button when tracking state changes externally
@@ -893,6 +958,14 @@ addon:RegisterInternalEvent("TRACKING_CHANGED", function(recordID)
     if Preview.currentRecordID == recordID then
         RefreshCurrentActionButtons()
     end
+end)
+
+addon:RegisterInternalEvent("VENDOR_TRACKING_CHANGED", function()
+    RefreshCurrentActionButtons()
+end)
+
+addon:RegisterInternalEvent("TAB_CHANGED", function()
+    RefreshCurrentActionButtons()
 end)
 
 -- Listen for WoW's tracking update event (catches changes from other UI)
