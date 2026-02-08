@@ -2,6 +2,11 @@
 
 All notable changes to Housing Codex.
 
+## [1.2.2] - 2026-02-08
+
+### Added
+- Unlocked vertical rotation in 3D preview - drag to rotate in any direction (previously horizontal only)
+
 ## [1.2.1] - 2026-02-08
 
 ### Changed

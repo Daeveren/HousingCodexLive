@@ -21,6 +21,10 @@ local DIVIDER_OFFSET = 1        -- Inset from left edge to clear MainFrame divid
 local CONSTS = addon.CONSTANTS
 local CAMERA_IMMEDIATE = CONSTS.CAMERA.TRANSITION_IMMEDIATE
 local CAMERA_DISCARD = CONSTS.CAMERA.MODIFICATION_DISCARD
+local ORBIT_MOUSE_NOTHING = CONSTS.CAMERA.ORBIT_MOUSE_NOTHING
+local ORBIT_MOUSE_YAW = CONSTS.CAMERA.ORBIT_MOUSE_YAW
+local ORBIT_MOUSE_PITCH = CONSTS.CAMERA.ORBIT_MOUSE_PITCH
+local ORBIT_MOUSE_ZOOM = CONSTS.CAMERA.ORBIT_MOUSE_ZOOM
 local SCENE_PRESETS = CONSTS.SCENE_PRESETS
 local DEFAULT_SCENE_ID = CONSTS.DEFAULT_SCENE_ID
 
@@ -127,11 +131,20 @@ function Preview:CreateModelScene()
     modelScene:TransitionToModelSceneID(DEFAULT_SCENE_ID, CAMERA_IMMEDIATE, CAMERA_DISCARD, true)
     self.modelScene = modelScene
     self.currentSceneID = DEFAULT_SCENE_ID  -- Track current scene to avoid unnecessary transitions
+    self.sceneCameraBaselines = self.sceneCameraBaselines or {}
+
+    -- Enable ModelScene mouse interaction for drag rotation.
+    modelScene:EnableMouse(true)
 
     -- Enable mouse wheel zoom
     modelScene:EnableMouseWheel(true)
-    modelScene:SetScript("OnMouseWheel", function(frame, delta)
+    modelScene:SetScript("OnMouseWheel", function(_, delta)
         self:OnModelSceneMouseWheel(delta)
+    end)
+
+    -- Apply per-frame camera adjustments (vertical drag inversion).
+    modelScene:HookScript("OnUpdate", function()
+        self:OnModelSceneUpdate()
     end)
 end
 
@@ -140,6 +153,95 @@ function Preview:OnModelSceneMouseWheel(delta)
     if not camera or not camera.ZoomByPercent then return end
 
     camera:ZoomByPercent(delta * ZOOM_STEP)
+end
+
+function Preview:GetActiveOrbitCamera()
+    local camera = self.modelScene and self.modelScene:GetActiveCamera()
+    if not camera or not camera.GetCameraType then return nil end
+    if camera:GetCameraType() ~= "OrbitCamera" then return nil end
+    return camera
+end
+
+function Preview:ConfigureOrbitCameraControls(camera)
+    if not camera then return end
+
+    if camera.SetLeftMouseButtonXMode then
+        camera:SetLeftMouseButtonXMode(ORBIT_MOUSE_YAW, true)
+    end
+    if camera.SetLeftMouseButtonYMode then
+        camera:SetLeftMouseButtonYMode(ORBIT_MOUSE_PITCH, true)
+    end
+    if camera.SetRightMouseButtonXMode then
+        camera:SetRightMouseButtonXMode(ORBIT_MOUSE_NOTHING, true)
+    end
+    if camera.SetRightMouseButtonYMode then
+        camera:SetRightMouseButtonYMode(ORBIT_MOUSE_NOTHING, true)
+    end
+    if camera.SetMouseWheelMode then
+        camera:SetMouseWheelMode(ORBIT_MOUSE_ZOOM, false)
+    end
+end
+
+function Preview:CaptureSceneCameraBaseline(sceneID, camera)
+    if not sceneID or not camera or not camera.GetYaw or not camera.GetPitch then return end
+    if self.sceneCameraBaselines[sceneID] then return end
+
+    self.sceneCameraBaselines[sceneID] = {
+        yaw = camera:GetYaw(),
+        pitch = camera:GetPitch(),
+    }
+end
+
+function Preview:ResetCameraToSceneBaseline(sceneID, camera)
+    local baseline = self.sceneCameraBaselines and self.sceneCameraBaselines[sceneID]
+    if not baseline or not camera then return end
+
+    if camera.SetYaw then
+        camera:SetYaw(baseline.yaw)
+        if camera.SnapToTargetInterpolationYaw then
+            camera:SnapToTargetInterpolationYaw()
+        end
+    end
+
+    if camera.SetPitch then
+        camera:SetPitch(baseline.pitch)
+        if camera.SnapToTargetInterpolationPitch then
+            camera:SnapToTargetInterpolationPitch()
+        end
+    end
+end
+
+function Preview:ApplyInvertedVerticalDrag(camera)
+    if not camera or not camera.GetPitch or not camera.SetPitch then return end
+
+    local currentPitch = camera:GetPitch()
+    if self.lastPitchCamera ~= camera then
+        self.lastPitchCamera = camera
+        self.lastPitchValue = currentPitch
+        return
+    end
+
+    if not self.lastPitchValue then return end
+    if not (camera.IsLeftMouseButtonDown and camera:IsLeftMouseButtonDown()) then return end
+
+    local pitchDelta = currentPitch - self.lastPitchValue
+    if pitchDelta == 0 then return end
+
+    -- Invert default Orbit camera vertical drag direction.
+    camera:SetPitch(self.lastPitchValue - pitchDelta)
+    if camera.SnapToTargetInterpolationPitch then
+        camera:SnapToTargetInterpolationPitch()
+    end
+end
+
+function Preview:OnModelSceneUpdate()
+    if not self.modelScene or not self.modelScene:IsShown() then return end
+
+    local camera = self:GetActiveOrbitCamera()
+    if not camera then return end
+
+    self:ApplyInvertedVerticalDrag(camera)
+    self.lastPitchValue = camera:GetPitch()
 end
 
 function Preview:CreateFallbackUI()
@@ -829,6 +931,13 @@ function Preview:ShowDecor(recordID)
     if sceneID ~= self.currentSceneID then
         self.modelScene:TransitionToModelSceneID(sceneID, CAMERA_IMMEDIATE, CAMERA_DISCARD, true)
         self.currentSceneID = sceneID
+    end
+
+    local camera = self:GetActiveOrbitCamera()
+    if camera then
+        self:ConfigureOrbitCameraControls(camera)
+        self:CaptureSceneCameraBaseline(sceneID, camera)
+        self:ResetCameraToSceneBaseline(sceneID, camera)
     end
 
     local actor = self:GetActor()
