@@ -2,6 +2,15 @@
 
 All notable changes to Housing Codex.
 
+## [1.3.0] - 2026-02-08
+
+### Added
+- NEW - Professions tab - browse crafted housing items
+  - See which professions can craft housing decor items
+  - Collection progress per profession
+  - Search across professions and crafted items
+  - Filter by completion status
+
 ## [1.2.2] - 2026-02-08
 
 ### Added

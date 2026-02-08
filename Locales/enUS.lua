@@ -388,6 +388,18 @@ L["DROPS_TRACKING_ALREADY"] = "Already tracking this item"
 L["DROPS_TRACKING_FAILED"] = "Cannot track this item"
 
 --------------------------------------------------------------------------------
+-- Professions Tab
+--------------------------------------------------------------------------------
+L["PROFESSIONS_SEARCH_PLACEHOLDER"] = "Search professions or items..."
+L["PROFESSIONS_FILTER_ALL"] = "All"
+L["PROFESSIONS_FILTER_INCOMPLETE"] = "Incomplete"
+L["PROFESSIONS_FILTER_COMPLETE"] = "Complete"
+L["PROFESSIONS_EMPTY_NO_SOURCES"] = "No Crafting Sources"
+L["PROFESSIONS_EMPTY_NO_SOURCES_DESC"] = "Crafting source data is not yet available."
+L["PROFESSIONS_SELECT_PROFESSION"] = "Select a Profession"
+L["PROFESSIONS_EMPTY_NO_RESULTS"] = "No Results"
+
+--------------------------------------------------------------------------------
 -- Treasure Hunt Waypoints
 --------------------------------------------------------------------------------
 L["TREASURE_HUNT_WAYPOINT_SET"] = "Marked treasure at"
