@@ -21,10 +21,12 @@ local DIVIDER_OFFSET = 1        -- Inset from left edge to clear MainFrame divid
 local CONSTS = addon.CONSTANTS
 local CAMERA_IMMEDIATE = CONSTS.CAMERA.TRANSITION_IMMEDIATE
 local CAMERA_DISCARD = CONSTS.CAMERA.MODIFICATION_DISCARD
-local ORBIT_MOUSE_NOTHING = CONSTS.CAMERA.ORBIT_MOUSE_NOTHING
 local ORBIT_MOUSE_YAW = CONSTS.CAMERA.ORBIT_MOUSE_YAW
 local ORBIT_MOUSE_PITCH = CONSTS.CAMERA.ORBIT_MOUSE_PITCH
 local ORBIT_MOUSE_ZOOM = CONSTS.CAMERA.ORBIT_MOUSE_ZOOM
+local ORBIT_MOUSE_PAN_HORIZONTAL = CONSTS.CAMERA.ORBIT_MOUSE_PAN_HORIZONTAL
+local ORBIT_MOUSE_PAN_VERTICAL = CONSTS.CAMERA.ORBIT_MOUSE_PAN_VERTICAL
+local PREVIEW_MIN_ZOOM_SCALE = CONSTS.CAMERA.PREVIEW_MIN_ZOOM_SCALE or 0.5
 local SCENE_PRESETS = CONSTS.SCENE_PRESETS
 local DEFAULT_SCENE_ID = CONSTS.DEFAULT_SCENE_ID
 
@@ -172,10 +174,10 @@ function Preview:ConfigureOrbitCameraControls(camera)
         camera:SetLeftMouseButtonYMode(ORBIT_MOUSE_PITCH, true)
     end
     if camera.SetRightMouseButtonXMode then
-        camera:SetRightMouseButtonXMode(ORBIT_MOUSE_NOTHING, true)
+        camera:SetRightMouseButtonXMode(ORBIT_MOUSE_PAN_HORIZONTAL, true)
     end
     if camera.SetRightMouseButtonYMode then
-        camera:SetRightMouseButtonYMode(ORBIT_MOUSE_NOTHING, true)
+        camera:SetRightMouseButtonYMode(ORBIT_MOUSE_PAN_VERTICAL, true)
     end
     if camera.SetMouseWheelMode then
         camera:SetMouseWheelMode(ORBIT_MOUSE_ZOOM, false)
@@ -186,9 +188,14 @@ function Preview:CaptureSceneCameraBaseline(sceneID, camera)
     if not sceneID or not camera or not camera.GetYaw or not camera.GetPitch then return end
     if self.sceneCameraBaselines[sceneID] then return end
 
+    local minZoomDistance = camera.GetMinZoomDistance and camera:GetMinZoomDistance() or nil
+    local maxZoomDistance = camera.GetMaxZoomDistance and camera:GetMaxZoomDistance() or nil
+
     self.sceneCameraBaselines[sceneID] = {
         yaw = camera:GetYaw(),
         pitch = camera:GetPitch(),
+        minZoomDistance = minZoomDistance,
+        maxZoomDistance = maxZoomDistance,
     }
 end
 
@@ -208,6 +215,28 @@ function Preview:ResetCameraToSceneBaseline(sceneID, camera)
         if camera.SnapToTargetInterpolationPitch then
             camera:SnapToTargetInterpolationPitch()
         end
+    end
+end
+
+function Preview:ApplySceneZoomRange(sceneID, camera)
+    local baseline = self.sceneCameraBaselines and self.sceneCameraBaselines[sceneID]
+    if not baseline or not camera then return end
+    if not camera.SetMinZoomDistance or not camera.SetMaxZoomDistance then return end
+
+    local minZoomDistance = baseline.minZoomDistance
+    local maxZoomDistance = baseline.maxZoomDistance
+    if not minZoomDistance or not maxZoomDistance then return end
+
+    local extendedMinZoomDistance = math.max(0.05, minZoomDistance * PREVIEW_MIN_ZOOM_SCALE)
+    if extendedMinZoomDistance > maxZoomDistance then
+        extendedMinZoomDistance = maxZoomDistance
+    end
+
+    camera:SetMaxZoomDistance(maxZoomDistance)
+    camera:SetMinZoomDistance(extendedMinZoomDistance)
+
+    if camera.SnapToTargetInterpolationZoom then
+        camera:SnapToTargetInterpolationZoom()
     end
 end
 
@@ -937,6 +966,7 @@ function Preview:ShowDecor(recordID)
     if camera then
         self:ConfigureOrbitCameraControls(camera)
         self:CaptureSceneCameraBaseline(sceneID, camera)
+        self:ApplySceneZoomRange(sceneID, camera)
         self:ResetCameraToSceneBaseline(sceneID, camera)
     end
 

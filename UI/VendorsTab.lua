@@ -74,6 +74,8 @@ VendorsTab.selectedDecorId = nil
 VendorsTab.hoveringRecordID = nil
 VendorsTab.activeTrackedNpcId = nil
 VendorsTab.activeTrackedDecorId = nil
+VendorsTab.waypointListenerRegistered = false
+VendorsTab.onUserWaypointUpdated = nil
 
 VendorsTab.toolbarLayout = nil
 VendorsTab.filterContainer = nil
@@ -971,8 +973,40 @@ function VendorsTab:IsVendorDecorTracked(npcId, decorId)
         and self:IsCurrentWaypointForVendor(npcId)
 end
 
+function VendorsTab:HasActiveVendorTracking()
+    return self.activeTrackedNpcId ~= nil and self.activeTrackedDecorId ~= nil
+end
+
+function VendorsTab:OnUserWaypointUpdated()
+    self:ReconcileVendorTrackingWithWaypoint()
+end
+
+function VendorsTab:EnsureWaypointListenerState()
+    local shouldListen = self:HasActiveVendorTracking()
+
+    if shouldListen then
+        if not self.waypointListenerRegistered then
+            if not self.onUserWaypointUpdated then
+                local tab = self
+                self.onUserWaypointUpdated = function()
+                    tab:OnUserWaypointUpdated()
+                end
+            end
+            addon:RegisterWoWEvent("USER_WAYPOINT_UPDATED", self.onUserWaypointUpdated)
+            self.waypointListenerRegistered = true
+        end
+        return
+    end
+
+    if self.waypointListenerRegistered and self.onUserWaypointUpdated then
+        addon:UnregisterWoWEvent("USER_WAYPOINT_UPDATED", self.onUserWaypointUpdated)
+        self.waypointListenerRegistered = false
+    end
+end
+
 function VendorsTab:ClearVendorTrackedState()
-    if not self.activeTrackedNpcId or not self.activeTrackedDecorId then
+    if not self:HasActiveVendorTracking() then
+        self:EnsureWaypointListenerState()
         return
     end
 
@@ -981,10 +1015,12 @@ function VendorsTab:ClearVendorTrackedState()
     self.activeTrackedNpcId = nil
     self.activeTrackedDecorId = nil
     addon:FireEvent("VENDOR_TRACKING_CHANGED", oldNpcId, oldDecorId, false)
+    self:EnsureWaypointListenerState()
 end
 
 function VendorsTab:ReconcileVendorTrackingWithWaypoint()
-    if not self.activeTrackedNpcId or not self.activeTrackedDecorId then
+    if not self:HasActiveVendorTracking() then
+        self:EnsureWaypointListenerState()
         return
     end
 
@@ -1020,6 +1056,7 @@ function VendorsTab:ToggleVendorDecorTracking(npcId, decorId)
     self.activeTrackedNpcId = npcId
     self.activeTrackedDecorId = decorId
     addon:FireEvent("VENDOR_TRACKING_CHANGED", npcId, decorId, true)
+    self:EnsureWaypointListenerState()
     PrintVendorTrackingMessage("VENDORS_TRACKING_STARTED", npcId)
 end
 
@@ -1263,10 +1300,6 @@ addon:RegisterInternalEvent("RECORD_OWNERSHIP_UPDATED", function()
     if VendorsTab:IsShown() then
         VendorsTab:RefreshDisplay()
     end
-end)
-
-addon:RegisterWoWEvent("USER_WAYPOINT_UPDATED", function()
-    VendorsTab:ReconcileVendorTrackingWithWaypoint()
 end)
 
 local originalCreateContent = addon.MainFrame.CreateContentArea

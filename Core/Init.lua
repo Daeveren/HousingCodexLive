@@ -140,6 +140,9 @@ addon.CONSTANTS = {
         ORBIT_MOUSE_YAW = ORBIT_CAMERA_MOUSE_MODE_YAW_ROTATION or 1,
         ORBIT_MOUSE_PITCH = ORBIT_CAMERA_MOUSE_MODE_PITCH_ROTATION or 2,
         ORBIT_MOUSE_ZOOM = ORBIT_CAMERA_MOUSE_MODE_ZOOM or 6,
+        ORBIT_MOUSE_PAN_HORIZONTAL = ORBIT_CAMERA_MOUSE_PAN_HORIZONTAL or 7,
+        ORBIT_MOUSE_PAN_VERTICAL = ORBIT_CAMERA_MOUSE_PAN_VERTICAL or 8,
+        PREVIEW_MIN_ZOOM_SCALE = 0.5, -- Medium zoom-in boost (50% of scene minimum distance)
     },
 
     -- Scene presets by Enum.HousingCatalogEntrySize values (0, 65-69)

@@ -5,7 +5,7 @@
 
 local ADDON_NAME, addon = ...
 
-local CURRENT_DB_VERSION = 4
+local CURRENT_DB_VERSION = 5
 
 local defaults = {
     version = CURRENT_DB_VERSION,
@@ -57,7 +57,9 @@ local defaults = {
         useCustomFont = true,
         -- toggleKeybind removed: now uses standard WoW keybinding system via Bindings.xml
         debugMode = false,
-        ldbShowText = true,  -- Show text in LDB display (false = icon-only)
+        ldbShowUnique = true,       -- Show unique collected count in broker
+        ldbShowTotalOwned = false,  -- Show total owned (with duplicates) in broker
+        ldbShowTotal = true,        -- Show total decor count in broker
         showMinimapButton = true,  -- Show LibDBIcon minimap button
         showVendorDecorIndicators = true,  -- Show decor icons on vendor items
         showVendorOwnedCheckmark = true,   -- Show checkmark on owned decor at vendors
@@ -125,6 +127,19 @@ local function MigrateDB(db)
             }
         end
         db.version = 4
+    end
+
+    -- v4 -> v5: Replace ldbShowText with granular broker segment toggles
+    if db.version < 5 then
+        if db.settings then
+            if db.settings.ldbShowText == false then
+                db.settings.ldbShowUnique = false
+                db.settings.ldbShowTotalOwned = false
+                db.settings.ldbShowTotal = false
+            end
+            db.settings.ldbShowText = nil
+        end
+        db.version = 5
     end
 
     return db

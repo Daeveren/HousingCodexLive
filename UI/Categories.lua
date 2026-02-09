@@ -25,6 +25,7 @@ local Categories = addon.Categories
 Categories.sidebar = nil
 Categories.container = nil
 Categories.resultCountText = nil
+Categories.resultOverlay = nil
 Categories.buttonPool = nil
 Categories.categories = {}       -- Cached category info
 Categories.subcategories = {}    -- Cached subcategory info
@@ -59,6 +60,25 @@ function Categories:Initialize(sidebar)
     resultText:SetTextColor(0.7, 0.7, 0.7, 1)
     resultText:SetJustifyH("LEFT")
     self.resultCountText = resultText
+
+    -- Invisible overlay for collection stats tooltip
+    local resultOverlay = CreateFrame("Frame", nil, sidebar)
+    resultOverlay:SetAllPoints(resultText)
+    resultOverlay:EnableMouse(true)
+    resultOverlay:SetScript("OnEnter", function(frame)
+        if not addon.indexesBuilt then return end
+        local L = addon.L
+
+        GameTooltip:SetOwner(frame, "ANCHOR_TOPLEFT", 0, 4)
+        GameTooltip:AddLine(string.format(L["RESULT_COUNT_TOOLTIP_UNIQUE"], addon:GetUniqueCollectedCount()), 1, 1, 1)
+        GameTooltip:AddLine(string.format(L["RESULT_COUNT_TOOLTIP_OWNED"], addon:GetTotalOwnedCount()), 1, 1, 1)
+        GameTooltip:AddLine(string.format(L["RESULT_COUNT_TOOLTIP_TOTAL"], addon:GetRecordCount()), 1, 1, 1)
+        GameTooltip:Show()
+    end)
+    resultOverlay:SetScript("OnLeave", function()
+        GameTooltip:Hide()
+    end)
+    self.resultOverlay = resultOverlay
 
     -- Load categories from API (defer if data not ready)
     if addon.dataLoaded then
@@ -426,11 +446,13 @@ end
 function Categories:Show()
     if self.container then self.container:Show() end
     if self.resultCountText then self.resultCountText:Show() end
+    if self.resultOverlay then self.resultOverlay:Show() end
 end
 
 function Categories:Hide()
     if self.container then self.container:Hide() end
     if self.resultCountText then self.resultCountText:Hide() end
+    if self.resultOverlay then self.resultOverlay:Hide() end
 end
 
 function Categories:Reset()

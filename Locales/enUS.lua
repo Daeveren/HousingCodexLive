@@ -75,6 +75,9 @@ L["SORT_PLACED"] = "Qty Placed"
 --------------------------------------------------------------------------------
 L["RESULT_COUNT_ALL"] = "Showing %d items"
 L["RESULT_COUNT_FILTERED"] = "Showing %d of %d items"
+L["RESULT_COUNT_TOOLTIP_UNIQUE"] = "Unique Collected: %d"
+L["RESULT_COUNT_TOOLTIP_OWNED"] = "Total Owned: %d"
+L["RESULT_COUNT_TOOLTIP_TOTAL"] = "Total Decor: %d"
 L["EMPTY_STATE_MESSAGE"] = "No items match your filters"
 L["RESET_FILTERS"] = "Reset Filters"
 
@@ -227,7 +230,12 @@ L["ERROR_LOAD_FAILED_SHORT"] = "Failed to load data. Use /hc retry"
 --------------------------------------------------------------------------------
 L["LDB_TOOLTIP_LEFT"] = "|cffffffffLeft-click|r to toggle main window"
 L["LDB_TOOLTIP_RIGHT"] = "|cffffffffRight-click|r to open options"
+L["LDB_TOOLTIP_ALT"] = "|cffffffffAlt-click|r to configure display"
 L["LDB_OPTIONS_PLACEHOLDER"] = "Options panel not yet available"
+L["LDB_POPUP_TITLE"] = "Broker Display"
+L["LDB_POPUP_UNIQUE"] = "Unique Collected"
+L["LDB_POPUP_TOTAL_OWNED"] = "Total Owned"
+L["LDB_POPUP_TOTAL_ITEMS"] = "Total Items"
 
 --------------------------------------------------------------------------------
 -- Quests Tab

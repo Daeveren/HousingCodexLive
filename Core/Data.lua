@@ -437,6 +437,27 @@ function addon:GetRecordCount()
     return count
 end
 
+function addon:GetUniqueCollectedCount()
+    if not self.indexesBuilt then return 0 end
+    local count = 0
+    for _ in pairs(self.indexes.collected) do
+        count = count + 1
+    end
+    return count
+end
+
+function addon:GetTotalOwnedCount()
+    if not self.indexesBuilt then return 0 end
+    local total = 0
+    for recordID in pairs(self.indexes.collected) do
+        local record = self.decorRecords[recordID]
+        if record and record.totalOwned then
+            total = total + record.totalOwned
+        end
+    end
+    return total
+end
+
 function addon:GetAllRecordIDs()
     local ids = {}
     for recordID in pairs(self.decorRecords) do

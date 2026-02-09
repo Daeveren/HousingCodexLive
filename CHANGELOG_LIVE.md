@@ -2,6 +2,14 @@
 
 All notable changes to Housing Codex.
 
+## [1.3.1] - 2026-02-10
+
+### Added
+- Right-click drag to pan in the 3D preview panel
+- Minimap broker text is now configurable - Alt-click the minimap icon to choose which stats to display (Unique Collected, Total Owned, Total Items)
+- Collection stats tooltip - hover the result count in bottom left in the Decor tab to see a quick summary of your collection
+- You can now zoom-in even more in the 3D preview
+
 ## [1.3.0] - 2026-02-08
 
 ### Added

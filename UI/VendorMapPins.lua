@@ -202,6 +202,11 @@ local function GetAggregateZoneMapID(vendorData)
 end
 
 local function ScheduleRefresh(provider)
+    local map = provider:GetMap()
+    if not map or not map:IsShown() then
+        return
+    end
+
     if provider.refreshPending then
         return
     end
@@ -209,40 +214,68 @@ local function ScheduleRefresh(provider)
     provider.refreshPending = true
     C_Timer.After(C.REFRESH_DEBOUNCE, function()
         provider.refreshPending = false
-
-        addon:InvalidateVendorPinCache()
-
-        local map = provider:GetMap()
-        if map and map:IsShown() then
-            provider:RefreshAllData()
+        local currentMap = provider:GetMap()
+        if not currentMap or not currentMap:IsShown() then
+            return
         end
+        provider:RefreshAllData()
     end)
 end
 
 HousingCodexVendorDataProviderMixin = CreateFromMixins(MapCanvasDataProviderMixin)
 
+local function RegisterProviderListeners(provider)
+    if not provider.listeningWoW then
+        provider:RegisterEvent("HOUSE_DECOR_ADDED_TO_CHEST")
+        provider.listeningWoW = true
+    end
+
+    if not provider.listeningInternal and provider.onOwnershipUpdated then
+        addon:RegisterInternalEvent("RECORD_OWNERSHIP_UPDATED", provider.onOwnershipUpdated)
+        provider.listeningInternal = true
+    end
+end
+
+local function UnregisterProviderListeners(provider)
+    if provider.listeningWoW then
+        provider:UnregisterEvent("HOUSE_DECOR_ADDED_TO_CHEST")
+        provider.listeningWoW = false
+    end
+
+    if provider.listeningInternal and provider.onOwnershipUpdated then
+        addon:UnregisterInternalEvent("RECORD_OWNERSHIP_UPDATED", provider.onOwnershipUpdated)
+        provider.listeningInternal = false
+    end
+end
+
 function HousingCodexVendorDataProviderMixin:OnAdded(owningMap)
     MapCanvasDataProviderMixin.OnAdded(self, owningMap)
-
-    self:RegisterEvent("HOUSE_DECOR_ADDED_TO_CHEST")
-
+    self.refreshPending = false
+    self.listeningWoW = false
+    self.listeningInternal = false
     self.onOwnershipUpdated = self.onOwnershipUpdated or function()
         ScheduleRefresh(self)
     end
-    addon:RegisterInternalEvent("RECORD_OWNERSHIP_UPDATED", self.onOwnershipUpdated)
+end
+
+function HousingCodexVendorDataProviderMixin:OnShow()
+    RegisterProviderListeners(self)
+end
+
+function HousingCodexVendorDataProviderMixin:OnHide()
+    UnregisterProviderListeners(self)
 end
 
 function HousingCodexVendorDataProviderMixin:OnRemoved(owningMap)
-    if self.onOwnershipUpdated then
-        addon:UnregisterInternalEvent("RECORD_OWNERSHIP_UPDATED", self.onOwnershipUpdated)
-    end
-
+    UnregisterProviderListeners(self)
+    self.refreshPending = false
     self:RemoveAllData()
     MapCanvasDataProviderMixin.OnRemoved(self, owningMap)
 end
 
 function HousingCodexVendorDataProviderMixin:OnEvent(event, ...)
     if event == "HOUSE_DECOR_ADDED_TO_CHEST" then
+        addon:InvalidateVendorPinCache()
         ScheduleRefresh(self)
     end
 end
