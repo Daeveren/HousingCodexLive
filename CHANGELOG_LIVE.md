@@ -2,6 +2,14 @@
 
 All notable changes to Housing Codex.
 
+## [1.3.2] - 2026-02-10
+
+### Changed
+- Green checkmarks at vendors now appear instantly instead of loading in with a delay
+
+### Fixed
+- Corrected map pin locations for 4 daily treasure hunt quests
+
 ## [1.3.1] - 2026-02-10
 
 ### Added

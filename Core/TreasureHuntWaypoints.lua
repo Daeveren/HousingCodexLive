@@ -32,9 +32,12 @@ local function SetWaypoint(questId)
         return
     end
 
-    -- Clear existing waypoint first
-    C_Map.ClearUserWaypoint()
+    if not C_Map.CanSetUserWaypointOnMap(loc.mapID) then
+        addon:Debug(string.format("Treasure Hunt: Cannot set waypoint on map %d", loc.mapID))
+        return
+    end
 
+    C_Map.ClearUserWaypoint()
     local point = UiMapPoint.CreateFromCoordinates(loc.mapID, loc.x, loc.y)
     C_Map.SetUserWaypoint(point)
     C_SuperTrack.SetSuperTrackedUserWaypoint(true)

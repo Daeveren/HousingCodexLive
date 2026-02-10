@@ -104,7 +104,15 @@ function MerchantOverlay:UpdateMerchantButtons()
             if itemID then
                 local cached = sessionCache[itemID]
                 if cached == nil then
-                    catalogInfo = C_HousingCatalog.GetCatalogEntryInfoByItem(itemID, true)
+                    -- Tier 1: Instant lookup from pre-loaded records
+                    local recordID = addon.itemIDToRecordID and addon.itemIDToRecordID[itemID]
+                    if recordID then
+                        catalogInfo = addon:GetRecord(recordID)
+                    end
+                    -- Tier 2: API fallback if not in index or record unavailable
+                    if not catalogInfo then
+                        catalogInfo = C_HousingCatalog.GetCatalogEntryInfoByItem(itemID, true)
+                    end
                     sessionCache[itemID] = catalogInfo or false
                 elseif cached then
                     catalogInfo = cached

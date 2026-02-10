@@ -66,6 +66,20 @@ function addon:BuildIndexes()
         end
     end
 
+    -- itemID -> recordID reverse index (merchant overlay instant lookup)
+    local itemIDToRecordID = {}
+    for recordID, record in pairs(self.decorRecords) do
+        if record.itemID then
+            itemIDToRecordID[record.itemID] = recordID
+        end
+    end
+    for recordID, record in pairs(self.fallbackRecords) do
+        if record.itemID then
+            itemIDToRecordID[record.itemID] = recordID
+        end
+    end
+    self.itemIDToRecordID = itemIDToRecordID
+
     self.indexesBuilt = true
 
     local elapsedMs = math.floor(debugprofilestop() - startTime)

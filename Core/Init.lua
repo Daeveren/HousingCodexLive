@@ -25,6 +25,7 @@ addon.modules = {}
 -- Data state
 addon.dataLoaded = false
 addon.decorRecords = {}
+addon.itemIDToRecordID = {}  -- Reverse index: itemID -> recordID (merchant overlay instant lookup)
 
 -- Constants
 addon.CONSTANTS = {

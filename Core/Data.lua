@@ -122,6 +122,7 @@ local function BuildRecord(entryID, info)
         modelSceneID = info.uiModelSceneID,
 
         -- Source/Acquisition
+        itemID = info.itemID,  -- For merchant overlay reverse index
         sourceText = info.sourceText or "",
 
         -- Tracking (populated later)
@@ -419,12 +420,16 @@ function addon:ResolveRecord(recordID)
         canCustomize = info.canCustomize or false,
         modelAsset = info.asset,
         modelSceneID = info.uiModelSceneID,
+        itemID = info.itemID,
         sourceText = info.sourceText or "",
         isTrackable = false,
         isTracking = false,
     }
 
     self.fallbackRecords[recordID] = record
+    if record.itemID and self.itemIDToRecordID then
+        self.itemIDToRecordID[record.itemID] = recordID
+    end
     self:Debug("Resolved hidden catalog item: " .. (info.name or recordID))
     return record
 end
