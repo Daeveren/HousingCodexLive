@@ -2,6 +2,18 @@
 
 All notable changes to Housing Codex.
 
+## [1.3.3] - 2026-02-14
+
+### Added
+- Vendor tracking chat messages now include a clickable map link
+
+### Changed
+- Updated for WoW 12.0.1 compatibility
+
+### Fixed
+- Fixed a rare crash that could occur when placing or picking up certain decor items
+- Codebase improvements for smoother performance
+
 ## [1.3.2] - 2026-02-10
 
 ### Changed

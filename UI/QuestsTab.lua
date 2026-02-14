@@ -1022,7 +1022,28 @@ addon:RegisterInternalEvent("QUEST_TITLE_LOADED", RefreshQuestDisplays)
 addon:RegisterInternalEvent("QUEST_COMPLETION_CHANGED", RefreshQuestDisplays)
 addon:RegisterInternalEvent("QUEST_COMPLETION_CACHE_INVALIDATED", RefreshQuestDisplays)
 
-addon:RegisterInternalEvent("RECORD_OWNERSHIP_UPDATED", RefreshQuestDisplays)
+local ownershipRefreshTimer = nil
+
+addon:RegisterInternalEvent("RECORD_OWNERSHIP_UPDATED", function(recordID, collectionStateChanged, updateKind)
+    if collectionStateChanged == false then return end
+    if not QuestsTab:IsShown() then return end
+
+    if updateKind == "targeted" then
+        -- Debounce targeted updates to coalesce rapid single-record events
+        if ownershipRefreshTimer then ownershipRefreshTimer:Cancel() end
+        ownershipRefreshTimer = C_Timer.NewTimer(0.1, function()
+            ownershipRefreshTimer = nil
+            RefreshQuestDisplays()
+        end)
+    else
+        -- Bulk: immediate refresh (indexes already rebuilt)
+        if ownershipRefreshTimer then
+            ownershipRefreshTimer:Cancel()
+            ownershipRefreshTimer = nil
+        end
+        RefreshQuestDisplays()
+    end
+end)
 
 -- Update wishlist stars when wishlist changes
 addon:RegisterInternalEvent("WISHLIST_CHANGED", function(recordID, isWishlisted)
@@ -1035,11 +1056,6 @@ addon:RegisterInternalEvent("WISHLIST_CHANGED", function(recordID, isWishlisted)
     end
 end)
 
--- Hook into MainFrame creation (same pattern as Grid.lua)
-local originalCreateContent = addon.MainFrame.CreateContentArea
-addon.MainFrame.CreateContentArea = function(self)
-    originalCreateContent(self)
-    if self.contentArea then
-        QuestsTab:Create(self.contentArea)
-    end
-end
+addon.MainFrame:RegisterContentAreaInitializer("QuestsTab", function(contentArea)
+    QuestsTab:Create(contentArea)
+end)

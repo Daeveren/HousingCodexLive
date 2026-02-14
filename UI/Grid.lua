@@ -547,7 +547,7 @@ function Grid:Create(parent)
     if addon.dataLoaded and addon.Tabs and addon.Tabs:GetCurrentTab() == "DECOR" then
         if addon.catalogSearcher then
             -- Run search to populate grid (searcher already has current filter state)
-            addon.catalogSearcher:RunSearch()
+            addon:RunSearchNow("Grid:Create initial")
         else
             -- Fallback: use all record IDs
             local recordIDs = addon:GetAllRecordIDs()
@@ -843,7 +843,7 @@ addon:RegisterInternalEvent("DATA_LOADED", function(recordCount)
         -- Trigger search refresh to respect current filter state
         -- SEARCH_RESULTS_UPDATED will populate grid with filtered results
         if addon.catalogSearcher then
-            addon.catalogSearcher:RunSearch()
+            addon:RunSearchNow("DATA_LOADED")
         else
             -- Fallback: use all record IDs (no searcher available)
             local recordIDs = addon:GetAllRecordIDs()
@@ -900,7 +900,7 @@ addon:RegisterInternalEvent("TAB_CHANGED", function(tabKey)
             -- Trigger search refresh to respect current filter state
             -- SEARCH_RESULTS_UPDATED will populate grid with filtered results
             if addon.catalogSearcher then
-                addon.catalogSearcher:RunSearch()
+                addon:RunSearchNow("TAB_CHANGED")
             else
                 -- Fallback: use all record IDs (no searcher available)
                 local recordIDs = addon:GetAllRecordIDs()
@@ -921,7 +921,9 @@ addon:RegisterInternalEvent("FILTER_CHANGED", function()
 end)
 
 -- Refresh grid when a record's ownership data changes (debounced to coalesce rapid events)
-addon:RegisterInternalEvent("RECORD_OWNERSHIP_UPDATED", function()
+addon:RegisterInternalEvent("RECORD_OWNERSHIP_UPDATED", function(recordID, collectionStateChanged, updateKind)
+    -- Skip when collection state didn't change (no visual difference)
+    if collectionStateChanged == false then return end
     -- Skip grid updates when MainFrame is hidden
     if not addon.MainFrame or not addon.MainFrame:IsShown() then
         addon.needsGridRefresh = true
@@ -944,11 +946,6 @@ addon:RegisterInternalEvent("WISHLIST_CHANGED", function(recordID, isWishlisted)
     end
 end)
 
--- Hook into MainFrame creation
-local originalCreateContent = addon.MainFrame.CreateContentArea
-addon.MainFrame.CreateContentArea = function(self)
-    originalCreateContent(self)
-    if self.contentArea then
-        Grid:Create(self.contentArea)
-    end
-end
+addon.MainFrame:RegisterContentAreaInitializer("Grid", function(contentArea)
+    Grid:Create(contentArea)
+end)

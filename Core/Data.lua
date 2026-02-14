@@ -587,9 +587,7 @@ end)
 -- Trigger a record refresh by flagging ownership data as stale and re-running the search
 local function TriggerRecordRefresh()
     addon.needsRecordRefresh = true
-    if addon.catalogSearcher then
-        addon.catalogSearcher:RunSearch()
-    end
+    addon:RunSearchNow("TriggerRecordRefresh")
 end
 
 -- Central debounced search request to coalesce rapid UI interactions
@@ -614,6 +612,42 @@ function addon:CancelPendingSearch()
     end
 end
 
+-- Cancel any pending debounced search and run immediately
+function addon:RunSearchNow(reason)
+    self:CancelPendingSearch()
+    if self.catalogSearcher then
+        self.catalogSearcher:RunSearch()
+    end
+end
+
+-- Toggle searcher auto-update on parameter changes (enable while frame visible)
+function addon:SetSearcherVisible(isVisible)
+    if self.catalogSearcher then
+        self.catalogSearcher:SetAutoUpdateOnParamChanges(isVisible)
+    end
+end
+
+-- Batch wrapper: suppresses auto-update during fn, runs one search at outermost close
+-- Reentrant-safe (nested calls defer to outermost); error-safe via xpcall (no search on error)
+local batchDepth = 0
+
+function addon:WithSearcherBatchUpdate(reason, fn)
+    batchDepth = batchDepth + 1
+    if batchDepth == 1 then
+        self:SetSearcherVisible(false)
+    end
+
+    local ok = xpcall(fn, CallErrorHandler)
+
+    batchDepth = math.max(0, batchDepth - 1)
+    if batchDepth == 0 then
+        self:SetSearcherVisible(true)
+        if ok then
+            self:RunSearchNow(reason)
+        end
+    end
+end
+
 -- Single-entry storage update (direct record update following Blizzard's pattern)
 addon:RegisterWoWEvent("HOUSING_STORAGE_ENTRY_UPDATED", function(entryID)
     if not addon.dataLoaded or not entryID then return end
@@ -627,9 +661,11 @@ addon:RegisterWoWEvent("HOUSING_STORAGE_ENTRY_UPDATED", function(entryID)
 
     addon:Debug("Storage entry updated: " .. tostring(recordID))
 
+    local wasCollected = record.isCollected
     RefreshRecordOwnership(record, info)
+    local collectionStateChanged = (record.isCollected ~= wasCollected)
 
-    addon:FireEvent("RECORD_OWNERSHIP_UPDATED", recordID)
+    addon:FireEvent("RECORD_OWNERSHIP_UPDATED", recordID, collectionStateChanged, "targeted")
 end)
 
 -- Bulk storage update (refresh record data and re-run searcher)
@@ -640,7 +676,7 @@ addon:RegisterWoWEvent("HOUSING_STORAGE_UPDATED", function()
     addon:BuildIndexes()
 
     -- ALWAYS: Fire ownership event (needed by LDB, WishlistFrame, QuestsTab, AchievementsTab)
-    addon:FireEvent("RECORD_OWNERSHIP_UPDATED")
+    addon:FireEvent("RECORD_OWNERSHIP_UPDATED", nil, true, "bulk")
 
     -- CONDITIONAL: Heavy search only when MainFrame visible
     if addon.MainFrame and addon.MainFrame:IsShown() then

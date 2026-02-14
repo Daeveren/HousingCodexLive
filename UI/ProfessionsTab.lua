@@ -760,16 +760,31 @@ addon:RegisterInternalEvent("DATA_LOADED", function()
     end
 end)
 
-addon:RegisterInternalEvent("RECORD_OWNERSHIP_UPDATED", function()
-    if ProfessionsTab:IsShown() then
+local ownershipRefreshTimer = nil
+
+addon:RegisterInternalEvent("RECORD_OWNERSHIP_UPDATED", function(recordID, collectionStateChanged, updateKind)
+    if collectionStateChanged == false then return end
+    if not ProfessionsTab:IsShown() then return end
+
+    if updateKind == "targeted" then
+        -- Debounce targeted updates to coalesce rapid single-record events
+        if ownershipRefreshTimer then ownershipRefreshTimer:Cancel() end
+        ownershipRefreshTimer = C_Timer.NewTimer(0.1, function()
+            ownershipRefreshTimer = nil
+            if ProfessionsTab:IsShown() then
+                ProfessionsTab:RefreshDisplay()
+            end
+        end)
+    else
+        -- Bulk: immediate refresh (indexes already rebuilt)
+        if ownershipRefreshTimer then
+            ownershipRefreshTimer:Cancel()
+            ownershipRefreshTimer = nil
+        end
         ProfessionsTab:RefreshDisplay()
     end
 end)
 
-local originalCreateContent = addon.MainFrame.CreateContentArea
-addon.MainFrame.CreateContentArea = function(mainFrame)
-    originalCreateContent(mainFrame)
-    if mainFrame.contentArea then
-        ProfessionsTab:Create(mainFrame.contentArea)
-    end
-end
+addon.MainFrame:RegisterContentAreaInitializer("ProfessionsTab", function(contentArea)
+    ProfessionsTab:Create(contentArea)
+end)

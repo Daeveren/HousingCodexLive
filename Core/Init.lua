@@ -213,13 +213,21 @@ function addon:UnregisterInternalEvent(event, callback)
     end
 end
 
+-- Dispatch a callback list with snapshot isolation (safe for self-unregister during dispatch)
+local function DispatchCallbacks(callbacks, ...)
+    local snapshot = {}
+    for i, cb in ipairs(callbacks) do
+        snapshot[i] = cb
+    end
+    for _, cb in ipairs(snapshot) do
+        xpcall(cb, CallErrorHandler, ...)
+    end
+end
+
 function addon:FireEvent(event, ...)
     local callbacks = self.internalEvents[event]
     if not callbacks then return end
-
-    for _, callback in ipairs(callbacks) do
-        callback(...)
-    end
+    DispatchCallbacks(callbacks, ...)
 end
 
 -- WoW Event System
@@ -252,10 +260,7 @@ end
 addon.eventFrame:SetScript("OnEvent", function(_, event, ...)
     local callbacks = addon.wowEventCallbacks[event]
     if not callbacks then return end
-
-    for _, callback in ipairs(callbacks) do
-        callback(...)
-    end
+    DispatchCallbacks(callbacks, ...)
 end)
 
 -- Utility Functions

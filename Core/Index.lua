@@ -21,7 +21,7 @@ end
 -- NOTE: tostring() required because C_StringUtil.StripHyperlinks returns stringView type
 local function StripSourceMarkup(text)
     if C_StringUtil and C_StringUtil.StripHyperlinks then
-        return tostring(C_StringUtil.StripHyperlinks(text, false, false, true, false))
+        return tostring(C_StringUtil.StripHyperlinks(text, false, false, true, false, false))
     end
     return text:gsub("|c%x%x%x%x%x%x%x%x", ""):gsub("|r", ""):gsub("|T.-|t", ""):gsub("|n", " ")
 end
@@ -74,7 +74,8 @@ function addon:BuildIndexes()
         end
     end
     for recordID, record in pairs(self.fallbackRecords) do
-        if record.itemID then
+        -- Skip false sentinel values (failed lookups cached as false)
+        if record and record.itemID then
             itemIDToRecordID[record.itemID] = recordID
         end
     end

@@ -956,16 +956,31 @@ addon:RegisterInternalEvent("DATA_LOADED", function()
     end
 end)
 
-addon:RegisterInternalEvent("RECORD_OWNERSHIP_UPDATED", function()
-    if DropsTab:IsShown() then
+local ownershipRefreshTimer = nil
+
+addon:RegisterInternalEvent("RECORD_OWNERSHIP_UPDATED", function(recordID, collectionStateChanged, updateKind)
+    if collectionStateChanged == false then return end
+    if not DropsTab:IsShown() then return end
+
+    if updateKind == "targeted" then
+        -- Debounce targeted updates to coalesce rapid single-record events
+        if ownershipRefreshTimer then ownershipRefreshTimer:Cancel() end
+        ownershipRefreshTimer = C_Timer.NewTimer(0.1, function()
+            ownershipRefreshTimer = nil
+            if DropsTab:IsShown() then
+                DropsTab:RefreshDisplay()
+            end
+        end)
+    else
+        -- Bulk: immediate refresh (indexes already rebuilt)
+        if ownershipRefreshTimer then
+            ownershipRefreshTimer:Cancel()
+            ownershipRefreshTimer = nil
+        end
         DropsTab:RefreshDisplay()
     end
 end)
 
-local originalCreateContent = addon.MainFrame.CreateContentArea
-addon.MainFrame.CreateContentArea = function(mainFrame)
-    originalCreateContent(mainFrame)
-    if mainFrame.contentArea then
-        DropsTab:Create(mainFrame.contentArea)
-    end
-end
+addon.MainFrame:RegisterContentAreaInitializer("DropsTab", function(contentArea)
+    DropsTab:Create(contentArea)
+end)

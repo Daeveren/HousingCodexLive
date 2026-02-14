@@ -189,34 +189,29 @@ function FilterBar:ResetToDefault()
     local searcher = addon.catalogSearcher
     if not searcher then return end
 
-    -- Disable auto-update to batch all changes into a single search
-    searcher:SetAutoUpdateOnParamChanges(false)
+    addon:WithSearcherBatchUpdate("ResetToDefault", function()
+        -- Reset collection filters (default: show uncollected only)
+        addon.Filters:SetCollectionDirect(false, true)
 
-    -- Reset collection filters (default: show uncollected only)
-    addon.Filters:SetCollectionDirect(false, true)
+        -- Reset wishlist-only filter (post-search filter)
+        addon.Filters:SetWishlistOnly(false)
 
-    -- Reset wishlist-only filter (post-search filter)
-    addon.Filters:SetWishlistOnly(false)
+        -- Reset trackable filter (post-search filter)
+        addon.Filters:SetTrackableState("all")
 
-    -- Reset trackable filter (post-search filter)
-    addon.Filters:SetTrackableState("all")
+        -- Reset special filters to their default values
+        searcher:SetCustomizableOnly(false)
+        searcher:SetAllowedIndoors(true)
+        searcher:SetAllowedOutdoors(true)
+        searcher:SetFirstAcquisitionBonusOnly(false)
 
-    -- Reset special filters to their default values
-    searcher:SetCustomizableOnly(false)
-    searcher:SetAllowedIndoors(true)
-    searcher:SetAllowedOutdoors(true)
-    searcher:SetFirstAcquisitionBonusOnly(false)
-
-    -- Reset all tag groups to enabled
-    if self.tagGroups then
-        for _, tagGroup in ipairs(self.tagGroups) do
-            searcher:SetAllInFilterTagGroup(tagGroup.groupID, true)
+        -- Reset all tag groups to enabled
+        if self.tagGroups then
+            for _, tagGroup in ipairs(self.tagGroups) do
+                searcher:SetAllInFilterTagGroup(tagGroup.groupID, true)
+            end
         end
-    end
-
-    -- Re-enable auto-update and run search once
-    searcher:SetAutoUpdateOnParamChanges(true)
-    searcher:RunSearch()
+    end)
 
     -- Save the reset state
     addon.Filters:SaveState()

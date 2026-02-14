@@ -24,6 +24,32 @@ local MAIN_BACKDROP = {
 addon.MainFrame = {}
 local MainFrame = addon.MainFrame
 
+-- Content area initializer registry
+MainFrame.contentAreaInitializers = {}
+
+function MainFrame:RegisterContentAreaInitializer(key, fn)
+    for _, entry in ipairs(self.contentAreaInitializers) do
+        if entry.key == key then
+            addon:Debug("RegisterContentAreaInitializer: duplicate key '" .. key .. "', ignoring")
+            return
+        end
+    end
+
+    table.insert(self.contentAreaInitializers, { key = key, fn = fn })
+
+    if self.contentArea then
+        xpcall(fn, CallErrorHandler, self.contentArea)
+    end
+end
+
+function MainFrame:RunContentAreaInitializers()
+    if not self.contentArea then return end
+
+    for _, entry in ipairs(self.contentAreaInitializers) do
+        xpcall(entry.fn, CallErrorHandler, self.contentArea)
+    end
+end
+
 function MainFrame:Create()
     if self.frame then return self.frame end
 
@@ -221,6 +247,13 @@ function MainFrame:CreateContentArea()
     local contentBg = content:CreateTexture(nil, "BACKGROUND")
     contentBg:SetAllPoints()
     contentBg:SetColorTexture(unpack(COLORS.CONTENT_BG))
+
+    self:RunContentAreaInitializers()
+
+    -- Restore saved tab after all initializers have run
+    if addon.Tabs then
+        addon.Tabs:RestoreSavedTab()
+    end
 end
 
 function MainFrame:CreateLoadingOverlay()
@@ -502,7 +535,7 @@ function MainFrame:Show()
     end
 
     local isFirstShow = not self.frame
-    if not self.frame then
+    if isFirstShow then
         self:Create()
     end
 
@@ -510,20 +543,17 @@ function MainFrame:Show()
     self:ClampToScreen()
 
     -- Enable searcher auto-update while visible (Blizzard pattern)
-    if addon.catalogSearcher then
-        addon.catalogSearcher:SetAutoUpdateOnParamChanges(true)
-    end
+    addon:SetSearcherVisible(true)
 
     self.frame:Show()
     self.frame:Raise()
 
     -- Handle deferred refreshes from when frame was hidden
-    local needsRefresh = addon.needsFullRefresh or addon.needsGridRefresh
-    if needsRefresh then
+    if addon.needsFullRefresh or addon.needsGridRefresh then
         addon.needsFullRefresh = false
         addon.needsGridRefresh = false
         if addon.catalogSearcher then
-            addon.catalogSearcher:RunSearch()
+            addon:RunSearchNow("deferred refresh")
         elseif addon.Grid and addon.Tabs and addon.Tabs:GetCurrentTab() == "DECOR" then
             addon.Grid:Refresh()
         end
@@ -553,9 +583,7 @@ function MainFrame:Hide()
     end
 
     -- Disable searcher auto-update when hidden
-    if addon.catalogSearcher then
-        addon.catalogSearcher:SetAutoUpdateOnParamChanges(false)
-    end
+    addon:SetSearcherVisible(false)
 end
 
 function MainFrame:Toggle()

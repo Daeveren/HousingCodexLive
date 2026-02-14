@@ -921,7 +921,14 @@ local function PrintVendorTrackingMessage(messageKey, npcId)
     local vendorName, zoneName = GetVendorTrackingChatDetails(npcId)
     local vendorText = string.format("|cff80ff80%s|r", vendorName)
     local zoneText = string.format("|cff80c0ff%s|r", zoneName)
-    addon:Print(string.format(L[messageKey], vendorText, zoneText))
+    local message = string.format(L[messageKey], vendorText, zoneText)
+    if messageKey == "VENDORS_TRACKING_STARTED" and C_Map.HasUserWaypoint() then
+        local hyperlink = C_Map.GetUserWaypointHyperlink()
+        if hyperlink then
+            message = message .. " " .. hyperlink
+        end
+    end
+    addon:Print(message)
 end
 
 function VendorsTab:GetVendorTrackPoint(npcId)
@@ -1296,16 +1303,31 @@ addon:RegisterInternalEvent("DATA_LOADED", function()
     end
 end)
 
-addon:RegisterInternalEvent("RECORD_OWNERSHIP_UPDATED", function()
-    if VendorsTab:IsShown() then
+local ownershipRefreshTimer = nil
+
+addon:RegisterInternalEvent("RECORD_OWNERSHIP_UPDATED", function(recordID, collectionStateChanged, updateKind)
+    if collectionStateChanged == false then return end
+    if not VendorsTab:IsShown() then return end
+
+    if updateKind == "targeted" then
+        -- Debounce targeted updates to coalesce rapid single-record events
+        if ownershipRefreshTimer then ownershipRefreshTimer:Cancel() end
+        ownershipRefreshTimer = C_Timer.NewTimer(0.1, function()
+            ownershipRefreshTimer = nil
+            if VendorsTab:IsShown() then
+                VendorsTab:RefreshDisplay()
+            end
+        end)
+    else
+        -- Bulk: immediate refresh (indexes already rebuilt)
+        if ownershipRefreshTimer then
+            ownershipRefreshTimer:Cancel()
+            ownershipRefreshTimer = nil
+        end
         VendorsTab:RefreshDisplay()
     end
 end)
 
-local originalCreateContent = addon.MainFrame.CreateContentArea
-addon.MainFrame.CreateContentArea = function(mainFrame)
-    originalCreateContent(mainFrame)
-    if mainFrame.contentArea then
-        VendorsTab:Create(mainFrame.contentArea)
-    end
-end
+addon.MainFrame:RegisterContentAreaInitializer("VendorsTab", function(contentArea)
+    VendorsTab:Create(contentArea)
+end)

@@ -180,6 +180,24 @@ function Tabs:GetTabConfig()
     return TAB_CONFIG
 end
 
+function Tabs:RestoreSavedTab()
+    -- One-shot: only restore once
+    if self.tabRestored then return end
+    self.tabRestored = true
+
+    local savedTab = addon.db and addon.db.browser and addon.db.browser.lastTab
+    if not savedTab then return end
+
+    -- Validate saved tab key against enabled tabs
+    local btn = self.buttons[savedTab]
+    if not btn or not btn.enabled then return end
+
+    -- Already on this tab (DECOR default from Create) — no-op
+    if self.currentTab == savedTab then return end
+
+    self:SelectTab(savedTab)
+end
+
 function Tabs:SetTabEnabled(tabKey, enabled)
     local btn = self.buttons[tabKey]
     if not btn then return end

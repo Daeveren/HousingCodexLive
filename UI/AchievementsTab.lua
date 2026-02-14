@@ -914,7 +914,28 @@ end
 
 addon:RegisterInternalEvent("ACHIEVEMENT_COMPLETION_CHANGED", RefreshAchievementDisplays)
 
-addon:RegisterInternalEvent("RECORD_OWNERSHIP_UPDATED", RefreshAchievementDisplays)
+local ownershipRefreshTimer = nil
+
+addon:RegisterInternalEvent("RECORD_OWNERSHIP_UPDATED", function(recordID, collectionStateChanged, updateKind)
+    if collectionStateChanged == false then return end
+    if not AchievementsTab:IsShown() then return end
+
+    if updateKind == "targeted" then
+        -- Debounce targeted updates to coalesce rapid single-record events
+        if ownershipRefreshTimer then ownershipRefreshTimer:Cancel() end
+        ownershipRefreshTimer = C_Timer.NewTimer(0.1, function()
+            ownershipRefreshTimer = nil
+            RefreshAchievementDisplays()
+        end)
+    else
+        -- Bulk: immediate refresh (indexes already rebuilt)
+        if ownershipRefreshTimer then
+            ownershipRefreshTimer:Cancel()
+            ownershipRefreshTimer = nil
+        end
+        RefreshAchievementDisplays()
+    end
+end)
 
 -- Update wishlist stars when wishlist changes
 addon:RegisterInternalEvent("WISHLIST_CHANGED", function(recordID, isWishlisted)
@@ -927,11 +948,6 @@ addon:RegisterInternalEvent("WISHLIST_CHANGED", function(recordID, isWishlisted)
     end
 end)
 
--- Hook into MainFrame creation
-local originalCreateContent = addon.MainFrame.CreateContentArea
-addon.MainFrame.CreateContentArea = function(self)
-    originalCreateContent(self)
-    if self.contentArea then
-        AchievementsTab:Create(self.contentArea)
-    end
-end
+addon.MainFrame:RegisterContentAreaInitializer("AchievementsTab", function(contentArea)
+    AchievementsTab:Create(contentArea)
+end)
