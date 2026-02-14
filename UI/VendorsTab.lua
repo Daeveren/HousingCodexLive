@@ -155,16 +155,26 @@ function VendorsTab:CreateToolbar(parent)
     searchBox.Instructions:SetText(L["VENDORS_SEARCH_PLACEHOLDER"])
     self.searchBox = searchBox
 
+    local searchDebounceTimer
     searchBox:HookScript("OnTextChanged", function(box, userInput)
-        if userInput then self:OnSearchTextChanged(box:GetText()) end
+        if userInput then
+            if searchDebounceTimer then searchDebounceTimer:Cancel() end
+            local text = box:GetText()
+            searchDebounceTimer = C_Timer.NewTimer(CONSTS.TIMER.INPUT_DEBOUNCE, function()
+                searchDebounceTimer = nil
+                self:OnSearchTextChanged(text)
+            end)
+        end
     end)
 
     if searchBox.clearButton then
         searchBox.clearButton:HookScript("OnClick", function()
+            if searchDebounceTimer then searchDebounceTimer:Cancel(); searchDebounceTimer = nil end
             self:OnSearchTextChanged("")
         end)
     end
 
+    searchBox:SetScript("OnEnterPressed", function(box) box:ClearFocus() end)
     searchBox:SetScript("OnEscapePressed", function(box) box:ClearFocus() end)
 
     local filterContainer = CreateFrame("Frame", nil, toolbar)
@@ -202,6 +212,7 @@ end
 -- internally (via SelectExpansion or direct call), so we only call it ourselves
 -- when that didn't happen.
 function VendorsTab:RefreshDisplay()
+    addon:CountDebug("rebuild", "VendorsTab")
     if not self:BuildExpansionDisplay() then
         self:BuildVendorDisplay()
     end
@@ -222,7 +233,6 @@ function VendorsTab:GetCompletionFilter()
 end
 
 function VendorsTab:OnSearchTextChanged(text)
-    text = strtrim(text or "")
     self:RefreshDisplay()
 end
 
@@ -933,7 +943,7 @@ end
 
 function VendorsTab:GetVendorTrackPoint(npcId)
     local locData = addon:GetNPCLocation(npcId)
-    if not locData then
+    if not locData or not addon.IsValidMapId(locData.uiMapId) or not addon.HasValidCoordinates(locData) then
         return nil, nil, "VENDOR_NO_LOCATION"
     end
 
@@ -941,7 +951,12 @@ function VendorsTab:GetVendorTrackPoint(npcId)
         return nil, nil, "VENDOR_MAP_RESTRICTED"
     end
 
-    local point = UiMapPoint.CreateFromCoordinates(locData.uiMapId, locData.x / 100, locData.y / 100)
+    local normX, normY = locData.x / 100, locData.y / 100
+    if normX < 0 or normX > 1 or normY < 0 or normY > 1 then
+        return nil, nil, "VENDOR_NO_LOCATION"
+    end
+
+    local point = UiMapPoint.CreateFromCoordinates(locData.uiMapId, normX, normY)
     return point, locData, nil
 end
 
@@ -958,6 +973,10 @@ function VendorsTab:IsCurrentWaypointForVendor(npcId)
     local locData = addon:GetNPCLocation(npcId)
     local point = C_Map.GetUserWaypoint()
     if not locData or not point or point.uiMapID ~= locData.uiMapId then
+        return false
+    end
+
+    if not addon.HasValidCoordinates(locData) then
         return false
     end
 
@@ -1303,29 +1322,12 @@ addon:RegisterInternalEvent("DATA_LOADED", function()
     end
 end)
 
-local ownershipRefreshTimer = nil
+VendorsTab:RegisterOwnershipRefresh(function() VendorsTab:RefreshDisplay() end)
 
-addon:RegisterInternalEvent("RECORD_OWNERSHIP_UPDATED", function(recordID, collectionStateChanged, updateKind)
-    if collectionStateChanged == false then return end
-    if not VendorsTab:IsShown() then return end
-
-    if updateKind == "targeted" then
-        -- Debounce targeted updates to coalesce rapid single-record events
-        if ownershipRefreshTimer then ownershipRefreshTimer:Cancel() end
-        ownershipRefreshTimer = C_Timer.NewTimer(0.1, function()
-            ownershipRefreshTimer = nil
-            if VendorsTab:IsShown() then
-                VendorsTab:RefreshDisplay()
-            end
-        end)
-    else
-        -- Bulk: immediate refresh (indexes already rebuilt)
-        if ownershipRefreshTimer then
-            ownershipRefreshTimer:Cancel()
-            ownershipRefreshTimer = nil
-        end
-        VendorsTab:RefreshDisplay()
-    end
+-- Reconcile vendor tracking after loading screens/teleports/reloads
+addon:RegisterWoWEvent("PLAYER_ENTERING_WORLD", function()
+    if not VendorsTab.activeTrackedNpcId then return end
+    VendorsTab:ReconcileVendorTrackingWithWaypoint()
 end)
 
 addon.MainFrame:RegisterContentAreaInitializer("VendorsTab", function(contentArea)

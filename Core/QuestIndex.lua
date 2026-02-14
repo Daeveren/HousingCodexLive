@@ -120,13 +120,8 @@ local ZONE_TO_EXPANSION = {
     ["Unknown"] = "QUESTS_UNKNOWN_EXPANSION",
 }
 
--- Build expansion order lookup from CONTINENT_TO_EXPANSION (avoids duplication)
-local EXPANSION_ORDER = { ["QUESTS_UNKNOWN_EXPANSION"] = 0 }
-for _, data in pairs(CONTINENT_TO_EXPANSION) do
-    EXPANSION_ORDER[data.key] = data.order
-end
--- Midnight (order 12) - no continent ID available yet
-EXPANSION_ORDER["EXPANSION_MIDNIGHT"] = 12
+-- Shared expansion order; module-specific unknowns fall back to 0 at usage sites
+local EXPANSION_ORDER = addon.CONSTANTS.EXPANSION_ORDER
 
 -- Runtime data structures
 addon.questIndex = {}           -- questKey -> { [recordID] = true, ... } (questKey = questID or questName for nil IDs)

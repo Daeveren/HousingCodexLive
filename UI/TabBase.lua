@@ -65,3 +65,34 @@ function TabBaseMixin:UpdateToolbarLayout(toolbarWidth)
         addon:Debug((self.tabName or "Tab") .. " toolbar layout: " .. newLayout .. " (width: " .. math.floor(toolbarWidth) .. ")")
     end
 end
+
+--------------------------------------------------------------------------------
+-- Ownership Refresh Helper
+--------------------------------------------------------------------------------
+
+-- Register debounced RECORD_OWNERSHIP_UPDATED handler for a tab
+-- @param refreshFn: function to call when ownership changes affect this tab
+function TabBaseMixin:RegisterOwnershipRefresh(refreshFn)
+    local ownershipRefreshTimer = nil
+
+    addon:RegisterInternalEvent("RECORD_OWNERSHIP_UPDATED", function(recordID, collectionStateChanged, updateKind)
+        if collectionStateChanged == false then return end
+        if not self:IsShown() then return end
+
+        if updateKind == "targeted" then
+            if ownershipRefreshTimer then ownershipRefreshTimer:Cancel() end
+            ownershipRefreshTimer = C_Timer.NewTimer(CONSTS.TIMER.OWNERSHIP_REFRESH_DEBOUNCE, function()
+                ownershipRefreshTimer = nil
+                if self:IsShown() then
+                    refreshFn()
+                end
+            end)
+        else
+            if ownershipRefreshTimer then
+                ownershipRefreshTimer:Cancel()
+                ownershipRefreshTimer = nil
+            end
+            refreshFn()
+        end
+    end)
+end

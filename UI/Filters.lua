@@ -243,7 +243,7 @@ end
 
 -- Save complete filter state to SavedVariables
 function Filters:SaveState()
-    if not addon.db or not addon.db.browser then return end
+    if not addon.db or not addon.db.browser or not addon.db.browser.filters then return end
 
     local db = addon.db.browser.filters
     db.showCollected = self.showCollected
@@ -277,7 +277,7 @@ end
 
 -- Restore filter state from SavedVariables (called after searcher ready)
 function Filters:RestoreState()
-    if not addon.db or not addon.db.browser then return end
+    if not addon.db or not addon.db.browser or not addon.db.browser.filters then return end
 
     local db = addon.db.browser.filters
     local searcher = addon.catalogSearcher

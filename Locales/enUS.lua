@@ -202,6 +202,7 @@ L["HELP_RESET"] = "/hc reset - Reset window position"
 L["HELP_RETRY"] = "/hc retry - Retry loading data"
 L["HELP_HELP"] = "/hc help - Show this help"
 L["HELP_DEBUG"] = "/hc debug - Toggle debug mode"
+L["HELP_STATS"] = "/hc stats - Show debug counters"
 
 --------------------------------------------------------------------------------
 -- Slash Commands

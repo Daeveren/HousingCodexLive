@@ -129,7 +129,7 @@ function Grid:CreateToolbar(parent)
         if sliderFrame.debounceTimer then
             sliderFrame.debounceTimer:Cancel()
         end
-        sliderFrame.debounceTimer = C_Timer.NewTimer(0.15, function()
+        sliderFrame.debounceTimer = C_Timer.NewTimer(CONSTS.TIMER.INPUT_DEBOUNCE, function()
             Grid:SetTileSize(value)
         end)
     end)
@@ -335,7 +335,7 @@ function Grid:CreateScrollBox(parent, tileSize)
 
     container:SetScript("OnSizeChanged", function(_, width, height)
         if self.resizeTimer then self.resizeTimer:Cancel() end
-        self.resizeTimer = C_Timer.NewTimer(0.15, function()
+        self.resizeTimer = C_Timer.NewTimer(CONSTS.TIMER.INPUT_DEBOUNCE, function()
             self.resizeTimer = nil
             local newColumns = math.max(1, math.floor((width + GRID_CELL_GAP) / (self.tileSize + GRID_CELL_GAP)))
             if self.currentColumnCount and newColumns ~= self.currentColumnCount then
@@ -805,6 +805,7 @@ function Grid:DebouncedRefresh()
 
     self.refreshDebounceTimer = C_Timer.NewTimer(0.05, function()
         self.refreshDebounceTimer = nil
+        addon:CountDebug("rebuild", "Grid")
         self:Refresh()
     end)
 end

@@ -228,16 +228,26 @@ function ProfessionsTab:CreateToolbar(parent)
     searchBox.Instructions:SetText(L["PROFESSIONS_SEARCH_PLACEHOLDER"])
     self.searchBox = searchBox
 
-    searchBox:HookScript("OnTextChanged", function(_, userInput)
-        if userInput then self:OnSearchTextChanged() end
+    local searchDebounceTimer
+    searchBox:HookScript("OnTextChanged", function(box, userInput)
+        if userInput then
+            if searchDebounceTimer then searchDebounceTimer:Cancel() end
+            local text = box:GetText()
+            searchDebounceTimer = C_Timer.NewTimer(CONSTS.TIMER.INPUT_DEBOUNCE, function()
+                searchDebounceTimer = nil
+                self:OnSearchTextChanged(text)
+            end)
+        end
     end)
 
     if searchBox.clearButton then
         searchBox.clearButton:HookScript("OnClick", function()
-            self:OnSearchTextChanged()
+            if searchDebounceTimer then searchDebounceTimer:Cancel(); searchDebounceTimer = nil end
+            self:OnSearchTextChanged("")
         end)
     end
 
+    searchBox:SetScript("OnEnterPressed", function(box) box:ClearFocus() end)
     searchBox:SetScript("OnEscapePressed", function(box) box:ClearFocus() end)
 
     local filterContainer = CreateFrame("Frame", nil, toolbar)
@@ -284,7 +294,7 @@ function ProfessionsTab:GetCompletionFilter()
     return db and db.completionFilter or "incomplete"
 end
 
-function ProfessionsTab:OnSearchTextChanged()
+function ProfessionsTab:OnSearchTextChanged(text)
     self:RefreshDisplay()
 end
 
@@ -703,6 +713,7 @@ function ProfessionsTab:BuildCraftDisplay()
 end
 
 function ProfessionsTab:RefreshDisplay()
+    addon:CountDebug("rebuild", "ProfessionsTab")
     if not self:BuildProfessionDisplay() then
         self:BuildCraftDisplay()
     end
@@ -760,30 +771,7 @@ addon:RegisterInternalEvent("DATA_LOADED", function()
     end
 end)
 
-local ownershipRefreshTimer = nil
-
-addon:RegisterInternalEvent("RECORD_OWNERSHIP_UPDATED", function(recordID, collectionStateChanged, updateKind)
-    if collectionStateChanged == false then return end
-    if not ProfessionsTab:IsShown() then return end
-
-    if updateKind == "targeted" then
-        -- Debounce targeted updates to coalesce rapid single-record events
-        if ownershipRefreshTimer then ownershipRefreshTimer:Cancel() end
-        ownershipRefreshTimer = C_Timer.NewTimer(0.1, function()
-            ownershipRefreshTimer = nil
-            if ProfessionsTab:IsShown() then
-                ProfessionsTab:RefreshDisplay()
-            end
-        end)
-    else
-        -- Bulk: immediate refresh (indexes already rebuilt)
-        if ownershipRefreshTimer then
-            ownershipRefreshTimer:Cancel()
-            ownershipRefreshTimer = nil
-        end
-        ProfessionsTab:RefreshDisplay()
-    end
-end)
+ProfessionsTab:RegisterOwnershipRefresh(function() ProfessionsTab:RefreshDisplay() end)
 
 addon.MainFrame:RegisterContentAreaInitializer("ProfessionsTab", function(contentArea)
     ProfessionsTab:Create(contentArea)

@@ -176,10 +176,6 @@ function Tabs:IsSelected(tabKey)
     return self.currentTab == tabKey
 end
 
-function Tabs:GetTabConfig()
-    return TAB_CONFIG
-end
-
 function Tabs:RestoreSavedTab()
     -- One-shot: only restore once
     if self.tabRestored then return end
@@ -196,33 +192,4 @@ function Tabs:RestoreSavedTab()
     if self.currentTab == savedTab then return end
 
     self:SelectTab(savedTab)
-end
-
-function Tabs:SetTabEnabled(tabKey, enabled)
-    local btn = self.buttons[tabKey]
-    if not btn then return end
-
-    btn.enabled = enabled
-
-    if enabled then
-        btn.icon:SetDesaturated(false)
-        btn.icon:SetAlpha(1)
-        btn.label:SetTextColor(unpack(COLORS.TEXT_TERTIARY))
-        btn:Enable()
-    else
-        btn.icon:SetDesaturated(true)
-        btn.icon:SetAlpha(0.5)
-        btn.label:SetTextColor(0.35, 0.35, 0.35, 1)  -- Dimmer than TEXT_DISABLED
-        btn:Disable()
-
-        -- If this was selected, select first available
-        if self.currentTab == tabKey then
-            for _, config in ipairs(TAB_CONFIG) do
-                if self.buttons[config.key] and self.buttons[config.key].enabled then
-                    self:SelectTab(config.key)
-                    break
-                end
-            end
-        end
-    end
 end

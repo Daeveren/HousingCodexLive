@@ -2,6 +2,14 @@
 
 All notable changes to Housing Codex.
 
+## [1.3.4] - 2026-02-15
+
+### Changed
+- Updated item database with newly discovered decor items (quests, achievements, crafting, drops)
+
+### Fixed
+- Codebase improvements for smoother performance
+
 ## [1.3.3] - 2026-02-14
 
 ### Added

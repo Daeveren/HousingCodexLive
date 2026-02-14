@@ -182,6 +182,29 @@ addon.CONSTANTS = {
         COLOR_BORDER_ACTIVE = { 0.6, 0.5, 0.1, 1 },
     },
 
+    -- Expansion sort order (higher = newer = appears first in UI)
+    -- Shared across QuestIndex, VendorIndex, and any future hierarchy modules
+    EXPANSION_ORDER = {
+        ["EXPANSION_CLASSIC"] = 1,
+        ["EXPANSION_TBC"] = 2,
+        ["EXPANSION_WRATH"] = 3,
+        ["EXPANSION_CATA"] = 4,
+        ["EXPANSION_MOP"] = 5,
+        ["EXPANSION_WOD"] = 6,
+        ["EXPANSION_LEGION"] = 7,
+        ["EXPANSION_BFA"] = 8,
+        ["EXPANSION_SL"] = 9,
+        ["EXPANSION_DF"] = 10,
+        ["EXPANSION_TWW"] = 11,
+        ["EXPANSION_MIDNIGHT"] = 12,
+    },
+
+    -- Debounce timing
+    TIMER = {
+        INPUT_DEBOUNCE = 0.15,            -- User input debounce (search, slider, resize)
+        OWNERSHIP_REFRESH_DEBOUNCE = 0.1, -- Collection state change coalescing
+    },
+
     -- Vendor world map pins
     VENDOR_PIN = {
         SIZE = 22,
@@ -274,6 +297,47 @@ function addon:Debug(msg)
     end
 end
 
+-- Debug instrumentation counters (only tracked when debug mode is on)
+addon.debugCounters = {}
+
+function addon:CountDebug(category, key)
+    if not (self.db and self.db.settings and self.db.settings.debugMode) then return end
+    local cat = self.debugCounters[category]
+    if not cat then
+        cat = {}
+        self.debugCounters[category] = cat
+    end
+    cat[key] = (cat[key] or 0) + 1
+end
+
+function addon:PrintDebugCounters()
+    if not next(self.debugCounters) then
+        self:Print("No debug counters recorded (enable debug mode first)")
+        return
+    end
+    self:Print("|cFFFFD100Debug Counters:|r")
+    local categories = {}
+    for cat in pairs(self.debugCounters) do
+        categories[#categories + 1] = cat
+    end
+    table.sort(categories)
+    for _, cat in ipairs(categories) do
+        local keys = {}
+        for key in pairs(self.debugCounters[cat]) do
+            keys[#keys + 1] = key
+        end
+        table.sort(keys)
+        for _, key in ipairs(keys) do
+            self:Print(string.format("  %s.%s = %d", cat, key, self.debugCounters[cat][key]))
+        end
+    end
+end
+
+function addon:ResetDebugCounters()
+    wipe(self.debugCounters)
+    self:Print("Debug counters reset")
+end
+
 -- Resets a background texture to a solid color mode (clears gradients)
 function addon:ResetBackgroundTexture(bg)
     if not bg then return end
@@ -321,6 +385,14 @@ function addon:PrintTrackingResult(errorCode, startedKey, failedKey, maxKey, alr
     else
         self:Print(L[failedKey])
     end
+end
+
+function addon.IsValidMapId(mapId)
+    return type(mapId) == "number" and mapId > 0
+end
+
+function addon.HasValidCoordinates(data)
+    return type(data.x) == "number" and type(data.y) == "number"
 end
 
 -- Creates a text-based action button (same style as Collected/Uncollected filters)
@@ -569,6 +641,7 @@ SlashCmdList["HOUSINGCODEX"] = function(msg)
         addon:Print("  " .. L["HELP_RETRY"])
         addon:Print("  " .. L["HELP_HELP"])
         addon:Print("  " .. L["HELP_DEBUG"])
+        addon:Print("  " .. L["HELP_STATS"])
     elseif cmd == "settings" or cmd == "options" then
         if addon.Settings then
             addon.Settings:Open()
@@ -586,6 +659,10 @@ SlashCmdList["HOUSINGCODEX"] = function(msg)
         else
             addon:Print(L["MAIN_WINDOW_NOT_AVAILABLE"])
         end
+    elseif cmd == "stats reset" then
+        addon:ResetDebugCounters()
+    elseif cmd == "stats" then
+        addon:PrintDebugCounters()
     elseif cmd == "debug" then
         if addon.db then
             addon.db.settings.debugMode = not addon.db.settings.debugMode
@@ -764,6 +841,38 @@ function addon:ShowURLPopup(url, anchorButton)
     popup:ClearAllPoints()
     popup:SetPoint("TOPLEFT", anchorButton, "BOTTOMLEFT", 0, -5)
     popup:Show()
+end
+
+-- Shared action: insert item name as chat link
+function addon:InsertItemChatLink(recordID)
+    local record = recordID and self:GetRecord(recordID)
+    if not record then return end
+    ChatFrameUtil.OpenChat("")
+    C_Timer.After(0, function()
+        local editBox = ChatFrame1EditBox
+        if editBox and editBox:IsShown() then
+            editBox:Insert(string.format("|cFFFFD100[%s]|r", record.name))
+            addon:Print(addon.L["LINK_INSERTED"])
+        else
+            addon:Print(addon.L["LINK_ERROR"])
+        end
+    end)
+end
+
+-- Shared action: open Wowhead URL popup for item
+function addon:OpenItemWowheadURL(recordID, anchorFrame)
+    local record = recordID and self:GetRecord(recordID)
+    if not record then return end
+    self:ShowURLPopup(self:CreateWowheadURL(record), anchorFrame)
+end
+
+-- Shared action: show link button tooltip
+function addon:ShowActionLinkTooltip(btn)
+    GameTooltip:SetOwner(btn, "ANCHOR_RIGHT")
+    GameTooltip:SetText(self.L["ACTION_LINK"])
+    GameTooltip:AddLine(self.L["ACTION_LINK_TOOLTIP"], 1, 1, 1)
+    GameTooltip:AddLine(self.L["ACTION_LINK_TOOLTIP_RIGHTCLICK"], 0.7, 0.7, 0.7)
+    GameTooltip:Show()
 end
 
 -- Addon Initialization

@@ -829,31 +829,11 @@ function Preview:OnTrackButtonClick()
 end
 
 function Preview:OnLinkButtonClick()
-    local recordID = self.currentRecordID
-    local record = recordID and addon:GetRecord(recordID)
-    if not record then return end
-
-    -- Open chat and insert after a brief delay to ensure editbox is ready
-    ChatFrameUtil.OpenChat("")
-    C_Timer.After(0, function()
-        local editBox = ChatFrame1EditBox
-        if editBox and editBox:IsShown() then
-            local linkText = string.format("|cFFFFD100[%s]|r", record.name)
-            editBox:Insert(linkText)
-            addon:Print(addon.L["LINK_INSERTED"])
-        else
-            addon:Print(addon.L["LINK_ERROR"])
-        end
-    end)
+    addon:InsertItemChatLink(self.currentRecordID)
 end
 
 function Preview:OnLinkButtonRightClick()
-    local recordID = self.currentRecordID
-    local record = recordID and addon:GetRecord(recordID)
-    if not record then return end
-
-    local url = addon:CreateWowheadURL(record)
-    addon:ShowURLPopup(url, self.linkButton)
+    addon:OpenItemWowheadURL(self.currentRecordID, self.linkButton)
 end
 
 function Preview:ShowTrackButtonTooltip(btn)
@@ -908,11 +888,7 @@ function Preview:ShowTrackButtonTooltip(btn)
 end
 
 function Preview:ShowLinkButtonTooltip(btn)
-    GameTooltip:SetOwner(btn, "ANCHOR_RIGHT")
-    GameTooltip:SetText(addon.L["ACTION_LINK"])
-    GameTooltip:AddLine(addon.L["ACTION_LINK_TOOLTIP"], 1, 1, 1)
-    GameTooltip:AddLine(addon.L["ACTION_LINK_TOOLTIP_RIGHTCLICK"], 0.7, 0.7, 0.7)
-    GameTooltip:Show()
+    addon:ShowActionLinkTooltip(btn)
 end
 
 -- ============================================================================
@@ -1104,7 +1080,9 @@ addon:RegisterInternalEvent("VENDOR_TRACKING_CHANGED", function()
 end)
 
 addon:RegisterInternalEvent("TAB_CHANGED", function()
-    RefreshCurrentActionButtons()
+    if Preview:IsShown() then
+        Preview:ClearModel()
+    end
 end)
 
 -- Listen for WoW's tracking update event (catches changes from other UI)

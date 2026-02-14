@@ -188,22 +188,8 @@ local ZONE_TO_EXPANSION = {
     ["Unknown"] = "VENDORS_UNKNOWN_EXPANSION",
 }
 
--- Expansion sort order (higher = newer = first in UI)
-local EXPANSION_ORDER = {
-    ["VENDORS_UNKNOWN_EXPANSION"] = 0,
-    ["EXPANSION_CLASSIC"] = 1,
-    ["EXPANSION_TBC"] = 2,
-    ["EXPANSION_WRATH"] = 3,
-    ["EXPANSION_CATA"] = 4,
-    ["EXPANSION_MOP"] = 5,
-    ["EXPANSION_WOD"] = 6,
-    ["EXPANSION_LEGION"] = 7,
-    ["EXPANSION_BFA"] = 8,
-    ["EXPANSION_SL"] = 9,
-    ["EXPANSION_DF"] = 10,
-    ["EXPANSION_TWW"] = 11,
-    ["EXPANSION_MIDNIGHT"] = 12,
-}
+-- Shared expansion order; module-specific unknowns fall back to 0 at usage sites
+local EXPANSION_ORDER = addon.CONSTANTS.EXPANSION_ORDER
 
 -- Legion Class Hall zone annotations
 local CLASS_HALL_ZONES = {

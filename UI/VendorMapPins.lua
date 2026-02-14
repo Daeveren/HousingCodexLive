@@ -63,6 +63,10 @@ local function GetZoneRootMapID(uiMapID)
 end
 
 local function GetProjectedCoordinates(vendorData, vendorMapID, targetMapID)
+    if not addon.HasValidCoordinates(vendorData) then
+        return nil, nil
+    end
+
     if vendorMapID == targetMapID then
         return vendorData.x / 100, vendorData.y / 100
     end
@@ -484,7 +488,11 @@ function HousingCodexVendorPinMixin:OnMouseClickAction(button)
     end
 
     local mapID = self.vendorData.uiMapId
-    if not mapID or not C_Map.CanSetUserWaypointOnMap(mapID) then
+    if not addon.IsValidMapId(mapID) or not C_Map.CanSetUserWaypointOnMap(mapID) then
+        return
+    end
+
+    if not addon.HasValidCoordinates(self.vendorData) then
         return
     end
 

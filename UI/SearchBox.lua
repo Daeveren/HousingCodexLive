@@ -6,7 +6,7 @@
 
 local ADDON_NAME, addon = ...
 
-local DEBOUNCE_DELAY = 0.2  -- 200ms
+local DEBOUNCE_DELAY = 0.2  -- Intentionally higher than CONSTS.TIMER.INPUT_DEBOUNCE (heavier API call)
 local MIN_CHARACTER_SEARCH = 3  -- Blizzard pattern: minimum chars before search triggers
 
 addon.SearchBox = {}
@@ -147,21 +147,6 @@ end
 
 function SearchBox:GetText()
     return self.frame and self.frame:GetText() or ""
-end
-
-function SearchBox:SetEnabled(enabled)
-    if not self.frame then return end
-    self.frame:SetEnabled(enabled)
-end
-
-function SearchBox:Show()
-    if not self.frame then return end
-    self.frame:Show()
-end
-
-function SearchBox:Hide()
-    if not self.frame then return end
-    self.frame:Hide()
 end
 
 -- Re-apply pending search when data loads

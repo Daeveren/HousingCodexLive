@@ -221,7 +221,7 @@ function WishlistFrame:CreateToolbar()
         if sliderFrame.debounceTimer then
             sliderFrame.debounceTimer:Cancel()
         end
-        sliderFrame.debounceTimer = C_Timer.NewTimer(0.15, function()
+        sliderFrame.debounceTimer = C_Timer.NewTimer(CONSTS.TIMER.INPUT_DEBOUNCE, function()
             WishlistFrame:SetTileSize(value)
         end)
     end)
@@ -281,7 +281,7 @@ function WishlistFrame:CreateGrid()
 
     container:SetScript("OnSizeChanged", function(_, width)
         if self.resizeTimer then self.resizeTimer:Cancel() end
-        self.resizeTimer = C_Timer.NewTimer(0.15, function()
+        self.resizeTimer = C_Timer.NewTimer(CONSTS.TIMER.INPUT_DEBOUNCE, function()
             self.resizeTimer = nil
             local newColumns = math.max(1, math.floor((width + GRID_CELL_GAP) / (self.tileSize + GRID_CELL_GAP)))
             if self.currentColumnCount and newColumns ~= self.currentColumnCount then
@@ -799,31 +799,11 @@ function WishlistFrame:OnTrackButtonClick()
 end
 
 function WishlistFrame:OnLinkButtonClick()
-    local recordID = self.currentRecordID
-    local record = recordID and addon:GetRecord(recordID)
-    if not record then return end
-
-    -- Open chat and insert after a brief delay
-    ChatFrameUtil.OpenChat("")
-    C_Timer.After(0, function()
-        local editBox = ChatFrame1EditBox
-        if editBox and editBox:IsShown() then
-            local linkText = string.format("|cFFFFD100[%s]|r", record.name)
-            editBox:Insert(linkText)
-            addon:Print(addon.L["LINK_INSERTED"])
-        else
-            addon:Print(addon.L["LINK_ERROR"])
-        end
-    end)
+    addon:InsertItemChatLink(self.currentRecordID)
 end
 
 function WishlistFrame:OnLinkButtonRightClick()
-    local recordID = self.currentRecordID
-    local record = recordID and addon:GetRecord(recordID)
-    if not record then return end
-
-    local url = addon:CreateWowheadURL(record)
-    addon:ShowURLPopup(url, self.linkButton)
+    addon:OpenItemWowheadURL(self.currentRecordID, self.linkButton)
 end
 
 function WishlistFrame:ShowTrackButtonTooltip(btn)
@@ -854,11 +834,7 @@ function WishlistFrame:ShowTrackButtonTooltip(btn)
 end
 
 function WishlistFrame:ShowLinkButtonTooltip(btn)
-    GameTooltip:SetOwner(btn, "ANCHOR_RIGHT")
-    GameTooltip:SetText(addon.L["ACTION_LINK"])
-    GameTooltip:AddLine(addon.L["ACTION_LINK_TOOLTIP"], 1, 1, 1)
-    GameTooltip:AddLine(addon.L["ACTION_LINK_TOOLTIP_RIGHTCLICK"], 0.7, 0.7, 0.7)
-    GameTooltip:Show()
+    addon:ShowActionLinkTooltip(btn)
 end
 
 --------------------------------------------------------------------------------

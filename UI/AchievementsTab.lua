@@ -48,8 +48,6 @@ local function ApplyAchievementRowState(frame, isSelected)
     end
 end
 
--- Wishlist star helper is now provided by TabBaseMixin:UpdateWishlistStar()
-
 -- Helper to initialize shared achievement row visuals
 local function InitializeAchievementRowFrame(frame)
     if frame.bg then return end
@@ -356,8 +354,7 @@ function AchievementsTab:Show()
     end
 
     -- Update displays
-    self:BuildCategoryDisplay()
-    self:BuildAchievementDisplay()
+    self:RefreshDisplay()
     self:UpdateEmptyStates()
 end
 
@@ -397,19 +394,27 @@ function AchievementsTab:CreateToolbar(parent)
     searchBox.Instructions:SetText(L["ACHIEVEMENTS_SEARCH_PLACEHOLDER"])
     self.searchBox = searchBox
 
+    local searchDebounceTimer
     searchBox:HookScript("OnTextChanged", function(box, userInput)
         if userInput then
-            self:OnSearchTextChanged(box:GetText())
+            if searchDebounceTimer then searchDebounceTimer:Cancel() end
+            local text = box:GetText()
+            searchDebounceTimer = C_Timer.NewTimer(CONSTS.TIMER.INPUT_DEBOUNCE, function()
+                searchDebounceTimer = nil
+                self:OnSearchTextChanged(text)
+            end)
         end
     end)
 
-    -- Handle clear button click (X button)
+    -- Handle clear button click (X button) - bypass debounce for immediate feedback
     if searchBox.clearButton then
         searchBox.clearButton:HookScript("OnClick", function()
+            if searchDebounceTimer then searchDebounceTimer:Cancel(); searchDebounceTimer = nil end
             self:OnSearchTextChanged("")
         end)
     end
 
+    searchBox:SetScript("OnEnterPressed", function(box) box:ClearFocus() end)
     searchBox:SetScript("OnEscapePressed", function(box)
         box:ClearFocus()
     end)
@@ -450,14 +455,24 @@ end
 
 -- Note: UpdateToolbarLayout is provided by TabBaseMixin
 
+-- Rebuild the category list and, if needed, the achievement list.
+-- BuildCategoryDisplay returns true when it already triggered BuildAchievementDisplay
+-- internally (via SelectCategory or direct call), so we only call it ourselves
+-- when that didn't happen.
+function AchievementsTab:RefreshDisplay()
+    addon:CountDebug("rebuild", "AchievementsTab")
+    if not self:BuildCategoryDisplay() then
+        self:BuildAchievementDisplay()
+    end
+end
+
 function AchievementsTab:SetCompletionFilter(filterKey)
     for key, btn in pairs(self.filterButtons) do
         btn:SetActive(key == filterKey)
     end
     local db = GetAchievementsDB()
     if db then db.completionFilter = filterKey end
-    self:BuildCategoryDisplay()
-    self:BuildAchievementDisplay()
+    self:RefreshDisplay()
 end
 
 function AchievementsTab:GetCompletionFilter()
@@ -466,9 +481,7 @@ function AchievementsTab:GetCompletionFilter()
 end
 
 function AchievementsTab:OnSearchTextChanged(text)
-    text = strtrim(text or "")
-    self:BuildCategoryDisplay()
-    self:BuildAchievementDisplay()
+    self:RefreshDisplay()
 end
 
 --------------------------------------------------------------------------------
@@ -709,7 +722,7 @@ local function AchievementPassesCompletionFilter(achievementID, filter)
 end
 
 function AchievementsTab:BuildCategoryDisplay()
-    if not self.categoryScrollBox or not self.categoryDataProvider then return end
+    if not self.categoryScrollBox or not self.categoryDataProvider then return false end
 
     local elements = {}
     local filter = self:GetCompletionFilter()
@@ -742,16 +755,21 @@ function AchievementsTab:BuildCategoryDisplay()
     end
 
     -- Auto-select first category if none selected or current selection is no longer visible
+    -- Returns true when this function already triggered BuildAchievementDisplay internally
     if not self.selectedCategory and #elements > 0 then
         self:SelectCategory(elements[1].categoryId)
+        return true
     elseif self.selectedCategory and not visibleCategories[self.selectedCategory] then
         if #elements > 0 then
             self:SelectCategory(elements[1].categoryId)
+            return true
         else
             self.selectedCategory = nil
             self:BuildAchievementDisplay()
+            return true
         end
     end
+    return false
 end
 
 function AchievementsTab:BuildAchievementDisplay()
@@ -898,8 +916,7 @@ addon:RegisterInternalEvent("DATA_LOADED", function()
     if AchievementsTab:IsShown() and not addon.achievementIndexBuilt then
         addon:BuildAchievementIndex()
         addon:BuildAchievementHierarchy()
-        AchievementsTab:BuildCategoryDisplay()
-        AchievementsTab:BuildAchievementDisplay()
+        AchievementsTab:RefreshDisplay()
         AchievementsTab:UpdateEmptyStates()
     end
 end)
@@ -907,35 +924,13 @@ end)
 -- Shared handler for events that require rebuilding achievement displays
 local function RefreshAchievementDisplays()
     if AchievementsTab:IsShown() then
-        AchievementsTab:BuildCategoryDisplay()
-        AchievementsTab:BuildAchievementDisplay()
+        AchievementsTab:RefreshDisplay()
     end
 end
 
 addon:RegisterInternalEvent("ACHIEVEMENT_COMPLETION_CHANGED", RefreshAchievementDisplays)
 
-local ownershipRefreshTimer = nil
-
-addon:RegisterInternalEvent("RECORD_OWNERSHIP_UPDATED", function(recordID, collectionStateChanged, updateKind)
-    if collectionStateChanged == false then return end
-    if not AchievementsTab:IsShown() then return end
-
-    if updateKind == "targeted" then
-        -- Debounce targeted updates to coalesce rapid single-record events
-        if ownershipRefreshTimer then ownershipRefreshTimer:Cancel() end
-        ownershipRefreshTimer = C_Timer.NewTimer(0.1, function()
-            ownershipRefreshTimer = nil
-            RefreshAchievementDisplays()
-        end)
-    else
-        -- Bulk: immediate refresh (indexes already rebuilt)
-        if ownershipRefreshTimer then
-            ownershipRefreshTimer:Cancel()
-            ownershipRefreshTimer = nil
-        end
-        RefreshAchievementDisplays()
-    end
-end)
+AchievementsTab:RegisterOwnershipRefresh(RefreshAchievementDisplays)
 
 -- Update wishlist stars when wishlist changes
 addon:RegisterInternalEvent("WISHLIST_CHANGED", function(recordID, isWishlisted)

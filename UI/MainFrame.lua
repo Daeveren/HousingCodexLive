@@ -550,6 +550,7 @@ function MainFrame:Show()
 
     -- Handle deferred refreshes from when frame was hidden
     if addon.needsFullRefresh or addon.needsGridRefresh then
+        addon:CountDebug("refresh", "deferred")
         addon.needsFullRefresh = false
         addon.needsGridRefresh = false
         if addon.catalogSearcher then

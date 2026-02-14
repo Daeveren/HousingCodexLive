@@ -8,8 +8,11 @@
 
 local ADDON_NAME, addon = ...
 
+addon.TreasureHuntWaypoints = addon.TreasureHuntWaypoints or {}
+
 -- State
 local activeQuestId = nil
+local listenersRegistered = false
 
 -- Housing zone map IDs
 local HOUSING_ZONES = {
@@ -37,8 +40,13 @@ local function SetWaypoint(questId)
         return
     end
 
-    C_Map.ClearUserWaypoint()
     local point = UiMapPoint.CreateFromCoordinates(loc.mapID, loc.x, loc.y)
+    if not point then
+        addon:Debug(string.format("Treasure Hunt: Failed to create waypoint point for map %d", loc.mapID))
+        return
+    end
+
+    C_Map.ClearUserWaypoint()
     C_Map.SetUserWaypoint(point)
     C_SuperTrack.SetSuperTrackedUserWaypoint(true)
     activeQuestId = questId
@@ -58,6 +66,18 @@ local function ClearWaypoint()
         C_Map.ClearUserWaypoint()
         addon:Debug("Treasure Hunt waypoint cleared")
         activeQuestId = nil
+    end
+end
+
+function addon.TreasureHuntWaypoints.UpdateListenerState()
+    if not addon.db or not addon.db.settings then
+        return
+    end
+
+    -- Listeners stay registered; setting gates behavior in handlers.
+    -- If disabled mid-session, clear only the waypoint managed by this module.
+    if not addon.db.settings.treasureHuntWaypoints then
+        ClearWaypoint()
     end
 end
 
@@ -86,15 +106,23 @@ local function OnQuestEnded(questId)
     end
 end
 
+local function RegisterListeners()
+    if listenersRegistered then
+        return
+    end
+
+    addon:RegisterWoWEvent("QUEST_ACCEPTED", OnQuestAccepted)
+    addon:RegisterWoWEvent("QUEST_TURNED_IN", OnQuestEnded)
+    addon:RegisterWoWEvent("QUEST_REMOVED", OnQuestEnded)
+    listenersRegistered = true
+end
+
 --------------------------------------------------------------------------------
 -- Initialization
 --------------------------------------------------------------------------------
 addon:RegisterInternalEvent("DATA_LOADED", function()
     addon:Debug("TreasureHunt: Registering quest event listeners")
-
-    addon:RegisterWoWEvent("QUEST_ACCEPTED", OnQuestAccepted)
-    addon:RegisterWoWEvent("QUEST_TURNED_IN", OnQuestEnded)
-    addon:RegisterWoWEvent("QUEST_REMOVED", OnQuestEnded)
+    RegisterListeners()
 
     addon:Debug("TreasureHunt: Ready")
 end)

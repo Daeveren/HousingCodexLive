@@ -47,8 +47,6 @@ local function ApplyQuestRowState(frame, isSelected)
     end
 end
 
--- Wishlist star helper is now provided by TabBaseMixin:UpdateWishlistStar()
-
 -- Helper to initialize shared zone/quest row visuals
 local function InitializeZoneQuestFrame(frame)
     if frame.bg then return end
@@ -393,8 +391,7 @@ function QuestsTab:Show()
     end
 
     -- Update displays
-    self:BuildExpansionDisplay()
-    self:BuildZoneQuestDisplay()
+    self:RefreshDisplay()
     self:UpdateEmptyStates()
 end
 
@@ -434,19 +431,27 @@ function QuestsTab:CreateToolbar(parent)
     searchBox.Instructions:SetText(L["QUESTS_SEARCH_PLACEHOLDER"])
     self.searchBox = searchBox
 
+    local searchDebounceTimer
     searchBox:HookScript("OnTextChanged", function(box, userInput)
         if userInput then
-            self:OnSearchTextChanged(box:GetText())
+            if searchDebounceTimer then searchDebounceTimer:Cancel() end
+            local text = box:GetText()
+            searchDebounceTimer = C_Timer.NewTimer(CONSTS.TIMER.INPUT_DEBOUNCE, function()
+                searchDebounceTimer = nil
+                self:OnSearchTextChanged(text)
+            end)
         end
     end)
 
-    -- Handle clear button click (X button)
+    -- Handle clear button click (X button) - bypass debounce for immediate feedback
     if searchBox.clearButton then
         searchBox.clearButton:HookScript("OnClick", function()
+            if searchDebounceTimer then searchDebounceTimer:Cancel(); searchDebounceTimer = nil end
             self:OnSearchTextChanged("")
         end)
     end
 
+    searchBox:SetScript("OnEnterPressed", function(box) box:ClearFocus() end)
     searchBox:SetScript("OnEscapePressed", function(box)
         box:ClearFocus()
     end)
@@ -487,14 +492,24 @@ end
 
 -- Note: UpdateToolbarLayout is provided by TabBaseMixin
 
+-- Rebuild the expansion list and, if needed, the zone/quest list.
+-- BuildExpansionDisplay returns true when it already triggered BuildZoneQuestDisplay
+-- internally (via SelectExpansion or direct call), so we only call it ourselves
+-- when that didn't happen.
+function QuestsTab:RefreshDisplay()
+    addon:CountDebug("rebuild", "QuestsTab")
+    if not self:BuildExpansionDisplay() then
+        self:BuildZoneQuestDisplay()
+    end
+end
+
 function QuestsTab:SetCompletionFilter(filterKey)
     for key, btn in pairs(self.filterButtons) do
         btn:SetActive(key == filterKey)
     end
     local db = GetQuestsDB()
     if db then db.completionFilter = filterKey end
-    self:BuildExpansionDisplay()
-    self:BuildZoneQuestDisplay()
+    self:RefreshDisplay()
 end
 
 function QuestsTab:GetCompletionFilter()
@@ -503,9 +518,7 @@ function QuestsTab:GetCompletionFilter()
 end
 
 function QuestsTab:OnSearchTextChanged(text)
-    text = strtrim(text or "")
-    self:BuildExpansionDisplay()
-    self:BuildZoneQuestDisplay()
+    self:RefreshDisplay()
 end
 
 --------------------------------------------------------------------------------
@@ -770,7 +783,7 @@ local function QuestPassesCompletionFilter(questKey, filter)
 end
 
 function QuestsTab:BuildExpansionDisplay()
-    if not self.expansionScrollBox or not self.expansionDataProvider then return end
+    if not self.expansionScrollBox or not self.expansionDataProvider then return false end
 
     local elements = {}
     local filter = self:GetCompletionFilter()
@@ -810,18 +823,23 @@ function QuestsTab:BuildExpansionDisplay()
     end
 
     -- Auto-select expansion if none selected (prefer The War Within)
+    -- Returns true when this function already triggered BuildZoneQuestDisplay internally
     if not self.selectedExpansionKey and #elements > 0 then
         local defaultKey = "EXPANSION_TWW"
         self:SelectExpansion(HasExpansion(defaultKey) and defaultKey or elements[1].expansionKey)
+        return true
     elseif self.selectedExpansionKey and not HasExpansion(self.selectedExpansionKey) then
         -- Current selection no longer visible
         if #elements > 0 then
             self:SelectExpansion(elements[1].expansionKey)
+            return true
         else
             self.selectedExpansionKey = nil
             self:BuildZoneQuestDisplay()
+            return true
         end
     end
+    return false
 end
 
 function QuestsTab:BuildZoneQuestDisplay()
@@ -1004,8 +1022,7 @@ addon:RegisterInternalEvent("DATA_LOADED", function()
     if QuestsTab:IsShown() and not addon.questIndexBuilt then
         addon:BuildQuestIndex()
         addon:BuildQuestHierarchy()
-        QuestsTab:BuildExpansionDisplay()
-        QuestsTab:BuildZoneQuestDisplay()
+        QuestsTab:RefreshDisplay()
         QuestsTab:UpdateEmptyStates()
     end
 end)
@@ -1013,8 +1030,7 @@ end)
 -- Shared handler for events that require rebuilding quest displays
 local function RefreshQuestDisplays()
     if QuestsTab:IsShown() then
-        QuestsTab:BuildExpansionDisplay()
-        QuestsTab:BuildZoneQuestDisplay()
+        QuestsTab:RefreshDisplay()
     end
 end
 
@@ -1022,28 +1038,7 @@ addon:RegisterInternalEvent("QUEST_TITLE_LOADED", RefreshQuestDisplays)
 addon:RegisterInternalEvent("QUEST_COMPLETION_CHANGED", RefreshQuestDisplays)
 addon:RegisterInternalEvent("QUEST_COMPLETION_CACHE_INVALIDATED", RefreshQuestDisplays)
 
-local ownershipRefreshTimer = nil
-
-addon:RegisterInternalEvent("RECORD_OWNERSHIP_UPDATED", function(recordID, collectionStateChanged, updateKind)
-    if collectionStateChanged == false then return end
-    if not QuestsTab:IsShown() then return end
-
-    if updateKind == "targeted" then
-        -- Debounce targeted updates to coalesce rapid single-record events
-        if ownershipRefreshTimer then ownershipRefreshTimer:Cancel() end
-        ownershipRefreshTimer = C_Timer.NewTimer(0.1, function()
-            ownershipRefreshTimer = nil
-            RefreshQuestDisplays()
-        end)
-    else
-        -- Bulk: immediate refresh (indexes already rebuilt)
-        if ownershipRefreshTimer then
-            ownershipRefreshTimer:Cancel()
-            ownershipRefreshTimer = nil
-        end
-        RefreshQuestDisplays()
-    end
-end)
+QuestsTab:RegisterOwnershipRefresh(RefreshQuestDisplays)
 
 -- Update wishlist stars when wishlist changes
 addon:RegisterInternalEvent("WISHLIST_CHANGED", function(recordID, isWishlisted)

@@ -600,6 +600,7 @@ function addon:RequestSearch()
     pendingSearchTimer = C_Timer.NewTimer(0.05, function()
         pendingSearchTimer = nil
         if self.catalogSearcher then
+            self:CountDebug("search", "debounced")
             self.catalogSearcher:RunSearch()
         end
     end)
@@ -616,6 +617,7 @@ end
 function addon:RunSearchNow(reason)
     self:CancelPendingSearch()
     if self.catalogSearcher then
+        self:CountDebug("search", reason or "unknown")
         self.catalogSearcher:RunSearch()
     end
 end
@@ -660,6 +662,7 @@ addon:RegisterWoWEvent("HOUSING_STORAGE_ENTRY_UPDATED", function(entryID)
     if not info then return end
 
     addon:Debug("Storage entry updated: " .. tostring(recordID))
+    addon:CountDebug("ownership", "targeted")
 
     local wasCollected = record.isCollected
     RefreshRecordOwnership(record, info)
@@ -671,6 +674,7 @@ end)
 -- Bulk storage update (refresh record data and re-run searcher)
 addon:RegisterWoWEvent("HOUSING_STORAGE_UPDATED", function()
     if not addon.dataLoaded then return end
+    addon:CountDebug("ownership", "bulk")
 
     -- ALWAYS: Lightweight index rebuild (needed by LDB, merchant overlay)
     addon:BuildIndexes()
