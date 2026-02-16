@@ -412,3 +412,28 @@ L["PROFESSIONS_EMPTY_NO_RESULTS"] = "No Results"
 -- Treasure Hunt Waypoints
 --------------------------------------------------------------------------------
 L["TREASURE_HUNT_WAYPOINT_SET"] = "Marked treasure at"
+
+--------------------------------------------------------------------------------
+-- Zone Overlay (World Map)
+--------------------------------------------------------------------------------
+L["ZONE_OVERLAY_TITLE"] = "Uncollected Decor"
+L["ZONE_OVERLAY_EMPTY"] = "All collected!"
+L["ZONE_OVERLAY_NO_DATA"] = "No data for this zone"
+L["ZONE_OVERLAY_VENDORS"] = "Vendors"
+L["ZONE_OVERLAY_QUESTS"] = "Quests"
+L["ZONE_OVERLAY_TREASURE"] = "Treasure Hunts"
+L["ZONE_OVERLAY_COUNT"] = "%d decor in this zone"
+L["ZONE_OVERLAY_BUTTON_TOOLTIP"] = "Housing Codex"
+L["ZONE_OVERLAY_SHOW"] = "Show Zone Overlay"
+L["ZONE_OVERLAY_PINS"] = "Show Vendor Map Pins"
+L["ZONE_OVERLAY_POSITION"] = "Panel Position"
+L["ZONE_OVERLAY_POS_TOPLEFT"] = "Top-Left"
+L["ZONE_OVERLAY_POS_BOTTOMRIGHT"] = "Bottom-Right"
+L["ZONE_OVERLAY_TRANSPARENCY"] = "Transparency"
+L["ZONE_OVERLAY_INCLUDE_COLLECTED_VENDORS"] = "Include already unlocked decor"
+L["ZONE_OVERLAY_SOURCE_VENDOR"] = "(Vendor)"
+L["ZONE_OVERLAY_CLICK_WAYPOINT"] = "Left-click to set a map pin"
+L["ZONE_OVERLAY_CLICK_OPEN_HC"] = "Right-click to open in Housing Codex"
+L["ZONE_OVERLAY_PREVIEW_SIZE"] = "Preview Size"
+L["OPTIONS_ZONE_OVERLAY"] = "Show Zone Overlay on World Map"
+L["OPTIONS_ZONE_OVERLAY_TOOLTIP"] = "Display a panel on the world map showing uncollected decor items for the current zone"

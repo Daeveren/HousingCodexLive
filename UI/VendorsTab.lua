@@ -1123,6 +1123,51 @@ function VendorsTab:ToggleZone(expansionKey, zoneName)
     self:BuildVendorDisplay()
 end
 
+function VendorsTab:NavigateToVendor(npcId)
+    if not npcId then return end
+
+    local zoneCache = addon.vendorZoneCache and addon.vendorZoneCache[npcId]
+    if not zoneCache then return end
+
+    local zoneName = zoneCache.zoneName
+    local expansionKey = zoneCache.expansionKey
+    if not zoneName or not expansionKey then return end
+
+    -- Clear search and set filter to "all" to guarantee vendor visibility
+    if self.searchBox then
+        self.searchBox:SetText("")
+    end
+    self:SetCompletionFilter("all")
+
+    -- Select the expansion (rebuilds display internally)
+    self:SelectExpansion(expansionKey)
+
+    -- Expand the target zone
+    local db = GetVendorsDB()
+    if db then
+        local key = expansionKey .. ":" .. zoneName
+        db.expandedZones[key] = true
+    end
+    self:BuildVendorDisplay()
+
+    -- Select the vendor's first decor item to show 3D preview
+    local vendorData = addon.vendorIndex and addon.vendorIndex[npcId]
+    local firstDecorId = vendorData and vendorData.decorIds and vendorData.decorIds[1]
+    if firstDecorId then
+        self.selectedVendorNpcId = npcId
+        self.selectedDecorId = firstDecorId
+        addon:FireEvent("RECORD_SELECTED", firstDecorId)
+    end
+
+    -- Next frame: scroll to the vendor row
+    C_Timer.After(0, function()
+        if not self.vendorScrollBox then return end
+        self.vendorScrollBox:ScrollToElementDataByPredicate(function(elementData)
+            return elementData.npcId == npcId
+        end, ScrollBoxConstants.AlignNearest, ScrollBoxConstants.NoScrollInterpolation)
+    end)
+end
+
 --------------------------------------------------------------------------------
 -- Search/Filter Logic
 --------------------------------------------------------------------------------

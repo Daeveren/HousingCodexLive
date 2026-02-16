@@ -19,7 +19,11 @@ local VENDOR_AREA_POI_STYLE_INFO = {
     isCurrentEvent = false,
     atlasName = "UI-EventPoi-Horn-big",
 }
-local zoneRootMapCache = {}
+
+-- Use shared helper from VendorMapIndex.lua
+local function GetZoneRootMapID(uiMapID)
+    return addon:GetZoneRootMapID(uiMapID)
+end
 
 local function IsSupportedVendorMapType(mapType)
     return mapType == Enum.UIMapType.Continent
@@ -27,39 +31,6 @@ local function IsSupportedVendorMapType(mapType)
         or mapType == Enum.UIMapType.Dungeon
         or mapType == Enum.UIMapType.Micro
         or mapType == Enum.UIMapType.Orphan
-end
-
-local function GetZoneRootMapID(uiMapID)
-    if not uiMapID then
-        return nil
-    end
-
-    local cached = zoneRootMapCache[uiMapID]
-    if cached ~= nil then
-        return cached
-    end
-
-    local currentMapID = uiMapID
-    for _ = 1, 20 do
-        local mapInfo = C_Map.GetMapInfo(currentMapID)
-        if not mapInfo then
-            break
-        end
-
-        if mapInfo.mapType == Enum.UIMapType.Zone then
-            zoneRootMapCache[uiMapID] = currentMapID
-            return currentMapID
-        end
-
-        local parentMapID = mapInfo.parentMapID
-        if not parentMapID or parentMapID == 0 or parentMapID == currentMapID then
-            break
-        end
-        currentMapID = parentMapID
-    end
-
-    zoneRootMapCache[uiMapID] = uiMapID
-    return uiMapID
 end
 
 local function GetProjectedCoordinates(vendorData, vendorMapID, targetMapID)

@@ -8,6 +8,47 @@ local ADDON_NAME, addon = ...
 addon.vendorMapVendorsByMapID = nil
 addon.vendorPinProgressCache = addon.vendorPinProgressCache or {}
 
+--------------------------------------------------------------------------------
+-- Shared: Resolve zone-level mapID (walks up from sub-zones/dungeons to parent zone)
+-- Used by ZoneIndex.lua and VendorMapPins.lua
+--------------------------------------------------------------------------------
+local zoneRootMapCache = {}
+
+function addon:GetZoneRootMapID(uiMapID)
+    if not uiMapID then return nil end
+
+    local cached = zoneRootMapCache[uiMapID]
+    if cached ~= nil then return cached end
+
+    local currentMapID = uiMapID
+    for _ = 1, 20 do
+        local mapInfo = C_Map.GetMapInfo(currentMapID)
+        if not mapInfo then break end
+
+        if mapInfo.mapType == Enum.UIMapType.Zone then
+            zoneRootMapCache[uiMapID] = currentMapID
+            return currentMapID
+        end
+
+        local parentMapID = mapInfo.parentMapID
+        if not parentMapID or parentMapID == 0 or parentMapID == currentMapID then
+            break
+        end
+
+        -- If parent is a Continent, current map is zone-level (stop before walking up)
+        local parentInfo = C_Map.GetMapInfo(parentMapID)
+        if parentInfo and parentInfo.mapType == Enum.UIMapType.Continent then
+            zoneRootMapCache[uiMapID] = currentMapID
+            return currentMapID
+        end
+
+        currentMapID = parentMapID
+    end
+
+    zoneRootMapCache[uiMapID] = uiMapID
+    return uiMapID
+end
+
 local function ShouldIncludeFaction(vendorFaction, playerFaction)
     if not vendorFaction or vendorFaction == "" or vendorFaction == "Neutral" then
         return true
@@ -37,14 +78,26 @@ local function BuildVendorMapIndex()
                     vendorsByMapID[locData.uiMapId] = mapVendors
                 end
 
-                table.insert(mapVendors, {
+                local mapEntry = {
                     npcId = npcId,
                     npcName = vendorEntry.npcName,
                     uiMapId = locData.uiMapId,
                     x = locData.x,
                     y = locData.y,
                     faction = locData.faction,
-                })
+                }
+                table.insert(mapVendors, mapEntry)
+
+                -- Also index under parent zone for zone overlay aggregation
+                local rootMapID = addon:GetZoneRootMapID(locData.uiMapId)
+                if rootMapID and rootMapID ~= locData.uiMapId then
+                    local rootVendors = vendorsByMapID[rootMapID]
+                    if not rootVendors then
+                        rootVendors = {}
+                        vendorsByMapID[rootMapID] = rootVendors
+                    end
+                    table.insert(rootVendors, mapEntry)
+                end
             end
         end
     end

@@ -211,6 +211,25 @@ function addon.Settings:Initialize()
     self.vendorMapPinsCheck = vendorMapPinsCheck
     yOffset = yOffset - 30
 
+    -- Show Zone Overlay checkbox
+    local zoneOverlayCheck = CreateCheckbox(
+        panel,
+        L["OPTIONS_ZONE_OVERLAY"],
+        L["OPTIONS_ZONE_OVERLAY_TOOLTIP"],
+        function() return addon.db and addon.db.settings.showZoneOverlay end,
+        function(checked)
+            if addon.db then
+                addon.db.settings.showZoneOverlay = checked
+                if addon.ZoneOverlay then
+                    addon.ZoneOverlay:UpdateVisibility()
+                end
+            end
+        end
+    )
+    zoneOverlayCheck:SetPoint("TOPLEFT", 16, yOffset)
+    self.zoneOverlayCheck = zoneOverlayCheck
+    yOffset = yOffset - 30
+
     -- Treasure Hunt Waypoints checkbox
     local treasureHuntCheck = CreateCheckbox(
         panel,
@@ -439,6 +458,9 @@ function addon.Settings:Refresh()
     end
     if self.vendorMapPinsCheck then
         self.vendorMapPinsCheck:SetChecked(addon.db.settings.showVendorMapPins)
+    end
+    if self.zoneOverlayCheck then
+        self.zoneOverlayCheck:SetChecked(addon.db.settings.showZoneOverlay)
     end
     if self.treasureHuntCheck then
         self.treasureHuntCheck:SetChecked(addon.db.settings.treasureHuntWaypoints)

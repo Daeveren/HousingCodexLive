@@ -66,6 +66,12 @@ local defaults = {
         showVendorMapPins = true,  -- Show vendor pins on world map
         treasureHuntWaypoints = true,  -- Auto-set waypoints for Decor Treasure Hunts
         showMidnightDrops = false,    -- Show Midnight expansion items in Drops tab
+        showZoneOverlay = true,       -- Show zone overlay on world map
+        zoneOverlayMinimized = false, -- Minimized state
+        zoneOverlayPosition = "topLeft",  -- "topLeft" or "bottomRight"
+        zoneOverlayAlpha = 0.9,       -- Panel transparency (0.6 - 1.0)
+        includeCollectedVendorDecor = false,  -- Include already-collected vendor decor in zone overlay
+        zoneOverlayPreviewScale = 1.0,        -- Preview size scale (0.5, 1.0, 1.5)
     },
     wishlistUI = {
         tileSize = 152,      -- Separate from browser.tileSize

@@ -2,6 +2,21 @@
 
 All notable changes to Housing Codex.
 
+## [1.4.0] - 2026-02-16
+
+### Added
+- NEW - Zone Overlay on the world map - see uncollected housing decor in the current zone
+  - Expand the overlay to see the list of uncollected decor in the zone
+  - See vendor name, set waypoints, show the 3D item preview
+  - New Housing Codex button on the world map with settings: overlay toggle, position, transparency, preview size
+- "Include already unlocked decor vendors" toggle in the world map dropdown - shows collected vendor items dimmed
+
+### Changed
+- Multi-level maps like Dalaran now correctly show housing data
+
+### Fixed
+- Vendors in sub-zones (e.g., City of Threads in Azj-Kahet) now appear in the parent zone's overlay
+
 ## [1.3.4] - 2026-02-15
 
 ### Changed
