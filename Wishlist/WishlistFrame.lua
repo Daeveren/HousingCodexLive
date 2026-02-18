@@ -43,9 +43,19 @@ local CAMERA_IMMEDIATE = CONSTS.CAMERA.TRANSITION_IMMEDIATE
 local CAMERA_DISCARD = CONSTS.CAMERA.MODIFICATION_DISCARD
 local SCENE_PRESETS = CONSTS.SCENE_PRESETS
 local DEFAULT_SCENE_ID = CONSTS.DEFAULT_SCENE_ID
+local ROTATION_SPEED = CONSTS.CAMERA.ROTATION_SPEED
 
 -- Zoom constant
 local ZOOM_STEP = 0.02
+
+-- Helper: set atlas or texture on a texture object
+local function SetIcon(texture, icon, iconType)
+    if iconType == "atlas" then
+        texture:SetAtlas(icon)
+    else
+        texture:SetTexture(icon)
+    end
+end
 
 local MAIN_BACKDROP = {
     bgFile = "Interface\\DialogFrame\\UI-DialogBox-Background",
@@ -541,12 +551,55 @@ function WishlistFrame:CreatePreviewPanel()
         )
     end)
 
-    -- Enable mouse wheel zoom
+    -- Enable mouse interaction (drag rotation + zoom)
+    modelScene:EnableMouse(true)
     modelScene:EnableMouseWheel(true)
     modelScene:SetScript("OnMouseWheel", function(_, delta)
         local camera = modelScene:GetActiveCamera()
         if camera and camera.ZoomByPercent then
             camera:ZoomByPercent(delta * ZOOM_STEP)
+        end
+    end)
+
+    -- Per-frame: inverted vertical drag + auto-rotation
+    local lastPitchCamera = nil
+    local lastPitchValue = nil
+
+    modelScene:HookScript("OnUpdate", function(_, elapsed)
+        if not modelScene:IsShown() then return end
+
+        local camera = modelScene:GetActiveCamera()
+        if not camera or not camera.GetYaw then return end
+
+        -- Inverted vertical drag (same pattern as PreviewFrame)
+        if camera.GetPitch and camera.SetPitch then
+            local currentPitch = camera:GetPitch()
+            if lastPitchCamera ~= camera then
+                lastPitchCamera = camera
+                lastPitchValue = currentPitch
+            elseif lastPitchValue and modelScene:IsLeftMouseButtonDown() then
+                local pitchDelta = currentPitch - lastPitchValue
+                if pitchDelta ~= 0 then
+                    camera:SetPitch(lastPitchValue - pitchDelta)
+                    if camera.SnapToTargetInterpolationPitch then
+                        camera:SnapToTargetInterpolationPitch()
+                    end
+                end
+            end
+            lastPitchValue = camera:GetPitch()
+        end
+
+        -- Auto-rotation
+        if not elapsed then return end
+        if not (addon.db and addon.db.settings.autoRotatePreview) then return end
+        if modelScene:IsLeftMouseButtonDown() or modelScene:IsRightMouseButtonDown() then
+            return
+        end
+
+        local yaw = camera:GetYaw() or 0
+        camera:SetYaw(yaw + elapsed * ROTATION_SPEED)
+        if camera.SnapToTargetInterpolationYaw then
+            camera:SnapToTargetInterpolationYaw()
         end
     end)
 
@@ -1061,6 +1114,12 @@ function WishlistFrame:ShowPreview(recordID)
     local sceneID = record.modelSceneID or SCENE_PRESETS[record.size] or DEFAULT_SCENE_ID
     self.modelScene:TransitionToModelSceneID(sceneID, CAMERA_IMMEDIATE, CAMERA_DISCARD, true)
 
+    -- Configure orbit camera controls (re-apply after each CAMERA_DISCARD transition)
+    local camera = self.modelScene:GetActiveCamera()
+    if camera then
+        addon.Preview:ConfigureOrbitCameraControls(camera)
+    end
+
     local actor = self.modelScene:GetActorByTag("decor") or self.modelScene:GetActorByTag("item")
     if not actor then
         self:ShowFallback(L["PREVIEW_ERROR"], record.icon, record.iconType)
@@ -1078,15 +1137,9 @@ function WishlistFrame:ShowFallback(message, icon, iconType)
     if self.modelScene then self.modelScene:Hide() end
 
     if icon then
-        if iconType == "atlas" then
-            self.fallbackIcon:SetAtlas(icon)
-        else
-            self.fallbackIcon:SetTexture(icon)
-        end
-        self.fallbackIcon:Show()
-    else
-        self.fallbackIcon:Hide()
+        SetIcon(self.fallbackIcon, icon, iconType)
     end
+    self.fallbackIcon:SetShown(icon ~= nil)
 
     self.fallbackMessage:SetText(message or "")
     self.fallbackContainer:Show()

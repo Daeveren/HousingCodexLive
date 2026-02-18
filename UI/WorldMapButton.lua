@@ -144,10 +144,12 @@ addon:RegisterInternalEvent("DATA_LOADED", function()
     if WorldMapFrame and WorldMapFrame.AddDataProvider then
         CreateWorldMapButton()
     else
-        addon:RegisterWoWEvent("ADDON_LOADED", function(loadedAddon)
+        local function onAddonLoaded(loadedAddon)
             if loadedAddon == "Blizzard_WorldMap" then
                 CreateWorldMapButton()
+                addon:UnregisterWoWEvent("ADDON_LOADED", onAddonLoaded)
             end
-        end)
+        end
+        addon:RegisterWoWEvent("ADDON_LOADED", onAddonLoaded)
     end
 end)

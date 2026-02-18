@@ -144,6 +144,7 @@ addon.CONSTANTS = {
         ORBIT_MOUSE_PAN_HORIZONTAL = ORBIT_CAMERA_MOUSE_PAN_HORIZONTAL or 7,
         ORBIT_MOUSE_PAN_VERTICAL = ORBIT_CAMERA_MOUSE_PAN_VERTICAL or 8,
         PREVIEW_MIN_ZOOM_SCALE = 0.5, -- Medium zoom-in boost (50% of scene minimum distance)
+        ROTATION_SPEED = 0.8, -- Auto-rotation (radians/sec, ~8s full rotation)
     },
 
     -- Scene presets by Enum.HousingCatalogEntrySize values (0, 65-69)

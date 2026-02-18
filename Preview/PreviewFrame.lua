@@ -27,6 +27,7 @@ local ORBIT_MOUSE_ZOOM = CONSTS.CAMERA.ORBIT_MOUSE_ZOOM
 local ORBIT_MOUSE_PAN_HORIZONTAL = CONSTS.CAMERA.ORBIT_MOUSE_PAN_HORIZONTAL
 local ORBIT_MOUSE_PAN_VERTICAL = CONSTS.CAMERA.ORBIT_MOUSE_PAN_VERTICAL
 local PREVIEW_MIN_ZOOM_SCALE = CONSTS.CAMERA.PREVIEW_MIN_ZOOM_SCALE or 0.5
+local ROTATION_SPEED = CONSTS.CAMERA.ROTATION_SPEED
 local SCENE_PRESETS = CONSTS.SCENE_PRESETS
 local DEFAULT_SCENE_ID = CONSTS.DEFAULT_SCENE_ID
 
@@ -145,8 +146,8 @@ function Preview:CreateModelScene()
     end)
 
     -- Apply per-frame camera adjustments (vertical drag inversion).
-    modelScene:HookScript("OnUpdate", function()
-        self:OnModelSceneUpdate()
+    modelScene:HookScript("OnUpdate", function(_, elapsed)
+        self:OnModelSceneUpdate(elapsed)
     end)
 end
 
@@ -263,14 +264,30 @@ function Preview:ApplyInvertedVerticalDrag(camera)
     end
 end
 
-function Preview:OnModelSceneUpdate()
+function Preview:OnModelSceneUpdate(elapsed)
     if not self.modelScene or not self.modelScene:IsShown() then return end
 
     local camera = self:GetActiveOrbitCamera()
     if not camera then return end
 
+    -- Inverted vertical drag
     self:ApplyInvertedVerticalDrag(camera)
     self.lastPitchValue = camera:GetPitch()
+
+    -- Auto-rotation (requires elapsed for delta-based yaw)
+    if not elapsed then return end
+    if not (addon.db and addon.db.settings.autoRotatePreview) then return end
+
+    -- Pause when user is dragging
+    if self.modelScene:IsLeftMouseButtonDown() or self.modelScene:IsRightMouseButtonDown() then
+        return
+    end
+
+    local yaw = camera:GetYaw() or 0
+    camera:SetYaw(yaw + elapsed * ROTATION_SPEED)
+    if camera.SnapToTargetInterpolationYaw then
+        camera:SnapToTargetInterpolationYaw()
+    end
 end
 
 function Preview:CreateFallbackUI()

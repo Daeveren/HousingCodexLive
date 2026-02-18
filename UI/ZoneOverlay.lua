@@ -21,13 +21,16 @@ local PREVIEW_SIZE = 240
 local PADDING = 8
 local MAX_VISIBLE_ENTRIES = 10
 local COLLAPSED_HEIGHT = 22   -- TITLE_BAR_HEIGHT (28) - 6
+local TITLE_FONT_SIZE = 11
+local ITEM_FONT_SIZE = 10
+local BACKDROP_ALPHA_FACTOR = 0.95  -- Reduce backdrop alpha slightly vs user setting for visual separation
 
 -- Model scene constants (same as tile display)
 local MODEL_SCENE_ID = 1317
 local MODEL_ACTOR_TAG = "decor"
 
--- Auto-rotation speed for preview tooltip (radians/sec, ~8s full rotation)
-local ROTATION_SPEED = 0.8
+-- Auto-rotation speed (centralized in CONSTANTS.CAMERA)
+local ROTATION_SPEED = addon.CONSTANTS.CAMERA.ROTATION_SPEED
 
 -- Arrow rotation angles (bag-arrow atlas points right by default)
 local ARROW_COLLAPSED = math.pi / 2        -- Points down
@@ -66,24 +69,12 @@ end
 -- Helper: place a map pin for a vendor NPC
 local function PlaceVendorWaypoint(npcId, npcName)
     local L = addon.L
-    local locData = addon:GetNPCLocation(npcId)
-    if not locData or not addon.IsValidMapId(locData.uiMapId) or not addon.HasValidCoordinates(locData) then
-        addon:Print(L["VENDOR_NO_LOCATION"])
+    local point, _, errorKey = addon.VendorsTab:GetVendorTrackPoint(npcId)
+    if not point then
+        addon:Print(L[errorKey or "VENDOR_NO_LOCATION"])
         return
     end
 
-    if not C_Map.CanSetUserWaypointOnMap(locData.uiMapId) then
-        addon:Print(L["VENDOR_MAP_RESTRICTED"])
-        return
-    end
-
-    local normX, normY = locData.x / 100, locData.y / 100
-    if normX < 0 or normX > 1 or normY < 0 or normY > 1 then
-        addon:Print(L["VENDOR_NO_LOCATION"])
-        return
-    end
-
-    local point = UiMapPoint.CreateFromCoordinates(locData.uiMapId, normX, normY)
     C_Map.SetUserWaypoint(point)
     C_SuperTrack.SetSuperTrackedUserWaypoint(true)
     addon:Print(string.format(L["VENDOR_WAYPOINT_SET"], npcName or L["VENDOR_FALLBACK_NAME"]))
@@ -248,7 +239,7 @@ local function CreateOverlayFrame()
     titleText:SetPoint("RIGHT", -28, 0)
     titleText:SetJustifyH("LEFT")
     titleText:SetWordWrap(false)
-    titleText:SetFont(addon:GetFontPath(), 11, "")
+    titleText:SetFont(addon:GetFontPath(), TITLE_FONT_SIZE, "")
     titleText:SetTextColor(1, 0.82, 0, 1)
     frame.titleText = titleText
 
@@ -316,7 +307,7 @@ local function CreateOverlayFrame()
             headerText:SetPoint("LEFT", headerArrow, "RIGHT", 4, 0)
             headerText:SetPoint("RIGHT", -PADDING, 0)
             headerText:SetJustifyH("LEFT")
-            headerText:SetFont(addon:GetFontPath(), 10, "")
+            headerText:SetFont(addon:GetFontPath(), ITEM_FONT_SIZE, "")
             headerText:SetTextColor(0.7, 0.7, 0.7, 1)
             row.headerText = headerText
 
@@ -332,7 +323,7 @@ local function CreateOverlayFrame()
             name:SetPoint("RIGHT", -4, 0)
             name:SetJustifyH("LEFT")
             name:SetWordWrap(false)
-            name:SetFont(addon:GetFontPath(), 10, "")
+            name:SetFont(addon:GetFontPath(), ITEM_FONT_SIZE, "")
             row.name = name
 
             local highlight = row:CreateTexture(nil, "HIGHLIGHT")
@@ -634,8 +625,7 @@ function ZoneOverlay:UpdatePosition()
     else
         -- Shift down if current map has a floor dropdown (multi-level maps like Dalaran)
         local groupID = currentMapID and C_Map.GetMapGroupID(currentMapID)
-        local hasFloorDropdown = groupID and groupID ~= 0
-        local yOffset = hasFloorDropdown and -31 or -6
+        local yOffset = groupID and -31 or -6
         frame:SetPoint("TOPLEFT", WorldMapFrame.ScrollContainer, "TOPLEFT", 7, yOffset)
     end
 end
@@ -643,7 +633,7 @@ end
 function ZoneOverlay:UpdateAlpha()
     if not frame or not addon.db then return end
 
-    local alpha = (addon.db.settings.zoneOverlayAlpha or 0.9) * 0.95
+    local alpha = (addon.db.settings.zoneOverlayAlpha or 0.9) * BACKDROP_ALPHA_FACTOR
     frame:SetBackdropColor(0.08, 0.08, 0.1, alpha)
     frame:SetBackdropBorderColor(0.3, 0.3, 0.3, alpha)
 end
@@ -655,8 +645,9 @@ function ZoneOverlay:UpdatePreviewSize()
     previewFrame.icon:SetSize(size - 16, size - 16)
 end
 
+-- No combat guard needed: overlay is a child of WorldMapFrame.ScrollContainer (not a top-level frame)
 function ZoneOverlay:UpdateVisibility()
-    if not frame or not addon.db or InCombatLockdown() then return end
+    if not frame or not addon.db then return end
 
     if addon.db.settings.showZoneOverlay and WorldMapFrame:IsShown() then
         frame:Show()
@@ -741,10 +732,12 @@ addon:RegisterInternalEvent("DATA_LOADED", function()
     if WorldMapFrame and WorldMapFrame.ScrollContainer then
         InitializeOverlay()
     else
-        addon:RegisterWoWEvent("ADDON_LOADED", function(loadedAddon)
+        local function onAddonLoaded(loadedAddon)
             if loadedAddon == "Blizzard_WorldMap" then
                 InitializeOverlay()
+                addon:UnregisterWoWEvent("ADDON_LOADED", onAddonLoaded)
             end
-        end)
+        end
+        addon:RegisterWoWEvent("ADDON_LOADED", onAddonLoaded)
     end
 end)

@@ -21,6 +21,10 @@ local zoneDecorCache = {}         -- mapID -> { vendors = {...}, quests = {...},
 local zoneProgressCache = {}      -- mapID -> { uncollected = n, total = n }
 local indexBuilt = false
 
+local function SortByName(a, b)
+    return a.decorName < b.decorName
+end
+
 --------------------------------------------------------------------------------
 -- Resolve the scraper zone name for a given mapID
 -- Uses C_Map.GetMapInfo().name with alias fallback
@@ -137,10 +141,11 @@ function addon:GetZoneDecorItems(mapID)
         })
     end
 
-    -- 1. Vendors (indexed by mapID directly)
+    -- Helper: collect vendors for a single mapID
     local vendorsByMapID = self:GetAllVendorMapVendors()
-    local mapVendors = vendorsByMapID and vendorsByMapID[zoneMapID]
-    if mapVendors then
+    local function CollectVendors(targetMapID)
+        local mapVendors = vendorsByMapID and vendorsByMapID[targetMapID]
+        if not mapVendors then return end
         for _, vendorPin in ipairs(mapVendors) do
             local vendor = self.vendorIndex and self.vendorIndex[vendorPin.npcId]
             if vendor and vendor.decorIds then
@@ -151,43 +156,56 @@ function addon:GetZoneDecorItems(mapID)
         end
     end
 
-    -- 2. Quests and Treasure Hunts (indexed by zone name)
-    local zoneName = GetScraperZoneName(zoneMapID)
-    local zoneQuests = zoneName and questsByZoneName[zoneName]
-    if zoneQuests then
-        for _, questKey in ipairs(zoneQuests) do
-            local questRecords = self.questIndex and self.questIndex[questKey]
-            if questRecords then
-                local isTreasureHunt = type(questKey) == "number" and treasureHuntQuestSet[questKey]
-                local targetList = isTreasureHunt and result.treasures or result.quests
-                local questTitle = self:GetQuestTitle(questKey)
+    -- Helper: collect quests and treasure hunts for a single mapID
+    local function CollectQuestsAndTreasures(targetMapID)
+        local zoneName = GetScraperZoneName(targetMapID)
+        local zoneQuests = zoneName and questsByZoneName[zoneName]
+        if zoneQuests then
+            for _, questKey in ipairs(zoneQuests) do
+                local questRecords = self.questIndex and self.questIndex[questKey]
+                if questRecords then
+                    local isTreasureHunt = type(questKey) == "number" and treasureHuntQuestSet[questKey]
+                    local targetList = isTreasureHunt and result.treasures or result.quests
+                    local questTitle = self:GetQuestTitle(questKey)
 
-                for recordID in pairs(questRecords) do
-                    AddItem(targetList, recordID, questTitle, questKey)
+                    for recordID in pairs(questRecords) do
+                        AddItem(targetList, recordID, questTitle, questKey)
+                    end
                 end
             end
         end
-    end
 
-    -- 3. Treasure hunts by mapID (catches any not covered by zone name matching)
-    if addon.TreasureHuntLocations then
-        for questID, locData in pairs(addon.TreasureHuntLocations) do
-            if locData.mapID == zoneMapID then
-                local questRecords = self.questIndex and self.questIndex[questID]
-                if questRecords then
-                    local questTitle = self:GetQuestTitle(questID)
-                    for recordID in pairs(questRecords) do
-                        AddItem(result.treasures, recordID, questTitle, questID)
+        -- Treasure hunts by mapID (catches any not covered by zone name matching)
+        if addon.TreasureHuntLocations then
+            for questID, locData in pairs(addon.TreasureHuntLocations) do
+                if locData.mapID == targetMapID then
+                    local questRecords = self.questIndex and self.questIndex[questID]
+                    if questRecords then
+                        local questTitle = self:GetQuestTitle(questID)
+                        for recordID in pairs(questRecords) do
+                            AddItem(result.treasures, recordID, questTitle, questID)
+                        end
                     end
                 end
             end
         end
     end
 
-    -- Sort each group by pre-resolved name
-    local function SortByName(a, b)
-        return a.decorName < b.decorName
+    -- 1. Vendors for this zone
+    CollectVendors(zoneMapID)
+
+    -- 2. Quests and Treasure Hunts for this zone
+    CollectQuestsAndTreasures(zoneMapID)
+
+    -- 3. City children: merge vendors/quests/treasures from child cities into parent zone
+    local cityChildren = addon:GetCityChildMapIDs(zoneMapID)
+    if cityChildren then
+        for _, cityMapID in ipairs(cityChildren) do
+            CollectVendors(cityMapID)
+            CollectQuestsAndTreasures(cityMapID)
+        end
     end
+
     table.sort(result.vendors, SortByName)
     table.sort(result.quests, SortByName)
     table.sort(result.treasures, SortByName)
@@ -212,14 +230,16 @@ function addon:GetZoneDecorProgress(mapID)
     local items = self:GetZoneDecorItems(zoneMapID)
     if not items then return 0, 0 end
 
-    local uncollected, total = 0, 0
-    for _, group in ipairs({ items.vendors, items.quests, items.treasures }) do
-        for _, item in ipairs(group) do
-            total = total + 1
-            if not item.isCollected then
-                uncollected = uncollected + 1
-            end
-        end
+    local total = #items.vendors + #items.quests + #items.treasures
+    local uncollected = 0
+    for _, item in ipairs(items.vendors) do
+        if not item.isCollected then uncollected = uncollected + 1 end
+    end
+    for _, item in ipairs(items.quests) do
+        if not item.isCollected then uncollected = uncollected + 1 end
+    end
+    for _, item in ipairs(items.treasures) do
+        if not item.isCollected then uncollected = uncollected + 1 end
     end
 
     zoneProgressCache[zoneMapID] = { uncollected = uncollected, total = total }

@@ -182,6 +182,8 @@ L["OPTIONS_TREASURE_HUNT_WAYPOINTS"] = "Auto-waypoint for Treasure Hunts"
 L["OPTIONS_TREASURE_HUNT_WAYPOINTS_TOOLTIP"] = "Automatically set a map waypoint when accepting a Decor Treasure Hunt quest in housing zones"
 L["OPTIONS_SHOW_MIDNIGHT_DROPS"] = "Show Midnight expansion drops"
 L["OPTIONS_SHOW_MIDNIGHT_DROPS_TOOLTIP"] = "Include Midnight expansion items in the Drops tab (dungeons, raids, delves, treasures)"
+L["OPTIONS_AUTO_ROTATE_PREVIEW"] = "Auto-rotate 3D preview"
+L["OPTIONS_AUTO_ROTATE_PREVIEW_TOOLTIP"] = "Slowly rotate the 3D model in the preview panel and wishlist"
 L["OPTIONS_RESET_POSITION"] = "Reset Window Position"
 L["OPTIONS_RESET_POSITION_TOOLTIP"] = "Reset the window to the center of your screen"
 
@@ -416,9 +418,6 @@ L["TREASURE_HUNT_WAYPOINT_SET"] = "Marked treasure at"
 --------------------------------------------------------------------------------
 -- Zone Overlay (World Map)
 --------------------------------------------------------------------------------
-L["ZONE_OVERLAY_TITLE"] = "Uncollected Decor"
-L["ZONE_OVERLAY_EMPTY"] = "All collected!"
-L["ZONE_OVERLAY_NO_DATA"] = "No data for this zone"
 L["ZONE_OVERLAY_VENDORS"] = "Vendors"
 L["ZONE_OVERLAY_QUESTS"] = "Quests"
 L["ZONE_OVERLAY_TREASURE"] = "Treasure Hunts"

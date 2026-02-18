@@ -2,6 +2,17 @@
 
 All notable changes to Housing Codex.
 
+## [1.4.1] - 2026-02-18
+
+### Added
+- Auto-rotate is no longer exclusive to the tooltips, has now been added to the main and Wishlist UI too
+- New toggle in Settings to turn auto-rotate on/off
+- Wishlist UI 3D preview now supports full rotation and panning (matching the main preview)
+- Zone overlay now includes housing decor from cities within a parent zone
+
+### Fixed
+- Codebase improvements for smoother performance
+
 ## [1.4.0] - 2026-02-16
 
 ### Added

@@ -267,6 +267,22 @@ function addon.Settings:Initialize()
     )
     midnightCheck:SetPoint("TOPLEFT", 16, yOffset)
     self.midnightCheck = midnightCheck
+    yOffset = yOffset - 30
+
+    -- Auto-rotate 3D preview checkbox
+    local autoRotateCheck = CreateCheckbox(
+        panel,
+        L["OPTIONS_AUTO_ROTATE_PREVIEW"],
+        L["OPTIONS_AUTO_ROTATE_PREVIEW_TOOLTIP"],
+        function() return addon.db and addon.db.settings.autoRotatePreview end,
+        function(checked)
+            if addon.db then
+                addon.db.settings.autoRotatePreview = checked
+            end
+        end
+    )
+    autoRotateCheck:SetPoint("TOPLEFT", 16, yOffset)
+    self.autoRotateCheck = autoRotateCheck
     yOffset = yOffset - 40
 
     -- Reset Position button
@@ -467,6 +483,9 @@ function addon.Settings:Refresh()
     end
     if self.midnightCheck then
         self.midnightCheck:SetChecked(addon.db.settings.showMidnightDrops)
+    end
+    if self.autoRotateCheck then
+        self.autoRotateCheck:SetChecked(addon.db.settings.autoRotatePreview)
     end
     if self.UpdateKeybindButtonText then
         self.UpdateKeybindButtonText()

@@ -49,6 +49,37 @@ function addon:GetZoneRootMapID(uiMapID)
     return uiMapID
 end
 
+--------------------------------------------------------------------------------
+-- Shared: Find city-type child maps for a given zone (for overlay aggregation)
+-- Cities have mapType=Zone (same as outdoor zones) so GetZoneRootMapID stops
+-- at the city itself. This discovers city children to merge into parent zone.
+--------------------------------------------------------------------------------
+local cityChildrenCache = {}
+
+function addon:GetCityChildMapIDs(zoneMapID)
+    if not zoneMapID then return nil end
+    local cached = cityChildrenCache[zoneMapID]
+    if cached ~= nil then return cached or nil end
+
+    -- GetMapChildrenInfo has MayReturnNothing — nil-guard required
+    local children = C_Map.GetMapChildrenInfo(zoneMapID)
+    if not children then
+        cityChildrenCache[zoneMapID] = false
+        return nil
+    end
+
+    local cityChildren
+    for _, childInfo in ipairs(children) do
+        if childInfo.mapID and bit.band(childInfo.flags, Enum.UIMapFlag.IsCityMap) ~= 0 then
+            if not cityChildren then cityChildren = {} end
+            cityChildren[#cityChildren + 1] = childInfo.mapID
+        end
+    end
+
+    cityChildrenCache[zoneMapID] = cityChildren or false
+    return cityChildren
+end
+
 local function ShouldIncludeFaction(vendorFaction, playerFaction)
     if not vendorFaction or vendorFaction == "" or vendorFaction == "Neutral" then
         return true
@@ -109,15 +140,6 @@ local function BuildVendorMapIndex()
     end
 
     addon.vendorMapVendorsByMapID = vendorsByMapID
-end
-
-function addon:GetVendorsForMapID(uiMapID)
-    if not uiMapID then
-        return nil
-    end
-
-    BuildVendorMapIndex()
-    return addon.vendorMapVendorsByMapID[uiMapID]
 end
 
 function addon:GetAllVendorMapVendors()

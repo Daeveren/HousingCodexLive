@@ -30,6 +30,7 @@ local defaults = {
             indoors = true,
             outdoors = true,
             dyeable = false,
+            firstAcquisition = false,
             tagFilters = {},  -- { [groupID] = { [tagID] = bool } }
         },
         category = {
@@ -72,6 +73,7 @@ local defaults = {
         zoneOverlayAlpha = 0.9,       -- Panel transparency (0.6 - 1.0)
         includeCollectedVendorDecor = false,  -- Include already-collected vendor decor in zone overlay
         zoneOverlayPreviewScale = 1.0,        -- Preview size scale (0.5, 1.0, 1.5)
+        autoRotatePreview = true,             -- Auto-rotate 3D preview models
     },
     wishlistUI = {
         tileSize = 152,      -- Separate from browser.tileSize
