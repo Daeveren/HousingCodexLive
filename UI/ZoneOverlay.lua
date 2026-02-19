@@ -370,6 +370,7 @@ local function CreateOverlayFrame()
             row.sourceId = elementData.sourceId
             row.categoryKey = elementData.categoryKey
             row.isCollected = elementData.isCollected
+            row.cityName = elementData.cityName
 
             -- Click handlers (vendor items only)
             row:SetScript("OnMouseUp", function(self, button)
@@ -394,8 +395,11 @@ local function CreateOverlayFrame()
                     GameTooltip:SetPoint("TOPLEFT", self, "BOTTOMLEFT", 0, -2)
                     local L = addon.L
                     if self.categoryKey == "vendors" and self.sourceName then
+                        local locationLine = self.cityName
+                            and string.format(L["ZONE_OVERLAY_SOURCE_VENDOR_CITY"], self.cityName)
+                            or L["ZONE_OVERLAY_SOURCE_VENDOR"]
                         GameTooltip:SetText(self.sourceName, 0, 0.8, 0)
-                        GameTooltip:AddLine(L["ZONE_OVERLAY_SOURCE_VENDOR"], 0.67, 0.67, 0.67)
+                        GameTooltip:AddLine(locationLine, 0.67, 0.67, 0.67)
                         GameTooltip:AddLine(" ")
                         GameTooltip:AddLine(L["ZONE_OVERLAY_CLICK_WAYPOINT"], 0.7, 0.7, 0.7)
                         GameTooltip:AddLine(L["ZONE_OVERLAY_CLICK_OPEN_HC"], 0.7, 0.7, 0.7)
@@ -585,6 +589,7 @@ function ZoneOverlay:RefreshLayout()
                     icon = record and record.icon or FALLBACK_ICON,
                     iconType = record and record.iconType,
                     isCollected = item.isCollected,
+                    cityName = item.cityName,
                 })
             end
         end

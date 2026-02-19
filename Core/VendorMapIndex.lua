@@ -50,34 +50,33 @@ function addon:GetZoneRootMapID(uiMapID)
 end
 
 --------------------------------------------------------------------------------
--- Shared: Find city-type child maps for a given zone (for overlay aggregation)
--- Cities have mapType=Zone (same as outdoor zones) so GetZoneRootMapID stops
--- at the city itself. This discovers city children to merge into parent zone.
+-- Shared: Map zone mapIDs to their geographically-contained city mapIDs
+-- WoW places cities as siblings of zones under the continent (not children),
+-- so no API discovers this relationship. Static table, one entry per zone.
 --------------------------------------------------------------------------------
-local cityChildrenCache = {}
+local CITY_CHILDREN = {
+    -- Eastern Kingdoms
+    [37]   = { 84 },   -- Elwynn Forest -> Stormwind City
+    [27]   = { 87 },   -- Dun Morogh -> Ironforge
+    [18]   = { 90 },   -- Tirisfal Glades -> Undercity
+    [94]   = { 110 },  -- Eversong Woods -> Silvermoon City
+    -- Kalimdor
+    [1]    = { 85 },   -- Durotar -> Orgrimmar
+    [7]    = { 88 },   -- Mulgore -> Thunder Bluff
+    -- Battle for Azeroth
+    [895]  = { 1161 }, -- Tiragarde Sound -> Boralus
+    [862]  = { 1165 }, -- Zuldazar -> Dazar'alor
+    -- Dragonflight
+    [2025] = { 2112 }, -- Thaldraszus -> Valdrakken
+    -- The War Within
+    [2248] = { 2339 }, -- Isle of Dorn -> Dornogal
+    [2255] = { 2213 }, -- Azj-Kahet -> City of Threads
+    [2371] = { 2472 }, -- K'aresh -> Tazavesh
+}
 
 function addon:GetCityChildMapIDs(zoneMapID)
     if not zoneMapID then return nil end
-    local cached = cityChildrenCache[zoneMapID]
-    if cached ~= nil then return cached or nil end
-
-    -- GetMapChildrenInfo has MayReturnNothing — nil-guard required
-    local children = C_Map.GetMapChildrenInfo(zoneMapID)
-    if not children then
-        cityChildrenCache[zoneMapID] = false
-        return nil
-    end
-
-    local cityChildren
-    for _, childInfo in ipairs(children) do
-        if childInfo.mapID and bit.band(childInfo.flags, Enum.UIMapFlag.IsCityMap) ~= 0 then
-            if not cityChildren then cityChildren = {} end
-            cityChildren[#cityChildren + 1] = childInfo.mapID
-        end
-    end
-
-    cityChildrenCache[zoneMapID] = cityChildren or false
-    return cityChildren
+    return CITY_CHILDREN[zoneMapID]
 end
 
 local function ShouldIncludeFaction(vendorFaction, playerFaction)

@@ -2,6 +2,14 @@
 
 All notable changes to Housing Codex.
 
+## [1.4.2] - 2026-02-19
+
+### Changed
+- Decor vendors in cities now show the city name in the zone overlay tooltip (ie: "Vendor in Stormwind")
+
+### Fixed
+- Decor vendors in cities now correctly appear in the parent zone's overlay
+
 ## [1.4.1] - 2026-02-18
 
 ### Added

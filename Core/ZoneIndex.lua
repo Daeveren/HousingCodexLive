@@ -128,7 +128,7 @@ function addon:GetZoneDecorItems(mapID)
     local seenRecords = {}  -- Deduplicate across sources
 
     -- Helper: add a decor item to a target list with deduplication
-    local function AddItem(targetList, recordID, sourceName, sourceId)
+    local function AddItem(targetList, recordID, sourceName, sourceId, cityName)
         if seenRecords[recordID] then return end
         seenRecords[recordID] = true
         local record = self:GetRecord(recordID)
@@ -138,19 +138,20 @@ function addon:GetZoneDecorItems(mapID)
             sourceName = sourceName,
             sourceId = sourceId,
             isCollected = record and record.isCollected or false,
+            cityName = cityName,
         })
     end
 
     -- Helper: collect vendors for a single mapID
     local vendorsByMapID = self:GetAllVendorMapVendors()
-    local function CollectVendors(targetMapID)
+    local function CollectVendors(targetMapID, cityName)
         local mapVendors = vendorsByMapID and vendorsByMapID[targetMapID]
         if not mapVendors then return end
         for _, vendorPin in ipairs(mapVendors) do
             local vendor = self.vendorIndex and self.vendorIndex[vendorPin.npcId]
             if vendor and vendor.decorIds then
                 for _, decorId in ipairs(vendor.decorIds) do
-                    AddItem(result.vendors, decorId, vendorPin.npcName, vendorPin.npcId)
+                    AddItem(result.vendors, decorId, vendorPin.npcName, vendorPin.npcId, cityName)
                 end
             end
         end
@@ -201,7 +202,9 @@ function addon:GetZoneDecorItems(mapID)
     local cityChildren = addon:GetCityChildMapIDs(zoneMapID)
     if cityChildren then
         for _, cityMapID in ipairs(cityChildren) do
-            CollectVendors(cityMapID)
+            local cityInfo = C_Map.GetMapInfo(cityMapID)
+            local cityName = cityInfo and cityInfo.name
+            CollectVendors(cityMapID, cityName)
             CollectQuestsAndTreasures(cityMapID)
         end
     end
