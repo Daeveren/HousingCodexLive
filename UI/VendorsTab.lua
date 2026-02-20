@@ -805,7 +805,7 @@ function VendorsTab:SetupDecorRows(frame, decorIds)
         row:SetPoint("RIGHT", frame.decorContainer, "RIGHT", 0, 0)
         row:Show()
 
-        local record = addon:GetRecord(decorId)
+        local record = addon:ResolveRecord(decorId)
         local fallback = not record and addon.VendorItemFallback and addon.VendorItemFallback[decorId]
         row.decorId = decorId
 
@@ -970,25 +970,24 @@ function VendorsTab:IsCurrentWaypointForVendor(npcId)
         return false
     end
 
-    local locData = addon:GetNPCLocation(npcId)
+    local locations = addon:GetNPCLocations(npcId)
     local point = C_Map.GetUserWaypoint()
-    if not locData or not point or point.uiMapID ~= locData.uiMapId then
-        return false
-    end
+    if not locations or not point then return false end
 
-    if not addon.HasValidCoordinates(locData) then
-        return false
+    for _, locData in ipairs(locations) do
+        if point.uiMapID == locData.uiMapId and addon.HasValidCoordinates(locData) then
+            local x, y = GetWaypointXY(point)
+            if x and y then
+                local vendorX = locData.x / 100
+                local vendorY = locData.y / 100
+                if math.abs(x - vendorX) <= WAYPOINT_MATCH_EPSILON
+                    and math.abs(y - vendorY) <= WAYPOINT_MATCH_EPSILON then
+                    return true
+                end
+            end
+        end
     end
-
-    local x, y = GetWaypointXY(point)
-    if not x or not y then
-        return false
-    end
-
-    local vendorX = locData.x / 100
-    local vendorY = locData.y / 100
-    return math.abs(x - vendorX) <= WAYPOINT_MATCH_EPSILON
-        and math.abs(y - vendorY) <= WAYPOINT_MATCH_EPSILON
+    return false
 end
 
 function VendorsTab:IsVendorDecorTracked(npcId, decorId)

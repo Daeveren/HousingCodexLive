@@ -2,6 +2,15 @@
 
 All notable changes to Housing Codex.
 
+## [1.4.3] - 2026-02-20
+
+### Added
+- Vendor map pin tooltips now show "(locked)" next to items that need a prerequisite before you can buy them
+
+### Fixed
+- Vendor map pins now show the correct collection progress (some owned items were incorrectly shown as missing)
+- Vendors in multiple cities (Alliance/Horde variants) now show up correctly with faction tags on the map
+
 ## [1.4.2] - 2026-02-19
 
 ### Changed

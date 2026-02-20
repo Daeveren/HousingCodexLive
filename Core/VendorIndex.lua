@@ -387,7 +387,7 @@ function addon:GetVendorCollectionProgress(npcId)
 
     local owned, total = 0, #vendor.decorIds
     for _, decorId in ipairs(vendor.decorIds) do
-        local record = self.decorRecords[decorId]
+        local record = self:ResolveRecord(decorId)
         if record and record.isCollected then
             owned = owned + 1
         end
@@ -400,7 +400,7 @@ function addon:GetVendorZoneCollectionProgress(expansionKey, zoneName)
     for _, vendor in ipairs(self:GetVendorsForZone(expansionKey, zoneName)) do
         for _, decorId in ipairs(vendor.decorIds) do
             total = total + 1
-            local record = self.decorRecords[decorId]
+            local record = self:ResolveRecord(decorId)
             if record and record.isCollected then
                 owned = owned + 1
             end
@@ -435,12 +435,29 @@ function addon:GetVendorCount()
 end
 
 function addon:IsDecorCollected(decorId)
-    local record = self:GetRecord(decorId)
+    local record = self:ResolveRecord(decorId)
     return record and record.isCollected or false
 end
 
+function addon:GetNPCLocations(npcId)
+    local locData = self.NPCLocationData and self.NPCLocationData[npcId]
+    if not locData then return nil end
+    if type(locData[1]) == "table" then return locData end  -- Array format (multi-location)
+    return { locData }  -- Wrap single location as array
+end
+
 function addon:GetNPCLocation(npcId)
-    return self.NPCLocationData and self.NPCLocationData[npcId]
+    local locations = self:GetNPCLocations(npcId)
+    if not locations then return nil end
+    if #locations == 1 then return locations[1] end
+    -- Multi-location: prefer player faction match, then neutral, then first
+    local playerFaction = UnitFactionGroup("player") or "Neutral"
+    local neutral = nil
+    for _, loc in ipairs(locations) do
+        if loc.faction == playerFaction then return loc end
+        if not loc.faction then neutral = neutral or loc end
+    end
+    return neutral or locations[1]
 end
 
 function addon:GetVendorFaction(npcId)

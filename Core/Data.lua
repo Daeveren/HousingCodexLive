@@ -397,10 +397,18 @@ function addon:ResolveRecord(recordID)
     -- Reuse shared icon resolution (same priority chain as BuildRecord)
     local icon, iconType, isModelOnly = GetEntryIcon(nil, info)
     local totalOwned = CalculateTotalOwned(info)
+    -- For showQuantity=false items, quantity fields are always 0 — entrySubtype is the ownership signal
+    -- entrySubtype: 1=Unowned, 2=OwnedModifiedStack, 3=OwnedUnmodifiedStack
+    local entrySubtype = info.entryID and info.entryID.entrySubtype or 1
+    local entryID = info.entryID or {
+        recordID = recordID,
+        entryType = Enum.HousingCatalogEntryType.Decor,
+        entrySubtype = 1,
+        subtypeIdentifier = 0,
+    }
 
     record = {
-        entryID = { recordID = recordID, entryType = Enum.HousingCatalogEntryType.Decor,
-                     entrySubtype = 1, subtypeIdentifier = 0 },
+        entryID = entryID,
         recordID = recordID,
         name = info.name or "",
         icon = icon,
@@ -410,7 +418,7 @@ function addon:ResolveRecord(recordID)
         numPlaced = info.numPlaced or 0,
         remainingRedeemable = info.remainingRedeemable or 0,
         totalOwned = totalOwned,
-        isCollected = totalOwned > 0,
+        isCollected = totalOwned > 0 or entrySubtype > 1,
         categoryIDs = info.categoryIDs or {},
         subcategoryIDs = info.subcategoryIDs or {},
         size = info.size or 0,

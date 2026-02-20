@@ -86,6 +86,15 @@ local function ShouldIncludeFaction(vendorFaction, playerFaction)
     return vendorFaction == playerFaction
 end
 
+local function InsertVendorIntoMap(vendorsByMapID, mapID, mapEntry)
+    local list = vendorsByMapID[mapID]
+    if not list then
+        list = {}
+        vendorsByMapID[mapID] = list
+    end
+    table.insert(list, mapEntry)
+end
+
 local function BuildVendorMapIndex()
     if addon.vendorMapVendorsByMapID then
         return
@@ -99,34 +108,27 @@ local function BuildVendorMapIndex()
     local playerFaction = UnitFactionGroup("player")
 
     for npcId, vendorEntry in pairs(addon.vendorIndex or {}) do
-        local locData = addon:GetNPCLocation(npcId)
-        if locData and locData.uiMapId and locData.x and locData.y and locData.x > 0 and locData.y > 0 then
-            if ShouldIncludeFaction(locData.faction, playerFaction) then
-                local mapVendors = vendorsByMapID[locData.uiMapId]
-                if not mapVendors then
-                    mapVendors = {}
-                    vendorsByMapID[locData.uiMapId] = mapVendors
-                end
+        local locations = addon:GetNPCLocations(npcId)
+        if locations then
+            for _, locData in ipairs(locations) do
+                if locData.uiMapId and locData.x and locData.y and locData.x > 0 and locData.y > 0 then
+                    if ShouldIncludeFaction(locData.faction, playerFaction) then
+                        local mapEntry = {
+                            npcId = npcId,
+                            npcName = vendorEntry.npcName,
+                            uiMapId = locData.uiMapId,
+                            x = locData.x,
+                            y = locData.y,
+                            faction = locData.faction,
+                        }
+                        InsertVendorIntoMap(vendorsByMapID, locData.uiMapId, mapEntry)
 
-                local mapEntry = {
-                    npcId = npcId,
-                    npcName = vendorEntry.npcName,
-                    uiMapId = locData.uiMapId,
-                    x = locData.x,
-                    y = locData.y,
-                    faction = locData.faction,
-                }
-                table.insert(mapVendors, mapEntry)
-
-                -- Also index under parent zone for zone overlay aggregation
-                local rootMapID = addon:GetZoneRootMapID(locData.uiMapId)
-                if rootMapID and rootMapID ~= locData.uiMapId then
-                    local rootVendors = vendorsByMapID[rootMapID]
-                    if not rootVendors then
-                        rootVendors = {}
-                        vendorsByMapID[rootMapID] = rootVendors
+                        -- Also index under parent zone for zone overlay aggregation
+                        local rootMapID = addon:GetZoneRootMapID(locData.uiMapId)
+                        if rootMapID and rootMapID ~= locData.uiMapId then
+                            InsertVendorIntoMap(vendorsByMapID, rootMapID, mapEntry)
+                        end
                     end
-                    table.insert(rootVendors, mapEntry)
                 end
             end
         end
@@ -166,12 +168,19 @@ function addon:GetVendorPinProgress(npcId)
     local missingNames = {}
     local limit = addon.CONSTANTS.VENDOR_PIN.TOOLTIP_ITEM_LIMIT
 
+    local L = addon.L
     for _, decorId in ipairs(vendor.decorIds) do
-        local record = addon:GetRecord(decorId)
+        local record = addon:ResolveRecord(decorId)
         if record and record.isCollected then
             owned = owned + 1
         elseif #missingNames < limit then
-            missingNames[#missingNames + 1] = addon:ResolveDecorName(decorId, record)
+            local name = addon:ResolveDecorName(decorId, record)
+            -- Items with a non-vendor sourceCategory (treasure, drop) are locked behind a prerequisite
+            local fallbackInfo = addon.VendorItemFallback and addon.VendorItemFallback[decorId]
+            if fallbackInfo and fallbackInfo.sourceCategory then
+                name = name .. " |cff888888(" .. L["VENDOR_PIN_ITEM_LOCKED"] .. ")|r"
+            end
+            missingNames[#missingNames + 1] = name
         end
     end
 

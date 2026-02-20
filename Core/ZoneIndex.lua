@@ -142,8 +142,9 @@ function addon:GetZoneDecorItems(mapID)
         })
     end
 
-    -- Helper: collect vendors for a single mapID
     local vendorsByMapID = self:GetAllVendorMapVendors()
+
+    -- Helper: collect vendors for a single mapID
     local function CollectVendors(targetMapID, cityName)
         local mapVendors = vendorsByMapID and vendorsByMapID[targetMapID]
         if not mapVendors then return end
@@ -192,13 +193,7 @@ function addon:GetZoneDecorItems(mapID)
         end
     end
 
-    -- 1. Vendors for this zone
-    CollectVendors(zoneMapID)
-
-    -- 2. Quests and Treasure Hunts for this zone
-    CollectQuestsAndTreasures(zoneMapID)
-
-    -- 3. City children: merge vendors/quests/treasures from child cities into parent zone
+    -- 1. City children first: vendors get cityName, so they win dedupe over zone-level duplicates
     local cityChildren = addon:GetCityChildMapIDs(zoneMapID)
     if cityChildren then
         for _, cityMapID in ipairs(cityChildren) do
@@ -208,6 +203,10 @@ function addon:GetZoneDecorItems(mapID)
             CollectQuestsAndTreasures(cityMapID)
         end
     end
+
+    -- 2. Zone-level vendors and quests (duplicates from cities are harmlessly deduped)
+    CollectVendors(zoneMapID)
+    CollectQuestsAndTreasures(zoneMapID)
 
     table.sort(result.vendors, SortByName)
     table.sort(result.quests, SortByName)

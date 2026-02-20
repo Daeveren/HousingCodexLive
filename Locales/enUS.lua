@@ -342,6 +342,7 @@ L["VENDOR_FACTION_HORDE"] = "Horde only"
 -- Vendor world map pins
 L["VENDOR_PIN_COLLECTED"] = "Collected: %d/%d"
 L["VENDOR_PIN_UNCOLLECTED_HEADER"] = "Decor uncollected:"
+L["VENDOR_PIN_ITEM_LOCKED"] = "locked"
 L["VENDOR_PIN_MORE"] = "+%d more"
 L["VENDOR_PIN_CLICK_WAYPOINT"] = "Click to set waypoint"
 L["VENDOR_PIN_FACTION_ALLIANCE"] = "Alliance Only"
