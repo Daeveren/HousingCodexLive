@@ -186,8 +186,8 @@ function ProfessionsTab:Show()
     self.frame:Show()
     local db = EnsureProfessionsDB()
 
-    -- Runtime-only selections reset each session
-    self.selectedProfession = nil
+    -- Restore persisted profession; reset craft selection each session
+    self.selectedProfession = db and db.selectedProfession
     self.selectedDecorId = nil
 
     self:SetCompletionFilter((db and db.completionFilter) or "incomplete")
@@ -406,6 +406,9 @@ function ProfessionsTab:SelectProfession(professionName)
     end
 
     self.selectedProfession = professionName
+
+    local db = GetProfessionsDB()
+    if db then db.selectedProfession = professionName end
 
     if self.professionScrollBox then
         self.professionScrollBox:ForEachFrame(function(frame)

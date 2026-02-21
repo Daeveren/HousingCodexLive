@@ -2,6 +2,18 @@
 
 All notable changes to Housing Codex.
 
+## [1.4.4] - 2026-02-21
+
+### Added
+- Wishlist chat messages now show clickable item links - hover to preview, click to interact
+- Professions tab remembers your last selected profession between sessions
+
+### Changed
+- Settings panel reorganized into clear groups (Display, Map & Navigation, Merchant, Content) with a cleaner layout
+
+### Fixed
+- Fixed a 3D preview error in the wishlist window
+
 ## [1.4.3] - 2026-02-20
 
 ### Added

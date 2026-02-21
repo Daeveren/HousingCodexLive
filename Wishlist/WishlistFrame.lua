@@ -396,8 +396,9 @@ function WishlistFrame:CreateGrid()
             if button == "LeftButton" and IsShiftKeyDown() then
                 -- Shift+Click: Remove from wishlist
                 addon:SetWishlisted(recordID, false)
-                local name = record and record.name or addon.L["UNKNOWN"]
-                addon:Print(string.format(addon.L["WISHLIST_REMOVED"], name))
+                addon:GetDecorLink(recordID, function(link)
+                    addon:Print(string.format(addon.L["WISHLIST_REMOVED"], link))
+                end)
                 return
             end
             self:SelectRecord(recordID)
@@ -539,6 +540,7 @@ function WishlistFrame:CreatePreviewPanel()
     -- ModelScene (capped size viewport - scales down if area is smaller, but won't exceed max)
     local modelScene = CreateFrame("ModelScene", nil, modelArea, "ModelSceneMixinTemplate")
     modelScene:SetPoint("TOP", modelArea, "TOP", 0, 0)
+    modelScene:SetSize(MODEL_VIEWPORT_WIDTH, MODEL_VIEWPORT_HEIGHT)  -- Initial size before OnSizeChanged fires; camera setup requires a valid viewport
     modelScene:TransitionToModelSceneID(DEFAULT_SCENE_ID, CAMERA_IMMEDIATE, CAMERA_DISCARD, true)
     self.modelScene = modelScene
 
@@ -567,6 +569,7 @@ function WishlistFrame:CreatePreviewPanel()
 
     modelScene:HookScript("OnUpdate", function(_, elapsed)
         if not modelScene:IsShown() then return end
+        if modelScene:GetWidth() == 0 or modelScene:GetHeight() == 0 then return end  -- Skip camera update until the viewport has valid dimensions
 
         local camera = modelScene:GetActiveCamera()
         if not camera or not camera.GetYaw then return end
@@ -771,14 +774,10 @@ function WishlistFrame:CreateWishlistButton(parent)
         if not recordID then return end
 
         local isNowWishlisted = addon:ToggleWishlist(recordID)
-        local record = addon:GetRecord(recordID)
-        local name = record and record.name or addon.L["UNKNOWN"]
-
-        if isNowWishlisted then
-            addon:Print(string.format(addon.L["WISHLIST_ADDED"], name))
-        else
-            addon:Print(string.format(addon.L["WISHLIST_REMOVED"], name))
-        end
+        local key = isNowWishlisted and addon.L["WISHLIST_ADDED"] or addon.L["WISHLIST_REMOVED"]
+        addon:GetDecorLink(recordID, function(link)
+            addon:Print(string.format(key, link))
+        end)
         self:UpdateWishlistButton()
     end)
 

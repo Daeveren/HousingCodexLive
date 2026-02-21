@@ -166,6 +166,9 @@ L["PREVIEW_NOT_IN_CATALOG"] = "Not yet in housing catalog"
 -- Settings (WoW Native Settings UI)
 --------------------------------------------------------------------------------
 L["OPTIONS_SECTION_DISPLAY"] = "Display"
+L["OPTIONS_SECTION_MAP_NAV"]  = "Map & Navigation"
+L["OPTIONS_SECTION_MERCHANT"] = "Merchant"
+L["OPTIONS_SECTION_CONTENT"]  = "Content"
 L["OPTIONS_USE_CUSTOM_FONT"] = "Use Housing Codex font"
 L["OPTIONS_USE_CUSTOM_FONT_TOOLTIP"] = "When disabled, the addon uses the default WoW font instead"
 L["OPTIONS_SHOW_COLLECTED"] = "Show owned quantity on tiles"

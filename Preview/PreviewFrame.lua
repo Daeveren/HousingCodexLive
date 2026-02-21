@@ -536,14 +536,10 @@ function Preview:CreateWishlistButton(parent)
         if not recordID then return end
 
         local isNowWishlisted = addon:ToggleWishlist(recordID)
-        local record = addon:GetRecord(recordID)
-        local name = record and record.name or addon.L["UNKNOWN"]
-
-        if isNowWishlisted then
-            addon:Print(string.format(addon.L["WISHLIST_ADDED"], name))
-        else
-            addon:Print(string.format(addon.L["WISHLIST_REMOVED"], name))
-        end
+        local key = isNowWishlisted and addon.L["WISHLIST_ADDED"] or addon.L["WISHLIST_REMOVED"]
+        addon:GetDecorLink(recordID, function(link)
+            addon:Print(string.format(key, link))
+        end)
         self:UpdateWishlistButton()
     end)
 

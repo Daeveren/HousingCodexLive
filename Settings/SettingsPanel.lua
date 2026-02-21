@@ -68,6 +68,31 @@ local function RefreshVendorMapPins()
 end
 
 --------------------------------------------------------------------------------
+-- Helper: Create section divider line
+--------------------------------------------------------------------------------
+local function CreateDivider(parent, yOffset)
+    local divider = parent:CreateTexture(nil, "ARTWORK")
+    divider:SetHeight(1)
+    divider:SetPoint("TOPLEFT", 16, yOffset - 5)
+    divider:SetPoint("TOPRIGHT", -16, yOffset - 5)
+    divider:SetColorTexture(0.3, 0.3, 0.35, 0.6)
+end
+
+-- Maps each checkbox field on self to its SavedVariables key (used by Refresh)
+local CHECKBOX_REFRESH_MAP = {
+    { field = "fontCheck",          settingKey = "useCustomFont"             },
+    { field = "collectedCheck",     settingKey = "showCollectedIndicator"    },
+    { field = "minimapCheck",       settingKey = "showMinimapButton"         },
+    { field = "autoRotateCheck",    settingKey = "autoRotatePreview"         },
+    { field = "vendorMapPinsCheck", settingKey = "showVendorMapPins"         },
+    { field = "zoneOverlayCheck",   settingKey = "showZoneOverlay"           },
+    { field = "treasureHuntCheck",  settingKey = "treasureHuntWaypoints"     },
+    { field = "vendorCheck",        settingKey = "showVendorDecorIndicators" },
+    { field = "vendorOwnedCheck",   settingKey = "showVendorOwnedCheckmark"  },
+    { field = "midnightCheck",      settingKey = "showMidnightDrops"         },
+}
+
+--------------------------------------------------------------------------------
 -- Settings Panel Initialization
 --------------------------------------------------------------------------------
 function addon.Settings:Initialize()
@@ -85,6 +110,8 @@ function addon.Settings:Initialize()
     title:SetTextColor(1, 0.82, 0)
 
     local yOffset = -50
+    local COL1_X = 16
+    local COL2_X = 300
 
     --------------------------------------------------------------------------------
     -- DISPLAY SECTION
@@ -110,9 +137,8 @@ function addon.Settings:Initialize()
             end
         end
     )
-    fontCheck:SetPoint("TOPLEFT", 16, yOffset)
+    fontCheck:SetPoint("TOPLEFT", COL1_X, yOffset)
     self.fontCheck = fontCheck
-    yOffset = yOffset - 30
 
     -- Show Collected Indicator checkbox
     local collectedCheck = CreateCheckbox(
@@ -129,7 +155,7 @@ function addon.Settings:Initialize()
             end
         end
     )
-    collectedCheck:SetPoint("TOPLEFT", 16, yOffset)
+    collectedCheck:SetPoint("TOPLEFT", COL2_X, yOffset)
     self.collectedCheck = collectedCheck
     yOffset = yOffset - 30
 
@@ -148,8 +174,101 @@ function addon.Settings:Initialize()
             end
         end
     )
-    minimapCheck:SetPoint("TOPLEFT", 16, yOffset)
+    minimapCheck:SetPoint("TOPLEFT", COL1_X, yOffset)
     self.minimapCheck = minimapCheck
+
+    -- Auto-rotate 3D preview checkbox
+    local autoRotateCheck = CreateCheckbox(
+        panel,
+        L["OPTIONS_AUTO_ROTATE_PREVIEW"],
+        L["OPTIONS_AUTO_ROTATE_PREVIEW_TOOLTIP"],
+        function() return addon.db and addon.db.settings.autoRotatePreview end,
+        function(checked)
+            if addon.db then
+                addon.db.settings.autoRotatePreview = checked
+            end
+        end
+    )
+    autoRotateCheck:SetPoint("TOPLEFT", COL2_X, yOffset)
+    self.autoRotateCheck = autoRotateCheck
+    yOffset = yOffset - 30
+
+    CreateDivider(panel, yOffset)
+    yOffset = yOffset - 20
+
+    --------------------------------------------------------------------------------
+    -- MAP & NAVIGATION SECTION
+    --------------------------------------------------------------------------------
+    local mapNavHeader = panel:CreateFontString(nil, "ARTWORK", "GameFontNormal")
+    mapNavHeader:SetPoint("TOPLEFT", 16, yOffset)
+    mapNavHeader:SetText(L["OPTIONS_SECTION_MAP_NAV"])
+    mapNavHeader:SetTextColor(1, 0.82, 0)
+    yOffset = yOffset - 30
+
+    -- Show Vendor Map Pins checkbox
+    local vendorMapPinsCheck = CreateCheckbox(
+        panel,
+        L["OPTIONS_VENDOR_MAP_PINS"],
+        L["OPTIONS_VENDOR_MAP_PINS_TOOLTIP"],
+        function() return addon.db and addon.db.settings.showVendorMapPins end,
+        function(checked)
+            if addon.db then
+                addon.db.settings.showVendorMapPins = checked
+                RefreshVendorMapPins()
+            end
+        end
+    )
+    vendorMapPinsCheck:SetPoint("TOPLEFT", COL1_X, yOffset)
+    self.vendorMapPinsCheck = vendorMapPinsCheck
+
+    -- Show Zone Overlay checkbox
+    local zoneOverlayCheck = CreateCheckbox(
+        panel,
+        L["OPTIONS_ZONE_OVERLAY"],
+        L["OPTIONS_ZONE_OVERLAY_TOOLTIP"],
+        function() return addon.db and addon.db.settings.showZoneOverlay end,
+        function(checked)
+            if addon.db then
+                addon.db.settings.showZoneOverlay = checked
+                if addon.ZoneOverlay then
+                    addon.ZoneOverlay:UpdateVisibility()
+                end
+            end
+        end
+    )
+    zoneOverlayCheck:SetPoint("TOPLEFT", COL2_X, yOffset)
+    self.zoneOverlayCheck = zoneOverlayCheck
+    yOffset = yOffset - 30
+
+    -- Treasure Hunt Waypoints checkbox
+    local treasureHuntCheck = CreateCheckbox(
+        panel,
+        L["OPTIONS_TREASURE_HUNT_WAYPOINTS"],
+        L["OPTIONS_TREASURE_HUNT_WAYPOINTS_TOOLTIP"],
+        function() return addon.db and addon.db.settings.treasureHuntWaypoints end,
+        function(checked)
+            if addon.db then
+                addon.db.settings.treasureHuntWaypoints = checked
+                if addon.TreasureHuntWaypoints then
+                    addon.TreasureHuntWaypoints.UpdateListenerState()
+                end
+            end
+        end
+    )
+    treasureHuntCheck:SetPoint("TOPLEFT", COL1_X, yOffset)
+    self.treasureHuntCheck = treasureHuntCheck
+    yOffset = yOffset - 30
+
+    CreateDivider(panel, yOffset)
+    yOffset = yOffset - 20
+
+    --------------------------------------------------------------------------------
+    -- MERCHANT SECTION
+    --------------------------------------------------------------------------------
+    local merchantHeader = panel:CreateFontString(nil, "ARTWORK", "GameFontNormal")
+    merchantHeader:SetPoint("TOPLEFT", 16, yOffset)
+    merchantHeader:SetText(L["OPTIONS_SECTION_MERCHANT"])
+    merchantHeader:SetTextColor(1, 0.82, 0)
     yOffset = yOffset - 30
 
     -- Show Vendor Decor Indicators checkbox
@@ -171,9 +290,8 @@ function addon.Settings:Initialize()
             end
         end
     )
-    vendorCheck:SetPoint("TOPLEFT", 16, yOffset)
+    vendorCheck:SetPoint("TOPLEFT", COL1_X, yOffset)
     self.vendorCheck = vendorCheck
-    yOffset = yOffset - 30
 
     -- Show Vendor Owned Checkmark checkbox
     local vendorOwnedCheck = CreateCheckbox(
@@ -190,63 +308,20 @@ function addon.Settings:Initialize()
             end
         end
     )
-    vendorOwnedCheck:SetPoint("TOPLEFT", 16, yOffset)
+    vendorOwnedCheck:SetPoint("TOPLEFT", COL2_X, yOffset)
     self.vendorOwnedCheck = vendorOwnedCheck
     yOffset = yOffset - 30
 
-    -- Show Vendor Map Pins checkbox
-    local vendorMapPinsCheck = CreateCheckbox(
-        panel,
-        L["OPTIONS_VENDOR_MAP_PINS"],
-        L["OPTIONS_VENDOR_MAP_PINS_TOOLTIP"],
-        function() return addon.db and addon.db.settings.showVendorMapPins end,
-        function(checked)
-            if addon.db then
-                addon.db.settings.showVendorMapPins = checked
-                RefreshVendorMapPins()
-            end
-        end
-    )
-    vendorMapPinsCheck:SetPoint("TOPLEFT", 16, yOffset)
-    self.vendorMapPinsCheck = vendorMapPinsCheck
-    yOffset = yOffset - 30
+    CreateDivider(panel, yOffset)
+    yOffset = yOffset - 20
 
-    -- Show Zone Overlay checkbox
-    local zoneOverlayCheck = CreateCheckbox(
-        panel,
-        L["OPTIONS_ZONE_OVERLAY"],
-        L["OPTIONS_ZONE_OVERLAY_TOOLTIP"],
-        function() return addon.db and addon.db.settings.showZoneOverlay end,
-        function(checked)
-            if addon.db then
-                addon.db.settings.showZoneOverlay = checked
-                if addon.ZoneOverlay then
-                    addon.ZoneOverlay:UpdateVisibility()
-                end
-            end
-        end
-    )
-    zoneOverlayCheck:SetPoint("TOPLEFT", 16, yOffset)
-    self.zoneOverlayCheck = zoneOverlayCheck
-    yOffset = yOffset - 30
-
-    -- Treasure Hunt Waypoints checkbox
-    local treasureHuntCheck = CreateCheckbox(
-        panel,
-        L["OPTIONS_TREASURE_HUNT_WAYPOINTS"],
-        L["OPTIONS_TREASURE_HUNT_WAYPOINTS_TOOLTIP"],
-        function() return addon.db and addon.db.settings.treasureHuntWaypoints end,
-        function(checked)
-            if addon.db then
-                addon.db.settings.treasureHuntWaypoints = checked
-                if addon.TreasureHuntWaypoints then
-                    addon.TreasureHuntWaypoints.UpdateListenerState()
-                end
-            end
-        end
-    )
-    treasureHuntCheck:SetPoint("TOPLEFT", 16, yOffset)
-    self.treasureHuntCheck = treasureHuntCheck
+    --------------------------------------------------------------------------------
+    -- CONTENT SECTION
+    --------------------------------------------------------------------------------
+    local contentHeader = panel:CreateFontString(nil, "ARTWORK", "GameFontNormal")
+    contentHeader:SetPoint("TOPLEFT", 16, yOffset)
+    contentHeader:SetText(L["OPTIONS_SECTION_CONTENT"])
+    contentHeader:SetTextColor(1, 0.82, 0)
     yOffset = yOffset - 30
 
     -- Show Midnight Drops checkbox
@@ -265,24 +340,8 @@ function addon.Settings:Initialize()
             end
         end
     )
-    midnightCheck:SetPoint("TOPLEFT", 16, yOffset)
+    midnightCheck:SetPoint("TOPLEFT", COL1_X, yOffset)
     self.midnightCheck = midnightCheck
-    yOffset = yOffset - 30
-
-    -- Auto-rotate 3D preview checkbox
-    local autoRotateCheck = CreateCheckbox(
-        panel,
-        L["OPTIONS_AUTO_ROTATE_PREVIEW"],
-        L["OPTIONS_AUTO_ROTATE_PREVIEW_TOOLTIP"],
-        function() return addon.db and addon.db.settings.autoRotatePreview end,
-        function(checked)
-            if addon.db then
-                addon.db.settings.autoRotatePreview = checked
-            end
-        end
-    )
-    autoRotateCheck:SetPoint("TOPLEFT", 16, yOffset)
-    self.autoRotateCheck = autoRotateCheck
     yOffset = yOffset - 40
 
     -- Reset Position button
@@ -457,36 +516,13 @@ end
 function addon.Settings:Refresh()
     if not addon.db then return end
 
-    if self.fontCheck then
-        self.fontCheck:SetChecked(addon.db.settings.useCustomFont)
+    for _, binding in ipairs(CHECKBOX_REFRESH_MAP) do
+        local checkbox = self[binding.field]
+        if checkbox then
+            checkbox:SetChecked(addon.db.settings[binding.settingKey])
+        end
     end
-    if self.collectedCheck then
-        self.collectedCheck:SetChecked(addon.db.settings.showCollectedIndicator)
-    end
-    if self.minimapCheck then
-        self.minimapCheck:SetChecked(addon.db.settings.showMinimapButton)
-    end
-    if self.vendorCheck then
-        self.vendorCheck:SetChecked(addon.db.settings.showVendorDecorIndicators)
-    end
-    if self.vendorOwnedCheck then
-        self.vendorOwnedCheck:SetChecked(addon.db.settings.showVendorOwnedCheckmark)
-    end
-    if self.vendorMapPinsCheck then
-        self.vendorMapPinsCheck:SetChecked(addon.db.settings.showVendorMapPins)
-    end
-    if self.zoneOverlayCheck then
-        self.zoneOverlayCheck:SetChecked(addon.db.settings.showZoneOverlay)
-    end
-    if self.treasureHuntCheck then
-        self.treasureHuntCheck:SetChecked(addon.db.settings.treasureHuntWaypoints)
-    end
-    if self.midnightCheck then
-        self.midnightCheck:SetChecked(addon.db.settings.showMidnightDrops)
-    end
-    if self.autoRotateCheck then
-        self.autoRotateCheck:SetChecked(addon.db.settings.autoRotatePreview)
-    end
+
     if self.UpdateKeybindButtonText then
         self.UpdateKeybindButtonText()
     end
@@ -497,7 +533,5 @@ end
 -- This ensures SavedVariables are available
 --------------------------------------------------------------------------------
 addon:RegisterInternalEvent("DATA_LOADED", function()
-    -- Initialize settings panel (registers with WoW Settings UI)
     addon.Settings:Initialize()
-    -- Keybinds are handled automatically by WoW via Bindings.xml
 end)

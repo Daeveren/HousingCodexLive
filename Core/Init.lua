@@ -292,6 +292,20 @@ function addon:Print(msg)
     print("|cFFFFD100Housing Codex:|r " .. tostring(msg))
 end
 
+function addon:GetDecorLink(recordID, callback)
+    local record = recordID and self:GetRecord(recordID)
+    local fallback = string.format("|cFFFFD100[%s]|r", record and record.name or "Unknown")
+
+    if record and record.itemID and record.itemID ~= 0 then
+        local item = Item:CreateFromItemID(record.itemID)
+        item:ContinueOnItemLoad(function()
+            callback(item:GetItemLink() or fallback)
+        end)
+    else
+        callback(fallback)
+    end
+end
+
 function addon:Debug(msg)
     if self.db and self.db.settings and self.db.settings.debugMode then
         print("|cFF888888[HC Debug]|r " .. tostring(msg))
