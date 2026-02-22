@@ -10,6 +10,11 @@ A World of Warcraft addon that provides an enhanced catalog for browsing housing
 - **3D Preview** - Docked preview panel showing model, source, size, and dye options
 - **Filters** - Filter by collected/uncollected, indoor/outdoor, dyeable, size, expansion, theme
 - **Quests Tab** - Browse quest-sourced decorations organized by expansion and zone, with collection progress and completion filters
+- **Achievements Tab** - Achievement-sourced decorations grouped by category, with completion tracking
+- **Vendors Tab** - Vendor locations for housing items with map pins, waypoints, and expansion breakdowns
+- **Drops Tab** - Drop sources including bosses, treasures, and world drops
+- **Professions Tab** - Crafted housing items organized by profession
+- **Progress Tab** - Collection progress dashboard with per-source breakdowns and most-progressed tracking
 - **Wishlist** - Star items to track them, view all wishlisted items in a dedicated window with preview, or filter the main catalog to show only tracked decorations
 - **Quick Access** - Right-click for Wowhead links, left-click to link in chat, shift-click to track to map objectives
 

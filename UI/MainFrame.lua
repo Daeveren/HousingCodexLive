@@ -278,7 +278,7 @@ function MainFrame:CreateLoadingOverlay()
 
     addon:RegisterInternalEvent("DATA_LOAD_FAILED", function()
         text:SetText(addon.L["ERROR_LOAD_FAILED_SHORT"])
-        text:SetTextColor(1, 0.4, 0.4, 1)  -- Red-ish for error
+        text:SetTextColor(1, 0.4, 0.4, 1)
     end)
 
     overlay:SetShown(not addon.dataLoaded)
@@ -354,6 +354,53 @@ function MainFrame:ExpandForPreview()
     self.previewRegion:Show()
 end
 
+function MainFrame:CollapsePreview()
+    if not self.previewRegion or not self.previewRegion:IsShown() then return end
+
+    -- Hide ModelScene for GPU cleanup (same as OnMainFrameHide pattern)
+    if addon.Preview and addon.Preview.modelScene then
+        addon.Preview.modelScene:Hide()
+    end
+
+    self.previewRegion:Hide()
+    self.previewCollapsed = true  -- Preview space still allocated in frame width
+
+    -- Expand content area to fill full width (frame stays same size)
+    self.contentArea:ClearAllPoints()
+    self.contentArea:SetPoint("TOPLEFT", self.sidebar, "TOPRIGHT", 0, 0)
+    self.contentArea:SetPoint("BOTTOMRIGHT", self.frame, "BOTTOMRIGHT", -3, 3)
+end
+
+function MainFrame:RestorePreview()
+    if not self.previewRegion or self.previewRegion:IsShown() then return end
+    if not addon.Preview then return end
+
+    -- First-show edge case: preview never created yet
+    if not addon.Preview.frame then
+        if self.previewCollapsed then
+            -- Frame already has preview width (expanded by delayed timer); just create preview
+            addon.Preview:Create()
+        else
+            self.previewCollapsed = false
+            addon.Preview:Show()  -- calls Create() + ExpandForPreview()
+            return
+        end
+    end
+
+    -- Normal case: frame already includes preview width, just restore visibility
+    self.previewRegion:Show()
+    self.previewCollapsed = false
+
+    -- Restore content area to stop at preview region
+    self.contentArea:ClearAllPoints()
+    self.contentArea:SetPoint("TOPLEFT", self.sidebar, "TOPRIGHT", 0, 0)
+    self.contentArea:SetPoint("BOTTOMRIGHT", self.previewRegion, "BOTTOMLEFT", 0, 0)
+
+    if addon.Preview.modelScene then
+        addon.Preview.modelScene:Show()
+    end
+end
+
 function MainFrame:SetPreviewWidth(newWidth)
     local region = self.previewRegion
     if not region or not region:IsShown() then return end
@@ -412,8 +459,8 @@ function MainFrame:SaveSize()
 
     local width, height = frame:GetSize()
     if width and height then
-        -- Save base width (subtract preview if open)
-        if self.previewRegion and self.previewRegion:IsShown() then
+        -- Save base width (subtract preview if open or temporarily collapsed)
+        if self.previewRegion and (self.previewRegion:IsShown() or self.previewCollapsed) then
             width = width - self:GetPreviewWidth()
         end
         addon.db.frameSize = { width = width, height = height }
@@ -565,6 +612,10 @@ function MainFrame:Show()
         C_Timer.After(0.05, function()
             if addon.Preview then
                 addon.Preview:Show()
+                -- Progress tab uses full width; collapse preview to reclaim content space
+                if addon.Tabs and addon.Tabs:GetCurrentTab() == "PROGRESS" then
+                    MainFrame:CollapsePreview()
+                end
             end
         end)
     end

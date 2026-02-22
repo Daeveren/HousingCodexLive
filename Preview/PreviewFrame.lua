@@ -5,9 +5,6 @@
 
 local ADDON_NAME, addon = ...
 
--- Add preview constants to central CONSTANTS table
-addon.CONSTANTS.PREVIEW_DEFAULT_WIDTH = 500  -- Fixed docked width
-
 local COLORS = addon.CONSTANTS.COLORS
 
 -- Details panel constants (1C.6)
@@ -132,6 +129,7 @@ function Preview:CreateModelScene()
     local modelScene = CreateFrame("ModelScene", nil, self.modelArea, "ModelSceneMixinTemplate")
     modelScene:SetAllPoints()
     modelScene:TransitionToModelSceneID(DEFAULT_SCENE_ID, CAMERA_IMMEDIATE, CAMERA_DISCARD, true)
+    modelScene:Hide()  -- Prevent Blizzard OnUpdate from firing before layout resolves dimensions
     self.modelScene = modelScene
     self.currentSceneID = DEFAULT_SCENE_ID  -- Track current scene to avoid unnecessary transitions
     self.sceneCameraBaselines = self.sceneCameraBaselines or {}
@@ -146,7 +144,11 @@ function Preview:CreateModelScene()
     end)
 
     -- Apply per-frame camera adjustments (vertical drag inversion).
-    modelScene:HookScript("OnUpdate", function(_, elapsed)
+    -- IMPORTANT: Use a separate child frame instead of HookScript("OnUpdate") to avoid
+    -- taint propagation. HookScript runs addon code in Blizzard's OnUpdate execution
+    -- context, tainting SetCameraOrientationByYawPitchRoll (SecretArguments=AllowedWhenUntainted).
+    local updateDriver = CreateFrame("Frame", nil, modelScene)
+    updateDriver:SetScript("OnUpdate", function(_, elapsed)
         self:OnModelSceneUpdate(elapsed)
     end)
 end
@@ -266,6 +268,7 @@ end
 
 function Preview:OnModelSceneUpdate(elapsed)
     if not self.modelScene or not self.modelScene:IsShown() then return end
+    if self.modelScene:GetWidth() == 0 or self.modelScene:GetHeight() == 0 then return end
 
     local camera = self:GetActiveOrbitCamera()
     if not camera then return end
@@ -284,7 +287,7 @@ function Preview:OnModelSceneUpdate(elapsed)
     end
 
     local yaw = camera:GetYaw() or 0
-    camera:SetYaw(yaw + elapsed * ROTATION_SPEED)
+    camera:SetYaw((yaw + elapsed * ROTATION_SPEED) % (math.pi * 2))
     if camera.SnapToTargetInterpolationYaw then
         camera:SnapToTargetInterpolationYaw()
     end
@@ -779,6 +782,13 @@ local function GetVendorsTrackingContext()
     return vendorsTab, npcId
 end
 
+local function ApplyTrackButtonState(btn, enabled, isTracking)
+    local L = addon.L
+    btn:SetEnabled(enabled)
+    btn:SetActive(enabled and isTracking)
+    btn:SetText(enabled and isTracking and L["ACTION_UNTRACK"] or L["ACTION_TRACK"])
+end
+
 function Preview:UpdateActionButtons(record)
     if not self.trackButton or not self.linkButton then return end
 
@@ -791,36 +801,11 @@ function Preview:UpdateActionButtons(record)
     -- Vendors tab: all items use vendor waypoint tracking
     if vendorsTab and recordID then
         local canTrack = vendorsTab:CanVendorTrackDecor(npcId)
-        if canTrack then
-            self.trackButton:SetEnabled(true)
-            local isTracking = vendorsTab:IsVendorDecorTracked(npcId, recordID)
-            self.trackButton:SetActive(isTracking)
-            if isTracking then
-                self.trackButton:SetText(addon.L["ACTION_UNTRACK"])
-            else
-                self.trackButton:SetText(addon.L["ACTION_TRACK"])
-            end
-        else
-            self.trackButton:SetEnabled(false)
-            self.trackButton:SetActive(false)
-            self.trackButton:SetText(addon.L["ACTION_TRACK"])
-        end
+        ApplyTrackButtonState(self.trackButton, canTrack, canTrack and vendorsTab:IsVendorDecorTracked(npcId, recordID))
     else
         -- Native tracking behavior on non-Vendors tabs
-        if record and record.isTrackable then
-            self.trackButton:SetEnabled(true)
-            local isTracking = addon:IsRecordTracked(record.recordID)
-            self.trackButton:SetActive(isTracking)  -- Gold highlight when tracking
-            if isTracking then
-                self.trackButton:SetText(addon.L["ACTION_UNTRACK"])
-            else
-                self.trackButton:SetText(addon.L["ACTION_TRACK"])
-            end
-        else
-            self.trackButton:SetEnabled(false)
-            self.trackButton:SetActive(false)
-            self.trackButton:SetText(addon.L["ACTION_TRACK"])
-        end
+        local canTrack = record and record.isTrackable
+        ApplyTrackButtonState(self.trackButton, canTrack, canTrack and addon:IsRecordTracked(record.recordID))
     end
 
     -- Link button is always enabled when an item is selected
@@ -849,55 +834,37 @@ function Preview:OnLinkButtonRightClick()
     addon:OpenItemWowheadURL(self.currentRecordID, self.linkButton)
 end
 
-function Preview:ShowTrackButtonTooltip(btn)
+local function ShowTrackTooltip(btn, title, description, r, g, b)
     GameTooltip:SetOwner(btn, "ANCHOR_RIGHT")
+    GameTooltip:SetText(title)
+    GameTooltip:AddLine(description, r, g, b)
+    GameTooltip:Show()
+end
 
+function Preview:ShowTrackButtonTooltip(btn)
     local recordID = self.currentRecordID
     local record = recordID and addon:GetRecord(recordID)
     local L = addon.L
     local vendorsTab, npcId = GetVendorsTrackingContext()
 
     if vendorsTab and recordID then
-        local title, description, r, g, b
         if not vendorsTab:CanVendorTrackDecor(npcId) then
-            title = L["ACTION_TRACK"]
-            description = L["VENDORS_ACTION_TRACK_DISABLED_TOOLTIP"]
-            r, g, b = 1, 0.5, 0.5
+            ShowTrackTooltip(btn, L["ACTION_TRACK"], L["VENDORS_ACTION_TRACK_DISABLED_TOOLTIP"], 1, 0.5, 0.5)
         elseif vendorsTab:IsVendorDecorTracked(npcId, recordID) then
-            title = L["ACTION_UNTRACK"]
-            description = L["VENDORS_ACTION_UNTRACK_TOOLTIP"]
-            r, g, b = 1, 1, 1
+            ShowTrackTooltip(btn, L["ACTION_UNTRACK"], L["VENDORS_ACTION_UNTRACK_TOOLTIP"], 1, 1, 1)
         else
-            title = L["ACTION_TRACK"]
-            description = L["VENDORS_ACTION_TRACK_TOOLTIP"]
-            r, g, b = 1, 1, 1
+            ShowTrackTooltip(btn, L["ACTION_TRACK"], L["VENDORS_ACTION_TRACK_TOOLTIP"], 1, 1, 1)
         end
-
-        GameTooltip:SetText(title)
-        GameTooltip:AddLine(description, r, g, b)
-        GameTooltip:Show()
         return
     end
 
-    -- Determine tooltip content based on tracking state
-    local title, description, r, g, b
     if not record or not record.isTrackable then
-        title = L["ACTION_TRACK"]
-        description = L["ACTION_TRACK_DISABLED_TOOLTIP"]
-        r, g, b = 1, 0.5, 0.5
+        ShowTrackTooltip(btn, L["ACTION_TRACK"], L["ACTION_TRACK_DISABLED_TOOLTIP"], 1, 0.5, 0.5)
     elseif addon:IsRecordTracked(recordID) then
-        title = L["ACTION_UNTRACK"]
-        description = L["ACTION_UNTRACK_TOOLTIP"]
-        r, g, b = 1, 1, 1
+        ShowTrackTooltip(btn, L["ACTION_UNTRACK"], L["ACTION_UNTRACK_TOOLTIP"], 1, 1, 1)
     else
-        title = L["ACTION_TRACK"]
-        description = L["ACTION_TRACK_TOOLTIP"]
-        r, g, b = 1, 1, 1
+        ShowTrackTooltip(btn, L["ACTION_TRACK"], L["ACTION_TRACK_TOOLTIP"], 1, 1, 1)
     end
-
-    GameTooltip:SetText(title)
-    GameTooltip:AddLine(description, r, g, b)
-    GameTooltip:Show()
 end
 
 function Preview:ShowLinkButtonTooltip(btn)

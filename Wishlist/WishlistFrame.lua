@@ -563,13 +563,16 @@ function WishlistFrame:CreatePreviewPanel()
         end
     end)
 
-    -- Per-frame: inverted vertical drag + auto-rotation
+    -- Per-frame: inverted vertical drag + auto-rotation.
+    -- Use a separate child frame instead of HookScript("OnUpdate") to avoid taint
+    -- propagation (same pattern as PreviewFrame).
     local lastPitchCamera = nil
     local lastPitchValue = nil
 
-    modelScene:HookScript("OnUpdate", function(_, elapsed)
+    local updateDriver = CreateFrame("Frame", nil, modelScene)
+    updateDriver:SetScript("OnUpdate", function(_, elapsed)
         if not modelScene:IsShown() then return end
-        if modelScene:GetWidth() == 0 or modelScene:GetHeight() == 0 then return end  -- Skip camera update until the viewport has valid dimensions
+        if modelScene:GetWidth() == 0 or modelScene:GetHeight() == 0 then return end
 
         local camera = modelScene:GetActiveCamera()
         if not camera or not camera.GetYaw then return end
@@ -600,7 +603,7 @@ function WishlistFrame:CreatePreviewPanel()
         end
 
         local yaw = camera:GetYaw() or 0
-        camera:SetYaw(yaw + elapsed * ROTATION_SPEED)
+        camera:SetYaw((yaw + elapsed * ROTATION_SPEED) % (math.pi * 2))
         if camera.SnapToTargetInterpolationYaw then
             camera:SnapToTargetInterpolationYaw()
         end

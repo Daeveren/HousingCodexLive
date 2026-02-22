@@ -5,6 +5,9 @@
 local ADDON_NAME, addon = ...
 
 addon.QuestSourceData = {
+    ["Amirdrassil"] = {
+        { questId = 78864, questName = "The Returning", decorIds = {7896} },
+    },
     ["Arcantina"] = {
         { questId = 92322, questName = "Timear Foresees a Proof of Demise!", decorIds = {9250} },
         { questId = 92321, questName = "A Frostbitten Tally", decorIds = {9475} },
@@ -16,10 +19,14 @@ addon.QuestSourceData = {
         { questId = 92319, questName = "A Favor to Axe", decorIds = {9439} },
         { questId = 92325, questName = "Hellscream's Heritage", decorIds = {9441} },
     },
+    ["Azsuna"] = {
+        { questId = 37470, questName = "The Head of the Snake", decorIds = {2530} },
+    },
     ["Blackrock Depths"] = {
         { questId = 53566, questName = "Dark Iron Dwarves", decorIds = {1118} },
         { questId = 54, questName = "Report to Goldshire", decorIds = {4815} },
         { questId = 26390, questName = "Ending the Invasion!", decorIds = {4447} },
+        { questId = 7604, questName = "A Binding Contract", decorIds = {11274} },
     },
     ["Boralus Harbor"] = {
         { questId = 53720, questName = "Allegiance of Kul Tiras", decorIds = {9052} },
@@ -33,6 +40,7 @@ addon.QuestSourceData = {
     ["Dalaran"] = {
         { questId = 92322, questName = "Timear Foresees a Proof of Demise!", decorIds = {9250} },
         { questId = nil, questName = "Cheese for Glowergold", decorIds = {11872} },
+        { questId = 44004, questName = "Bringer of the Light", decorIds = {8189} },
     },
     ["Dornogal"] = {
         { questId = nil, questName = "Spare A Chair", decorIds = {2330} },
@@ -56,6 +64,12 @@ addon.QuestSourceData = {
         { questId = 60, questName = "Kobold Candles", decorIds = {5115} },
         { questId = 54, questName = "Report to Goldshire", decorIds = {4815} },
         { questId = 26390, questName = "Ending the Invasion!", decorIds = {4447} },
+    },
+    ["Emerald Dream"] = {
+        { questId = 77283, questName = "A Multi-Front Battle", decorIds = {11454} },
+    },
+    ["Eredath"] = {
+        { questId = 47691, questName = "A Non-Prophet Organization", decorIds = {930} },
     },
     ["Eversong Woods"] = {
         { questId = 90493, questName = "The Heart of Tranquillien", decorIds = {1159, 1160} },
@@ -134,6 +148,7 @@ addon.QuestSourceData = {
     },
     ["Gilneas"] = {
         { questId = 14402, questName = "Ready to Go", decorIds = {1829} },
+        { questId = 24675, questName = "Last Meal", decorIds = {858} },
     },
     ["Grizzly Hills"] = {
         { questId = 12227, questName = "Doing Your Duty", decorIds = {4448} },
@@ -162,9 +177,24 @@ addon.QuestSourceData = {
     ["Highmountain"] = {
         { questId = 40230, questName = "Oh, the Clawdacity!", decorIds = {11907} },
         { questId = 39487, questName = "Crystal Fury", decorIds = {15741} },
+        { questId = 39496, questName = "The Flow of the River", decorIds = {1309} },
+        { questId = 39426, questName = "Blood Debt", decorIds = {11752} },
+        { questId = 39772, questName = "Can't Hold a Candle To You", decorIds = {14379} },
+        { questId = 42622, questName = "Ceremonial Drums", decorIds = {1251} },
+        { questId = 39614, questName = "Fish Out of Water", decorIds = {1294} },
+        { questId = 39387, questName = "The Skies of Highmountain", decorIds = {11491} },
+        { questId = 39305, questName = "Empty Nest", decorIds = {11753} },
+        { questId = 39992, questName = "Huln's War - The Nathrezim", decorIds = {11487} },
+        { questId = 39780, questName = "The Underking", decorIds = {1291} },
+        { questId = 39579, questName = "The Backdoor", decorIds = {1287} },
+        { questId = 42590, questName = "Moozy's Reunion", decorIds = {1235} },
     },
     ["Isle of Dorn"] = {
         { questId = 79565, questName = "Janky Candles", decorIds = {11933} },
+        { questId = 82895, questName = "The Weight of Duty", decorIds = {9182} },
+        { questId = 78999, questName = "Heart of a Hero", decorIds = {9179} },
+        { questId = 78759, questName = "To Wake a Giant", decorIds = {9240} },
+        { questId = 79703, questName = "Hope, An Anomaly", decorIds = {9183} },
     },
     ["Kun-Lai Summit"] = {
         { questId = 30612, questName = "The Leader Hozen", decorIds = {15595} },
@@ -275,6 +305,7 @@ addon.QuestSourceData = {
         { questId = 35196, questName = "Forging Ahead", decorIds = {8187} },
         { questId = 36202, questName = "Anglin' In Our Garrison", decorIds = {4404} },
         { questId = 34586, questName = "Establish Your Garrison", decorIds = {4816} },
+        { questId = 37322, questName = "The Prophet's Final Message", decorIds = {8240} },
     },
     ["Silvermoon City"] = {
         { questId = 86735, questName = "Paved in Ash", decorIds = {15062} },
@@ -289,12 +320,18 @@ addon.QuestSourceData = {
         { questId = 35896, questName = "The Avatar of Terokk", decorIds = {12209} },
         { questId = 35671, questName = "A Gathering of Shadows", decorIds = {12201} },
     },
+    ["Stormheim"] = {
+        { questId = 39801, questName = "The Splintered Fleet", decorIds = {9267} },
+        { questId = 38882, questName = "A New Life for Undeath", decorIds = {947} },
+    },
     ["Stormsong Valley"] = {
         { questId = 53720, questName = "Allegiance of Kul Tiras", decorIds = {9052} },
         { questId = 51401, questName = "Carry On", decorIds = {9044} },
         { questId = 50611, questName = "Storm's Vengeance", decorIds = {9142} },
         { questId = 52122, questName = "To Be Forsaken", decorIds = {864} },
         { questId = 51986, questName = "Return to Zuldazar", decorIds = {862} },
+        { questId = 52122, questName = "To Be Forsaken", decorIds = {934} },
+        { questId = 50783, questName = "The Abyssal Council", decorIds = {1900} },
     },
     ["Stormwind City"] = {
         { questId = 53720, questName = "Allegiance of Kul Tiras", decorIds = {9052} },
@@ -306,11 +343,24 @@ addon.QuestSourceData = {
         { questId = nil, questName = "Dreamy Inspiration", decorIds = {1693} },
         { questId = nil, questName = "Last Light", decorIds = {4029} },
         { questId = nil, questName = "Draconic Decor", decorIds = {4172} },
+        { questId = 59583, questName = "Welcome to Stormwind", decorIds = {4405} },
+    },
+    ["Suramar"] = {
+        { questId = 44052, questName = "And They Will Tremble", decorIds = {4028} },
+        { questId = 41915, questName = "The Master's Legacy", decorIds = {4031} },
+        { questId = 44955, questName = "Visitor in Shal'Aran", decorIds = {1747} },
+        { questId = 40321, questName = "Feathersong's Redemption", decorIds = {1885} },
+        { questId = 44756, questName = "Sign of the Dusk Lily", decorIds = {3981} },
+        { questId = 43318, questName = "Ly'leth's Champion", decorIds = {4025} },
+        { questId = 41143, questName = "Mglrgrs Of Our Grmlgrlr", decorIds = {11908} },
+        { questId = 42489, questName = "Thalyssra's Drawers", decorIds = {4040} },
     },
     ["Talador"] = {
         { questId = 35685, questName = "Socrethar's Demise", decorIds = {8785} },
         { questId = 34099, questName = "The Battle for Shattrath", decorIds = {8772} },
         { questId = 33582, questName = "Kura's Vengeance", decorIds = {12202} },
+        { questId = 36685, questName = "Assault on the Heart of Shattrath", decorIds = {8238} },
+        { questId = 38201, questName = "Missive: Assault on Shattrath Harbor", decorIds = {925} },
     },
     ["Thaldraszus"] = {
         { questId = 72935, questName = "Archives Return", decorIds = {4477} },
@@ -329,15 +379,20 @@ addon.QuestSourceData = {
     },
     ["The Jade Forest"] = {
         { questId = nil, questName = "The Jade Serpent", decorIds = {15605} },
+        { questId = 31230, questName = "Welcome to Dawn's Blossom", decorIds = {3869} },
     },
     ["The Ringing Deeps"] = {
         { questId = 83160, questName = "Cinderbrew Reserve", decorIds = {9246} },
         { questId = 78642, questName = "New Candle, New Hope", decorIds = {11931} },
         { questId = 79510, questName = "The Wickless Candle", decorIds = {11930} },
         { questId = 80516, questName = "Bump off the Boss", decorIds = {11932} },
+        { questId = 82144, questName = "On the Road", decorIds = {9188} },
+        { questId = 78761, questName = "Into the Machine", decorIds = {9178} },
+        { questId = 79530, questName = "Bad Business", decorIds = {9168} },
     },
     ["The Waking Shores"] = {
         { questId = 67063, questName = "10,000 Years of Roasting", decorIds = {2594} },
+        { questId = 66001, questName = "A Last Hope", decorIds = {2529} },
     },
     ["Tiragarde Sound"] = {
         { questId = 51401, questName = "Carry On", decorIds = {9044} },
@@ -345,6 +400,9 @@ addon.QuestSourceData = {
         { questId = 55045, questName = "My Brother's Keeper", decorIds = {9166} },
         { questId = 53887, questName = "War Marches On", decorIds = {9049} },
         { questId = 51984, questName = "Return to Zuldazar", decorIds = {863} },
+        { questId = 48089, questName = "Mountain Sounds", decorIds = {9041} },
+        { questId = 50972, questName = "Proudmoore's Parley", decorIds = {9035} },
+        { questId = 47489, questName = "Stow and Go", decorIds = {9055} },
     },
     ["Twilight Highlands"] = {
         { questId = 28244, questName = "Eye Spy", decorIds = {2244} },
@@ -352,69 +410,22 @@ addon.QuestSourceData = {
     },
     ["Undermine"] = {
         { questId = 87297, questName = "Cashing the Check", decorIds = {1267} },
+        { questId = 86408, questName = "My Hole in the Wall", decorIds = {825} },
+        { questId = 87008, questName = "Ad-Hoc Wedding Planner", decorIds = {1274} },
+        { questId = 84675, questName = "Showdown in the Attic", decorIds = {14381} },
+        { questId = 83176, questName = "Just a Hunch", decorIds = {1276} },
+        { questId = 85780, questName = "Right Where We Want Him", decorIds = {827} },
+        { questId = 85711, questName = "Unsolicited Feedback", decorIds = {1266} },
     },
-    ["Unknown"] = {
-        { questId = 48089, questName = "Mountain Sounds", decorIds = {9041} },
-        { questId = 50972, questName = "Proudmoore's Parley", decorIds = {9035} },
-        { questId = 78864, questName = "The Returning", decorIds = {7896} },
-        { questId = 39801, questName = "The Splintered Fleet", decorIds = {9267} },
+    
+    ["Val'sharah"] = {
         { questId = 39117, questName = "Shriek No More", decorIds = {1801} },
         { questId = 46107, questName = "Source of the Corruption", decorIds = {1802} },
-        { questId = 82144, questName = "On the Road", decorIds = {9188} },
-        { questId = 44052, questName = "And They Will Tremble", decorIds = {4028} },
-        { questId = 41915, questName = "The Master's Legacy", decorIds = {4031} },
-        { questId = 86408, questName = "My Hole in the Wall", decorIds = {825} },
         { questId = 40890, questName = "The Tears of Elune", decorIds = {1889} },
-        { questId = 38882, questName = "A New Life for Undeath", decorIds = {947} },
-        { questId = 36685, questName = "Assault on the Heart of Shattrath", decorIds = {8238} },
-        { questId = 47691, questName = "A Non-Prophet Organization", decorIds = {930} },
-        { questId = 44004, questName = "Bringer of the Light", decorIds = {8189} },
-        { questId = 39496, questName = "The Flow of the River", decorIds = {1309} },
-        { questId = 78761, questName = "Into the Machine", decorIds = {9178} },
-        { questId = 44955, questName = "Visitor in Shal'Aran", decorIds = {1747} },
-        { questId = 87008, questName = "Ad-Hoc Wedding Planner", decorIds = {1274} },
-        { questId = 38201, questName = "Missive: Assault on Shattrath Harbor", decorIds = {925} },
-        { questId = 40321, questName = "Feathersong's Redemption", decorIds = {1885} },
-        { questId = 37322, questName = "The Prophet's Final Message", decorIds = {8240} },
-        { questId = 82895, questName = "The Weight of Duty", decorIds = {9182} },
-        { questId = 78999, questName = "Heart of a Hero", decorIds = {9179} },
-        { questId = 78759, questName = "To Wake a Giant", decorIds = {9240} },
-        { questId = 79703, questName = "Hope, An Anomaly", decorIds = {9183} },
-        { questId = 84675, questName = "Showdown in the Attic", decorIds = {14381} },
-        { questId = 47489, questName = "Stow and Go", decorIds = {9055} },
-        { questId = 39426, questName = "Blood Debt", decorIds = {11752} },
-        { questId = 47741, questName = "To Sacrifice a Loa", decorIds = {1196} },
         { questId = 38663, questName = "The Die is Cast", decorIds = {1884} },
         { questId = 40573, questName = "The Nightmare Lord", decorIds = {1882, 1883} },
         { questId = 38147, questName = "Entangled Dreams", decorIds = {1886} },
-        { questId = 39772, questName = "Can't Hold a Candle To You", decorIds = {14379} },
-        { questId = 77283, questName = "A Multi-Front Battle", decorIds = {11454} },
-        { questId = 42622, questName = "Ceremonial Drums", decorIds = {1251} },
-        { questId = 52122, questName = "To Be Forsaken", decorIds = {934} },
-        { questId = 44756, questName = "Sign of the Dusk Lily", decorIds = {3981} },
-        { questId = 66001, questName = "A Last Hope", decorIds = {2529} },
-        { questId = 31230, questName = "Welcome to Dawn's Blossom", decorIds = {3869} },
-        { questId = 83176, questName = "Just a Hunch", decorIds = {1276} },
-        { questId = 39614, questName = "Fish Out of Water", decorIds = {1294} },
-        { questId = 85780, questName = "Right Where We Want Him", decorIds = {827} },
-        { questId = 50783, questName = "The Abyssal Council", decorIds = {1900} },
-        { questId = 43318, questName = "Ly'leth's Champion", decorIds = {4025} },
-        { questId = 41143, questName = "Mglrgrs Of Our Grmlgrlr", decorIds = {11908} },
-        { questId = 39387, questName = "The Skies of Highmountain", decorIds = {11491} },
-        { questId = 39305, questName = "Empty Nest", decorIds = {11753} },
-        { questId = 79530, questName = "Bad Business", decorIds = {9168} },
-        { questId = 7604, questName = "A Binding Contract", decorIds = {11274} },
-        { questId = 59583, questName = "Welcome to Stormwind", decorIds = {4405} },
-        { questId = 42489, questName = "Thalyssra's Drawers", decorIds = {4040} },
-        { questId = 39992, questName = "Huln's War - The Nathrezim", decorIds = {11487} },
-        { questId = 39780, questName = "The Underking", decorIds = {1291} },
-        { questId = 37470, questName = "The Head of the Snake", decorIds = {2530} },
-        { questId = 85711, questName = "Unsolicited Feedback", decorIds = {1266} },
         { questId = 42751, questName = "Moon Reaver", decorIds = {1692} },
-        { questId = 39579, questName = "The Backdoor", decorIds = {1287} },
-        { questId = 42590, questName = "Moozy's Reunion", decorIds = {1235} },
-        { questId = 24675, questName = "Last Meal", decorIds = {858} },
-        { questId = 48554, questName = "The Source of the Problem", decorIds = {1697} },
     },
     ["Valdrakken"] = {
         { questId = 70880, questName = "To Cook With Finery", decorIds = {4481} },
@@ -430,6 +441,7 @@ addon.QuestSourceData = {
     },
     ["Vol'dun"] = {
         { questId = 47874, questName = "Clearing the Fog", decorIds = {1310} },
+        { questId = 48554, questName = "The Source of the Problem", decorIds = {1697} },
     },
     ["Westfall"] = {
         { questId = 26229, questName = "\"I TAKE Candle!\"", decorIds = {4814} },
@@ -448,6 +460,7 @@ addon.QuestSourceData = {
         { questId = nil, questName = "To Mechagon!", decorIds = {2466} },
         { questId = 50963, questName = "Of Dark Deeds and Dark Days", decorIds = {1205} },
         { questId = nil, questName = "The Bargain is Struck", decorIds = {1193} },
+        { questId = 47741, questName = "To Sacrifice a Loa", decorIds = {1196} },
     },
 }
 

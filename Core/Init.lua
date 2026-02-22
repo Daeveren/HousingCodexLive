@@ -41,6 +41,7 @@ addon.CONSTANTS = {
     DEFAULT_FRAME_HEIGHT = 800,
     MIN_FRAME_WIDTH = 400,
     MIN_FRAME_HEIGHT = 400,
+    PREVIEW_DEFAULT_WIDTH = 500,  -- Fixed docked preview width
 
     -- Layout
     SIDEBAR_WIDTH = 167,
@@ -204,6 +205,7 @@ addon.CONSTANTS = {
     TIMER = {
         INPUT_DEBOUNCE = 0.15,            -- User input debounce (search, slider, resize)
         OWNERSHIP_REFRESH_DEBOUNCE = 0.1, -- Collection state change coalescing
+        QUEST_REFRESH_DEBOUNCE = 0.1,     -- Quest event coalescing (completion + cache invalidation)
     },
 
     -- Vendor world map pins

@@ -41,7 +41,6 @@ local defaults = {
             selectedQuestID = nil,
             selectedExpansionKey = nil,
             completionFilter = "incomplete",  -- "all" | "incomplete" | "complete"
-            searchText = "",
             expandedZones = {},       -- { ["EXPANSION_TWW:Isle of Dorn"] = true, ... }
         },
         achievements = {
@@ -49,7 +48,6 @@ local defaults = {
             selectedAchievementID = nil,
             selectedRecordID = nil,
             completionFilter = "incomplete",  -- "all" | "incomplete" | "complete"
-            searchText = "",
         },
     },
     wishlist = {},

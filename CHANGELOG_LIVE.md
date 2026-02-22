@@ -2,6 +2,24 @@
 
 All notable changes to Housing Codex.
 
+## [1.5.0] - 2026-02-22
+
+### Added
+- NEW - Progress tab showing your overall collection status at a glance
+  - See your total collected percentage with a progress bar
+  - Breakdown by source: Vendors, Quests, Achievements, Drops, Professions
+  - Per-profession crafting progress
+  - Vendor and Quest progress by expansion
+  - "Most Progressed" section highlighting what you're closest to completing
+  - Click any row to jump directly to that tab
+  - Updates in real-time as you collect items
+
+### Fixed
+- Fixed a 3D preview crash that could happen after rotating a model for a while
+- Riica vendor now shows all items for sale
+- Fixed quests showing under "Unknown Zone" — now correctly placed under their expansion and zone
+- Fixed some vendors appearing under "Unknown" instead of their correct zone
+
 ## [1.4.4] - 2026-02-21
 
 ### Added

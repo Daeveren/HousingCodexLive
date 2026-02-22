@@ -420,6 +420,29 @@ L["PROFESSIONS_EMPTY_NO_RESULTS"] = "No Results"
 L["TREASURE_HUNT_WAYPOINT_SET"] = "Marked treasure at"
 
 --------------------------------------------------------------------------------
+-- Progress Tab
+--------------------------------------------------------------------------------
+L["TAB_PROGRESS"] = "PROGRESS"
+L["TAB_PROGRESS_DESC"] = "Collection progress overview"
+L["PROGRESS_COLLECTED"] = "Collected"
+L["PROGRESS_TOTAL"] = "Total"
+L["PROGRESS_PERCENT"] = "Complete"
+L["PROGRESS_REMAINING"] = "Remaining"
+L["PROGRESS_BY_SOURCE"] = "By Source"
+L["PROGRESS_VENDOR_EXPANSIONS"] = "Vendor Expansions"
+L["PROGRESS_PROFESSIONS"] = "Professions"
+L["PROGRESS_ALMOST_THERE"] = "Most Progressed"
+L["PROGRESS_OVERVIEW"] = "PROGRESS OVERVIEW"
+L["PROGRESS_ALL_DECOR_COLLECTED"] = "All Decor Collected"
+L["PROGRESS_SOURCE_ALL"] = "All Decor"
+L["PROGRESS_SOURCE_VENDORS"] = "Vendors"
+L["PROGRESS_SOURCE_QUESTS"] = "Quests"
+L["PROGRESS_SOURCE_ACHIEVEMENTS"] = "Achievements"
+L["PROGRESS_SOURCE_PROFESSIONS"] = "Professions"
+L["PROGRESS_LOADING"] = "Loading progress data..."
+L["PROGRESS_NO_DATA"] = "No decor data available"
+
+--------------------------------------------------------------------------------
 -- Zone Overlay (World Map)
 --------------------------------------------------------------------------------
 L["ZONE_OVERLAY_VENDORS"] = "Vendors"

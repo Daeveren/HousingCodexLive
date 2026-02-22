@@ -1027,16 +1027,29 @@ addon:RegisterInternalEvent("DATA_LOADED", function()
     end
 end)
 
--- Shared handler for events that require rebuilding quest displays
+-- Direct refresh handler (used by RegisterOwnershipRefresh which has its own debounce)
 local function RefreshQuestDisplays()
     if QuestsTab:IsShown() then
         QuestsTab:RefreshDisplay()
     end
 end
 
-addon:RegisterInternalEvent("QUEST_TITLE_LOADED", RefreshQuestDisplays)
-addon:RegisterInternalEvent("QUEST_COMPLETION_CHANGED", RefreshQuestDisplays)
-addon:RegisterInternalEvent("QUEST_COMPLETION_CACHE_INVALIDATED", RefreshQuestDisplays)
+-- Debounced wrapper for noisy quest events (coalesces rapid-fire into single refresh)
+local questRefreshTimer = nil
+local function DebouncedQuestRefresh()
+    if not QuestsTab:IsShown() then return end
+    if questRefreshTimer then questRefreshTimer:Cancel() end
+    questRefreshTimer = C_Timer.NewTimer(CONSTS.TIMER.QUEST_REFRESH_DEBOUNCE, function()
+        questRefreshTimer = nil
+        if QuestsTab:IsShown() then
+            QuestsTab:RefreshDisplay()
+        end
+    end)
+end
+
+addon:RegisterInternalEvent("QUEST_TITLE_LOADED", DebouncedQuestRefresh)
+addon:RegisterInternalEvent("QUEST_COMPLETION_CHANGED", DebouncedQuestRefresh)
+addon:RegisterInternalEvent("QUEST_COMPLETION_CACHE_INVALIDATED", DebouncedQuestRefresh)
 
 QuestsTab:RegisterOwnershipRefresh(RefreshQuestDisplays)
 

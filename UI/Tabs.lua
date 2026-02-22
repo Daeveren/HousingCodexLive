@@ -19,6 +19,7 @@ local TAB_CONFIG = {
     { key = "VENDORS", labelKey = "TAB_VENDORS", descKey = "TAB_VENDORS_DESC", icon = "Interface\\Icons\\INV_Misc_Coin_02", enabled = true },
     { key = "DROPS", labelKey = "TAB_DROPS", descKey = "TAB_DROPS_DESC", icon = "Interface\\Icons\\INV_Misc_Bag_10_Blue", enabled = true },
     { key = "PROFESSIONS", labelKey = "TAB_PROFESSIONS", descKey = "TAB_PROFESSIONS_DESC", icon = "Interface\\Icons\\INV_Misc_Gear_01", enabled = true },
+    { key = "PROGRESS", labelKey = "TAB_PROGRESS", descKey = "TAB_PROGRESS_DESC", icon = "Interface\\Icons\\Spell_Holy_BorrowedTime", enabled = true },
 }
 
 addon.Tabs = {}
