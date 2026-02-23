@@ -22,8 +22,7 @@ local SORT_OPTIONS = {
     { value = CONSTS.SORT_NATIVE_ALPHA, isNative = true },
     { value = CONSTS.SORT_CLIENT_SIZE, isNative = false },
     { value = CONSTS.SORT_CLIENT_QUANTITY, isNative = false },
-    -- NOTE: "Qty Placed" sort disabled — Blizzard API returns numPlaced=0 (bug in GetCatalogEntryInfo)
-    -- { value = CONSTS.SORT_CLIENT_PLACED, isNative = false },
+    { value = CONSTS.SORT_CLIENT_PLACED, isNative = false },
 }
 
 -- Lookup table: sort type value -> localization key
@@ -33,6 +32,15 @@ local SORT_LABELS = {
     [CONSTS.SORT_CLIENT_SIZE] = "SORT_SIZE",
     [CONSTS.SORT_CLIENT_QUANTITY] = "SORT_QUANTITY",
     [CONSTS.SORT_CLIENT_PLACED] = "SORT_PLACED",
+}
+
+-- Tooltip localization keys for sort options
+local SORT_TOOLTIPS = {
+    [CONSTS.SORT_NATIVE_NEWEST] = "SORT_NEWEST_TIP",
+    [CONSTS.SORT_NATIVE_ALPHA] = "SORT_ALPHABETICAL_TIP",
+    [CONSTS.SORT_CLIENT_SIZE] = "SORT_SIZE_TIP",
+    [CONSTS.SORT_CLIENT_QUANTITY] = "SORT_QUANTITY_TIP",
+    [CONSTS.SORT_CLIENT_PLACED] = "SORT_PLACED_TIP",
 }
 
 -- Client-side sort field mapping: sort type -> record field name
@@ -258,7 +266,7 @@ function Grid:CreateSortDropdown(parent)
     -- Setup menu generator
     dropdown:SetupMenu(function(dropdownFrame, rootDescription)
         for _, opt in ipairs(SORT_OPTIONS) do
-            rootDescription:CreateRadio(
+            local radio = rootDescription:CreateRadio(
                 GetSortLabel(opt.value),
                 function() return (addon.db.browser.sortType or 0) == opt.value end,
                 function()
@@ -266,6 +274,14 @@ function Grid:CreateSortDropdown(parent)
                 end,
                 opt.value
             )
+
+            local tipKey = SORT_TOOLTIPS[opt.value]
+            if tipKey then
+                radio:SetTooltip(function(tooltip, elementDescription)
+                    GameTooltip_SetTitle(tooltip, MenuUtil.GetElementText(elementDescription))
+                    GameTooltip_AddNormalLine(tooltip, addon.L[tipKey])
+                end)
+            end
         end
     end)
 
@@ -409,7 +425,8 @@ function Grid:CreateScrollBox(parent, tileSize)
         addon:SetupTileDisplay(tile, record, CAMERA_MAINTAIN)
 
         -- Placed count (green, right side)
-        if record and record.numPlaced and record.numPlaced > 0 then
+        local showIndicators = addon.db and addon.db.settings.showCollectedIndicator
+        if showIndicators and record and record.numPlaced and record.numPlaced > 0 then
             tile.placed:SetText(record.numPlaced)
             tile.placed:Show()
             tile.quantity:ClearAllPoints()
@@ -421,7 +438,7 @@ function Grid:CreateScrollBox(parent, tileSize)
         end
 
         -- Owned count (gray, left of placed or at bottom-right)
-        if record and record.totalOwned and record.totalOwned > 0 then
+        if showIndicators and record and record.totalOwned and record.totalOwned > 0 then
             tile.quantity:SetText(record.totalOwned)
             tile.quantity:Show()
         end

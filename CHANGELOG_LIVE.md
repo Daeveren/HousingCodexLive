@@ -2,6 +2,20 @@
 
 All notable changes to Housing Codex.
 
+## [1.5.1] - 2026-02-23
+
+### Added
+- Hovering sort options drop-down menu in the Decor tab now shows a description of what each sort does
+- New "Qty Placed" sort option to sort by how many copies you've placed in your house
+- New "Reset Window Size" button in Settings > Troubleshooting to restore the default window size
+
+### Changed
+- Settings page tweaks
+- Wider search boxes across all tabs so that 'search hint text' is easier to read
+
+### Fixed
+- Fixed search placeholder text (e.g., "Search achievements, rewards, or categories...") overflowing outside the search box on narrow windows
+
 ## [1.5.0] - 2026-02-22
 
 ### Added

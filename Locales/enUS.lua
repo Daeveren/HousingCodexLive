@@ -69,6 +69,11 @@ L["SORT_ALPHABETICAL"] = "A-Z"
 L["SORT_SIZE"] = "Size"
 L["SORT_QUANTITY"] = "Qty Owned"
 L["SORT_PLACED"] = "Qty Placed"
+L["SORT_NEWEST_TIP"] = "Most recently added decor first"
+L["SORT_ALPHABETICAL_TIP"] = "Alphabetical order (A to Z)"
+L["SORT_SIZE_TIP"] = "Largest decor first (Huge to Tiny)"
+L["SORT_QUANTITY_TIP"] = "Most owned copies first"
+L["SORT_PLACED_TIP"] = "Most placed in your house first"
 
 --------------------------------------------------------------------------------
 -- Result Count & Empty State
@@ -180,17 +185,21 @@ L["OPTIONS_VENDOR_INDICATORS_TOOLTIP"] = "Display Housing Codex icon on vendor i
 L["OPTIONS_VENDOR_OWNED_CHECKMARK"] = "Show checkmark for owned decor"
 L["OPTIONS_VENDOR_OWNED_CHECKMARK_TOOLTIP"] = "Display a green checkmark on vendor decor items you already own"
 L["OPTIONS_VENDOR_MAP_PINS"] = "Show Vendor Map Pins"
-L["OPTIONS_VENDOR_MAP_PINS_TOOLTIP"] = "Display vendor pins on zone maps with collection progress"
+L["OPTIONS_VENDOR_MAP_PINS_TOOLTIP"] = "Display vendor pins on the world map with collection progress"
 L["OPTIONS_TREASURE_HUNT_WAYPOINTS"] = "Auto-waypoint for Treasure Hunts"
 L["OPTIONS_TREASURE_HUNT_WAYPOINTS_TOOLTIP"] = "Automatically set a map waypoint when accepting a Decor Treasure Hunt quest in housing zones"
 L["OPTIONS_SHOW_MIDNIGHT_DROPS"] = "Show Midnight expansion drops"
-L["OPTIONS_SHOW_MIDNIGHT_DROPS_TOOLTIP"] = "Include Midnight expansion items in the Drops tab (dungeons, raids, delves, treasures)"
+L["OPTIONS_SHOW_MIDNIGHT_DROPS_TOOLTIP"] = "Include Midnight expansion items and hidden catalog entries in the Drops tab"
 L["OPTIONS_AUTO_ROTATE_PREVIEW"] = "Auto-rotate 3D preview"
 L["OPTIONS_AUTO_ROTATE_PREVIEW_TOOLTIP"] = "Slowly rotate the 3D model in the preview panel and wishlist"
 L["OPTIONS_RESET_POSITION"] = "Reset Window Position"
 L["OPTIONS_RESET_POSITION_TOOLTIP"] = "Reset the window to the center of your screen"
+L["OPTIONS_RESET_SIZE"] = "Reset Window Size"
+L["OPTIONS_RESET_SIZE_TOOLTIP"] = "Reset the window to its default size"
+L["SIZE_RESET"] = "Window size reset to default."
 
 L["OPTIONS_SECTION_KEYBIND"] = "Keybind"
+L["OPTIONS_SECTION_TROUBLESHOOTING"] = "Troubleshooting"
 L["OPTIONS_TOGGLE_KEYBIND"] = "Toggle Window:"
 L["OPTIONS_NOT_BOUND"] = "Not Bound"
 L["OPTIONS_PRESS_KEY"] = "Press a key..."
@@ -236,7 +245,7 @@ L["ERROR_LOAD_FAILED_SHORT"] = "Failed to load data. Use /hc retry"
 --------------------------------------------------------------------------------
 L["LDB_TOOLTIP_LEFT"] = "|cffffffffLeft-click|r to toggle main window"
 L["LDB_TOOLTIP_RIGHT"] = "|cffffffffRight-click|r to open options"
-L["LDB_TOOLTIP_ALT"] = "|cffffffffAlt-click|r to configure display"
+L["LDB_TOOLTIP_ALT"] = "|cffffffffAlt-click|r to configure broker display"
 L["LDB_OPTIONS_PLACEHOLDER"] = "Options panel not yet available"
 L["LDB_POPUP_TITLE"] = "Broker Display"
 L["LDB_POPUP_UNIQUE"] = "Unique Collected"
@@ -463,4 +472,49 @@ L["ZONE_OVERLAY_CLICK_WAYPOINT"] = "Left-click to set a map pin"
 L["ZONE_OVERLAY_CLICK_OPEN_HC"] = "Right-click to open in Housing Codex"
 L["ZONE_OVERLAY_PREVIEW_SIZE"] = "Preview Size"
 L["OPTIONS_ZONE_OVERLAY"] = "Show Zone Overlay on World Map"
-L["OPTIONS_ZONE_OVERLAY_TOOLTIP"] = "Display a panel on the world map showing uncollected decor items for the current zone"
+L["OPTIONS_ZONE_OVERLAY_TOOLTIP"] = "Display a panel on the world map showing available decor items for the current zone"
+
+--------------------------------------------------------------------------------
+-- What's New Popup
+--------------------------------------------------------------------------------
+L["WHATSNEW_TITLE"] = "What's New in Housing Codex"
+L["WHATSNEW_DONT_SHOW"] = "Don't show this again for v%s"
+L["WHATSNEW_EXPLORE"] = "Explore Housing Codex"
+
+--------------------------------------------------------------------------------
+-- Welcome Popup
+--------------------------------------------------------------------------------
+L["WELCOME_TITLE"] = "Welcome to Housing Codex"
+L["WELCOME_SUBTITLE"] = "Your companion for decor discovery"
+L["WELCOME_START"] = "Start Exploring"
+L["WELCOME_QUICK_SETUP"] = "Quick Setup"
+L["WELCOME_OPEN_WITH"] = "Open with:"
+L["WELCOME_SET_KEYBIND"] = "Set keybind:"
+
+--------------------------------------------------------------------------------
+-- What's New: v1.5.0 feature highlights
+--------------------------------------------------------------------------------
+L["WHATSNEW_V150_F1_TITLE"] = "Collection Dashboard"
+L["WHATSNEW_V150_F1_DESC"] = "See your decor collection progress at a glance -- overall stats, by source type, and most progressed categories."
+L["WHATSNEW_V150_F2_TITLE"] = "Profession Tracking"
+L["WHATSNEW_V150_F2_DESC"] = "Track crafting progress for each profession with dedicated progress bars."
+L["WHATSNEW_V150_F3_TITLE"] = "Smart Navigation"
+L["WHATSNEW_V150_F3_DESC"] = "Click any progress row to jump directly to that source tab."
+L["WHATSNEW_V150_F4_TITLE"] = "Clickable Wishlist Links"
+L["WHATSNEW_V150_F4_DESC"] = "Share wishlisted items in chat as clickable links that others can preview."
+
+--------------------------------------------------------------------------------
+-- Welcome feature highlights
+--------------------------------------------------------------------------------
+L["WELCOME_F1_TITLE"] = "Browse & Search"
+L["WELCOME_F1_DESC"] = "Explore all housing decor with powerful filters and instant search."
+L["WELCOME_F2_TITLE"] = "3D Preview"
+L["WELCOME_F2_DESC"] = "Preview any decor item in full 3D before collecting."
+L["WELCOME_F3_TITLE"] = "Collection Progress"
+L["WELCOME_F3_DESC"] = "Track how complete your collection is across every source."
+L["WELCOME_F4_TITLE"] = "Quests & Achievements"
+L["WELCOME_F4_DESC"] = "Find quest and achievement sources for decor items."
+L["WELCOME_F5_TITLE"] = "Vendors & Drops"
+L["WELCOME_F5_DESC"] = "See vendor locations and drop sources with map integration."
+L["WELCOME_F6_TITLE"] = "Wishlist"
+L["WELCOME_F6_DESC"] = "Save items you want to collect and share them in chat."

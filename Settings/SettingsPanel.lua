@@ -7,28 +7,10 @@ local ADDON_NAME, addon = ...
 
 addon.Settings = {}
 
--- The binding action name from Bindings.xml
-local BINDING_ACTION = "HOUSINGCODEX_TOGGLE"
-
---------------------------------------------------------------------------------
--- Helper: Get current keybind from standard WoW binding system
---------------------------------------------------------------------------------
-local function GetCurrentKeybind()
-    -- Query the standard WoW keybinding system for our action
-    local key1, key2 = GetBindingKey(BINDING_ACTION)
-    return key1  -- Return primary binding (WoW supports 2 per action)
-end
-
---------------------------------------------------------------------------------
--- Helper: Get display text for keybind
---------------------------------------------------------------------------------
-local function GetKeybindDisplayText()
-    local key = GetCurrentKeybind()
-    if key then
-        return GetBindingText(key)  -- Human-readable (e.g., "Alt-C" instead of "ALT-C")
-    end
-    return nil
-end
+-- Shared keybind helpers (defined in Init.lua)
+local BINDING_ACTION = addon.BINDING_ACTION
+local GetCurrentKeybind = addon.GetCurrentKeybind
+local GetKeybindDisplayText = addon.GetKeybindDisplayText
 
 --------------------------------------------------------------------------------
 -- Helper: Create checkbox with tooltip
@@ -78,19 +60,22 @@ local function CreateDivider(parent, yOffset)
     divider:SetColorTexture(0.3, 0.3, 0.35, 0.6)
 end
 
--- Maps each checkbox field on self to its SavedVariables key (used by Refresh)
-local CHECKBOX_REFRESH_MAP = {
-    { field = "fontCheck",          settingKey = "useCustomFont"             },
-    { field = "collectedCheck",     settingKey = "showCollectedIndicator"    },
-    { field = "minimapCheck",       settingKey = "showMinimapButton"         },
-    { field = "autoRotateCheck",    settingKey = "autoRotatePreview"         },
-    { field = "vendorMapPinsCheck", settingKey = "showVendorMapPins"         },
-    { field = "zoneOverlayCheck",   settingKey = "showZoneOverlay"           },
-    { field = "treasureHuntCheck",  settingKey = "treasureHuntWaypoints"     },
-    { field = "vendorCheck",        settingKey = "showVendorDecorIndicators" },
-    { field = "vendorOwnedCheck",   settingKey = "showVendorOwnedCheckmark"  },
-    { field = "midnightCheck",      settingKey = "showMidnightDrops"         },
-}
+local function CreateResetButton(parent, labelKey, tooltipKey, onClick)
+    local L = addon.L
+    local btn = CreateFrame("Button", nil, parent, "UIPanelButtonTemplate")
+    btn:SetSize(160, 24)
+    btn:SetText(L[labelKey])
+    btn:SetScript("OnClick", onClick)
+    btn:SetScript("OnEnter", function(self)
+        GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
+        GameTooltip:SetText(L[tooltipKey])
+        GameTooltip:Show()
+    end)
+    btn:SetScript("OnLeave", function()
+        GameTooltip:Hide()
+    end)
+    return btn
+end
 
 --------------------------------------------------------------------------------
 -- Settings Panel Initialization
@@ -191,6 +176,129 @@ function addon.Settings:Initialize()
     )
     autoRotateCheck:SetPoint("TOPLEFT", COL2_X, yOffset)
     self.autoRotateCheck = autoRotateCheck
+    yOffset = yOffset - 30
+
+    CreateDivider(panel, yOffset)
+    yOffset = yOffset - 20
+
+    --------------------------------------------------------------------------------
+    -- KEYBIND SECTION
+    --------------------------------------------------------------------------------
+    local keybindHeader = panel:CreateFontString(nil, "ARTWORK", "GameFontNormal")
+    keybindHeader:SetPoint("TOPLEFT", 16, yOffset)
+    keybindHeader:SetText(L["OPTIONS_SECTION_KEYBIND"])
+    keybindHeader:SetTextColor(1, 0.82, 0)
+    yOffset = yOffset - 30
+
+    -- Keybind label
+    local keybindLabel = panel:CreateFontString(nil, "ARTWORK", "GameFontNormal")
+    keybindLabel:SetPoint("TOPLEFT", 16, yOffset)
+    keybindLabel:SetText(L["OPTIONS_TOGGLE_KEYBIND"])
+    keybindLabel:SetTextColor(0.9, 0.9, 0.9)
+
+    -- Keybind button
+    local keybindBtn = CreateFrame("Button", nil, panel, "UIPanelButtonTemplate")
+    keybindBtn:SetPoint("LEFT", keybindLabel, "RIGHT", 10, 0)
+    keybindBtn:SetSize(140, 28)
+    keybindBtn:RegisterForClicks("AnyUp")
+    self.keybindBtn = keybindBtn
+
+    -- Hint text (inline, right of keybind button)
+    local hintText = panel:CreateFontString(nil, "ARTWORK", "GameFontNormalSmall")
+    hintText:SetPoint("LEFT", keybindBtn, "RIGHT", 12, 0)
+    hintText:SetText(L["OPTIONS_KEYBIND_HINT"])
+    hintText:SetTextColor(0.6, 0.6, 0.6)
+
+    -- Update button text based on current keybind from standard WoW system
+    local function UpdateKeybindButtonText()
+        local displayText = GetKeybindDisplayText()
+        keybindBtn:SetText(displayText or L["OPTIONS_NOT_BOUND"])
+    end
+    self.UpdateKeybindButtonText = UpdateKeybindButtonText
+    UpdateKeybindButtonText()
+
+    -- Listen for binding changes from the standard Keybindings UI
+    panel:RegisterEvent("UPDATE_BINDINGS")
+    panel:SetScript("OnEvent", function(_, event)
+        if event == "UPDATE_BINDINGS" then
+            UpdateKeybindButtonText()
+        end
+    end)
+
+    -- Stop listening for key input
+    local function StopKeyCapture(btn)
+        btn:EnableKeyboard(false)
+        btn:SetScript("OnKeyDown", nil)
+        UpdateKeybindButtonText()
+    end
+
+    -- Handle key press during capture
+    local function OnKeyCaptured(btn, key)
+        if addon.MODIFIER_KEYS[key] then return end
+
+        if key == "ESCAPE" then
+            StopKeyCapture(btn)
+            return
+        end
+
+        -- Build full key with modifiers
+        local modifiers = {}
+        if IsAltKeyDown() then modifiers[#modifiers + 1] = "ALT" end
+        if IsControlKeyDown() then modifiers[#modifiers + 1] = "CTRL" end
+        if IsShiftKeyDown() then modifiers[#modifiers + 1] = "SHIFT" end
+        modifiers[#modifiers + 1] = key
+
+        local fullKey = table.concat(modifiers, "-")
+
+        -- Write to standard WoW binding system (not SavedVariables)
+        -- First clear existing binding for our action
+        local existingKey = GetCurrentKeybind()
+        if existingKey then
+            SetBinding(existingKey, nil)  -- Unbind old key
+        end
+
+        -- Set new binding
+        SetBinding(fullKey, BINDING_ACTION)
+        SaveBindings(GetCurrentBindingSet())
+
+        StopKeyCapture(btn)
+        UpdateKeybindButtonText()
+        addon:Debug("Keybind set via standard system: " .. fullKey)
+    end
+
+    keybindBtn:SetScript("OnEnter", function(btn)
+        local displayText = GetKeybindDisplayText()
+        if displayText then
+            GameTooltip:SetOwner(btn, "ANCHOR_RIGHT")
+            GameTooltip:AddLine(L["ADDON_NAME"] .. " (" .. displayText .. ")", 1, 1, 1)
+            GameTooltip:AddLine(L["OPTIONS_UNBIND_TOOLTIP"], 1, 1, 1)
+            GameTooltip:Show()
+        end
+    end)
+
+    keybindBtn:SetScript("OnLeave", function()
+        GameTooltip:Hide()
+    end)
+
+    keybindBtn:SetScript("OnClick", function(btn, button)
+        if button == "RightButton" then
+            -- Unbind both primary and secondary from standard WoW system
+            local key1, key2 = GetBindingKey(BINDING_ACTION)
+            if key1 then SetBinding(key1, nil) end
+            if key2 then SetBinding(key2, nil) end
+            if key1 or key2 then
+                SaveBindings(GetCurrentBindingSet())
+                addon:Debug("Keybind cleared via standard system")
+            end
+            UpdateKeybindButtonText()
+            GameTooltip:Hide()
+        else
+            btn:SetText(L["OPTIONS_PRESS_KEY"])
+            btn:EnableKeyboard(true)
+            btn:SetScript("OnKeyDown", OnKeyCaptured)
+        end
+    end)
+
     yOffset = yOffset - 30
 
     CreateDivider(panel, yOffset)
@@ -342,153 +450,35 @@ function addon.Settings:Initialize()
     )
     midnightCheck:SetPoint("TOPLEFT", COL1_X, yOffset)
     self.midnightCheck = midnightCheck
-    yOffset = yOffset - 40
+    yOffset = yOffset - 30
+
+    CreateDivider(panel, yOffset)
+    yOffset = yOffset - 20
+
+    --------------------------------------------------------------------------------
+    -- TROUBLESHOOTING SECTION
+    --------------------------------------------------------------------------------
+    local troubleshootHeader = panel:CreateFontString(nil, "ARTWORK", "GameFontNormal")
+    troubleshootHeader:SetPoint("TOPLEFT", 16, yOffset)
+    troubleshootHeader:SetText(L["OPTIONS_SECTION_TROUBLESHOOTING"])
+    troubleshootHeader:SetTextColor(1, 0.82, 0)
+    yOffset = yOffset - 30
 
     -- Reset Position button
-    local resetBtn = CreateFrame("Button", nil, panel, "UIPanelButtonTemplate")
-    resetBtn:SetPoint("TOPLEFT", 16, yOffset)
-    resetBtn:SetSize(160, 24)
-    resetBtn:SetText(L["OPTIONS_RESET_POSITION"])
-    resetBtn:SetScript("OnClick", function()
+    local resetPosBtn = CreateResetButton(panel, "OPTIONS_RESET_POSITION", "OPTIONS_RESET_POSITION_TOOLTIP", function()
         if addon.MainFrame then
             addon.MainFrame:ResetPosition()
         end
     end)
-    resetBtn:SetScript("OnEnter", function(self)
-        GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
-        GameTooltip:SetText(L["OPTIONS_RESET_POSITION_TOOLTIP"])
-        GameTooltip:Show()
-    end)
-    resetBtn:SetScript("OnLeave", function()
-        GameTooltip:Hide()
-    end)
-    yOffset = yOffset - 40
+    resetPosBtn:SetPoint("TOPLEFT", 16, yOffset)
 
-    --------------------------------------------------------------------------------
-    -- KEYBIND SECTION
-    --------------------------------------------------------------------------------
-    local keybindHeader = panel:CreateFontString(nil, "ARTWORK", "GameFontNormal")
-    keybindHeader:SetPoint("TOPLEFT", 16, yOffset)
-    keybindHeader:SetText(L["OPTIONS_SECTION_KEYBIND"])
-    keybindHeader:SetTextColor(1, 0.82, 0)
-    yOffset = yOffset - 30
-
-    -- Keybind label
-    local keybindLabel = panel:CreateFontString(nil, "ARTWORK", "GameFontNormal")
-    keybindLabel:SetPoint("TOPLEFT", 16, yOffset)
-    keybindLabel:SetText(L["OPTIONS_TOGGLE_KEYBIND"])
-    keybindLabel:SetTextColor(0.9, 0.9, 0.9)
-
-    -- Keybind button
-    local keybindBtn = CreateFrame("Button", nil, panel, "UIPanelButtonTemplate")
-    keybindBtn:SetPoint("LEFT", keybindLabel, "RIGHT", 10, 0)
-    keybindBtn:SetSize(140, 28)
-    keybindBtn:RegisterForClicks("AnyUp")
-    self.keybindBtn = keybindBtn
-
-    -- Update button text based on current keybind from standard WoW system
-    local function UpdateKeybindButtonText()
-        local displayText = GetKeybindDisplayText()
-        keybindBtn:SetText(displayText or L["OPTIONS_NOT_BOUND"])
-    end
-    self.UpdateKeybindButtonText = UpdateKeybindButtonText
-    UpdateKeybindButtonText()
-
-    -- Listen for binding changes from the standard Keybindings UI
-    panel:RegisterEvent("UPDATE_BINDINGS")
-    panel:SetScript("OnEvent", function(_, event)
-        if event == "UPDATE_BINDINGS" then
-            UpdateKeybindButtonText()
+    -- Reset Size button
+    local resetSizeBtn = CreateResetButton(panel, "OPTIONS_RESET_SIZE", "OPTIONS_RESET_SIZE_TOOLTIP", function()
+        if addon.MainFrame then
+            addon.MainFrame:ResetSize()
         end
     end)
-
-    -- Stop listening for key input
-    local function StopKeyCapture(btn)
-        btn:EnableKeyboard(false)
-        btn:SetScript("OnKeyDown", nil)
-        UpdateKeybindButtonText()
-    end
-
-    -- Modifier keys to ignore when pressed alone
-    local MODIFIER_KEYS = {
-        LSHIFT = true, RSHIFT = true,
-        LCTRL = true, RCTRL = true,
-        LALT = true, RALT = true,
-    }
-
-    -- Handle key press during capture
-    local function OnKeyCaptured(btn, key)
-        if MODIFIER_KEYS[key] then return end
-
-        if key == "ESCAPE" then
-            StopKeyCapture(btn)
-            return
-        end
-
-        -- Build full key with modifiers
-        local modifiers = {}
-        if IsAltKeyDown() then modifiers[#modifiers + 1] = "ALT" end
-        if IsControlKeyDown() then modifiers[#modifiers + 1] = "CTRL" end
-        if IsShiftKeyDown() then modifiers[#modifiers + 1] = "SHIFT" end
-        modifiers[#modifiers + 1] = key
-
-        local fullKey = table.concat(modifiers, "-")
-
-        -- Write to standard WoW binding system (not SavedVariables)
-        -- First clear existing binding for our action
-        local existingKey = GetCurrentKeybind()
-        if existingKey then
-            SetBinding(existingKey, nil)  -- Unbind old key
-        end
-
-        -- Set new binding
-        SetBinding(fullKey, BINDING_ACTION)
-        SaveBindings(GetCurrentBindingSet())
-
-        StopKeyCapture(btn)
-        UpdateKeybindButtonText()
-        addon:Debug("Keybind set via standard system: " .. fullKey)
-    end
-
-    keybindBtn:SetScript("OnEnter", function(btn)
-        local displayText = GetKeybindDisplayText()
-        if displayText then
-            GameTooltip:SetOwner(btn, "ANCHOR_RIGHT")
-            GameTooltip:AddLine(L["ADDON_NAME"] .. " (" .. displayText .. ")", 1, 1, 1)
-            GameTooltip:AddLine(L["OPTIONS_UNBIND_TOOLTIP"], 1, 1, 1)
-            GameTooltip:Show()
-        end
-    end)
-
-    keybindBtn:SetScript("OnLeave", function()
-        GameTooltip:Hide()
-    end)
-
-    keybindBtn:SetScript("OnClick", function(btn, button)
-        if button == "RightButton" then
-            -- Unbind from standard WoW system
-            local existingKey = GetCurrentKeybind()
-            if existingKey then
-                SetBinding(existingKey, nil)
-                SaveBindings(GetCurrentBindingSet())
-                addon:Debug("Keybind cleared via standard system")
-            end
-            UpdateKeybindButtonText()
-            GameTooltip:Hide()
-        else
-            btn:SetText(L["OPTIONS_PRESS_KEY"])
-            btn:EnableKeyboard(true)
-            btn:SetScript("OnKeyDown", OnKeyCaptured)
-        end
-    end)
-
-    yOffset = yOffset - 40
-
-    -- Hint text
-    local hintText = panel:CreateFontString(nil, "ARTWORK", "GameFontNormalSmall")
-    hintText:SetPoint("TOPLEFT", 16, yOffset)
-    hintText:SetText(L["OPTIONS_KEYBIND_HINT"])
-    hintText:SetTextColor(0.6, 0.6, 0.6)
+    resetSizeBtn:SetPoint("LEFT", resetPosBtn, "RIGHT", 10, 0)
 
     --------------------------------------------------------------------------------
     -- Register with WoW Settings system
@@ -506,25 +496,6 @@ end
 function addon.Settings:Open()
     if self.category then
         Settings.OpenToCategory(self.category:GetID())
-    end
-end
-
---------------------------------------------------------------------------------
--- Refresh settings panel values from SavedVariables
--- Called when panel is shown or DB is reloaded
---------------------------------------------------------------------------------
-function addon.Settings:Refresh()
-    if not addon.db then return end
-
-    for _, binding in ipairs(CHECKBOX_REFRESH_MAP) do
-        local checkbox = self[binding.field]
-        if checkbox then
-            checkbox:SetChecked(addon.db.settings[binding.settingKey])
-        end
-    end
-
-    if self.UpdateKeybindButtonText then
-        self.UpdateKeybindButtonText()
     end
 end
 

@@ -208,6 +208,27 @@ addon.CONSTANTS = {
         QUEST_REFRESH_DEBOUNCE = 0.1,     -- Quest event coalescing (completion + cache invalidation)
     },
 
+    -- What's New / Welcome popup
+    WHATSNEW = {
+        WIDTH = 680,
+        HEIGHT = 460,
+        WELCOME_WIDTH = 800,
+        WELCOME_HEIGHT = 560,
+        FEATURE_LIST_RATIO = 0.55,
+        SHOWCASE_RATIO = 0.45,
+        HEADER_HEIGHT = 52,
+        FOOTER_HEIGHT = 50,
+        ENTRY_SPACING = 12,
+        ENTRY_PADDING = 8,
+        ACCENT_BAR_WIDTH = 3,
+        SHOW_DELAY = 1.5,
+        ANIM_FADE_IN = 0.35,
+        ANIM_SLIDE_OFFSET = 20,
+        ANIM_FADE_OUT = 0.2,
+        ANIM_CROSSFADE = 0.15,
+        MAX_DISMISS_COUNT = 2,
+    },
+
     -- Vendor world map pins
     VENDOR_PIN = {
         SIZE = 22,
@@ -641,6 +662,28 @@ function addon:SetupTileDisplay(tile, record, cameraModType)
     return true
 end
 
+-- Shared Keybind Helpers (used by SettingsPanel and WhatsNewFrame)
+addon.BINDING_ACTION = "HOUSINGCODEX_TOGGLE"
+
+addon.MODIFIER_KEYS = {
+    LSHIFT = true, RSHIFT = true,
+    LCTRL = true, RCTRL = true,
+    LALT = true, RALT = true,
+}
+
+function addon.GetCurrentKeybind()
+    local key1 = GetBindingKey(addon.BINDING_ACTION)
+    return key1
+end
+
+function addon.GetKeybindDisplayText()
+    local key = addon.GetCurrentKeybind()
+    if key then
+        return GetBindingText(key)
+    end
+    return nil
+end
+
 -- Slash Commands
 SLASH_HOUSINGCODEX1 = "/hc"
 SLASH_HOUSINGCODEX2 = "/hcodex"
@@ -685,6 +728,14 @@ SlashCmdList["HOUSINGCODEX"] = function(msg)
             addon.db.settings.debugMode = not addon.db.settings.debugMode
             local status = addon.db.settings.debugMode and L["DEBUG_ON"] or L["DEBUG_OFF"]
             addon:Print(string.format(L["DEBUG_MODE_STATUS"], status))
+        end
+    elseif cmd == "whatsnew" then
+        if addon.WhatsNew then
+            addon.WhatsNew:ForceShow("whatsnew")
+        end
+    elseif cmd == "welcome" then
+        if addon.WhatsNew then
+            addon.WhatsNew:ForceShow("welcome")
         end
     elseif cmd:find("^inspect ") then
         -- Debug: inspect a record by partial name match
@@ -738,7 +789,7 @@ end
 -- Used by QuestsTab, AchievementsTab, VendorsTab for responsive toolbar
 -- Search box shrinks first, then hides; filter hides at narrower widths
 -- Returns the new layout string, or nil if unchanged
-local SEARCH_MAX_WIDTH = 200
+local SEARCH_MAX_WIDTH = 250
 local SEARCH_MIN_WIDTH = 80
 local FILTER_WIDTH_ESTIMATE = 180  -- Approximate width of filter buttons + padding
 

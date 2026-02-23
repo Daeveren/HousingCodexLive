@@ -575,6 +575,19 @@ function MainFrame:ResetPosition()
     addon:Print(addon.L["POSITION_RESET"])
 end
 
+function MainFrame:ResetSize()
+    local frame = self.frame
+    if not frame then return end
+
+    frame:SetSize(DEFAULT_WIDTH, DEFAULT_HEIGHT)
+
+    if addon.db then
+        addon.db.frameSize = { width = DEFAULT_WIDTH, height = DEFAULT_HEIGHT }
+    end
+
+    addon:Print(addon.L["SIZE_RESET"])
+end
+
 function MainFrame:Show()
     if InCombatLockdown() then
         addon:Print(addon.L["COMBAT_LOCKDOWN_MESSAGE"])

@@ -389,9 +389,10 @@ function AchievementsTab:CreateToolbar(parent)
     -- Search box (left side)
     local searchBox = CreateFrame("EditBox", nil, toolbar, "SearchBoxTemplate")
     searchBox:SetPoint("LEFT", toolbar, "LEFT", GRID_OUTER_PAD + 40, 0)
-    searchBox:SetSize(200, 20)
+    searchBox:SetSize(250, 20)
     searchBox:SetAutoFocus(false)
     searchBox.Instructions:SetText(L["ACHIEVEMENTS_SEARCH_PLACEHOLDER"])
+    searchBox.Instructions:SetWordWrap(false)
     self.searchBox = searchBox
 
     local searchDebounceTimer

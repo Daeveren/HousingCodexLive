@@ -38,9 +38,10 @@ function SearchBox:Create(parent)
     frame:SetAutoFocus(false)
     self.frame = frame
 
-    -- Set placeholder text
+    -- Set placeholder text (disable word wrap so long text truncates instead of overflowing)
     if frame.Instructions then
         frame.Instructions:SetText(addon.L["SEARCH_PLACEHOLDER"])
+        frame.Instructions:SetWordWrap(false)
     end
 
     -- Text changed handler with debounce (HookScript preserves default placeholder behavior)

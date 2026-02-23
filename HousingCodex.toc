@@ -2,7 +2,7 @@
 ## Title: |cffffd100Housing|r |cffff8000Codex|r
 ## Notes: Decor discovery and inspection addon for WoW Housing
 ## Author: Daev
-## Version: 1.5.0
+## Version: 1.5.1
 ## SavedVariables: HousingCodexDB
 ## IconTexture: Interface\AddOns\HousingCodex\HC
 ## AddonCompartmentFunc: HousingCodex_OnAddonCompartmentClick
@@ -45,6 +45,7 @@ Core\DropIndex.lua
 Core\CraftingData.lua
 Core\CraftingIndex.lua
 Core\ProgressIndex.lua
+Core\WhatsNewData.lua
 Core\TreasureHuntData.lua
 Core\TreasureHuntWaypoints.lua
 Core\LDB.lua
@@ -69,6 +70,7 @@ UI\ZoneOverlay.lua
 UI\DropsTab.lua
 UI\ProfessionsTab.lua
 UI\ProgressTab.lua
+UI\WhatsNewFrame.lua
 UI\MerchantOverlay.lua
 
 # Preview

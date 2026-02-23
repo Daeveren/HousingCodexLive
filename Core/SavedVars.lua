@@ -50,6 +50,11 @@ local defaults = {
             completionFilter = "incomplete",  -- "all" | "incomplete" | "complete"
         },
     },
+    whatsNew = {
+        lastSeenVersion = nil,
+        dismissCount = 0,
+        dontShowForVersion = nil,
+    },
     wishlist = {},
     settings = {
         showCollectedIndicator = true,

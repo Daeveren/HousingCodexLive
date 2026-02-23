@@ -360,7 +360,8 @@ function WishlistFrame:CreateGrid()
         addon:SetupTileDisplay(tile, record, CAMERA_DISCARD)
 
         -- Placed count
-        if record and record.numPlaced and record.numPlaced > 0 then
+        local showIndicators = addon.db and addon.db.settings.showCollectedIndicator
+        if showIndicators and record and record.numPlaced and record.numPlaced > 0 then
             tile.placed:SetText(record.numPlaced)
             tile.placed:Show()
             tile.quantity:ClearAllPoints()
@@ -372,7 +373,7 @@ function WishlistFrame:CreateGrid()
         end
 
         -- Owned count
-        if record and record.totalOwned and record.totalOwned > 0 then
+        if showIndicators and record and record.totalOwned and record.totalOwned > 0 then
             tile.quantity:SetText(record.totalOwned)
             tile.quantity:Show()
         end
