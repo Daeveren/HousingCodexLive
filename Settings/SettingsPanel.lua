@@ -107,23 +107,25 @@ function addon.Settings:Initialize()
     displayHeader:SetTextColor(1, 0.82, 0)
     yOffset = yOffset - 30
 
-    -- Use Custom Font checkbox
-    local fontCheck = CreateCheckbox(
+    -- Custom font toggle hidden from UI; use /hc font to toggle
+
+    -- Show Minimap Button checkbox
+    local minimapCheck = CreateCheckbox(
         panel,
-        L["OPTIONS_USE_CUSTOM_FONT"],
-        L["OPTIONS_USE_CUSTOM_FONT_TOOLTIP"],
-        function() return addon.db and addon.db.settings.useCustomFont end,
+        L["OPTIONS_SHOW_MINIMAP"],
+        L["OPTIONS_SHOW_MINIMAP_TOOLTIP"],
+        function() return addon.db and addon.db.settings.showMinimapButton end,
         function(checked)
             if addon.db then
-                addon.db.settings.useCustomFont = checked
-                if addon.ApplyFontSettings then
-                    addon:ApplyFontSettings()
+                addon.db.settings.showMinimapButton = checked
+                if addon.LDB then
+                    addon.LDB:SetMinimapShown(checked)
                 end
             end
         end
     )
-    fontCheck:SetPoint("TOPLEFT", COL1_X, yOffset)
-    self.fontCheck = fontCheck
+    minimapCheck:SetPoint("TOPLEFT", COL1_X, yOffset)
+    self.minimapCheck = minimapCheck
 
     -- Show Collected Indicator checkbox
     local collectedCheck = CreateCheckbox(
@@ -144,24 +146,6 @@ function addon.Settings:Initialize()
     self.collectedCheck = collectedCheck
     yOffset = yOffset - 30
 
-    -- Show Minimap Button checkbox
-    local minimapCheck = CreateCheckbox(
-        panel,
-        L["OPTIONS_SHOW_MINIMAP"],
-        L["OPTIONS_SHOW_MINIMAP_TOOLTIP"],
-        function() return addon.db and addon.db.settings.showMinimapButton end,
-        function(checked)
-            if addon.db then
-                addon.db.settings.showMinimapButton = checked
-                if addon.LDB then
-                    addon.LDB:SetMinimapShown(checked)
-                end
-            end
-        end
-    )
-    minimapCheck:SetPoint("TOPLEFT", COL1_X, yOffset)
-    self.minimapCheck = minimapCheck
-
     -- Auto-rotate 3D preview checkbox
     local autoRotateCheck = CreateCheckbox(
         panel,
@@ -174,7 +158,7 @@ function addon.Settings:Initialize()
             end
         end
     )
-    autoRotateCheck:SetPoint("TOPLEFT", COL2_X, yOffset)
+    autoRotateCheck:SetPoint("TOPLEFT", COL1_X, yOffset)
     self.autoRotateCheck = autoRotateCheck
     yOffset = yOffset - 30
 
@@ -479,6 +463,11 @@ function addon.Settings:Initialize()
         end
     end)
     resetSizeBtn:SetPoint("LEFT", resetPosBtn, "RIGHT", 10, 0)
+
+    -- Welcome Screen button (disabled — use /hc welcome instead)
+    local welcomeBtn = CreateResetButton(panel, "OPTIONS_SHOW_WELCOME", "OPTIONS_SHOW_WELCOME_TOOLTIP_DISABLED", nil)
+    welcomeBtn:SetPoint("TOPRIGHT", panel, "TOPRIGHT", -16, yOffset)
+    welcomeBtn:Disable()
 
     --------------------------------------------------------------------------------
     -- Register with WoW Settings system

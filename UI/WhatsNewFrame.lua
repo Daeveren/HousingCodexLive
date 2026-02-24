@@ -25,7 +25,6 @@ WhatsNew.frame = nil
 WhatsNew.currentVariant = nil  -- "whatsnew" or "welcome"
 WhatsNew.featureEntries = {}
 WhatsNew.selectedIndex = nil
-WhatsNew.showcaseTexture = nil
 WhatsNew.checkboxChecked = false
 
 --------------------------------------------------------------------------------
@@ -78,10 +77,14 @@ end
 -- ShouldShow Logic
 --------------------------------------------------------------------------------
 
+-- Returns the variant to auto-show ("welcome"), or nil if nothing should show.
+-- Slash commands (/hc whatsnew, /hc welcome) bypass this via ForceShow.
 function WhatsNew:ShouldShow()
-    -- Disabled: popups need polish before public release
-    -- Slash commands (/hc whatsnew, /hc welcome) still work for testing via ForceShow
-    return false
+    if addon.isFreshInstall then
+        addon.isFreshInstall = nil  -- one-shot: consume so it never fires again
+        return "welcome"
+    end
+    return nil
 end
 
 --------------------------------------------------------------------------------
@@ -93,6 +96,7 @@ local function CreateMainFrame()
     frame:SetFrameStrata("DIALOG")
     frame:SetClampedToScreen(true)
     frame:EnableMouse(true)
+    frame:SetMovable(true)
     frame:Hide()
 
     frame:SetBackdrop(BACKDROP)
@@ -135,26 +139,32 @@ local function CreateHeader(frame)
     header:SetPoint("TOPRIGHT", -3, -3)
     header:SetHeight(WN.HEADER_HEIGHT)
 
+    -- Drag handle
+    header:EnableMouse(true)
+    header:RegisterForDrag("LeftButton")
+    header:SetScript("OnDragStart", function() frame:StartMoving() end)
+    header:SetScript("OnDragStop", function() frame:StopMovingOrSizing() end)
+
     local bg = header:CreateTexture(nil, "BACKGROUND")
     bg:SetAllPoints()
     bg:SetColorTexture(0.08, 0.08, 0.1, 0.95)
 
     -- HC icon
     local icon = header:CreateTexture(nil, "ARTWORK")
-    icon:SetSize(24, 24)
+    icon:SetSize(48, 48) -- Further increased icon size
     icon:SetPoint("LEFT", 14, 0)
     icon:SetTexture("Interface\\AddOns\\HousingCodex\\HC")
     frame.headerIcon = icon
 
     -- Title text
-    local title = addon:CreateFontString(header, "OVERLAY", "GameFontNormalLarge")
-    title:SetPoint("LEFT", icon, "RIGHT", 10, 0)
+    local title = addon:CreateFontString(header, "OVERLAY", "GameFont_Gigantic") -- The largest standard native font
+    title:SetPoint("LEFT", icon, "RIGHT", 14, 0)
     title:SetTextColor(0.9, 0.85, 0.5, 1)
     frame.headerTitle = title
 
     -- Subtitle (Welcome only)
-    local subtitle = addon:CreateFontString(header, "OVERLAY", "GameFontNormal")
-    subtitle:SetPoint("LEFT", title, "RIGHT", 10, 0)
+    local subtitle = addon:CreateFontString(header, "OVERLAY", "GameFontNormalLarge")
+    subtitle:SetPoint("LEFT", title, "RIGHT", 16, 0)
     subtitle:SetTextColor(0.7, 0.7, 0.7, 1)
     subtitle:Hide()
     frame.headerSubtitle = subtitle
@@ -243,75 +253,132 @@ local function LayoutFeatureEntry(entry)
 end
 
 --------------------------------------------------------------------------------
--- Welcome Feature Grid (2-column layout)
+-- Welcome Feature Grid (3x2 modern card layout)
 --------------------------------------------------------------------------------
 
 local function CreateWelcomeFeatureGrid(parent)
-    local L = addon.L
     local features = addon.WelcomeFeatures
     if not features then return end
 
-    -- Use Welcome width for column calculation (parent may not have width yet)
-    local parentWidth = WN.WELCOME_WIDTH - 6  -- minus border insets
-    local colWidth = (parentWidth - 40) / 2  -- 2 columns with padding
-
     local entries = {}
+    local COLUMNS = 3
+    local ROWS = 2
 
-    -- Create left and right column anchor frames
+    -- Determine width for 3 columns inside the welcome frame
+    local parentWidth = WN.WELCOME_WIDTH - 12 -- margins
+    local cardGap = 16
+    local colWidth = (parentWidth - (cardGap * (COLUMNS + 1))) / COLUMNS
+    local cardHeight = 139
+
+    -- Cards positioned below the top of contentArea, above the quick setup row
+    local startY = -32
+    local startX = cardGap
+
     for i, feature in ipairs(features) do
-        local isLeftCol = (i % 2 == 1)
-        local colX = isLeftCol and 16 or (colWidth + 24)
+        if i > COLUMNS * ROWS then break end
 
-        local entry = CreateFrame("Frame", nil, parent)
-        entry:SetWidth(colWidth)
+        local col = (i - 1) % COLUMNS
+        local row = math.floor((i - 1) / COLUMNS)
 
-        -- Title
-        local title = addon:CreateFontString(entry, "OVERLAY", "GameFontNormal")
-        title:SetPoint("TOPLEFT", 0, 0)
-        title:SetPoint("RIGHT", -8, 0)
+        local colX = startX + (col * (colWidth + cardGap))
+        local rowY = startY - (row * (cardHeight + cardGap))
+
+        local card = CreateFrame("Frame", nil, parent, "BackdropTemplate")
+        card:SetSize(colWidth, cardHeight)
+        card:SetPoint("TOPLEFT", parent, "TOPLEFT", colX, rowY)
+
+        card:SetBackdrop({
+            bgFile = "Interface\\Buttons\\WHITE8x8",
+            edgeFile = "Interface\\Tooltips\\UI-Tooltip-Border",
+            edgeSize = 10,
+            insets = { left = 2, right = 2, top = 2, bottom = 2 }
+        })
+        card:SetBackdropColor(0.12, 0.12, 0.14, 0.95)
+        card:SetBackdropBorderColor(0.25, 0.25, 0.25, 1)
+
+        -- Top accent bar (Gold) - used as a sweep highlight
+        local accent = card:CreateTexture(nil, "OVERLAY")
+        accent:SetPoint("TOPLEFT", 4, -4)
+        accent:SetPoint("TOPRIGHT", -4, -4)
+        accent:SetHeight(4)
+        accent:SetColorTexture(unpack(COLORS.GOLD))
+        accent:SetAlpha(0.15)
+        card.accent = accent
+
+        -- Title (GameFontNormalLarge base +1pt)
+        local title = addon:CreateFontString(card, "OVERLAY", "GameFontNormalLarge")
+        addon:SetFontSize(title, 13)
+        title:SetPoint("TOPLEFT", 14, -16)
+        title:SetPoint("RIGHT", -14, 0)
         title:SetJustifyH("LEFT")
         title:SetText(L[feature.titleKey] or feature.titleKey)
         title:SetTextColor(unpack(COLORS.GOLD))
-        entry.title = title
+        card.title = title
 
-        -- Description
-        local desc = addon:CreateFontString(entry, "OVERLAY", "GameFontHighlight")
-        desc:SetPoint("TOPLEFT", title, "BOTTOMLEFT", 0, -4)
-        desc:SetPoint("RIGHT", -8, 0)
+        -- Description (GameFontHighlight base +1pt, slightly dimmer)
+        local desc = addon:CreateFontString(card, "OVERLAY", "GameFontHighlight")
+        addon:SetFontSize(desc, 13)
+        desc:SetPoint("TOPLEFT", title, "BOTTOMLEFT", 0, -8)
+        desc:SetPoint("BOTTOMRIGHT", -14, 10)
         desc:SetJustifyH("LEFT")
+        desc:SetJustifyV("TOP")
         desc:SetWordWrap(true)
         desc:SetText(L[feature.descKey] or feature.descKey)
-        desc:SetTextColor(0.9, 0.9, 0.9, 1)
-        entry.desc = desc
+        desc:SetTextColor(0.75, 0.75, 0.75, 1)
+        card.desc = desc
 
-        entry.colX = colX
-        entries[#entries + 1] = entry
+        card:EnableMouse(true)
+        card:SetScript("OnEnter", function()
+            card:SetBackdropColor(0.18, 0.18, 0.20, 1)
+            card:SetBackdropBorderColor(unpack(COLORS.GOLD))
+        end)
+        card:SetScript("OnLeave", function()
+            card:SetBackdropColor(0.12, 0.12, 0.14, 0.95)
+            card:SetBackdropBorderColor(0.25, 0.25, 0.25, 1)
+        end)
+
+        entries[#entries + 1] = card
     end
 
-    -- Layout pass (deferred for string height measurement)
-    C_Timer.After(0, function()
-        local rowY = -10
-        local maxRowHeight = 0
+    -- Sweep animation: a highlight travels left-to-right across all 6 cards
+    -- Card order: 1-2-3 (row 1), then 4-5-6 (row 2), looping continuously
+    local SWEEP_DURATION = 4.0   -- seconds for one full pass across all 6 cards
+    local SWEEP_PAUSE = 1.5      -- pause before repeating
+    local SWEEP_TOTAL = SWEEP_DURATION + SWEEP_PAUSE
+    local CARD_COUNT = #entries
+    local MIN_ALPHA = 0.15
+    local MAX_ALPHA = 0.9
 
-        for i, entry in ipairs(entries) do
-            local isLeftCol = (i % 2 == 1)
-
-            if isLeftCol and i > 1 then
-                rowY = rowY - maxRowHeight - WN.ENTRY_SPACING
-                maxRowHeight = 0
+    local sweepDriver = CreateFrame("Frame", nil, parent)
+    sweepDriver.elapsed = 0
+    sweepDriver:SetScript("OnUpdate", function(_, dt)
+        sweepDriver.elapsed = sweepDriver.elapsed + dt
+        local t = sweepDriver.elapsed % SWEEP_TOTAL
+        if t > SWEEP_DURATION then
+            -- In pause phase: all cards dim
+            for _, card in ipairs(entries) do
+                card.accent:SetAlpha(MIN_ALPHA)
             end
+            return
+        end
 
-            entry:ClearAllPoints()
-            entry:SetPoint("TOPLEFT", parent, "TOPLEFT", entry.colX, rowY)
+        -- Sweep position: 0 to CARD_COUNT over SWEEP_DURATION
+        local sweepPos = (t / SWEEP_DURATION) * CARD_COUNT
 
-            local titleH = entry.title:GetStringHeight() or 14
-            local descH = entry.desc:GetStringHeight() or 14
-            local entryH = titleH + 4 + descH
-            entry:SetHeight(entryH)
-
-            if entryH > maxRowHeight then
-                maxRowHeight = entryH
+        for idx, card in ipairs(entries) do
+            -- Each card occupies a 1.0-wide slot; glow when sweep passes through
+            local cardCenter = (idx - 1) + 0.5
+            local dist = math.abs(sweepPos - cardCenter)
+            -- Glow falloff: bright within 0.6 cards, fading out to 1.2
+            local glow
+            if dist < 0.6 then
+                glow = 1.0
+            elseif dist < 1.2 then
+                glow = 1.0 - ((dist - 0.6) / 0.6)
+            else
+                glow = 0
             end
+            card.accent:SetAlpha(MIN_ALPHA + (MAX_ALPHA - MIN_ALPHA) * glow)
         end
     end)
 
@@ -365,7 +432,7 @@ local function CreateFooter(frame, variant)
         -- Welcome variant: "Start Exploring" centered button
         local btn = CreateFrame("Button", nil, footer, "UIPanelButtonTemplate")
         btn:SetPoint("CENTER", 0, 0)
-        btn:SetSize(180, 28)
+        btn:SetSize(180, 32)
         btn:SetText(L["WELCOME_START"])
         btn:SetScript("OnClick", function()
             WhatsNew:OnStartExploringClick()
@@ -401,53 +468,72 @@ local function CreateShowcase(frame)
 end
 
 --------------------------------------------------------------------------------
--- Welcome: Quick Setup Row
+-- Welcome: Good to Know Row (instructional)
 --------------------------------------------------------------------------------
 
 local function CreateQuickSetupRow(frame, contentArea)
-    local setupRow = CreateFrame("Frame", nil, contentArea)
-    setupRow:SetPoint("BOTTOMLEFT", 0, 0)
-    setupRow:SetPoint("BOTTOMRIGHT", 0, 0)
-    setupRow:SetHeight(44)
+    local setupRow = CreateFrame("Frame", nil, contentArea, "BackdropTemplate")
+    setupRow:SetPoint("BOTTOMLEFT", 12, 10)
+    setupRow:SetPoint("BOTTOMRIGHT", -12, 10)
+    setupRow:SetHeight(60)
 
-    -- Background
-    local bg = setupRow:CreateTexture(nil, "BACKGROUND")
-    bg:SetAllPoints()
-    bg:SetColorTexture(0.06, 0.06, 0.08, 0.8)
+    -- Background with rounded edges
+    setupRow:SetBackdrop({
+        bgFile = "Interface\\Buttons\\WHITE8x8",
+        edgeFile = "Interface\\Tooltips\\UI-Tooltip-Border",
+        edgeSize = 12,
+        insets = { left = 3, right = 3, top = 3, bottom = 3 }
+    })
+    setupRow:SetBackdropColor(0.08, 0.08, 0.10, 0.9)
+    setupRow:SetBackdropBorderColor(0.3, 0.3, 0.3, 0.5)
 
-    -- Top border
-    local border = setupRow:CreateTexture(nil, "ARTWORK")
-    border:SetHeight(1)
-    border:SetPoint("TOPLEFT", 0, 0)
-    border:SetPoint("TOPRIGHT", 0, 0)
-    border:SetColorTexture(0.25, 0.25, 0.25, 1)
+    -- Center content container to manage centering
+    local centerHarness = CreateFrame("Frame", nil, setupRow)
+    centerHarness:SetSize(WN.WELCOME_WIDTH - 60, 40)
+    centerHarness:SetPoint("CENTER", 0, 0)
 
-    -- "Quick Setup" label
-    local label = addon:CreateFontString(setupRow, "OVERLAY", "GameFontNormal")
-    label:SetPoint("LEFT", 16, 0)
+    -- "Good to Know" label (Icon + Text)
+    local gearIcon = centerHarness:CreateTexture(nil, "ARTWORK")
+    gearIcon:SetSize(22, 22)
+    gearIcon:SetPoint("LEFT", 0, 0)
+    gearIcon:SetAtlas("QuestNormal")
+    gearIcon:SetVertexColor(unpack(COLORS.GOLD))
+
+    local label = addon:CreateFontString(centerHarness, "OVERLAY", "GameFontNormalLarge")
+    label:SetPoint("LEFT", gearIcon, "RIGHT", 6, 0)
     label:SetText(L["WELCOME_QUICK_SETUP"])
     label:SetTextColor(unpack(COLORS.GOLD))
 
-    -- "Open with: /hc"
-    local openLabel = addon:CreateFontString(setupRow, "OVERLAY", "GameFontHighlight")
-    openLabel:SetPoint("LEFT", label, "RIGHT", 20, 0)
+    -- Divider
+    local div1 = centerHarness:CreateTexture(nil, "ARTWORK")
+    div1:SetSize(1, 40)
+    div1:SetPoint("LEFT", label, "RIGHT", 20, 0)
+    div1:SetColorTexture(0.3, 0.3, 0.3, 1)
+
+    -- Instruction Text
+    local openLabel = addon:CreateFontString(centerHarness, "OVERLAY", "GameFontHighlight")
+    openLabel:SetPoint("LEFT", div1, "RIGHT", 20, 0)
     openLabel:SetText(L["WELCOME_OPEN_WITH"])
     openLabel:SetTextColor(0.8, 0.8, 0.8, 1)
 
-    local openValue = addon:CreateFontString(setupRow, "OVERLAY", "GameFontHighlight")
+    local openValue = addon:CreateFontString(centerHarness, "OVERLAY", "GameFontNormalLarge")
     openValue:SetPoint("LEFT", openLabel, "RIGHT", 6, 0)
     openValue:SetText("|cFFFFD100/hc|r")
 
-    -- "Set keybind: [Click to bind]"
-    local keybindLabel = addon:CreateFontString(setupRow, "OVERLAY", "GameFontHighlight")
-    keybindLabel:SetPoint("LEFT", openValue, "RIGHT", 30, 0)
-    keybindLabel:SetText(L["WELCOME_SET_KEYBIND"])
-    keybindLabel:SetTextColor(0.8, 0.8, 0.8, 1)
+    local orLabel = addon:CreateFontString(centerHarness, "OVERLAY", "GameFontHighlight")
+    orLabel:SetPoint("LEFT", openValue, "RIGHT", 6, 0)
+    orLabel:SetText(L["WELCOME_SET_KEYBIND"])
+    orLabel:SetTextColor(0.8, 0.8, 0.8, 1)
+
+    local keybindLabel = addon:CreateFontString(centerHarness, "OVERLAY", "GameFontNormal")
+    keybindLabel:SetPoint("LEFT", orLabel, "RIGHT", 6, 0)
+    keybindLabel:SetText(L["WELCOME_KEYBIND_LABEL"])
+    keybindLabel:SetTextColor(unpack(COLORS.GOLD))
 
     -- Keybind capture button
-    local keybindBtn = CreateFrame("Button", nil, setupRow, "UIPanelButtonTemplate")
+    local keybindBtn = CreateFrame("Button", nil, centerHarness, "UIPanelButtonTemplate")
     keybindBtn:SetPoint("LEFT", keybindLabel, "RIGHT", 8, 0)
-    keybindBtn:SetSize(120, 22)
+    keybindBtn:SetSize(110, 26)
     keybindBtn:RegisterForClicks("AnyUp")
 
     local function UpdateKeybindText()
@@ -542,6 +628,8 @@ function WhatsNew:Build(variant)
     local header = CreateHeader(frame)
 
     if variant == "welcome" then
+        -- Add height to header so the larger text works
+        header:SetHeight(72)
         frame.headerTitle:SetText(L["WELCOME_TITLE"])
         frame.headerSubtitle:SetText(L["WELCOME_SUBTITLE"])
         frame.headerSubtitle:Show()
@@ -555,7 +643,7 @@ function WhatsNew:Build(variant)
 
     -- Content area (between header and footer)
     local content = CreateFrame("Frame", nil, frame)
-    content:SetPoint("TOPLEFT", header, "BOTTOMLEFT", 0, 0)
+    content:SetPoint("TOPLEFT", header, "BOTTOMLEFT", 0, -8) -- Move down slightly
     content:SetPoint("BOTTOMRIGHT", -3, 3 + WN.FOOTER_HEIGHT)
     frame.contentArea = content
 
@@ -702,6 +790,19 @@ local function CreateFadeInAnimation(frame)
     translate:SetOrder(1)
 
     ag:SetToFinalAlpha(true)
+
+    -- Reanchor to final position when animation ends so the frame doesn't
+    -- snap back to its pre-animation offset
+    ag:SetScript("OnFinished", function()
+        frame:ClearAllPoints()
+        if WhatsNew.currentVariant == "welcome" then
+            frame:SetPoint("CENTER", UIParent, "CENTER", 0, 0)
+        else
+            local xOff = -(GetScreenWidth() * 0.12)
+            frame:SetPoint("CENTER", UIParent, "CENTER", xOff, 0)
+        end
+    end)
+
     return ag
 end
 
@@ -727,10 +828,24 @@ end
 -- Show / Close / Dismiss
 --------------------------------------------------------------------------------
 
-function WhatsNew:Show(variant)
-    if InCombatLockdown() then return end
+local combatDeferFrame = CreateFrame("Frame")
+combatDeferFrame:SetScript("OnEvent", function(self)
+    self:UnregisterEvent("PLAYER_REGEN_ENABLED")
+    local pending = WhatsNew.pendingShow
+    WhatsNew.pendingShow = nil
+    WhatsNew:Show(pending)
+end)
 
+function WhatsNew:Show(variant)
     variant = variant or "whatsnew"
+
+    if InCombatLockdown() then
+        self.pendingShow = variant
+        combatDeferFrame:RegisterEvent("PLAYER_REGEN_ENABLED")
+        addon:Debug("WhatsNew deferred until combat ends: " .. variant)
+        return
+    end
+
     self:Build(variant)
 
     -- Pre-animation: set invisible
@@ -846,8 +961,9 @@ addon:RegisterInternalEvent("DATA_LOADED", function()
     end
 
     C_Timer.After(WN.SHOW_DELAY, function()
-        if WhatsNew:ShouldShow() then
-            WhatsNew:Show()
+        local variant = WhatsNew:ShouldShow()
+        if variant then
+            WhatsNew:Show(variant)
         end
     end)
 end)

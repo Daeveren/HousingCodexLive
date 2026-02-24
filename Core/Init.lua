@@ -222,8 +222,8 @@ addon.CONSTANTS = {
         ENTRY_PADDING = 8,
         ACCENT_BAR_WIDTH = 3,
         SHOW_DELAY = 1.5,
-        ANIM_FADE_IN = 0.35,
-        ANIM_SLIDE_OFFSET = 20,
+        ANIM_FADE_IN = 0.875,
+        ANIM_SLIDE_OFFSET = 30,
         ANIM_FADE_OUT = 0.2,
         ANIM_CROSSFADE = 0.15,
         MAX_DISMISS_COUNT = 2,
@@ -728,6 +728,15 @@ SlashCmdList["HOUSINGCODEX"] = function(msg)
             addon.db.settings.debugMode = not addon.db.settings.debugMode
             local status = addon.db.settings.debugMode and L["DEBUG_ON"] or L["DEBUG_OFF"]
             addon:Print(string.format(L["DEBUG_MODE_STATUS"], status))
+        end
+    elseif cmd == "font" then
+        if addon.db then
+            addon.db.settings.useCustomFont = not addon.db.settings.useCustomFont
+            if addon.ApplyFontSettings then
+                addon:ApplyFontSettings()
+            end
+            local status = addon.db.settings.useCustomFont and L["DEBUG_ON"] or L["DEBUG_OFF"]
+            addon:Print(string.format(L["FONT_MODE_STATUS"], status))
         end
     elseif cmd == "whatsnew" then
         if addon.WhatsNew then

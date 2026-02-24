@@ -2,6 +2,16 @@
 
 All notable changes to Housing Codex.
 
+## [1.5.2] - 2026-02-24
+
+### Added
+- Redesigned the welcome screen with a visual card grid showcasing main features of Housing Codex
+- Welcome screen now automatically shows once for fresh installs
+- Welcome screen can now be moved by dragging the header
+
+### Fixed
+- Added protection for the Welcome screen so it won't fail when the player is in combat
+
 ## [1.5.1] - 2026-02-23
 
 ### Added
