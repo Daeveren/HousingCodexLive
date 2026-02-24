@@ -135,6 +135,7 @@ function addon:GetProgressBySourceType()
                     total = dTotal,
                     percent = dOwned / dTotal * 100,
                     targetTabKey = "DROPS",
+                    category = dc.category,
                 })
             end
         end

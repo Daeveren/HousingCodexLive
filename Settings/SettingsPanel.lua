@@ -225,6 +225,11 @@ function addon.Settings:Initialize()
             return
         end
 
+        if InCombatLockdown() then
+            StopKeyCapture(btn)
+            return
+        end
+
         -- Build full key with modifiers
         local modifiers = {}
         if IsAltKeyDown() then modifiers[#modifiers + 1] = "ALT" end
@@ -234,12 +239,10 @@ function addon.Settings:Initialize()
 
         local fullKey = table.concat(modifiers, "-")
 
-        -- Write to standard WoW binding system (not SavedVariables)
-        -- First clear existing binding for our action
-        local existingKey = GetCurrentKeybind()
-        if existingKey then
-            SetBinding(existingKey, nil)  -- Unbind old key
-        end
+        -- Clear all existing bindings for our action (key1 and key2)
+        local key1, key2 = GetBindingKey(BINDING_ACTION)
+        if key1 then SetBinding(key1, nil) end
+        if key2 then SetBinding(key2, nil) end
 
         -- Set new binding
         SetBinding(fullKey, BINDING_ACTION)

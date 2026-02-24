@@ -80,8 +80,8 @@ end
 -- Returns the variant to auto-show ("welcome"), or nil if nothing should show.
 -- Slash commands (/hc whatsnew, /hc welcome) bypass this via ForceShow.
 function WhatsNew:ShouldShow()
-    if addon.isFreshInstall then
-        addon.isFreshInstall = nil  -- one-shot: consume so it never fires again
+    local wn = addon.db and addon.db.whatsNew
+    if wn and not wn.hasSeenWelcome then
         return "welcome"
     end
     return nil
@@ -113,6 +113,14 @@ local function CreateMainFrame()
         end
     end)
     frame:EnableKeyboard(true)
+
+    -- Safety net: mark welcome as seen no matter how the frame is hidden
+    -- (UISpecialFrames ESC, /hc toggle, keybind, etc.)
+    frame:SetScript("OnHide", function()
+        if WhatsNew.currentVariant == "welcome" and addon.db and addon.db.whatsNew then
+            addon.db.whatsNew.hasSeenWelcome = true
+        end
+    end)
 
     -- Add to UISpecialFrames only once (frame is recreated each Build)
     local found = false
@@ -305,9 +313,9 @@ local function CreateWelcomeFeatureGrid(parent)
         accent:SetAlpha(0.15)
         card.accent = accent
 
-        -- Title (GameFontNormalLarge base +1pt)
+        -- Title (GameFontNormalLarge base +2pt)
         local title = addon:CreateFontString(card, "OVERLAY", "GameFontNormalLarge")
-        addon:SetFontSize(title, 13)
+        addon:SetFontSize(title, 17)
         title:SetPoint("TOPLEFT", 14, -16)
         title:SetPoint("RIGHT", -14, 0)
         title:SetJustifyH("LEFT")
@@ -317,7 +325,7 @@ local function CreateWelcomeFeatureGrid(parent)
 
         -- Description (GameFontHighlight base +1pt, slightly dimmer)
         local desc = addon:CreateFontString(card, "OVERLAY", "GameFontHighlight")
-        addon:SetFontSize(desc, 13)
+        addon:SetFontSize(desc, 15)
         desc:SetPoint("TOPLEFT", title, "BOTTOMLEFT", 0, -8)
         desc:SetPoint("BOTTOMRIGHT", -14, 10)
         desc:SetJustifyH("LEFT")
@@ -557,6 +565,11 @@ local function CreateQuickSetupRow(frame, contentArea)
             return
         end
 
+        if InCombatLockdown() then
+            StopKeyCapture(btn)
+            return
+        end
+
         local modifiers = {}
         if IsAltKeyDown() then modifiers[#modifiers + 1] = "ALT" end
         if IsControlKeyDown() then modifiers[#modifiers + 1] = "CTRL" end
@@ -565,10 +578,9 @@ local function CreateQuickSetupRow(frame, contentArea)
 
         local fullKey = table.concat(modifiers, "-")
 
-        local existingKey = addon.GetCurrentKeybind()
-        if existingKey then
-            SetBinding(existingKey, nil)
-        end
+        local key1, key2 = GetBindingKey(addon.BINDING_ACTION)
+        if key1 then SetBinding(key1, nil) end
+        if key2 then SetBinding(key2, nil) end
 
         SetBinding(fullKey, addon.BINDING_ACTION)
         SaveBindings(GetCurrentBindingSet())
@@ -781,13 +793,11 @@ local function CreateFadeInAnimation(frame)
     alpha:SetToAlpha(1)
     alpha:SetDuration(WN.ANIM_FADE_IN)
     alpha:SetSmoothing("OUT")
-    alpha:SetOrder(1)
 
     local translate = ag:CreateAnimation("Translation")
     translate:SetOffset(0, -WN.ANIM_SLIDE_OFFSET)
     translate:SetDuration(WN.ANIM_FADE_IN)
     translate:SetSmoothing("OUT")
-    translate:SetOrder(1)
 
     ag:SetToFinalAlpha(true)
 
@@ -814,7 +824,6 @@ local function CreateFadeOutAnimation(frame)
     alpha:SetToAlpha(0)
     alpha:SetDuration(WN.ANIM_FADE_OUT)
     alpha:SetSmoothing("IN")
-    alpha:SetOrder(1)
 
     ag:SetToFinalAlpha(true)
     ag:SetScript("OnFinished", function()
@@ -882,6 +891,7 @@ function WhatsNew:SaveDismissState()
 
     if self.currentVariant == "welcome" then
         -- Welcome popup: always mark as seen on any close
+        wn.hasSeenWelcome = true
         wn.lastSeenVersion = addon.version
         wn.dismissCount = 0
         wn.dontShowForVersion = nil
@@ -928,6 +938,7 @@ function WhatsNew:OnStartExploringClick()
     if not addon.db or not addon.db.whatsNew then return end
 
     -- Mark as seen
+    addon.db.whatsNew.hasSeenWelcome = true
     addon.db.whatsNew.lastSeenVersion = addon.version
 
     -- Close popup
@@ -944,6 +955,10 @@ end
 function WhatsNew:ForceShow(variant)
     -- Bypass all version/dismiss checks (slash command testing)
     self:Show(variant or "whatsnew")
+end
+
+function WhatsNew:DismissIfShowing()
+    self:Close()
 end
 
 --------------------------------------------------------------------------------

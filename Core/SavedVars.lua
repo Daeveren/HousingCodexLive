@@ -54,6 +54,7 @@ local defaults = {
         lastSeenVersion = nil,
         dismissCount = 0,
         dontShowForVersion = nil,
+        hasSeenWelcome = false,
     },
     wishlist = {},
     settings = {
@@ -159,7 +160,6 @@ end
 function addon:InitializeDB()
     if not HousingCodexDB then
         HousingCodexDB = CopyTable(defaults)
-        self.isFreshInstall = true
     else
         -- Fill missing fields from defaults (deep merge)
         self:MergeDefaults(HousingCodexDB, defaults)

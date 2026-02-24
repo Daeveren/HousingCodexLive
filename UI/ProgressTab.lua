@@ -560,7 +560,14 @@ function ProgressTab:BuildSourceSection(yOffset, columnWidth, xOffset)
     for i, data in ipairs(sourceData) do
         local row = self:GetOrCreateProgressRow(self.sourceRows, i)
         self:SetupProgressRow(row, data, yOffset, columnWidth, function()
-            addon.Tabs:SelectTab(data.targetTabKey)
+            if data.category then
+                addon.Tabs:SelectTab("DROPS")
+                if addon.DropsTab and addon.DropsTab.frame then
+                    addon.DropsTab:SelectCategory(data.category)
+                end
+            else
+                addon.Tabs:SelectTab(data.targetTabKey)
+            end
         end, xOffset)
         yOffset = yOffset - ROW_HEIGHT - 2
     end
@@ -666,6 +673,7 @@ end
 function ProgressTab:NavigateToProfession(professionName)
     addon.Tabs:SelectTab("PROFESSIONS")
     if addon.ProfessionsTab.frame then
+        addon.ProfessionsTab:SetCompletionFilter("incomplete")
         addon.ProfessionsTab:SelectProfession(professionName)
     end
 end

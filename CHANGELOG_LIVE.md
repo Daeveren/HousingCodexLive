@@ -2,6 +2,19 @@
 
 All notable changes to Housing Codex.
 
+## [1.5.3] - 2026-02-24
+
+### Added
+- German language support for the addon category label in the AddOns list
+
+### Changed
+- Progress tab now refreshes when reopening the addon, so collection changes are reflected immediately
+- For feature discoverability purposes, the welcome screen will be shown to the existing users, once (previously it was only for fresh installs)
+
+### Fixed
+- Fixed keybind capture failing silently when attempted during combat
+- Fixed old keybinds sometimes persisting after rebinding the addon shortcut
+
 ## [1.5.2] - 2026-02-24
 
 ### Added

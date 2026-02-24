@@ -605,6 +605,11 @@ function MainFrame:Show()
     -- Enable searcher auto-update while visible (Blizzard pattern)
     addon:SetSearcherVisible(true)
 
+    -- Dismiss welcome/whatsnew popup if the user is opening the main frame
+    if addon.WhatsNew then
+        addon.WhatsNew:DismissIfShowing()
+    end
+
     self.frame:Show()
     self.frame:Raise()
 
@@ -617,6 +622,8 @@ function MainFrame:Show()
             addon:RunSearchNow("deferred refresh")
         elseif addon.Grid and addon.Tabs and addon.Tabs:GetCurrentTab() == "DECOR" then
             addon.Grid:Refresh()
+        elseif addon.Tabs and addon.Tabs:GetCurrentTab() == "PROGRESS" then
+            addon.ProgressTab:RefreshDisplay(true)
         end
     end
 
