@@ -417,6 +417,48 @@ function addon.Settings:Initialize()
     yOffset = yOffset - 20
 
     --------------------------------------------------------------------------------
+    -- ENDEAVORS SECTION
+    --------------------------------------------------------------------------------
+    local endeavorsHeader = panel:CreateFontString(nil, "ARTWORK", "GameFontNormal")
+    endeavorsHeader:SetPoint("TOPLEFT", 16, yOffset)
+    endeavorsHeader:SetText(L["OPTIONS_SECTION_ENDEAVORS"])
+    endeavorsHeader:SetTextColor(1, 0.82, 0)
+    yOffset = yOffset - 22
+
+    local endeavorsEnabledCheck = CreateCheckbox(
+        panel,
+        L["OPTIONS_ENDEAVORS_ENABLED"],
+        L["OPTIONS_ENDEAVORS_ENABLED_TOOLTIP"],
+        function() return addon.db and addon.db.endeavors and addon.db.endeavors.enabled end,
+        function(checked)
+            if addon.db and addon.db.endeavors then
+                addon.db.endeavors.enabled = checked
+                if addon.EndeavorsPanel then
+                    if checked then
+                        addon.EndeavorsPanel:TryShow()
+                    else
+                        addon.EndeavorsPanel:TryHide()
+                    end
+                end
+            end
+        end
+    )
+    endeavorsEnabledCheck:SetPoint("TOPLEFT", COL1_X, yOffset)
+    self.endeavorsEnabledCheck = endeavorsEnabledCheck
+    yOffset = yOffset - 30
+
+    local endeavorsBtn = CreateResetButton(panel, "ENDEAVORS_OPTIONS", "ENDEAVORS_OPTIONS_TOOLTIP", function(self)
+        if addon.EndeavorsPanel then
+            addon.EndeavorsPanel:OpenConfigFromSettings(self)
+        end
+    end)
+    endeavorsBtn:SetPoint("TOPLEFT", 16, yOffset)
+    yOffset = yOffset - 30
+
+    CreateDivider(panel, yOffset)
+    yOffset = yOffset - 20
+
+    --------------------------------------------------------------------------------
     -- TROUBLESHOOTING SECTION
     --------------------------------------------------------------------------------
     local troubleshootHeader = panel:CreateFontString(nil, "ARTWORK", "GameFontNormal")

@@ -16,30 +16,55 @@ local L = addon.L
 -- Frame references
 local frame = nil
 local titleBar, titleBarBg, xpContainer, endeavorContainer, taskContainer
-local xpBarBg, xpBarFill, xpLevelText, xpValueText
-local endeavorBarBg, endeavorBarFill, endeavorLabel, endeavorValueText
+local xpBarBg, xpBarFill, xpLevelText, xpValueText, xpPctText
+local endeavorBarBg, endeavorBarFill, endeavorLabel, endeavorValueText, endeavorPctText
 local taskRows = {}
-local taskHeaderText
 local cogwheelBtn, minimizeBtn
 local configFrame = nil
 local hcIcon = nil
+local contentBackdrop = nil
 
 -- Title bar auto-hide state
 local titleHideTimer = nil
 local titleBarVisible = true
 local isFirstShow = true   -- true until first auto-hide completes (login grace period)
 
--- Content dim state (separate from title bar hide)
-local contentDimTimer = nil
-local contentDimmed = false
+-- Inactivity timer (auto-minimize after idle)
+local inactivityTimer = nil
 
 -- Task prune ticker
 local pruneTicker = nil
+
+-- Task expansion state (tasks visible → backdrop stays on, title bar still auto-hides)
+local isTaskExpanded = false
+local userMinimized = false  -- set when user manually minimizes; cleared when tasks disappear
+
+-- Frame backdrop alpha tracking
+local frameBackdropAlpha = 1
 
 -- Width animation state
 local widthAnimTarget = nil
 local widthAnimStart = nil
 local widthAnimElapsed = nil
+
+-- Bar layout state (stacked ↔ inline transition)
+local barLayoutFactor = 0  -- 0 = stacked (2 rows), 1 = inline (side-by-side)
+local barLayoutTarget = 0
+local barLayoutDriver = nil
+local taskGoneTimer = nil  -- delay before collapsing from inline back to stacked
+
+-- Content backdrop slide state (expanded mode: slides down when title hides, up on hover)
+local contentBackdropDriver = nil
+local contentBackdropTopOffset = 0  -- 0 = flush with frame top, negative = slid down
+
+-- Post-combat retry state
+local combatDeferFrame = CreateFrame("Frame")
+local pendingCombatShow = false
+combatDeferFrame:SetScript("OnEvent", function(self)
+    self:UnregisterEvent("PLAYER_REGEN_ENABLED")
+    pendingCombatShow = false
+    EP:TryShow()
+end)
 
 -- Shared backdrop for all panel frames
 local FRAME_BACKDROP = {
@@ -52,6 +77,27 @@ local FRAME_BACKDROP = {
 --------------------------------------------------------------------------------
 -- Helpers
 --------------------------------------------------------------------------------
+
+-- Open the Housing Dashboard and navigate to a specific content tab.
+-- tabID: the tab ID key on the HouseInfoContent frame (e.g. "houseUpgradeTabID", "endeavorTabID")
+local function OpenHousingDashboard(tabID)
+    if not HousingDashboardFrame then
+        pcall(C_AddOns.LoadAddOn, "Blizzard_HousingDashboard")
+    end
+    if not HousingDashboardFrame then return end
+    ShowUIPanel(HousingDashboardFrame)
+    HousingDashboardFrame:SetTab(HousingDashboardFrame.houseInfoTab)
+    local contentFrame = HousingDashboardFrame.HouseInfoContent
+        and HousingDashboardFrame.HouseInfoContent.ContentFrame
+    if contentFrame then
+        if not contentFrame.tabsInitialized then
+            pcall(contentFrame.Initialize, contentFrame)
+        end
+        if contentFrame[tabID] then
+            contentFrame:SetTab(contentFrame[tabID])
+        end
+    end
+end
 
 local function SetBarProgress(barFill, barBg, progress, max)
     if not barFill or not barBg then return end
@@ -103,6 +149,121 @@ local function AnimateWidth(targetWidth)
 end
 
 --------------------------------------------------------------------------------
+-- Bar Layout Animation (stacked ↔ inline)
+--------------------------------------------------------------------------------
+
+local function AnimateBarLayout(targetFactor)
+    if barLayoutTarget == targetFactor then return end
+    barLayoutTarget = targetFactor
+
+    local startFactor = barLayoutFactor
+    local elapsed = 0
+
+    if not barLayoutDriver then
+        barLayoutDriver = CreateFrame("Frame", nil, frame)
+    end
+
+    barLayoutDriver:SetScript("OnUpdate", function(self, dt)
+        elapsed = elapsed + dt
+        local t = math.min(elapsed / CONST.BAR_LAYOUT_DURATION, 1)
+        local eased = 1 - (1 - t) * (1 - t)
+        barLayoutFactor = startFactor + (targetFactor - startFactor) * eased
+
+        EP:UpdateLayout()
+
+        if t >= 1 then
+            barLayoutFactor = targetFactor
+            self:SetScript("OnUpdate", nil)
+            -- Final bar update after animation settles
+            EP:UpdateXPBar()
+            EP:UpdateEndeavorBar()
+        end
+    end)
+end
+
+local function ResetBarLayout()
+    if taskGoneTimer then taskGoneTimer:Cancel(); taskGoneTimer = nil end
+    barLayoutFactor = 0
+    barLayoutTarget = 0
+    if barLayoutDriver then barLayoutDriver:SetScript("OnUpdate", nil) end
+end
+
+--------------------------------------------------------------------------------
+-- Frame Backdrop Fade (synced with title bar — fades when idle, shows on hover/tasks)
+--------------------------------------------------------------------------------
+
+local backdropFadeDriver = nil
+
+local function SetFrameBackdropAlpha(alpha)
+    if not frame then return end
+    frameBackdropAlpha = alpha
+    frame:SetBackdropColor(0.02, 0.02, 0.03, 0.75 * alpha)
+    frame:SetBackdropBorderColor(0.2, 0.2, 0.2, 0.40 * alpha)
+end
+
+local function FadeFrameBackdrop(targetAlpha, duration)
+    if not frame then return end
+    local startAlpha = frameBackdropAlpha
+    if math.abs(startAlpha - targetAlpha) < 0.01 then
+        SetFrameBackdropAlpha(targetAlpha)
+        return
+    end
+    local elapsed = 0
+
+    if not backdropFadeDriver then
+        backdropFadeDriver = CreateFrame("Frame", nil, frame)
+    end
+
+    backdropFadeDriver:SetScript("OnUpdate", function(self, dt)
+        elapsed = elapsed + dt
+        local t = math.min(elapsed / duration, 1)
+        local a = startAlpha + (targetAlpha - startAlpha) * t
+        SetFrameBackdropAlpha(a)
+        if t >= 1 then
+            self:SetScript("OnUpdate", nil)
+        end
+    end)
+end
+
+--------------------------------------------------------------------------------
+-- Content Backdrop Slide (expanded mode: rounded contour slides down/up)
+--------------------------------------------------------------------------------
+
+local function SetContentBackdropTop(yOfs)
+    if not contentBackdrop then return end
+    contentBackdropTopOffset = yOfs
+    contentBackdrop:ClearAllPoints()
+    contentBackdrop:SetPoint("TOPLEFT", frame, "TOPLEFT", 0, yOfs)
+    contentBackdrop:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", 0, 0)
+end
+
+local function SlideContentBackdrop(targetY, duration)
+    if not contentBackdrop then return end
+    local startY = contentBackdropTopOffset
+    if math.abs(startY - targetY) < 0.5 then
+        SetContentBackdropTop(targetY)
+        return
+    end
+    local elapsed = 0
+
+    if not contentBackdropDriver then
+        contentBackdropDriver = CreateFrame("Frame", nil, frame)
+    end
+
+    contentBackdropDriver:SetScript("OnUpdate", function(self, dt)
+        elapsed = elapsed + dt
+        local t = math.min(elapsed / duration, 1)
+        -- Ease-out quad for smooth deceleration
+        t = 1 - (1 - t) * (1 - t)
+        local y = startY + (targetY - startY) * t
+        SetContentBackdropTop(y)
+        if t >= 1 then
+            self:SetScript("OnUpdate", nil)
+        end
+    end)
+end
+
+--------------------------------------------------------------------------------
 -- Title Bar Auto-Hide (title bar only — content dim is separate)
 --------------------------------------------------------------------------------
 
@@ -143,6 +304,13 @@ local function ShowTitleBar()
         titleHideTimer = nil
     end
     FadeTitleBar(1, CONST.TITLE_FADE_IN)
+    if isTaskExpanded and contentBackdrop and contentBackdrop:IsShown() then
+        -- Expanded mode: slide content backdrop up to cover title bar
+        SlideContentBackdrop(0, CONST.TITLE_FADE_IN)
+        FadeFrameBackdrop(0, 0)  -- keep main backdrop hidden
+    else
+        FadeFrameBackdrop(1, CONST.TITLE_FADE_IN)
+    end
 end
 
 local function ScheduleHideTitleBar(forceDelay)
@@ -152,61 +320,40 @@ local function ScheduleHideTitleBar(forceDelay)
         titleHideTimer = nil
         isFirstShow = false
         if frame and frame:IsShown() and not frame:IsMouseOver() then
+            -- Don't fade title bar when minimized — it's the primary visible element
+            if addon.db and addon.db.endeavors and addon.db.endeavors.minimized then return end
             titleBarVisible = false
             FadeTitleBar(0, CONST.TITLE_FADE_OUT)
+            if isTaskExpanded and contentBackdrop and contentBackdrop:IsShown() then
+                -- Expanded mode: slide content backdrop down below title bar
+                local slideY = -(CONST.TITLE_BAR_HEIGHT - 2)
+                SlideContentBackdrop(slideY, CONST.TITLE_FADE_OUT)
+            else
+                FadeFrameBackdrop(0, CONST.TITLE_FADE_OUT)
+            end
         end
     end)
 end
 
 --------------------------------------------------------------------------------
--- Content Dim (2-min inactivity — independent of title bar hide)
+-- Inactivity Auto-Minimize (minimizes after 2 min idle)
 --------------------------------------------------------------------------------
 
-local contentFadeDriver = nil
-
-local function SetContentAlpha(alpha)
-    if xpContainer then xpContainer:SetAlpha(alpha) end
-    if endeavorContainer then endeavorContainer:SetAlpha(alpha) end
-    if taskContainer then taskContainer:SetAlpha(alpha) end
-end
-
-local function FadeContent(targetAlpha, duration)
-    local startAlpha = xpContainer and xpContainer:GetAlpha() or 1
-    local elapsed = 0
-
-    if not contentFadeDriver then
-        contentFadeDriver = CreateFrame("Frame", nil, frame)
-    end
-
-    contentFadeDriver:SetScript("OnUpdate", function(self, dt)
-        elapsed = elapsed + dt
-        local t = math.min(elapsed / duration, 1)
-        local a = startAlpha + (targetAlpha - startAlpha) * t
-        SetContentAlpha(a)
-        if t >= 1 then
-            self:SetScript("OnUpdate", nil)
-        end
-    end)
-end
-
-local function UndimContent()
-    if not contentDimmed then return end
-    contentDimmed = false
-    FadeContent(1, CONST.TITLE_FADE_IN)
-end
-
-local function DimContent()
-    if contentDimmed then return end
-    contentDimmed = true
-    FadeContent(CONST.TITLE_IDLE_DIM, CONST.TITLE_FADE_OUT)
-end
-
-local function ScheduleContentDim()
-    if contentDimTimer then contentDimTimer:Cancel() end
-    contentDimTimer = C_Timer.NewTimer(CONST.CONTENT_DIM_DELAY, function()
-        contentDimTimer = nil
-        if frame and frame:IsShown() then
-            DimContent()
+local function ScheduleInactivityMinimize()
+    if inactivityTimer then inactivityTimer:Cancel() end
+    inactivityTimer = C_Timer.NewTimer(CONST.CONTENT_HIDE_DELAY, function()
+        inactivityTimer = nil
+        if frame and frame:IsShown() and not frame:IsMouseOver() then
+            local db = addon.db.endeavors
+            if not db.minimized then
+                db.minimized = true
+                -- UpdateMinimizeButton is a local defined later; inline the texture swap here
+                if minimizeBtn then
+                    minimizeBtn:SetNormalTexture("Interface\\Buttons\\UI-PlusButton-UP")
+                    minimizeBtn:SetPushedTexture("Interface\\Buttons\\UI-PlusButton-DOWN")
+                end
+                EP:Refresh()
+            end
         end
     end)
 end
@@ -214,8 +361,20 @@ end
 -- Called on any activity: mouseover, task update, initiative update
 local function OnActivity()
     if not frame or not frame:IsShown() then return end
-    UndimContent()
-    ScheduleContentDim()
+    ScheduleInactivityMinimize()
+end
+
+-- Called on task progress — resets the timer that clears the task list on expiry
+local function OnTaskProgressActivity()
+    if not frame or not frame:IsShown() then return end
+    if not isTaskExpanded then return end
+
+    if taskGoneTimer then taskGoneTimer:Cancel() end
+    taskGoneTimer = C_Timer.NewTimer(CONST.TASK_GONE_LAYOUT_DELAY, function()
+        taskGoneTimer = nil
+        addon.EndeavorsData:ClearSessionProgress()
+        EP:Refresh()
+    end)
 end
 
 --------------------------------------------------------------------------------
@@ -232,11 +391,13 @@ local function CreateTaskRow(parent, index)
     nameText:SetPoint("LEFT", 0, 0)
     nameText:SetJustifyH("LEFT")
     nameText:SetWordWrap(false)
+    addon:SetFontSize(nameText, 10)
     row.nameText = nameText
 
     local progressText = addon:CreateFontString(row, "OVERLAY", "GameFontNormalSmall")
     progressText:SetPoint("RIGHT", 0, 0)
     progressText:SetJustifyH("RIGHT")
+    addon:SetFontSize(progressText, 10)
     row.progressText = progressText
 
     -- Constrain name text so it doesn't overlap progress text
@@ -281,7 +442,8 @@ local function ShowEndeavorTooltip(self)
     local info = data:GetInitiativeInfo()
     if not info then return end
 
-    GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
+    GameTooltip:SetOwner(self, "ANCHOR_NONE")
+    GameTooltip:SetPoint("LEFT", self, "RIGHT", 15, 0)
     GameTooltip:AddLine(info.title or L["ENDEAVORS_TITLE"], 1, 0.82, 0)
 
     if info.description then
@@ -306,18 +468,15 @@ local function ShowEndeavorTooltip(self)
         local currentProgress = info.currentProgress or 0
         for _, milestone in ipairs(info.milestones) do
             local isReached = currentProgress >= milestone.requiredContributionAmount
-            local marker = isReached and "[X]" or "[-]"
-            local r, g, b = 0.5, 0.5, 0.5
-            if isReached then r, g, b = 0.2, 1, 0.2 end
-            -- Show reward title from first reward entry if available
-            local label = ""
-            if milestone.rewards and milestone.rewards[1] then
-                label = milestone.rewards[1].title or ""
+            -- Show reward title from first reward entry, fall back to threshold number
+            local rewardTitle = milestone.rewards and milestone.rewards[1] and milestone.rewards[1].title
+            local label = (rewardTitle and rewardTitle ~= "") and rewardTitle or tostring(milestone.requiredContributionAmount)
+            if isReached then
+                -- Gray text with green "completed" marker
+                GameTooltip:AddLine(label .. " |cFF22BB22completed|r", 0.7, 0.7, 0.7)
+            else
+                GameTooltip:AddLine("[-] " .. label, 0.5, 0.5, 0.5)
             end
-            if label == "" then
-                label = tostring(milestone.requiredContributionAmount)
-            end
-            GameTooltip:AddLine(marker .. " " .. label, r, g, b)
         end
     end
 
@@ -359,7 +518,7 @@ local function CreateConfigFrame()
     if configFrame then return configFrame end
 
     local cf = CreateFrame("Frame", "HousingCodexEndeavorsConfig", UIParent, "BackdropTemplate")
-    cf:SetSize(220, 150)
+    cf:SetSize(220, 228)
     cf:SetFrameStrata("DIALOG")
     cf:SetBackdrop(FRAME_BACKDROP)
     cf:SetBackdropColor(0.06, 0.06, 0.08, 0.95)
@@ -379,8 +538,35 @@ local function CreateConfigFrame()
     closeBtn:SetSize(20, 20)
     closeBtn:SetScript("OnClick", function() cf:Hide() end)
 
-    -- Checkboxes
+    -- Enable toggle (custom — show/hide panel, not just refresh)
     local yOfs = -28
+    local db = addon.db.endeavors
+    local enableCheck = CreateFrame("CheckButton", nil, cf, "UICheckButtonTemplate")
+    enableCheck:SetPoint("TOPLEFT", 8, yOfs)
+    enableCheck.Text:SetFontObject(GameFontNormal)
+    enableCheck.Text:SetTextColor(0.9, 0.9, 0.9)
+    enableCheck.Text:SetText(L["ENDEAVORS_OPT_ENABLED"])
+    enableCheck:SetChecked(db.enabled)
+    enableCheck:SetScript("OnClick", function(self)
+        db.enabled = self:GetChecked()
+        if db.enabled then
+            EP:TryShow()
+        else
+            -- Force hide by bypassing the neighborhood guard
+            if frame and frame:IsShown() then frame:Hide() end
+            if configFrame and configFrame:IsShown() then configFrame:Hide() end
+        end
+    end)
+    enableCheck:SetScript("OnEnter", function(self)
+        GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
+        GameTooltip:SetText(L["ENDEAVORS_OPT_ENABLED_TIP"])
+        GameTooltip:Show()
+    end)
+    enableCheck:SetScript("OnLeave", function() GameTooltip:Hide() end)
+    cf.enableCheck = enableCheck
+
+    -- Checkboxes
+    yOfs = yOfs - 26
     CreateConfigCheckbox(cf, "ENDEAVORS_OPT_SHOW_HOUSE_XP", "ENDEAVORS_OPT_SHOW_HOUSE_XP_TIP", "showHouseXP", yOfs)
     yOfs = yOfs - 26
     CreateConfigCheckbox(cf, "ENDEAVORS_OPT_SHOW_ENDEAVOR", "ENDEAVORS_OPT_SHOW_ENDEAVOR_TIP", "showEndeavorProgress", yOfs)
@@ -388,6 +574,10 @@ local function CreateConfigFrame()
     CreateConfigCheckbox(cf, "ENDEAVORS_OPT_SHOW_XP_TEXT", "ENDEAVORS_OPT_SHOW_XP_TEXT_TIP", "showXPText", yOfs)
     yOfs = yOfs - 26
     CreateConfigCheckbox(cf, "ENDEAVORS_OPT_SHOW_ENDEAVOR_TEXT", "ENDEAVORS_OPT_SHOW_ENDEAVOR_TEXT_TIP", "showEndeavorText", yOfs)
+    yOfs = yOfs - 26
+    CreateConfigCheckbox(cf, "ENDEAVORS_OPT_SHOW_XP_PCT", "ENDEAVORS_OPT_SHOW_XP_PCT_TIP", "showXPPct", yOfs)
+    yOfs = yOfs - 26
+    CreateConfigCheckbox(cf, "ENDEAVORS_OPT_SHOW_ENDEAVOR_PCT", "ENDEAVORS_OPT_SHOW_ENDEAVOR_PCT_TIP", "showEndeavorPct", yOfs)
 
     -- ESC to close
     tinsert(UISpecialFrames, "HousingCodexEndeavorsConfig")
@@ -431,8 +621,12 @@ end
 local function ToggleMinimize()
     local db = addon.db.endeavors
     db.minimized = not db.minimized
+    if db.minimized then
+        userMinimized = true
+    end
     UpdateMinimizeButton()
     EP:Refresh()
+    OnActivity()  -- reset inactivity timer
 
     ScheduleHideTitleBar()
 end
@@ -451,13 +645,12 @@ local function CreateEndeavorsFrame()
     frame:SetSize(CONST.PANEL_WIDTH, 100) -- height is dynamic
     frame:SetFrameStrata("MEDIUM")
     frame:SetBackdrop(FRAME_BACKDROP)
-    frame:SetBackdropColor(0.04, 0.04, 0.06, 0.60)
-    frame:SetBackdropBorderColor(0.3, 0.3, 0.3, 0.60)
+    frame:SetBackdropColor(0.02, 0.02, 0.03, 0.75)
+    frame:SetBackdropBorderColor(0.2, 0.2, 0.2, 0.40)
     frame:SetClampedToScreen(true)
     frame:Hide()
 
-    -- ESC to close
-    tinsert(UISpecialFrames, "HousingCodexEndeavorsFrame")
+    -- Persistent ambient panel — do NOT add to UISpecialFrames (ESC would hide it)
 
     -- Mouse enter/leave for title bar auto-hide + activity tracking
     frame:EnableMouse(true)
@@ -504,18 +697,32 @@ local function CreateEndeavorsFrame()
     end)
     titleBar:SetScript("OnLeave", ScheduleHideTitleBar)
 
-    -- HC icon (on its own frame above titleBar so titleBarBg doesn't cover it)
+    -- HC icon (left of progress bars — positioned dynamically in UpdateLayout)
     local iconFrame = CreateFrame("Frame", nil, frame)
     iconFrame:SetFrameLevel(titleBar:GetFrameLevel() + 1)
     iconFrame:SetSize(18, 18)
-    iconFrame:SetPoint("TOPLEFT", titleBar, "TOPLEFT", 2, 0)
+    -- Initial anchor; UpdateLayout repositions vertically centered on bars
+    iconFrame:SetPoint("TOPLEFT", frame, "TOPLEFT", 6, -(CONST.TITLE_BAR_HEIGHT + 6))
+
+    -- Circular dark background for HC icon (stays visible when title bar + backdrop fade)
+    local iconBg = iconFrame:CreateTexture(nil, "BACKGROUND")
+    iconBg:SetPoint("CENTER")
+    iconBg:SetSize(22, 22)
+    iconBg:SetColorTexture(0.02, 0.02, 0.03, 0.9)
+    local iconMask = iconFrame:CreateMaskTexture()
+    iconMask:SetAllPoints(iconBg)
+    iconMask:SetTexture("Interface\\CHARACTERFRAME\\TempPortraitAlphaMask", "CLAMPTOBLACKADDITIVE", "CLAMPTOBLACKADDITIVE")
+    iconBg:AddMaskTexture(iconMask)
+
     hcIcon = iconFrame:CreateTexture(nil, "OVERLAY")
     hcIcon:SetAllPoints()
     hcIcon:SetTexture("Interface\\AddOns\\HousingCodex\\HC64")
+    frame.iconFrame = iconFrame  -- ref for UpdateLayout positioning
+    frame.iconBg = iconBg        -- ref for toggling circular bg
 
     -- Title text
     local titleText = addon:CreateFontString(titleBar, "OVERLAY", "GameFontNormalSmall")
-    titleText:SetPoint("LEFT", hcIcon, "RIGHT", 4, 0)
+    titleText:SetPoint("LEFT", titleBar, "LEFT", 2, 0)
     titleText:SetText(L["ENDEAVORS_TITLE"])
     titleText:SetTextColor(unpack(COLORS.GOLD))
 
@@ -565,23 +772,34 @@ local function CreateEndeavorsFrame()
     -- Divider below title bar
     local titleDivider = frame:CreateTexture(nil, "ARTWORK")
     titleDivider:SetHeight(1)
-    titleDivider:SetPoint("TOPLEFT", titleBar, "BOTTOMLEFT", 0, -2)
-    titleDivider:SetPoint("TOPRIGHT", titleBar, "BOTTOMRIGHT", 0, -2)
-    titleDivider:SetColorTexture(0.3, 0.3, 0.35, 0.6)
+    titleDivider:SetPoint("TOPLEFT", titleBar, "BOTTOMLEFT", 0, -1)
+    titleDivider:SetPoint("TOPRIGHT", titleBar, "BOTTOMRIGHT", 0, -1)
+    titleDivider:SetColorTexture(0.3, 0.3, 0.35, 0.4)
     titleBar.divider = titleDivider
+
+    -- Content backdrop (rounded contour that slides down when title bar hides in expanded mode)
+    contentBackdrop = CreateFrame("Frame", nil, frame, "BackdropTemplate")
+    contentBackdrop:SetFrameLevel(frame:GetFrameLevel())
+    contentBackdrop:SetPoint("TOPLEFT", frame, "TOPLEFT", 0, 0)
+    contentBackdrop:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", 0, 0)
+    contentBackdrop:SetBackdrop(FRAME_BACKDROP)
+    contentBackdrop:SetBackdropColor(0.02, 0.02, 0.03, 0.75)
+    contentBackdrop:SetBackdropBorderColor(0.2, 0.2, 0.2, 0.40)
+    contentBackdrop:Hide()
 
     ----------------------------------------------------------------------------
     -- XP Container (House Level + XP Bar) -- inline layout
     ----------------------------------------------------------------------------
     xpContainer = CreateFrame("Frame", nil, frame)
-    xpContainer:SetHeight(CONST.XP_BAR_HEIGHT + 6) -- bar + padding
-    xpContainer:SetPoint("TOPLEFT", titleBar, "BOTTOMLEFT", 0, -6)
+    xpContainer:SetHeight(CONST.XP_BAR_HEIGHT + 4) -- bar + padding
+    xpContainer:SetPoint("TOPLEFT", titleBar, "BOTTOMLEFT", 0, -4)
     xpContainer:SetPoint("RIGHT", frame, "RIGHT", -4, 0)
 
     -- Level text: just the number, inline left of bar
     xpLevelText = addon:CreateFontString(xpContainer, "OVERLAY", "GameFontNormalSmall")
-    xpLevelText:SetPoint("LEFT", 6, 0)
+    xpLevelText:SetPoint("LEFT", 3, 0)
     xpLevelText:SetTextColor(0.9, 0.9, 0.9, 1)
+    addon:SetFontSize(xpLevelText, 11)
 
     -- XP bar background (right of level text)
     xpBarBg = xpContainer:CreateTexture(nil, "BACKGROUND")
@@ -601,36 +819,78 @@ local function CreateEndeavorsFrame()
     xpValueText = addon:CreateFontString(xpContainer, "OVERLAY", "GameFontNormalSmall")
     xpValueText:SetPoint("CENTER", xpBarBg, "CENTER", 0, 0)
     xpValueText:SetTextColor(0.9, 0.9, 0.9, 1)
-    addon:SetFontSize(xpValueText, 12)
+    addon:SetFontSize(xpValueText, 10)
 
-    -- Hover-to-show XP text
+    -- XP percentage text (overlaid on bar fill, subtle white)
+    xpPctText = addon:CreateFontString(xpContainer, "OVERLAY", "GameFontNormalSmall")
+    xpPctText:SetPoint("CENTER", xpBarBg, "CENTER", 0, 0)
+    xpPctText:SetTextColor(1, 1, 1, 0.5)
+    xpPctText:SetShadowOffset(0, 0)
+    addon:SetFontSize(xpPctText, 9.5)
+
+    -- Hover-to-show XP text + tooltip, click to open Housing Dashboard
     xpContainer:EnableMouse(true)
-    xpContainer:SetScript("OnEnter", function()
+    xpContainer:SetScript("OnEnter", function(self)
         ShowTitleBar()
         OnActivity()
         if not db.showXPText and xpValueText.storedText then
             xpValueText:SetText(xpValueText.storedText)
             xpValueText:Show()
+            -- Hide pct text while value text is shown (avoid overlap)
+            if db.showXPPct then xpPctText:Hide() end
         end
+        -- Tooltip with detailed House XP info
+        local data = addon.EndeavorsData
+        local level = data:GetHouseLevel()
+        GameTooltip:SetOwner(self, "ANCHOR_NONE")
+        GameTooltip:SetPoint("LEFT", self, "RIGHT", 15, 0)
+        GameTooltip:AddLine(L["ENDEAVORS_XP_TOOLTIP_TITLE"], 1, 0.82, 0)
+        if data:IsMaxLevel() then
+            GameTooltip:AddLine(string.format(L["ENDEAVORS_XP_TOOLTIP_LEVEL_MAX"], level), 1, 1, 1)
+        else
+            GameTooltip:AddLine(string.format(L["ENDEAVORS_XP_TOOLTIP_LEVEL"], level), 1, 1, 1)
+            local totalFavor, totalFavorNeeded = data:GetHouseXPTotal()
+            totalFavor = math.floor(totalFavor)
+            totalFavorNeeded = math.floor(totalFavorNeeded)
+            if totalFavorNeeded > 0 then
+                local pct = math.floor(totalFavor / totalFavorNeeded * 100)
+                GameTooltip:AddLine(string.format(L["ENDEAVORS_XP_TOOLTIP_PROGRESS"],
+                    BreakUpLargeNumbers(totalFavor), BreakUpLargeNumbers(totalFavorNeeded), pct), 0.7, 0.7, 0.7)
+            end
+        end
+        GameTooltip:AddLine(" ")
+        GameTooltip:AddLine(L["ENDEAVORS_XP_TOOLTIP_CLICK"], 0.5, 0.8, 1)
+        GameTooltip:Show()
     end)
     xpContainer:SetScript("OnLeave", function()
+        GameTooltip:Hide()
         ScheduleHideTitleBar()
         if not db.showXPText then
             xpValueText:Hide()
+            -- Restore pct text if enabled
+            if db.showXPPct and xpPctText.storedPct then
+                xpPctText:SetText(xpPctText.storedPct)
+                xpPctText:Show()
+            end
         end
+    end)
+    xpContainer:SetScript("OnMouseUp", function(_, button)
+        if button ~= "LeftButton" then return end
+        OpenHousingDashboard("houseUpgradeTabID")
     end)
 
     ----------------------------------------------------------------------------
     -- Endeavor Container (Initiative Progress Bar) -- inline layout
     ----------------------------------------------------------------------------
     endeavorContainer = CreateFrame("Frame", nil, frame)
-    endeavorContainer:SetHeight(CONST.ENDEAVOR_BAR_HEIGHT + 6)
+    endeavorContainer:SetHeight(CONST.ENDEAVOR_BAR_HEIGHT + 4)
 
     -- Endeavor label: "E" inline left of bar
     endeavorLabel = addon:CreateFontString(endeavorContainer, "OVERLAY", "GameFontNormalSmall")
-    endeavorLabel:SetPoint("LEFT", 6, 0)
+    endeavorLabel:SetPoint("LEFT", 3, 0)
     endeavorLabel:SetText("E")
     endeavorLabel:SetTextColor(0.9, 0.9, 0.9, 1)
+    addon:SetFontSize(endeavorLabel, 11)
 
     -- Endeavor bar background (right of "E" label)
     endeavorBarBg = endeavorContainer:CreateTexture(nil, "BACKGROUND")
@@ -650,17 +910,30 @@ local function CreateEndeavorsFrame()
     endeavorValueText = addon:CreateFontString(endeavorContainer, "OVERLAY", "GameFontNormalSmall")
     endeavorValueText:SetPoint("CENTER", endeavorBarBg, "CENTER", 0, 0)
     endeavorValueText:SetTextColor(0.9, 0.9, 0.9, 1)
-    addon:SetFontSize(endeavorValueText, 12)
+    addon:SetFontSize(endeavorValueText, 10)
 
-    -- Tooltip + hover-to-show on endeavor area
+    -- Endeavor percentage text (overlaid on bar fill, subtle white)
+    endeavorPctText = addon:CreateFontString(endeavorContainer, "OVERLAY", "GameFontNormalSmall")
+    endeavorPctText:SetPoint("CENTER", endeavorBarBg, "CENTER", 0, 0)
+    endeavorPctText:SetTextColor(1, 1, 1, 0.5)
+    endeavorPctText:SetShadowOffset(0, 0)
+    addon:SetFontSize(endeavorPctText, 9.5)
+
+    -- Tooltip + hover-to-show on endeavor area + click to open Endeavors tab
     endeavorContainer:EnableMouse(true)
     endeavorContainer:SetScript("OnEnter", function(self)
         ShowTitleBar()
         OnActivity()
         ShowEndeavorTooltip(self)
+        -- Add click hint at end of tooltip
+        GameTooltip:AddLine(" ")
+        GameTooltip:AddLine(L["ENDEAVORS_TOOLTIP_CLICK"], 0.5, 0.8, 1)
+        GameTooltip:Show()
         if not db.showEndeavorText and endeavorValueText.storedText then
             endeavorValueText:SetText(endeavorValueText.storedText)
             endeavorValueText:Show()
+            -- Hide pct text while value text is shown (avoid overlap)
+            if db.showEndeavorPct then endeavorPctText:Hide() end
         end
     end)
     endeavorContainer:SetScript("OnLeave", function()
@@ -668,7 +941,16 @@ local function CreateEndeavorsFrame()
         ScheduleHideTitleBar()
         if not db.showEndeavorText then
             endeavorValueText:Hide()
+            -- Restore pct text if enabled
+            if db.showEndeavorPct and endeavorPctText.storedPct then
+                endeavorPctText:SetText(endeavorPctText.storedPct)
+                endeavorPctText:Show()
+            end
         end
+    end)
+    endeavorContainer:SetScript("OnMouseUp", function(_, button)
+        if button ~= "LeftButton" then return end
+        OpenHousingDashboard("endeavorTabID")
     end)
 
     ----------------------------------------------------------------------------
@@ -685,14 +967,6 @@ local function CreateEndeavorsFrame()
     taskDivider:SetPoint("TOPRIGHT", -6, 0)
     taskDivider:SetColorTexture(0.3, 0.3, 0.35, 0.4)
     taskContainer.divider = taskDivider
-
-    -- Task header label: "last 3 endeavors progressed"
-    taskHeaderText = addon:CreateFontString(taskContainer, "OVERLAY", "GameFontNormalSmall")
-    taskHeaderText:SetPoint("TOPLEFT", 12, -4)
-    taskHeaderText:SetText(L["ENDEAVORS_TASK_HEADER"])
-    taskHeaderText:SetTextColor(0.5, 0.5, 0.5, 1)
-    addon:SetFontSize(taskHeaderText, 10)
-    taskHeaderText:Hide()
 
     -- Pre-create task row pool
     for i = 1, CONST.MAX_VISIBLE_TASKS do
@@ -712,47 +986,127 @@ function EP:UpdateLayout()
 
     local db = addon.db.endeavors
 
-    -- When minimized: only show title bar
+    -- When minimized: only show title bar — auto-expand for new tasks unless user manually minimized
     if db.minimized then
-        xpContainer:Hide()
-        endeavorContainer:Hide()
-        taskContainer:Hide()
-        for i = 1, CONST.MAX_VISIBLE_TASKS do
-            taskRows[i]:Hide()
-        end
-        taskHeaderText:Hide()
+        local activeTasks = addon.EndeavorsData:GetActiveTasks()
+        if #activeTasks > 0 and not userMinimized then
+            -- New tasks arrived while minimized: auto-expand
+            db.minimized = false
+            UpdateMinimizeButton()
+            -- Fall through to normal layout
+        else
+            if #activeTasks == 0 then
+                userMinimized = false  -- reset so next task batch can auto-expand
+            end
 
-        -- Title bar only height
-        local titleOnlyHeight = CONST.TITLE_BAR_HEIGHT + 12
-        frame:SetHeight(titleOnlyHeight)
-        AnimateWidth(CONST.PANEL_WIDTH)
-        return
+            xpContainer:Hide()
+            endeavorContainer:Hide()
+            taskContainer:Hide()
+            if contentBackdrop then contentBackdrop:Hide() end
+            for i = 1, CONST.MAX_VISIBLE_TASKS do
+                taskRows[i]:Hide()
+            end
+
+            isTaskExpanded = false
+            ResetBarLayout()
+
+            -- Keep icon visible when minimized, at its normal below-title-bar position
+            if frame.iconFrame then
+                frame.iconFrame:ClearAllPoints()
+                frame.iconFrame:SetPoint("TOPLEFT", frame, "TOPLEFT", 6, -(CONST.TITLE_BAR_HEIGHT + 6))
+                frame.iconFrame:Show()
+                if frame.iconBg then frame.iconBg:Show() end
+            end
+
+            -- Title bar + icon height (icon sits below title bar)
+            local iconH = frame.iconFrame and frame.iconFrame:GetHeight() or 0
+            local minimizedHeight = CONST.TITLE_BAR_HEIGHT + 6 + iconH + 6
+            frame:SetHeight(minimizedHeight)
+            AnimateWidth(CONST.PANEL_WIDTH)
+            return
+        end
     end
 
-    local yOffset = -(CONST.TITLE_BAR_HEIGHT + 10)  -- Below title bar + padding
+    local yOffset = -(CONST.TITLE_BAR_HEIGHT + 4)  -- Below title bar + padding
     local showXP = db.showHouseXP
     local showEndeavor = db.showEndeavorProgress and addon.EndeavorsData:IsInitiativeEnabled()
 
-    -- XP container
+    local barLeftInset = 28  -- Space for icon (6 + 22 circle bg)
+    local barsTop = yOffset  -- Track where bars start for icon centering
+    local factor = barLayoutFactor  -- 0 = stacked, 1 = inline
+    local frameW = frame:GetWidth()
+    local availW = frameW - barLeftInset - 4
+    local gap = 4
+    local halfW = math.max((availW - gap) / 2, 20)
+
+    -- XP container (stays top-left, width shrinks to half when inline)
     if showXP then
+        local xpW = showEndeavor and (availW - factor * (availW - halfW)) or availW
         xpContainer:ClearAllPoints()
-        xpContainer:SetPoint("TOPLEFT", frame, "TOPLEFT", 4, yOffset)
-        xpContainer:SetPoint("RIGHT", frame, "RIGHT", -4, 0)
+        xpContainer:SetPoint("TOPLEFT", frame, "TOPLEFT", barLeftInset, yOffset)
+        xpContainer:SetWidth(xpW)
         xpContainer:Show()
-        yOffset = yOffset - xpContainer:GetHeight() - 4
     else
         xpContainer:Hide()
     end
 
-    -- Endeavor container
+    -- Endeavor container (animates from row 2 to right side when going inline)
     if showEndeavor then
+        local endW, endX, endY
+        if showXP then
+            endW = availW - factor * (availW - halfW)
+            endX = barLeftInset + factor * (halfW + gap)
+            local stackedY = yOffset - xpContainer:GetHeight() - 2
+            endY = stackedY + factor * (yOffset - stackedY)
+        else
+            endW = availW
+            endX = barLeftInset
+            endY = yOffset
+        end
         endeavorContainer:ClearAllPoints()
-        endeavorContainer:SetPoint("TOPLEFT", frame, "TOPLEFT", 4, yOffset)
-        endeavorContainer:SetPoint("RIGHT", frame, "RIGHT", -4, 0)
+        endeavorContainer:SetPoint("TOPLEFT", frame, "TOPLEFT", endX, endY)
+        endeavorContainer:SetWidth(endW)
         endeavorContainer:Show()
-        yOffset = yOffset - endeavorContainer:GetHeight() - 2
     else
         endeavorContainer:Hide()
+    end
+
+    -- yOffset after bars (interpolated between stacked and inline height)
+    if showXP and showEndeavor then
+        local barH = xpContainer:GetHeight()
+        local stackedDrop = 2 * (barH + 2)
+        local inlineDrop = barH + 2
+        yOffset = yOffset - (stackedDrop - factor * (stackedDrop - inlineDrop))
+    elseif showXP then
+        yOffset = yOffset - xpContainer:GetHeight() - 2
+    elseif showEndeavor then
+        yOffset = yOffset - endeavorContainer:GetHeight() - 2
+    end
+
+    -- Position icon vertically centered on visible bars
+    local iconFrame = frame.iconFrame
+    if iconFrame then
+        local hasBars = showXP or showEndeavor
+        if hasBars then
+            local barsBottom = yOffset + 2  -- undo last -2 spacing
+            local barsMidY = (barsTop + barsBottom) / 2  -- negative offset from frame top
+            local iconHalfH = iconFrame:GetHeight() / 2
+            -- Icon Y nudge: +1 (up) in mini, -2 (down) in expanded
+            local iconNudge = 0 - factor * 2
+            iconFrame:ClearAllPoints()
+            iconFrame:SetPoint("TOPLEFT", frame, "TOPLEFT", 6, barsMidY + iconHalfH + iconNudge)
+            iconFrame:Show()
+            -- Hide circular bg in expanded (inline) mode
+            if frame.iconBg then
+                if factor > 0.5 then
+                    frame.iconBg:Hide()
+                else
+                    frame.iconBg:Show()
+                end
+            end
+        else
+            iconFrame:Hide()
+        end
     end
 
     -- Task container
@@ -765,9 +1119,7 @@ function EP:UpdateLayout()
         taskContainer:SetPoint("TOPLEFT", frame, "TOPLEFT", 0, yOffset - 2)
         taskContainer:SetPoint("RIGHT", frame, "RIGHT", 0, 0)
 
-        -- Show header label
-        taskHeaderText:Show()
-        local taskYOffset = -4 - 12  -- Below divider + header
+        local taskYOffset = -4  -- Below divider
 
         for i = 1, CONST.MAX_VISIBLE_TASKS do
             if i <= taskCount then
@@ -781,30 +1133,89 @@ function EP:UpdateLayout()
             end
         end
 
-        local taskHeight = 4 + 12 + (taskCount * CONST.TASK_ROW_HEIGHT) + 4
+        local taskHeight = 4 + (taskCount * CONST.TASK_ROW_HEIGHT) + 4
         taskContainer:SetHeight(taskHeight)
         taskContainer:Show()
-        yOffset = yOffset - taskHeight - 4
+        yOffset = yOffset - taskHeight - 2
     else
         taskContainer:Hide()
-        taskHeaderText:Hide()
         for i = 1, CONST.MAX_VISIBLE_TASKS do
             taskRows[i]:Hide()
         end
     end
 
-    -- If nothing is visible, hide the panel entirely
+    -- If nothing is visible, collapse to title-bar-only (like minimized)
+    -- instead of hiding the frame entirely — hiding breaks re-show logic
     if not showXP and not showEndeavor and not hasVisibleTasks then
-        frame:Hide()
+        isTaskExpanded = false
+        ResetBarLayout()
+        if frame.iconFrame then frame.iconFrame:Hide() end
+        if contentBackdrop then contentBackdrop:Hide() end
+        local titleOnlyHeight = CONST.TITLE_BAR_HEIGHT + 12
+        frame:SetHeight(titleOnlyHeight)
+        AnimateWidth(CONST.PANEL_WIDTH)
         return
     end
 
+    -- Track task expansion: tasks appeared → animate to inline layout
+    local wasTaskExpanded = isTaskExpanded
+    isTaskExpanded = hasVisibleTasks
+
+    if isTaskExpanded and not wasTaskExpanded then
+        -- Tasks just appeared: animate to inline + start 1-min inactivity timer
+        if taskGoneTimer then taskGoneTimer:Cancel(); taskGoneTimer = nil end
+        if showXP and showEndeavor then
+            AnimateBarLayout(1)
+        end
+        -- Show content backdrop (rounded contour) and hide main frame backdrop
+        if contentBackdrop then
+            SetContentBackdropTop(0)
+            contentBackdrop:SetAlpha(1)
+            contentBackdrop:Show()
+        end
+        FadeFrameBackdrop(0, 0)  -- immediately hide main backdrop, content backdrop takes over
+        ShowTitleBar()
+        ScheduleHideTitleBar()
+        -- After 1 min of no task progress, clear the task list (triggers natural collapse)
+        taskGoneTimer = C_Timer.NewTimer(CONST.TASK_GONE_LAYOUT_DELAY, function()
+            taskGoneTimer = nil
+            addon.EndeavorsData:ClearSessionProgress()
+            EP:Refresh()
+        end)
+    elseif not isTaskExpanded and wasTaskExpanded then
+        userMinimized = false  -- reset so next task batch can auto-expand
+        -- Tasks gone — collapse to stacked + mini width
+        if taskGoneTimer then taskGoneTimer:Cancel(); taskGoneTimer = nil end
+        AnimateBarLayout(0)
+        -- Fade out content backdrop
+        if contentBackdrop and contentBackdrop:IsShown() then
+            local startAlpha = contentBackdrop:GetAlpha()
+            local elapsed = 0
+            local driver = contentBackdrop.fadeDriver
+            if not driver then
+                driver = CreateFrame("Frame", nil, frame)
+                contentBackdrop.fadeDriver = driver
+            end
+            driver:SetScript("OnUpdate", function(self, dt)
+                elapsed = elapsed + dt
+                local t = math.min(elapsed / CONST.TITLE_FADE_OUT, 1)
+                contentBackdrop:SetAlpha(startAlpha * (1 - t))
+                if t >= 1 then
+                    self:SetScript("OnUpdate", nil)
+                    contentBackdrop:Hide()
+                end
+            end)
+        end
+        ScheduleHideTitleBar()
+    end
+
     -- Set total frame height
-    local totalHeight = math.abs(yOffset) + 6  -- bottom padding
+    local bottomPad = hasVisibleTasks and 0 or 3
+    local totalHeight = math.abs(yOffset) + bottomPad
     frame:SetHeight(math.max(totalHeight, 40))
 
-    -- Dynamic width: narrow when no tasks, expanded when tasks visible
-    if hasVisibleTasks then
+    -- Dynamic width: expanded when tasks visible or inline layout active
+    if hasVisibleTasks or barLayoutTarget == 1 then
         AnimateWidth(CONST.PANEL_WIDTH_EXPANDED)
     else
         AnimateWidth(CONST.PANEL_WIDTH)
@@ -819,29 +1230,56 @@ function EP:UpdateXPBar()
     local level = data:GetHouseLevel()
     local isMax = data:IsMaxLevel()
 
+    local valueShown = false
     if isMax then
         xpLevelText:SetText(tostring(level))
         xpValueText.storedText = L["ENDEAVORS_MAX_LEVEL"]
         if db.showXPText then
             xpValueText:SetText(xpValueText.storedText)
             xpValueText:Show()
+            valueShown = true
         else
             xpValueText:Hide()
+        end
+        -- Percentage: show "DONE" at max (hide if value text is visible to avoid overlap)
+        xpPctText.storedPct = L["ENDEAVORS_PCT_DONE"]
+        if db.showXPPct and not valueShown then
+            xpPctText:SetText(L["ENDEAVORS_PCT_DONE"])
+            xpPctText:Show()
+        else
+            xpPctText:Hide()
         end
         SetBarProgress(xpBarFill, xpBarBg, 1, 1)
     else
         xpLevelText:SetText(tostring(level))
         local favor, favorNeeded = data:GetHouseXPProgress()
-        favor = math.floor(favor)
-        favorNeeded = math.floor(favorNeeded)
-        local text = (favorNeeded > 0) and (favor .. "/" .. favorNeeded) or ""
+        -- Use cumulative values for text display (matches Blizzard Housing Dashboard)
+        local totalFavor, totalFavorNeeded = data:GetHouseXPTotal()
+        totalFavor = math.floor(totalFavor)
+        totalFavorNeeded = math.floor(totalFavorNeeded)
+        local text = (totalFavorNeeded > 0) and (totalFavor .. "/" .. totalFavorNeeded) or ""
         xpValueText.storedText = text
 
         if db.showXPText and text ~= "" then
             xpValueText:SetText(text)
             xpValueText:Show()
+            valueShown = true
         else
             xpValueText:Hide()
+        end
+
+        -- Percentage text on bar (hide if value text is visible to avoid overlap)
+        local pctStr = nil
+        if favorNeeded and favorNeeded > 0 then
+            local pct = math.floor(favor / favorNeeded * 100)
+            pctStr = (pct >= 100) and L["ENDEAVORS_PCT_DONE"] or (pct .. "%")
+        end
+        xpPctText.storedPct = pctStr
+        if db.showXPPct and not valueShown and pctStr then
+            xpPctText:SetText(pctStr)
+            xpPctText:Show()
+        else
+            xpPctText:Hide()
         end
 
         SetBarProgress(xpBarFill, xpBarBg, favor, favorNeeded)
@@ -858,6 +1296,7 @@ function EP:UpdateEndeavorBar()
     if not info then
         endeavorValueText.storedText = nil
         endeavorValueText:Hide()
+        endeavorPctText:Hide()
         SetBarProgress(endeavorBarFill, endeavorBarBg, 0, 1)
         return
     end
@@ -867,11 +1306,27 @@ function EP:UpdateEndeavorBar()
     local text = (max > 0) and (current .. "/" .. max) or ""
     endeavorValueText.storedText = text
 
+    local valueShown = false
     if db.showEndeavorText and text ~= "" then
         endeavorValueText:SetText(text)
         endeavorValueText:Show()
+        valueShown = true
     else
         endeavorValueText:Hide()
+    end
+
+    -- Percentage text on bar (hide if value text is visible to avoid overlap)
+    local pctStr = nil
+    if max > 0 then
+        local pct = math.floor(current / max * 100)
+        pctStr = (pct >= 100) and L["ENDEAVORS_PCT_DONE"] or (pct .. "%")
+    end
+    endeavorPctText.storedPct = pctStr
+    if db.showEndeavorPct and not valueShown and pctStr then
+        endeavorPctText:SetText(pctStr)
+        endeavorPctText:Show()
+    else
+        endeavorPctText:Hide()
     end
 
     SetBarProgress(endeavorBarFill, endeavorBarBg, current, max)
@@ -880,9 +1335,9 @@ end
 function EP:Refresh()
     if not frame or not frame:IsShown() then return end
 
+    self:UpdateLayout()
     self:UpdateXPBar()
     self:UpdateEndeavorBar()
-    self:UpdateLayout()
 end
 
 --------------------------------------------------------------------------------
@@ -891,7 +1346,9 @@ end
 
 function EP:ShouldShow()
     if not addon.db or not addon.db.endeavors then return false end
-    if not addon.db.endeavors.shown then return false end
+    local db = addon.db.endeavors
+    if not db.enabled then return false end
+    if not db.shown then return false end
     if not addon.EndeavorsData:IsInNeighborhood() then return false end
     if not addon.EndeavorsData:HasHouse() then return false end
     return true
@@ -899,23 +1356,33 @@ end
 
 function EP:TryShow()
     if not self:ShouldShow() then return end
-    if InCombatLockdown() then return end
+    if InCombatLockdown() then
+        if not pendingCombatShow then
+            pendingCombatShow = true
+            combatDeferFrame:RegisterEvent("PLAYER_REGEN_ENABLED")
+        end
+        return
+    end
+
+    -- Reset minimize on show — unless user explicitly minimized this session
+    if not userMinimized then
+        addon.db.endeavors.minimized = false
+    end
 
     if not frame then
         CreateEndeavorsFrame()
     end
 
     frame:Show()
-    SetContentAlpha(1)
-    contentDimmed = false
+    SetFrameBackdropAlpha(1)
     self:Refresh()
 
     -- Auto-hide title bar: 6s grace period on first show (login), 2s after mouseover thereafter
     local delay = isFirstShow and CONST.TITLE_HIDE_DELAY_LOGIN or nil
     ScheduleHideTitleBar(delay)
 
-    -- Start 2-min inactivity dim timer
-    ScheduleContentDim()
+    -- Start inactivity auto-minimize timer
+    ScheduleInactivityMinimize()
 
     -- Start prune ticker
     if not pruneTicker then
@@ -930,16 +1397,32 @@ function EP:TryShow()
 end
 
 function EP:TryHide()
+    -- Safety net: don't hide while player is still in a neighborhood with the feature enabled
+    local db = addon.db and addon.db.endeavors
+    if db and db.enabled then
+        if addon.EndeavorsData:IsInNeighborhood() then return end
+        -- Live API fallback: cached state may be stale from flicker
+        if C_Housing.IsOnNeighborhoodMap() or C_Housing.IsInsideHouseOrPlot() then return end
+    end
+
     if frame and frame:IsShown() then
         frame:Hide()
     end
 
-    -- Stop content dim timer
-    if contentDimTimer then
-        contentDimTimer:Cancel()
-        contentDimTimer = nil
+    -- Cancel pending combat retry
+    if pendingCombatShow then
+        pendingCombatShow = false
+        combatDeferFrame:UnregisterEvent("PLAYER_REGEN_ENABLED")
     end
-    contentDimmed = false
+
+    -- Stop inactivity timer
+    if inactivityTimer then
+        inactivityTimer:Cancel()
+        inactivityTimer = nil
+    end
+
+    -- Reset bar layout to stacked
+    ResetBarLayout()
 
     -- Stop prune ticker
     if pruneTicker then
@@ -966,7 +1449,15 @@ addon:RegisterInternalEvent("ENDEAVORS_ZONE_CHANGED", function(isInNeighborhood)
             end
         end)
     else
-        EP:TryHide()
+        -- Re-check after delay to guard against zone micro-transitions
+        -- (IsOnNeighborhoodMap can flicker false during sub-zone transitions)
+        C_Timer.After(2.0, function()
+            -- Re-probe live API (cached state may be stale from flicker)
+            addon.EndeavorsData:RecheckNeighborhoodZone()
+            if not addon.EndeavorsData:IsInNeighborhood() then
+                EP:TryHide()
+            end
+        end)
     end
 end)
 
@@ -974,24 +1465,24 @@ addon:RegisterInternalEvent("ENDEAVORS_HOUSE_LEVEL_UPDATED", function()
     if EP:ShouldShow() then
         EP:TryShow()
     elseif frame and frame:IsShown() then
-        -- hasHouse may have become false
-        EP:TryHide()
+        -- Panel already visible — just refresh, don't hide on transient async data gaps
+        EP:Refresh()
     end
 end)
 
-addon:RegisterInternalEvent("ENDEAVORS_INITIATIVE_UPDATED", function()
-    if frame and frame:IsShown() then
+-- Shared handler: panel may be hidden when initiative/task data arrives late
+local function OnProgressEvent()
+    if EP:ShouldShow() and (not frame or not frame:IsShown()) then
+        EP:TryShow()
+    elseif frame and frame:IsShown() then
         EP:Refresh()
         OnActivity()
+        OnTaskProgressActivity()
     end
-end)
+end
 
-addon:RegisterInternalEvent("ENDEAVORS_TASK_COMPLETED", function()
-    if frame and frame:IsShown() then
-        EP:Refresh()
-        OnActivity()
-    end
-end)
+addon:RegisterInternalEvent("ENDEAVORS_INITIATIVE_UPDATED", OnProgressEvent)
+addon:RegisterInternalEvent("ENDEAVORS_TASK_COMPLETED", OnProgressEvent)
 
 --------------------------------------------------------------------------------
 -- Settings Panel Integration: Open config from main settings

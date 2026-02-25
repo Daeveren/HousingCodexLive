@@ -84,12 +84,15 @@ local defaults = {
         size = { width = 1200, height = 940 },  -- Default size (clamped to screen at runtime)
     },
     endeavors = {
+        enabled = true,
         shown = true,
         minimized = false,
         showHouseXP = true,
         showEndeavorProgress = true,
         showXPText = false,
         showEndeavorText = false,
+        showXPPct = false,
+        showEndeavorPct = false,
     },
 }
 

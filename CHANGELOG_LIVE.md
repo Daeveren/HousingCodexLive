@@ -2,6 +2,19 @@
 
 All notable changes to Housing Codex.
 
+## [1.6.0] - 2026-02-25
+
+### Added
+- NEW - Endeavors panel - a compact progress tracker that appears while in your neighborhood
+  - Includes two progress bars: one for House Level XP and one for the Endeavor progress
+  - Community Endeavor initiative progress bar with milestone tracking
+  - Shows the recently progressed endeavor tasks (up to max 3 visible)
+  - Hover progress bars to see detailed stats, milestones, and your contribution
+  - Click progress bars to open the Housing Dashboard directly
+  - Optional percentage display on progress bars (toggle in settings)
+  - Auto-minimizes after 2 minutes of inactivity; auto-expands when new tasks appear
+  - The Endeavors panel can be disabled from the Housing Codex settings
+
 ## [1.5.4] - 2026-02-25
 
 ### Added

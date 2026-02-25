@@ -19,6 +19,8 @@ local state = {
     houseLevel = 0,
     houseFavor = 0,
     houseFavorNeeded = 0,
+    houseFavorTotal = 0,        -- cumulative favor (text display)
+    houseFavorTotalNeeded = 0,  -- cumulative favor threshold for next level (text display)
     maxHouseLevel = 0,
     isMaxLevel = false,
     initiativeInfo = nil,
@@ -58,7 +60,7 @@ end
 
 local function CheckNeighborhoodZone()
     local wasInNeighborhood = state.isInNeighborhood
-    state.isInNeighborhood = C_Housing.IsOnNeighborhoodMap()
+    state.isInNeighborhood = C_Housing.IsOnNeighborhoodMap() or C_Housing.IsInsideHouseOrPlot()
 
     if state.isInNeighborhood and not wasInNeighborhood then
         EndeavorsData:OnEnterNeighborhood()
@@ -91,6 +93,8 @@ function EndeavorsData:OnLeaveNeighborhood()
     state.houseLevel = 0
     state.houseFavor = 0
     state.houseFavorNeeded = 0
+    state.houseFavorTotal = 0
+    state.houseFavorTotalNeeded = 0
     state.isMaxLevel = false
     state.initiativeInfo = nil
     wipe(state.taskSnapshots)
@@ -111,8 +115,6 @@ local function OnHouseListUpdated(houseInfoList)
         return
     end
 
-    state.hasHouse = true
-
     -- Match house to current neighborhood
     local neighborhoodGUID = C_Housing.GetCurrentNeighborhoodGUID()
     local matchedHouse = nil
@@ -126,12 +128,16 @@ local function OnHouseListUpdated(houseInfoList)
         end
     end
 
-    -- Fallback to first house
+    -- No house in this neighborhood — treat as unowned
     if not matchedHouse then
-        matchedHouse = houseInfoList[1]
+        state.hasHouse = false
+        addon:FireEvent("ENDEAVORS_HOUSE_LEVEL_UPDATED")
+        return
     end
 
-    if matchedHouse and matchedHouse.houseGUID then
+    state.hasHouse = true
+
+    if matchedHouse.houseGUID then
         state.houseGUID = matchedHouse.houseGUID
         -- Request favor data (SecretArgs, async, fires HOUSE_LEVEL_FAVOR_UPDATED)
         pcall(C_Housing.GetCurrentHouseLevelFavor, state.houseGUID)
@@ -151,17 +157,24 @@ local function OnHouseLevelFavorUpdated(houseLevelFavor)
     state.maxHouseLevel = C_Housing.GetMaxHouseLevel() or state.maxHouseLevel
     state.isMaxLevel = state.houseLevel >= state.maxHouseLevel
 
+    -- Cumulative values for text display (matches Blizzard tooltip); set before bar math mutates houseFavor
+    state.houseFavorTotal = state.houseFavor
+
     if state.isMaxLevel then
         state.houseFavorNeeded = 0
+        state.houseFavorTotalNeeded = 0
     else
         -- Calculate bar segment (follows Blizzard HousingDashboardHouseUpgrade pattern)
         local favorForCurrent = SafeCall(C_Housing.GetHouseLevelFavorForLevel, state.houseLevel) or 0
         local favorForNext = SafeCall(C_Housing.GetHouseLevelFavorForLevel, state.houseLevel + 1)
 
         if favorForNext then
+            state.houseFavorTotalNeeded = favorForNext
+            -- Level-relative values for bar fill
             state.houseFavor = state.houseFavor - favorForCurrent
             state.houseFavorNeeded = favorForNext - favorForCurrent
         else
+            state.houseFavorTotalNeeded = 0
             state.houseFavorNeeded = 0
         end
     end
@@ -249,6 +262,10 @@ function EndeavorsData:IsInNeighborhood()
     return state.isInNeighborhood
 end
 
+function EndeavorsData:RecheckNeighborhoodZone()
+    CheckNeighborhoodZone()
+end
+
 function EndeavorsData:HasHouse()
     return state.hasHouse
 end
@@ -266,6 +283,11 @@ function EndeavorsData:GetHouseXPProgress()
         return 1, 1, true
     end
     return state.houseFavor, state.houseFavorNeeded, false
+end
+
+-- Returns cumulative favor values (matches Blizzard's Housing Dashboard display)
+function EndeavorsData:GetHouseXPTotal()
+    return state.houseFavorTotal, state.houseFavorTotalNeeded
 end
 
 function EndeavorsData:GetInitiativeInfo()
@@ -305,6 +327,11 @@ function EndeavorsData:GetActiveTasks()
     return result
 end
 
+-- Clear all session progress (called after 1 min inactivity)
+function EndeavorsData:ClearSessionProgress()
+    wipe(state.sessionProgress)
+end
+
 -- Remove expired tasks (called from UI ticker)
 function EndeavorsData:PruneExpiredTasks()
     local now = GetTime()
@@ -324,15 +351,30 @@ end
 -- WoW Event Registration
 --------------------------------------------------------------------------------
 
--- Zone detection events
-addon:RegisterWoWEvent("ZONE_CHANGED_NEW_AREA", function()
+-- Debounced zone check: cancels any pending timer, then schedules a new one
+local function ScheduleZoneCheck()
     if zoneCheckTimer then zoneCheckTimer:Cancel() end
     zoneCheckTimer = C_Timer.NewTimer(CONST.ZONE_CHECK_DEBOUNCE, CheckNeighborhoodZone)
-end)
+end
+
+-- Zone detection events
+addon:RegisterWoWEvent("ZONE_CHANGED_NEW_AREA", ScheduleZoneCheck)
+addon:RegisterWoWEvent("ZONE_CHANGED",          ScheduleZoneCheck)
+addon:RegisterWoWEvent("ZONE_CHANGED_INDOORS",  ScheduleZoneCheck)
+addon:RegisterWoWEvent("PLAYER_MAP_CHANGED",    ScheduleZoneCheck)
 
 addon:RegisterWoWEvent("PLAYER_ENTERING_WORLD", function()
     C_Timer.After(1.0, CheckNeighborhoodZone)
 end)
+
+-- Housing plot events: ENTERED is immediate (definitive signal), EXITED is debounced
+addon:RegisterWoWEvent("HOUSE_PLOT_ENTERED", function()
+    if zoneCheckTimer then zoneCheckTimer:Cancel() end
+    zoneCheckTimer = nil
+    CheckNeighborhoodZone()
+end)
+
+addon:RegisterWoWEvent("HOUSE_PLOT_EXITED", ScheduleZoneCheck)
 
 -- House events
 addon:RegisterWoWEvent("PLAYER_HOUSE_LIST_UPDATED", OnHouseListUpdated)
