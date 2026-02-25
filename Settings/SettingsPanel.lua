@@ -9,7 +9,6 @@ addon.Settings = {}
 
 -- Shared keybind helpers (defined in Init.lua)
 local BINDING_ACTION = addon.BINDING_ACTION
-local GetCurrentKeybind = addon.GetCurrentKeybind
 local GetKeybindDisplayText = addon.GetKeybindDisplayText
 
 --------------------------------------------------------------------------------
@@ -88,11 +87,18 @@ function addon.Settings:Initialize()
     panel.name = L["ADDON_NAME"]
     self.panel = panel
 
-    -- Title
+    -- Title icon
+    local titleIcon = panel:CreateTexture(nil, "ARTWORK")
+    titleIcon:SetSize(24, 24)
+    titleIcon:SetPoint("TOPLEFT", 16, -16)
+    titleIcon:SetTexture("Interface\\AddOns\\HousingCodex\\HC64")
+
+    -- Title text
     local title = panel:CreateFontString(nil, "ARTWORK", "GameFontNormalLarge")
-    title:SetPoint("TOPLEFT", 16, -16)
+    title:SetPoint("LEFT", titleIcon, "RIGHT", 6, 0)
     title:SetText(L["ADDON_NAME"])
     title:SetTextColor(1, 0.82, 0)
+    addon:SetFontSize(title, 16)
 
     local yOffset = -50
     local COL1_X = 16
@@ -105,7 +111,7 @@ function addon.Settings:Initialize()
     displayHeader:SetPoint("TOPLEFT", 16, yOffset)
     displayHeader:SetText(L["OPTIONS_SECTION_DISPLAY"])
     displayHeader:SetTextColor(1, 0.82, 0)
-    yOffset = yOffset - 30
+    yOffset = yOffset - 22
 
     -- Custom font toggle hidden from UI; use /hc font to toggle
 
@@ -172,7 +178,7 @@ function addon.Settings:Initialize()
     keybindHeader:SetPoint("TOPLEFT", 16, yOffset)
     keybindHeader:SetText(L["OPTIONS_SECTION_KEYBIND"])
     keybindHeader:SetTextColor(1, 0.82, 0)
-    yOffset = yOffset - 30
+    yOffset = yOffset - 22
 
     -- Keybind label
     local keybindLabel = panel:CreateFontString(nil, "ARTWORK", "GameFontNormal")
@@ -298,7 +304,7 @@ function addon.Settings:Initialize()
     mapNavHeader:SetPoint("TOPLEFT", 16, yOffset)
     mapNavHeader:SetText(L["OPTIONS_SECTION_MAP_NAV"])
     mapNavHeader:SetTextColor(1, 0.82, 0)
-    yOffset = yOffset - 30
+    yOffset = yOffset - 22
 
     -- Show Vendor Map Pins checkbox
     local vendorMapPinsCheck = CreateCheckbox(
@@ -364,7 +370,7 @@ function addon.Settings:Initialize()
     merchantHeader:SetPoint("TOPLEFT", 16, yOffset)
     merchantHeader:SetText(L["OPTIONS_SECTION_MERCHANT"])
     merchantHeader:SetTextColor(1, 0.82, 0)
-    yOffset = yOffset - 30
+    yOffset = yOffset - 22
 
     -- Show Vendor Decor Indicators checkbox
     local vendorCheck = CreateCheckbox(
@@ -411,45 +417,13 @@ function addon.Settings:Initialize()
     yOffset = yOffset - 20
 
     --------------------------------------------------------------------------------
-    -- CONTENT SECTION
-    --------------------------------------------------------------------------------
-    local contentHeader = panel:CreateFontString(nil, "ARTWORK", "GameFontNormal")
-    contentHeader:SetPoint("TOPLEFT", 16, yOffset)
-    contentHeader:SetText(L["OPTIONS_SECTION_CONTENT"])
-    contentHeader:SetTextColor(1, 0.82, 0)
-    yOffset = yOffset - 30
-
-    -- Show Midnight Drops checkbox
-    local midnightCheck = CreateCheckbox(
-        panel,
-        L["OPTIONS_SHOW_MIDNIGHT_DROPS"],
-        L["OPTIONS_SHOW_MIDNIGHT_DROPS_TOOLTIP"],
-        function() return addon.db and addon.db.settings.showMidnightDrops end,
-        function(checked)
-            if addon.db then
-                addon.db.settings.showMidnightDrops = checked
-                addon:BuildDropIndex()
-                if addon.DropsTab and addon.DropsTab:IsShown() then
-                    addon.DropsTab:RefreshDisplay()
-                end
-            end
-        end
-    )
-    midnightCheck:SetPoint("TOPLEFT", COL1_X, yOffset)
-    self.midnightCheck = midnightCheck
-    yOffset = yOffset - 30
-
-    CreateDivider(panel, yOffset)
-    yOffset = yOffset - 20
-
-    --------------------------------------------------------------------------------
     -- TROUBLESHOOTING SECTION
     --------------------------------------------------------------------------------
     local troubleshootHeader = panel:CreateFontString(nil, "ARTWORK", "GameFontNormal")
     troubleshootHeader:SetPoint("TOPLEFT", 16, yOffset)
     troubleshootHeader:SetText(L["OPTIONS_SECTION_TROUBLESHOOTING"])
     troubleshootHeader:SetTextColor(1, 0.82, 0)
-    yOffset = yOffset - 30
+    yOffset = yOffset - 22
 
     -- Reset Position button
     local resetPosBtn = CreateResetButton(panel, "OPTIONS_RESET_POSITION", "OPTIONS_RESET_POSITION_TOOLTIP", function()

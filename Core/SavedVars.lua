@@ -70,7 +70,6 @@ local defaults = {
         showVendorOwnedCheckmark = true,   -- Show checkmark on owned decor at vendors
         showVendorMapPins = true,  -- Show vendor pins on world map
         treasureHuntWaypoints = true,  -- Auto-set waypoints for Decor Treasure Hunts
-        showMidnightDrops = false,    -- Show Midnight expansion items in Drops tab
         showZoneOverlay = true,       -- Show zone overlay on world map
         zoneOverlayMinimized = false, -- Minimized state
         zoneOverlayPosition = "topLeft",  -- "topLeft" or "bottomRight"
@@ -83,6 +82,14 @@ local defaults = {
         tileSize = 152,      -- Separate from browser.tileSize
         position = nil,      -- Frame position
         size = { width = 1200, height = 940 },  -- Default size (clamped to screen at runtime)
+    },
+    endeavors = {
+        shown = true,
+        minimized = false,
+        showHouseXP = true,
+        showEndeavorProgress = true,
+        showXPText = false,
+        showEndeavorText = false,
     },
 }
 

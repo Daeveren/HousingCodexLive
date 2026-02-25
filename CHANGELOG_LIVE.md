@@ -2,6 +2,14 @@
 
 All notable changes to Housing Codex.
 
+## [1.5.4] - 2026-02-25
+
+### Added
+- Junkyard Tinkering profession added to the Professions tab with 6 new craftable decor items
+
+### Changed
+- Midnight expansion drops are now always shown (removed the toggle from Settings)
+
 ## [1.5.3] - 2026-02-24
 
 ### Added

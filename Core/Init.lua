@@ -229,6 +229,28 @@ addon.CONSTANTS = {
         MAX_DISMISS_COUNT = 2,
     },
 
+    -- Endeavors panel
+    ENDEAVORS = {
+        PANEL_WIDTH = 162,
+        PANEL_WIDTH_EXPANDED = 242,   -- Width when tasks are visible (+10% from 220)
+        TASK_FADE_TIMEOUT = 1200,     -- 20 minutes
+        MAX_VISIBLE_TASKS = 3,
+        FADE_CHECK_INTERVAL = 5,      -- seconds
+        ZONE_CHECK_DEBOUNCE = 0.3,
+        UPDATE_DEBOUNCE = 0.15,
+        XP_BAR_HEIGHT = 8,
+        ENDEAVOR_BAR_HEIGHT = 8,
+        TITLE_BAR_HEIGHT = 22,
+        TASK_ROW_HEIGHT = 18,
+        TITLE_HIDE_DELAY = 2,         -- seconds before title bar fades out (mouseover)
+        TITLE_HIDE_DELAY_LOGIN = 6,   -- seconds before first auto-hide at login
+        TITLE_FADE_IN = 0.15,         -- seconds for fade-in animation
+        TITLE_FADE_OUT = 0.3,         -- seconds for fade-out animation
+        TITLE_IDLE_DIM = 0.45,        -- content alpha when fully dimmed
+        CONTENT_DIM_DELAY = 120,      -- seconds of inactivity before content dims (2 min)
+        WIDTH_ANIM_DURATION = 0.3,    -- seconds for width tween animation
+    },
+
     -- Vendor world map pins
     VENDOR_PIN = {
         SIZE = 22,
@@ -672,8 +694,7 @@ addon.MODIFIER_KEYS = {
 }
 
 function addon.GetCurrentKeybind()
-    local key1 = GetBindingKey(addon.BINDING_ACTION)
-    return key1
+    return GetBindingKey(addon.BINDING_ACTION)
 end
 
 function addon.GetKeybindDisplayText()

@@ -26,32 +26,6 @@ local SOURCE_CATEGORY_INFO = {
     },
 }
 
--- Sources hidden by the "Show Midnight drops" setting
--- Includes Midnight expansion content (not yet live) and items hidden from the housing catalog
-local MIDNIGHT_DROP_SOURCES = {
-    -- Delves
-    ["Midnight Delves"] = true,
-    -- Bosses / encounters
-    ["Chimaerus the Undreamt God"] = true,
-    ["Crown of the Cosmos (The Voidspire)"] = true,
-    ["Degentrius (Magisters' Terrace)"] = true,
-    ["Fallen-King Salhadaar (The Voidspire)"] = true,
-    ["Imperator Averzian (The Voidspire)"] = true,
-    ["Lithiel Cinderfury (Murder Row)"] = true,
-    ["Lothraxion (Nexus-Point Xenas)"] = true,
-    ["Midnight Falls (March on Quel'Danas)"] = true,
-    ["Vorasius (The Voidspire)"] = true,
-    -- Treasures
-    ["Forgotten Ink and Quill (Eversong Woods)"] = true,
-    ["Gift of the Phoenix (Eversong Woods)"] = true,
-    ["Incomplete Book of Sonnets (Eversong Woods)"] = true,
-    ["Stone Vat (Eversong Woods)"] = true,
-    ["Triple-Locked Safebox (Eversong Woods)"] = true,
-    -- Hidden from housing catalog (HiddenInCatalog flag, no icon/model available)
-    ["High Sage Viryx (Skyreach)"] = true,
-    ["The Darkness"] = true,
-}
-
 -- Runtime data structures
 -- dropHierarchy[category] = { sources = { { sourceName, sourceCategory, decorIds } } }
 addon.dropHierarchy = {}
@@ -73,26 +47,21 @@ function addon:BuildDropIndex()
     wipe(self.dropHierarchy)
     wipe(self.dropCategoryProgressCache)
 
-    local showMidnight = self.db and self.db.settings.showMidnightDrops
-    local sourceCount, decorCount, excludedCount = 0, 0, 0
+    local sourceCount, decorCount = 0, 0
 
     for category, sources in pairs(self.DropSourceData) do
         self.dropHierarchy[category] = { sources = {} }
 
         for _, sourceData in ipairs(sources) do
-            if not showMidnight and MIDNIGHT_DROP_SOURCES[sourceData.sourceName] then
-                excludedCount = excludedCount + 1
-            else
-                local entry = {
-                    sourceName = sourceData.sourceName or "Unknown",
-                    sourceCategory = category,
-                    decorIds = sourceData.decorIds or {},
-                }
+            local entry = {
+                sourceName = sourceData.sourceName or "Unknown",
+                sourceCategory = category,
+                decorIds = sourceData.decorIds or {},
+            }
 
-                table.insert(self.dropHierarchy[category].sources, entry)
-                sourceCount = sourceCount + 1
-                decorCount = decorCount + #entry.decorIds
-            end
+            table.insert(self.dropHierarchy[category].sources, entry)
+            sourceCount = sourceCount + 1
+            decorCount = decorCount + #entry.decorIds
         end
 
         -- Sort sources alphabetically within each category
@@ -108,8 +77,8 @@ function addon:BuildDropIndex()
 
     self.dropIndexBuilt = true
 
-    self:Debug(string.format("Built drop index: %d sources, %d decor items, %d excluded in %d ms",
-        sourceCount, decorCount, excludedCount, math.floor(debugprofilestop() - startTime)))
+    self:Debug(string.format("Built drop index: %d sources, %d decor items in %d ms",
+        sourceCount, decorCount, math.floor(debugprofilestop() - startTime)))
 end
 
 function addon:GetSortedDropCategories()
