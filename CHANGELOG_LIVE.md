@@ -2,6 +2,13 @@
 
 All notable changes to Housing Codex.
 
+## [1.7.0] - 2026-02-26
+
+### Added
+- NEW - PvP tab - see all housing items obtainable through PvP in one place
+  - Browse by source type: Achievements, Vendors, and Arena Drops
+  - Search across PvP sources and items
+
 ## [1.6.1] - 2026-02-26
 
 ### Changed
