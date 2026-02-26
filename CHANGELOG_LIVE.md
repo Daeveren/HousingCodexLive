@@ -2,6 +2,23 @@
 
 All notable changes to Housing Codex.
 
+## [1.7.1] - 2026-02-27
+
+### Added
+- TomTom waypoint support - enable in Settings to use TomTom for all waypoints instead of the native map pin (requires TomTom addon)
+- Keybind conflict detection - when setting a keybind already used by another action, a confirmation dialog lets you choose to reassign it
+- PvP source progress now shows in the Progress tab alongside other source types
+- Responsive tabs - tabs now adapt to window width - labels shorten or switch to icon-only when the window is narrow
+
+### Changed
+- Login chat message now shows your overall collection percentage instead of just item count
+- Updated item database with corrected sources and new data
+
+### Fixed
+- Fixed PvP tab items highlighting incorrectly when different vendors share the same decor items
+- Fixed PvP tab not showing an empty state message when search filters out all results
+- Codebase improvements for smoother performance
+
 ## [1.7.0] - 2026-02-26
 
 ### Added

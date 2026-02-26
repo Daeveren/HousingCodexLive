@@ -55,10 +55,7 @@ addon.vendorHierarchy = {}
 addon.vendorIndexBuilt = false
 addon.vendorZoneCache = {}
 addon.vendorExpansionProgressCache = {}
-
-function addon:GetExpansionForVendorZone(zoneName)
-    return zoneName and ZONE_TO_EXPANSION[zoneName] or "VENDORS_UNKNOWN_EXPANSION"
-end
+addon.vendorZoneProgressCache = {}
 
 function addon:GetClassHallAnnotation(zoneName)
     return zoneName and CLASS_HALL_ZONES[zoneName]
@@ -80,6 +77,7 @@ function addon:BuildVendorIndex()
     wipe(self.vendorHierarchy)
     wipe(self.vendorZoneCache)
     wipe(self.vendorExpansionProgressCache)
+    wipe(self.vendorZoneProgressCache)
     self.vendorMapVendorsByMapID = nil
 
     local vendorCount, decorCount = 0, 0
@@ -200,21 +198,11 @@ function addon:GetVendorsForZone(expansionKey, zoneName)
     return expData and expData.zones[zoneName] or {}
 end
 
-function addon:GetVendorCollectionProgress(npcId)
-    local vendor = self.vendorIndex[npcId]
-    if not vendor then return 0, 0 end
-
-    local owned, total = 0, #vendor.decorIds
-    for _, decorId in ipairs(vendor.decorIds) do
-        local record = self:ResolveRecord(decorId)
-        if record and record.isCollected then
-            owned = owned + 1
-        end
-    end
-    return owned, total
-end
-
 function addon:GetVendorZoneCollectionProgress(expansionKey, zoneName)
+    local cacheKey = expansionKey .. ":" .. zoneName
+    local cached = self.vendorZoneProgressCache[cacheKey]
+    if cached then return cached.owned, cached.total end
+
     local owned, total = 0, 0
     for _, vendor in ipairs(self:GetVendorsForZone(expansionKey, zoneName)) do
         for _, decorId in ipairs(vendor.decorIds) do
@@ -225,6 +213,8 @@ function addon:GetVendorZoneCollectionProgress(expansionKey, zoneName)
             end
         end
     end
+
+    self.vendorZoneProgressCache[cacheKey] = { owned = owned, total = total }
     return owned, total
 end
 
@@ -286,4 +276,5 @@ end
 
 addon:RegisterInternalEvent("RECORD_OWNERSHIP_UPDATED", function()
     wipe(addon.vendorExpansionProgressCache)
+    wipe(addon.vendorZoneProgressCache)
 end)

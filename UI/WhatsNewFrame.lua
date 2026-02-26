@@ -492,7 +492,7 @@ local function CreateQuickSetupRow(frame, contentArea)
         edgeSize = 12,
         insets = { left = 3, right = 3, top = 3, bottom = 3 }
     })
-    setupRow:SetBackdropColor(0.08, 0.08, 0.10, 0.9)
+    setupRow:SetBackdropColor(unpack(COLORS.ROW_BG))
     setupRow:SetBackdropBorderColor(0.3, 0.3, 0.3, 0.5)
 
     -- Center content container to manage centering
@@ -537,72 +537,6 @@ local function CreateQuickSetupRow(frame, contentArea)
     keybindLabel:SetPoint("LEFT", orLabel, "RIGHT", 6, 0)
     keybindLabel:SetText(L["WELCOME_KEYBIND_LABEL"])
     keybindLabel:SetTextColor(unpack(COLORS.GOLD))
-
-    -- Keybind capture button
-    local keybindBtn = CreateFrame("Button", nil, centerHarness, "UIPanelButtonTemplate")
-    keybindBtn:SetPoint("LEFT", keybindLabel, "RIGHT", 8, 0)
-    keybindBtn:SetSize(110, 26)
-    keybindBtn:RegisterForClicks("AnyUp")
-
-    local function UpdateKeybindText()
-        local displayText = addon.GetKeybindDisplayText()
-        keybindBtn:SetText(displayText or L["OPTIONS_NOT_BOUND"])
-    end
-    UpdateKeybindText()
-    frame.updateKeybindText = UpdateKeybindText
-
-    local function StopKeyCapture(btn)
-        btn:EnableKeyboard(false)
-        btn:SetScript("OnKeyDown", nil)
-        UpdateKeybindText()
-    end
-
-    local function OnKeyCaptured(btn, key)
-        if addon.MODIFIER_KEYS[key] then return end
-
-        if key == "ESCAPE" then
-            StopKeyCapture(btn)
-            return
-        end
-
-        if InCombatLockdown() then
-            StopKeyCapture(btn)
-            return
-        end
-
-        local modifiers = {}
-        if IsAltKeyDown() then modifiers[#modifiers + 1] = "ALT" end
-        if IsControlKeyDown() then modifiers[#modifiers + 1] = "CTRL" end
-        if IsShiftKeyDown() then modifiers[#modifiers + 1] = "SHIFT" end
-        modifiers[#modifiers + 1] = key
-
-        local fullKey = table.concat(modifiers, "-")
-
-        local key1, key2 = GetBindingKey(addon.BINDING_ACTION)
-        if key1 then SetBinding(key1, nil) end
-        if key2 then SetBinding(key2, nil) end
-
-        SetBinding(fullKey, addon.BINDING_ACTION)
-        SaveBindings(GetCurrentBindingSet())
-
-        StopKeyCapture(btn)
-    end
-
-    keybindBtn:SetScript("OnClick", function(btn, button)
-        if button == "RightButton" then
-            local key1, key2 = GetBindingKey(addon.BINDING_ACTION)
-            if key1 then SetBinding(key1, nil) end
-            if key2 then SetBinding(key2, nil) end
-            if key1 or key2 then
-                SaveBindings(GetCurrentBindingSet())
-            end
-            UpdateKeybindText()
-        else
-            btn:SetText(L["OPTIONS_PRESS_KEY"])
-            btn:EnableKeyboard(true)
-            btn:SetScript("OnKeyDown", OnKeyCaptured)
-        end
-    end)
 
     return setupRow
 end

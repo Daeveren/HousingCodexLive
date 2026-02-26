@@ -130,12 +130,18 @@ function addon:BuildAchievementHierarchy()
         end
     end
 
+    -- Precompute sort keys once (O(n) API calls instead of O(n log n) in comparator)
+    local nameCache = {}
+    for _, achievements in pairs(self.achievementHierarchy) do
+        for _, achievementId in ipairs(achievements) do
+            nameCache[achievementId] = self:GetAchievementName(achievementId) or ""
+        end
+    end
+
     -- Sort achievements within each category alphabetically by name
     for categoryId, achievements in pairs(self.achievementHierarchy) do
         table.sort(achievements, function(a, b)
-            local nameA = self:GetAchievementName(a) or ""
-            local nameB = self:GetAchievementName(b) or ""
-            return nameA < nameB
+            return nameCache[a] < nameCache[b]
         end)
     end
 
@@ -186,7 +192,6 @@ function addon:GetAchievementName(achievementId)
     return string.format(self.L["ACHIEVEMENTS_UNKNOWN"], achievementId)
 end
 
--- Alias for consistency with naming conventions in other modules
 addon.GetAchievementCategory = addon.GetWoWAchievementCategory
 
 -- Check if achievement is completed (uses WoW API, cached)
@@ -241,7 +246,6 @@ function addon:GetCategoryCollectionProgress(categoryId)
     return owned, total
 end
 
--- Get total achievement count
 function addon:GetAchievementCount()
     local count = 0
     for _ in pairs(self.achievementIndex) do count = count + 1 end

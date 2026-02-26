@@ -229,27 +229,7 @@ function ProfessionsTab:CreateToolbar(parent)
     searchBox.Instructions:SetWordWrap(false)
     self.searchBox = searchBox
 
-    local searchDebounceTimer
-    searchBox:HookScript("OnTextChanged", function(box, userInput)
-        if userInput then
-            if searchDebounceTimer then searchDebounceTimer:Cancel() end
-            local text = box:GetText()
-            searchDebounceTimer = C_Timer.NewTimer(CONSTS.TIMER.INPUT_DEBOUNCE, function()
-                searchDebounceTimer = nil
-                self:OnSearchTextChanged(text)
-            end)
-        end
-    end)
-
-    if searchBox.clearButton then
-        searchBox.clearButton:HookScript("OnClick", function()
-            if searchDebounceTimer then searchDebounceTimer:Cancel(); searchDebounceTimer = nil end
-            self:OnSearchTextChanged("")
-        end)
-    end
-
-    searchBox:SetScript("OnEnterPressed", function(box) box:ClearFocus() end)
-    searchBox:SetScript("OnEscapePressed", function(box) box:ClearFocus() end)
+    self:WireSearchBox(searchBox)
 
     local filterContainer = CreateFrame("Frame", nil, toolbar)
     filterContainer:SetPoint("LEFT", searchBox, "RIGHT", 16, 0)
@@ -471,7 +451,7 @@ function ProfessionsTab:UpdateCraftRowSelectionVisual(frame, isSelected, textBri
     local alpha = isSelected and 1 or 0.9
     frame.bg:SetColorTexture(shade, shade, blue, alpha)
     if isSelected then
-        frame.name:SetTextColor(1, 0.82, 0, 1)
+        frame.name:SetTextColor(unpack(COLORS.GOLD))
     else
         frame.name:SetTextColor(textBrightness, textBrightness, textBrightness, 1)
     end
@@ -511,7 +491,7 @@ function ProfessionsTab:SetupCraftRow(frame, craft)
         selectionBorder:SetWidth(2)
         selectionBorder:SetPoint("TOPLEFT", 0, 0)
         selectionBorder:SetPoint("BOTTOMLEFT", 0, 0)
-        selectionBorder:SetColorTexture(1, 0.82, 0, 1)
+        selectionBorder:SetColorTexture(unpack(COLORS.GOLD))
         selectionBorder:Hide()
         frame.selectionBorder = selectionBorder
 

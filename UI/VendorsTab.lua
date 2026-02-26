@@ -92,6 +92,10 @@ function VendorsTab:Create(parent)
     frame:Hide()
     self.frame = frame
 
+    self.onUserWaypointUpdated = function()
+        self:OnUserWaypointUpdated()
+    end
+
     self:CreateToolbar(frame)
     self:CreateExpansionPanel(frame)
     self:CreateVendorPanel(frame)
@@ -156,27 +160,7 @@ function VendorsTab:CreateToolbar(parent)
     searchBox.Instructions:SetWordWrap(false)
     self.searchBox = searchBox
 
-    local searchDebounceTimer
-    searchBox:HookScript("OnTextChanged", function(box, userInput)
-        if userInput then
-            if searchDebounceTimer then searchDebounceTimer:Cancel() end
-            local text = box:GetText()
-            searchDebounceTimer = C_Timer.NewTimer(CONSTS.TIMER.INPUT_DEBOUNCE, function()
-                searchDebounceTimer = nil
-                self:OnSearchTextChanged(text)
-            end)
-        end
-    end)
-
-    if searchBox.clearButton then
-        searchBox.clearButton:HookScript("OnClick", function()
-            if searchDebounceTimer then searchDebounceTimer:Cancel(); searchDebounceTimer = nil end
-            self:OnSearchTextChanged("")
-        end)
-    end
-
-    searchBox:SetScript("OnEnterPressed", function(box) box:ClearFocus() end)
-    searchBox:SetScript("OnEscapePressed", function(box) box:ClearFocus() end)
+    self:WireSearchBox(searchBox)
 
     local filterContainer = CreateFrame("Frame", nil, toolbar)
     filterContainer:SetPoint("LEFT", searchBox, "RIGHT", 16, 0)
@@ -214,9 +198,13 @@ end
 -- when that didn't happen.
 function VendorsTab:RefreshDisplay()
     addon:CountDebug("rebuild", "VendorsTab")
+    searchCache = {}
+    filterCache = {}
     if not self:BuildExpansionDisplay() then
         self:BuildVendorDisplay()
     end
+    searchCache = nil
+    filterCache = nil
 end
 
 function VendorsTab:SetCompletionFilter(filterKey)
@@ -552,7 +540,7 @@ function VendorsTab:UpdateVendorSelectionVisual(frame, isSelected)
         frame.bg:SetColorTexture(0.12, 0.12, 0.14, 1)
     else
         frame.selectionBorder:Hide()
-        frame.bg:SetColorTexture(0.08, 0.08, 0.10, 0.9)
+        frame.bg:SetColorTexture(unpack(COLORS.ROW_BG))
     end
 end
 
@@ -563,7 +551,7 @@ function VendorsTab:UpdateDecorSelectionVisual(row, isSelected, textBrightness)
         row.selectionHighlight:SetShown(isSelected)
     end
     if isSelected then
-        row.name:SetTextColor(1, 0.82, 0, 1)  -- Gold for selected
+        row.name:SetTextColor(unpack(COLORS.GOLD))
     else
         row.name:SetTextColor(textBrightness, textBrightness, textBrightness, 1)
     end
@@ -691,7 +679,7 @@ function VendorsTab:SetupVendorRow(frame, elementData)
     frame.npcId = elementData.npcId
 
     addon:ResetBackgroundTexture(frame.bg)
-    frame.bg:SetColorTexture(0.08, 0.08, 0.10, 0.9)
+    frame.bg:SetColorTexture(unpack(COLORS.ROW_BG))
 
     frame.vendorContainer:Show()
     frame.decorContainer:Show()
@@ -699,7 +687,7 @@ function VendorsTab:SetupVendorRow(frame, elementData)
 
     frame.vendorName:SetText(elementData.npcName or L["VENDOR_UNKNOWN"])
     addon:SetFontSize(frame.vendorName, 14, "")
-    frame.vendorName:SetTextColor(0.92, 0.76, 0, 1)
+    frame.vendorName:SetTextColor(unpack(COLORS.SOURCE_NAME_GOLD))
 
     local faction = addon:GetVendorFaction(elementData.npcId)
     if faction then
@@ -753,7 +741,7 @@ function VendorsTab:SetupVendorRow(frame, elementData)
 
     frame:SetScript("OnLeave", function(f)
         if self.selectedVendorNpcId ~= elementData.npcId then
-            f.bg:SetColorTexture(0.08, 0.08, 0.10, 0.9)
+            f.bg:SetColorTexture(unpack(COLORS.ROW_BG))
         end
         self:RestoreSelectionOnLeave()
     end)
@@ -793,7 +781,7 @@ function VendorsTab:SetupDecorRows(frame, decorIds)
             selHighlight:SetWidth(2)
             selHighlight:SetPoint("TOPLEFT", 0, 0)
             selHighlight:SetPoint("BOTTOMLEFT", 0, 0)
-            selHighlight:SetColorTexture(1, 0.82, 0, 1)
+            selHighlight:SetColorTexture(unpack(COLORS.GOLD))
             selHighlight:Hide()
             row.selectionHighlight = selHighlight
 
@@ -933,8 +921,8 @@ local function PrintVendorTrackingMessage(messageKey, npcId)
     local vendorText = string.format("|cff80ff80%s|r", vendorName)
     local zoneText = string.format("|cff80c0ff%s|r", zoneName)
     local message = string.format(L[messageKey], vendorText, zoneText)
-    if messageKey == "VENDORS_TRACKING_STARTED" and C_Map.HasUserWaypoint() then
-        local hyperlink = C_Map.GetUserWaypointHyperlink()
+    if messageKey == "VENDORS_TRACKING_STARTED" then
+        local hyperlink = addon.Waypoints:GetHyperlink()
         if hyperlink then
             message = message .. " " .. hyperlink
         end
@@ -948,7 +936,8 @@ function VendorsTab:GetVendorTrackPoint(npcId)
         return nil, nil, "VENDOR_NO_LOCATION"
     end
 
-    if not C_Map.CanSetUserWaypointOnMap(locData.uiMapId) then
+    local tomtomActive = addon.Waypoints and addon.Waypoints:IsTomTomActive()
+    if not tomtomActive and not C_Map.CanSetUserWaypointOnMap(locData.uiMapId) then
         return nil, nil, "VENDOR_MAP_RESTRICTED"
     end
 
@@ -967,13 +956,32 @@ function VendorsTab:CanVendorTrackDecor(npcId)
 end
 
 function VendorsTab:IsCurrentWaypointForVendor(npcId)
-    if not npcId or not C_Map.HasUserWaypoint() then
+    if not npcId then return false end
+
+    local locations = addon:GetNPCLocations(npcId)
+    if not locations then return false end
+
+    -- TomTom mode: compare against module state
+    if addon.Waypoints and addon.Waypoints:IsTomTomActive() then
+        local active = addon.Waypoints:GetActive()
+        if not active then return false end
+        for _, locData in ipairs(locations) do
+            if active.mapID == locData.uiMapId and addon.HasValidCoordinates(locData) then
+                local vendorX = locData.x / 100
+                local vendorY = locData.y / 100
+                if math.abs(active.x - vendorX) <= WAYPOINT_MATCH_EPSILON
+                    and math.abs(active.y - vendorY) <= WAYPOINT_MATCH_EPSILON then
+                    return true
+                end
+            end
+        end
         return false
     end
 
-    local locations = addon:GetNPCLocations(npcId)
+    -- Native mode
+    if not C_Map.HasUserWaypoint() then return false end
     local point = C_Map.GetUserWaypoint()
-    if not locations or not point then return false end
+    if not point then return false end
 
     for _, locData in ipairs(locations) do
         if point.uiMapID == locData.uiMapId and addon.HasValidCoordinates(locData) then
@@ -1010,21 +1018,10 @@ end
 function VendorsTab:EnsureWaypointListenerState()
     local shouldListen = self:HasActiveVendorTracking()
 
-    if shouldListen then
-        if not self.waypointListenerRegistered then
-            if not self.onUserWaypointUpdated then
-                local tab = self
-                self.onUserWaypointUpdated = function()
-                    tab:OnUserWaypointUpdated()
-                end
-            end
-            addon:RegisterWoWEvent("USER_WAYPOINT_UPDATED", self.onUserWaypointUpdated)
-            self.waypointListenerRegistered = true
-        end
-        return
-    end
-
-    if self.waypointListenerRegistered and self.onUserWaypointUpdated then
+    if shouldListen and not self.waypointListenerRegistered then
+        addon:RegisterWoWEvent("USER_WAYPOINT_UPDATED", self.onUserWaypointUpdated)
+        self.waypointListenerRegistered = true
+    elseif not shouldListen and self.waypointListenerRegistered then
         addon:UnregisterWoWEvent("USER_WAYPOINT_UPDATED", self.onUserWaypointUpdated)
         self.waypointListenerRegistered = false
     end
@@ -1062,22 +1059,21 @@ function VendorsTab:ToggleVendorDecorTracking(npcId, decorId)
     self:ReconcileVendorTrackingWithWaypoint()
 
     if self:IsVendorDecorTracked(npcId, decorId) then
-        C_Map.ClearUserWaypoint()
-        C_SuperTrack.SetSuperTrackedUserWaypoint(false)
+        addon.Waypoints:Clear()
         self:ClearVendorTrackedState()
         PrintVendorTrackingMessage("VENDORS_TRACKING_STOPPED", npcId)
         return
     end
 
-    local point, _, errorKey = self:GetVendorTrackPoint(npcId)
+    local point, locData, errorKey = self:GetVendorTrackPoint(npcId)
     if not point then
         addon:Print(L[errorKey] or L["VENDOR_MAP_RESTRICTED"])
         return
     end
 
-    C_Map.ClearUserWaypoint()
-    C_Map.SetUserWaypoint(point)
-    C_SuperTrack.SetSuperTrackedUserWaypoint(true)
+    local vendorEntry = addon.vendorIndex and addon.vendorIndex[npcId]
+    local vendorName = vendorEntry and vendorEntry.npcName or L["VENDOR_FALLBACK_NAME"]
+    addon.Waypoints:Set(locData.uiMapId, locData.x / 100, locData.y / 100, vendorName)
 
     self.activeTrackedNpcId = npcId
     self.activeTrackedDecorId = decorId
@@ -1094,8 +1090,7 @@ function VendorsTab:SetWaypoint(npcId, npcName)
         return
     end
 
-    C_Map.SetUserWaypoint(point)
-    C_SuperTrack.SetSuperTrackedUserWaypoint(true)
+    addon.Waypoints:Set(locData.uiMapId, locData.x / 100, locData.y / 100, npcName or L["VENDOR_FALLBACK_NAME"])
     addon:Print(string.format(L["VENDOR_WAYPOINT_SET"], npcName or L["VENDOR_FALLBACK_NAME"]))
 
     if not InCombatLockdown() then
@@ -1169,36 +1164,46 @@ function VendorsTab:NavigateToVendor(npcId)
 end
 
 --------------------------------------------------------------------------------
--- Search/Filter Logic
+-- Search/Filter Logic (with per-refresh memoization)
 --------------------------------------------------------------------------------
+
+local searchCache, filterCache
 
 local function VendorMatchesSearch(vendorData, searchText, zoneName, expansionKey)
     if searchText == "" then return true end
 
+    local cacheKey = vendorData.npcId .. ":" .. zoneName .. ":" .. expansionKey
+    if searchCache and searchCache[cacheKey] ~= nil then return searchCache[cacheKey] end
+
+    local result = false
+
     if vendorData.npcName and strlower(vendorData.npcName):find(searchText, 1, true) then
-        return true
-    end
-
-    if strlower(zoneName):find(searchText, 1, true) then return true end
-
-    local expName = strlower(addon.L[expansionKey] or expansionKey)
-    if expName:find(searchText, 1, true) then return true end
-
-    local currency = vendorData.currencyName or "gold"
-    if strlower(currency):find(searchText, 1, true) then return true end
-
-    for _, decorId in ipairs(vendorData.decorIds or {}) do
-        local record = addon:GetRecord(decorId)
-        if record and record.name and strlower(record.name):find(searchText, 1, true) then
-            return true
+        result = true
+    elseif strlower(zoneName):find(searchText, 1, true) then
+        result = true
+    elseif strlower(addon.L[expansionKey] or expansionKey):find(searchText, 1, true) then
+        result = true
+    elseif strlower(vendorData.currencyName or "gold"):find(searchText, 1, true) then
+        result = true
+    else
+        for _, decorId in ipairs(vendorData.decorIds or {}) do
+            local record = addon:GetRecord(decorId)
+            if record and record.name and strlower(record.name):find(searchText, 1, true) then
+                result = true
+                break
+            end
         end
     end
 
-    return false
+    if searchCache then searchCache[cacheKey] = result end
+    return result
 end
 
 local function VendorPassesCompletionFilter(vendorData, filter)
     if filter == "all" then return true end
+
+    local npcId = vendorData.npcId
+    if filterCache and filterCache[npcId] ~= nil then return filterCache[npcId] end
 
     local owned, total = 0, 0
     for _, decorId in ipairs(vendorData.decorIds or {}) do
@@ -1207,9 +1212,12 @@ local function VendorPassesCompletionFilter(vendorData, filter)
     end
 
     local isComplete = total > 0 and owned == total
-    if filter == "complete" then return isComplete end
-    if filter == "incomplete" then return not isComplete end
-    return true
+    local result
+    if filter == "complete" then result = isComplete
+    else result = not isComplete end
+
+    if filterCache then filterCache[npcId] = result end
+    return result
 end
 
 --------------------------------------------------------------------------------

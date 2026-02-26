@@ -41,7 +41,7 @@ local function ApplyAchievementRowState(frame, isSelected)
         frame.selectionBorder:Show()
         frame.label:SetTextColor(unpack(COLORS.GOLD))
     else
-        frame.bg:SetColorTexture(0.08, 0.08, 0.10, 0.9)
+        frame.bg:SetColorTexture(unpack(COLORS.ROW_BG))
         frame.selectionBorder:Hide()
         local textBrightness = frame.isComplete and 0.5 or 0.7
         frame.label:SetTextColor(textBrightness, textBrightness, textBrightness, 1)
@@ -189,7 +189,7 @@ local function SetupAchievementRow(self, frame, elementData)
     frame:SetScript("OnEnter", function(f)
         -- Visual feedback
         if self.selectedAchievementID ~= f.achievementID or self.selectedRecordID ~= f.recordID then
-            f.bg:SetColorTexture(0.08, 0.08, 0.10, 1)
+            f.bg:SetColorTexture(unpack(COLORS.ROW_BG_SOLID))
         end
 
         -- Fire preview event for hover
@@ -393,30 +393,7 @@ function AchievementsTab:CreateToolbar(parent)
     searchBox.Instructions:SetWordWrap(false)
     self.searchBox = searchBox
 
-    local searchDebounceTimer
-    searchBox:HookScript("OnTextChanged", function(box, userInput)
-        if userInput then
-            if searchDebounceTimer then searchDebounceTimer:Cancel() end
-            local text = box:GetText()
-            searchDebounceTimer = C_Timer.NewTimer(CONSTS.TIMER.INPUT_DEBOUNCE, function()
-                searchDebounceTimer = nil
-                self:OnSearchTextChanged(text)
-            end)
-        end
-    end)
-
-    -- Handle clear button click (X button) - bypass debounce for immediate feedback
-    if searchBox.clearButton then
-        searchBox.clearButton:HookScript("OnClick", function()
-            if searchDebounceTimer then searchDebounceTimer:Cancel(); searchDebounceTimer = nil end
-            self:OnSearchTextChanged("")
-        end)
-    end
-
-    searchBox:SetScript("OnEnterPressed", function(box) box:ClearFocus() end)
-    searchBox:SetScript("OnEscapePressed", function(box)
-        box:ClearFocus()
-    end)
+    self:WireSearchBox(searchBox)
 
     -- Completion filter buttons (center-left)
     local filterContainer = CreateFrame("Frame", nil, toolbar)

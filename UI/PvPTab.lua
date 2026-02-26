@@ -76,6 +76,7 @@ PvPTab.searchBox = nil
 PvPTab.filterButtons = {}
 PvPTab.emptyState = nil
 PvPTab.noCategoryState = nil
+PvPTab.noResultsState = nil
 
 PvPTab.selectedCategory = nil
 PvPTab.selectedSourceName = nil
@@ -159,27 +160,7 @@ function PvPTab:CreateToolbar(parent)
     searchBox.Instructions:SetWordWrap(false)
     self.searchBox = searchBox
 
-    local searchDebounceTimer
-    searchBox:HookScript("OnTextChanged", function(box, userInput)
-        if userInput then
-            if searchDebounceTimer then searchDebounceTimer:Cancel() end
-            local text = box:GetText()
-            searchDebounceTimer = C_Timer.NewTimer(CONSTS.TIMER.INPUT_DEBOUNCE, function()
-                searchDebounceTimer = nil
-                self:OnSearchTextChanged(text)
-            end)
-        end
-    end)
-
-    if searchBox.clearButton then
-        searchBox.clearButton:HookScript("OnClick", function()
-            if searchDebounceTimer then searchDebounceTimer:Cancel(); searchDebounceTimer = nil end
-            self:OnSearchTextChanged("")
-        end)
-    end
-
-    searchBox:SetScript("OnEnterPressed", function(box) box:ClearFocus() end)
-    searchBox:SetScript("OnEscapePressed", function(box) box:ClearFocus() end)
+    self:WireSearchBox(searchBox)
 
     -- Completion filter container
     local filterContainer = CreateFrame("Frame", nil, toolbar)
@@ -213,6 +194,8 @@ function PvPTab:CreateToolbar(parent)
 end
 
 function PvPTab:SetCompletionFilter(filterKey)
+    local VALID_FILTERS = { all = true, incomplete = true, complete = true }
+    if not VALID_FILTERS[filterKey] then filterKey = "incomplete" end
     for key, btn in pairs(self.filterButtons) do
         btn:SetActive(key == filterKey)
     end
@@ -490,7 +473,7 @@ function PvPTab:UpdateSourceSelectionVisual(frame, isSelected)
         frame.bg:SetColorTexture(0.12, 0.12, 0.14, 1)
     else
         frame.selectionBorder:Hide()
-        frame.bg:SetColorTexture(0.08, 0.08, 0.10, 0.9)
+        frame.bg:SetColorTexture(unpack(COLORS.ROW_BG))
     end
 end
 
@@ -501,7 +484,7 @@ function PvPTab:UpdateDecorSelectionVisual(row, isSelected, textBrightness)
         row.selectionHighlight:SetShown(isSelected)
     end
     if isSelected then
-        row.name:SetTextColor(1, 0.82, 0, 1)  -- Gold for selected
+        row.name:SetTextColor(unpack(COLORS.GOLD))
     else
         row.name:SetTextColor(textBrightness, textBrightness, textBrightness, 1)
     end
@@ -509,12 +492,8 @@ end
 
 -- Shared selection toggle for source rows and decor rows
 function PvPTab:HandleItemSelection(params)
-    local isCurrentlySelected
-    if params.isSourceRow then
-        isCurrentlySelected = self.selectedSourceName == params.sourceNameKey and self.selectedDecorId == params.decorId
-    else
-        isCurrentlySelected = self.selectedDecorId == params.decorId
-    end
+    local isCurrentlySelected = self.selectedSourceName == params.sourceNameKey
+        and self.selectedDecorId == params.decorId
 
     if isCurrentlySelected then
         -- Deselect
@@ -540,7 +519,7 @@ function PvPTab:HandleItemSelection(params)
             self.sourceScrollBox:ForEachFrame(function(f)
                 if f.decorRows then
                     for _, row in pairs(f.decorRows) do
-                        if row.decorId == self.selectedDecorId then
+                        if row.decorId == self.selectedDecorId and f.sourceNameKey == self.selectedSourceName then
                             self:UpdateDecorSelectionVisual(row, false, row.textBrightness or 0.7)
                         end
                     end
@@ -574,7 +553,7 @@ function PvPTab:SetupSourceRow(frame, elementData)
     frame.sourceNameKey = elementData.sourceName
 
     addon:ResetBackgroundTexture(frame.bg)
-    frame.bg:SetColorTexture(0.08, 0.08, 0.10, 0.9)
+    frame.bg:SetColorTexture(unpack(COLORS.ROW_BG))
 
     frame.sourceContainer:Show()
     frame.decorContainer:Show()
@@ -594,7 +573,7 @@ function PvPTab:SetupSourceRow(frame, elementData)
     end
 
     frame.sourceName:SetText(displayName)
-    frame.sourceName:SetTextColor(0.92, 0.76, 0, 1)
+    frame.sourceName:SetTextColor(unpack(COLORS.SOURCE_NAME_GOLD))
     addon:SetFontSize(frame.sourceName, 14, "")
 
     -- Progress
@@ -636,7 +615,7 @@ function PvPTab:SetupSourceRow(frame, elementData)
 
     frame:SetScript("OnLeave", function(f)
         if self.selectedSourceName ~= elementData.sourceName then
-            f.bg:SetColorTexture(0.08, 0.08, 0.10, 0.9)
+            f.bg:SetColorTexture(unpack(COLORS.ROW_BG))
         end
         self:RestoreSelectionOnLeave()
     end)
@@ -676,7 +655,7 @@ function PvPTab:SetupDecorRows(frame, decorIds)
             selHighlight:SetWidth(2)
             selHighlight:SetPoint("TOPLEFT", 0, 0)
             selHighlight:SetPoint("BOTTOMLEFT", 0, 0)
-            selHighlight:SetColorTexture(1, 0.82, 0, 1)
+            selHighlight:SetColorTexture(unpack(COLORS.GOLD))
             selHighlight:Hide()
             row.selectionHighlight = selHighlight
 
@@ -713,19 +692,12 @@ function PvPTab:SetupDecorRows(frame, decorIds)
         addon:SetFontSize(row.name, 13, "")
 
         -- Check if this item is currently selected
-        local isItemSelected = self.selectedDecorId == decorId
+        local isItemSelected = self.selectedDecorId == decorId and self.selectedSourceName == frame.sourceNameKey
         self:UpdateDecorSelectionVisual(row, isItemSelected, textBrightness)
 
         row:SetScript("OnClick", function()
             if IsShiftKeyDown() then
-                local trackingType = Enum.ContentTrackingType.Decor
-                if C_ContentTracking.IsTracking(trackingType, decorId) then
-                    C_ContentTracking.StopTracking(trackingType, decorId, Enum.ContentTrackingStopType.Manual)
-                    addon:Print(L["PVP_TRACKING_STOPPED"])
-                else
-                    local err = C_ContentTracking.StartTracking(trackingType, decorId)
-                    addon:PrintTrackingResult(err, "PVP_TRACKING_STARTED", "PVP_TRACKING_FAILED", "PVP_TRACKING_MAX_REACHED", "PVP_TRACKING_ALREADY")
-                end
+                addon:ToggleTracking(decorId)
                 return
             end
 
@@ -738,7 +710,7 @@ function PvPTab:SetupDecorRows(frame, decorIds)
         end)
 
         row:SetScript("OnEnter", function(r)
-            if self.selectedDecorId ~= decorId then
+            if self.selectedDecorId ~= decorId or self.selectedSourceName ~= frame.sourceNameKey then
                 r.name:SetTextColor(1, 1, 1, 1)
             end
             self.hoveringRecordID = decorId
@@ -756,7 +728,7 @@ function PvPTab:SetupDecorRows(frame, decorIds)
         end)
 
         row:SetScript("OnLeave", function(r)
-            if self.selectedDecorId ~= decorId then
+            if self.selectedDecorId ~= decorId or self.selectedSourceName ~= frame.sourceNameKey then
                 r.name:SetTextColor(r.textBrightness, r.textBrightness, r.textBrightness, 1)
             end
             GameTooltip:Hide()
@@ -949,17 +921,22 @@ function PvPTab:CreateEmptyStates()
         CATEGORY_PANEL_WIDTH - 16
     )
     self.noCategoryState = addon:CreateEmptyStateFrame(self.sourcePanel, "PVP_SELECT_CATEGORY")
+    self.noResultsState = addon:CreateEmptyStateFrame(self.sourcePanel, "PVP_EMPTY_NO_RESULTS")
 end
 
 function PvPTab:UpdateEmptyStates()
     local hasSources = addon:GetPvPSourceCount() > 0
     local hasSelection = self.selectedCategory ~= nil
+    local dataProvider = self.sourceScrollBox and self.sourceScrollBox:GetDataProvider()
+    local hasResults = dataProvider and dataProvider:GetSize() > 0
+    local showSourceList = hasSources and hasSelection and hasResults
 
     if self.emptyState then self.emptyState:SetShown(not hasSources) end
     if self.noCategoryState then self.noCategoryState:SetShown(hasSources and not hasSelection) end
+    if self.noResultsState then self.noResultsState:SetShown(hasSources and hasSelection and not hasResults) end
     if self.categoryScrollBox then self.categoryScrollBox:SetShown(hasSources) end
-    if self.sourceScrollBox then self.sourceScrollBox:SetShown(hasSources and hasSelection) end
-    if self.sourceScrollBar then self.sourceScrollBar:SetShown(hasSources and hasSelection) end
+    if self.sourceScrollBox then self.sourceScrollBox:SetShown(showSourceList) end
+    if self.sourceScrollBar then self.sourceScrollBar:SetShown(showSourceList) end
 end
 
 --------------------------------------------------------------------------------

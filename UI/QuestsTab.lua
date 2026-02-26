@@ -39,7 +39,7 @@ local function ApplyQuestRowState(frame, isSelected)
         frame.selectionBorder:Show()
         frame.label:SetTextColor(unpack(COLORS.GOLD))
     else
-        frame.bg:SetColorTexture(0.08, 0.08, 0.10, 0.9)
+        frame.bg:SetColorTexture(unpack(COLORS.ROW_BG))
         frame.selectionBorder:Hide()
         -- Restore text color based on completion state (stored on frame during setup)
         local textBrightness = frame.isComplete and 0.5 or 0.7
@@ -239,15 +239,7 @@ local function SetupQuestRow(self, frame, elementData)
                 addon:Print(addon.L["QUESTS_TRACKING_FAILED"])
                 return
             end
-
-            local trackingType = Enum.ContentTrackingType.Decor
-            if C_ContentTracking.IsTracking(trackingType, recordID) then
-                C_ContentTracking.StopTracking(trackingType, recordID, Enum.ContentTrackingStopType.Manual)
-                addon:Print(addon.L["QUESTS_TRACKING_STOPPED"])
-            else
-                local err = C_ContentTracking.StartTracking(trackingType, recordID)
-                addon:PrintTrackingResult(err, "QUESTS_TRACKING_STARTED", "QUESTS_TRACKING_FAILED", "QUESTS_TRACKING_MAX_REACHED", "QUESTS_TRACKING_ALREADY")
-            end
+            addon:ToggleTracking(recordID)
         elseif IsControlKeyDown() and elementData.recordID then
             -- Ctrl+Click: Start tracking decor (kept for compatibility)
             local err = C_ContentTracking.StartTracking(Enum.ContentTrackingType.Decor, elementData.recordID)
@@ -260,7 +252,7 @@ local function SetupQuestRow(self, frame, elementData)
     frame:SetScript("OnEnter", function(f)
         -- Visual feedback
         if self.selectedQuestID ~= f.questID or self.selectedRecordID ~= f.recordID then
-            f.bg:SetColorTexture(0.08, 0.08, 0.10, 1)
+            f.bg:SetColorTexture(unpack(COLORS.ROW_BG_SOLID))
         end
 
         -- Fire preview event for hover
@@ -430,30 +422,7 @@ function QuestsTab:CreateToolbar(parent)
     searchBox.Instructions:SetWordWrap(false)
     self.searchBox = searchBox
 
-    local searchDebounceTimer
-    searchBox:HookScript("OnTextChanged", function(box, userInput)
-        if userInput then
-            if searchDebounceTimer then searchDebounceTimer:Cancel() end
-            local text = box:GetText()
-            searchDebounceTimer = C_Timer.NewTimer(CONSTS.TIMER.INPUT_DEBOUNCE, function()
-                searchDebounceTimer = nil
-                self:OnSearchTextChanged(text)
-            end)
-        end
-    end)
-
-    -- Handle clear button click (X button) - bypass debounce for immediate feedback
-    if searchBox.clearButton then
-        searchBox.clearButton:HookScript("OnClick", function()
-            if searchDebounceTimer then searchDebounceTimer:Cancel(); searchDebounceTimer = nil end
-            self:OnSearchTextChanged("")
-        end)
-    end
-
-    searchBox:SetScript("OnEnterPressed", function(box) box:ClearFocus() end)
-    searchBox:SetScript("OnEscapePressed", function(box)
-        box:ClearFocus()
-    end)
+    self:WireSearchBox(searchBox)
 
     -- Completion filter buttons (center-left)
     local filterContainer = CreateFrame("Frame", nil, toolbar)

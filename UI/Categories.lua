@@ -6,15 +6,16 @@
 local ADDON_NAME, addon = ...
 
 local CONSTS = addon.CONSTANTS
+local COLORS = CONSTS.COLORS
 local BUTTON_HEIGHT = CONSTS.CATEGORY_BUTTON_HEIGHT
 local PADDING = CONSTS.CATEGORY_PADDING
 local ICON_SIZE = 30  -- Override for sidebar (larger than CONSTS.CATEGORY_ICON_SIZE)
 
 -- Button colors (darker to match sidebar)
-local COLOR_BG_NORMAL = { 0.08, 0.08, 0.10, 1 }
+local COLOR_BG_NORMAL = COLORS.ROW_BG_SOLID
 local COLOR_BG_HOVER = { 0.12, 0.12, 0.15, 1 }
 local COLOR_BG_SELECTED = { 0.10, 0.10, 0.13, 1 }
-local COLOR_GOLD_BORDER = { 1, 0.82, 0, 1 }
+local COLOR_GOLD_BORDER = COLORS.GOLD
 
 -- Button vertical spacing
 local BUTTON_SPACING = BUTTON_HEIGHT + 2
@@ -170,6 +171,10 @@ end
 
 -- Clear category state and UI without triggering a search (used by SearchBox)
 function Categories:ClearFocusOnly()
+    if not self.focusedCategoryID and not self.focusedSubcategoryID and not self.selectedCategoryID then
+        return
+    end
+
     self.focusedCategoryID = nil
     self.focusedSubcategoryID = nil
     self.selectedCategoryID = nil

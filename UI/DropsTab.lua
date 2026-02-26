@@ -159,27 +159,7 @@ function DropsTab:CreateToolbar(parent)
     searchBox.Instructions:SetWordWrap(false)
     self.searchBox = searchBox
 
-    local searchDebounceTimer
-    searchBox:HookScript("OnTextChanged", function(box, userInput)
-        if userInput then
-            if searchDebounceTimer then searchDebounceTimer:Cancel() end
-            local text = box:GetText()
-            searchDebounceTimer = C_Timer.NewTimer(CONSTS.TIMER.INPUT_DEBOUNCE, function()
-                searchDebounceTimer = nil
-                self:OnSearchTextChanged(text)
-            end)
-        end
-    end)
-
-    if searchBox.clearButton then
-        searchBox.clearButton:HookScript("OnClick", function()
-            if searchDebounceTimer then searchDebounceTimer:Cancel(); searchDebounceTimer = nil end
-            self:OnSearchTextChanged("")
-        end)
-    end
-
-    searchBox:SetScript("OnEnterPressed", function(box) box:ClearFocus() end)
-    searchBox:SetScript("OnEscapePressed", function(box) box:ClearFocus() end)
+    self:WireSearchBox(searchBox)
 
     -- Completion filter container
     local filterContainer = CreateFrame("Frame", nil, toolbar)
@@ -494,7 +474,7 @@ function DropsTab:UpdateSourceSelectionVisual(frame, isSelected)
         frame.bg:SetColorTexture(0.12, 0.12, 0.14, 1)
     else
         frame.selectionBorder:Hide()
-        frame.bg:SetColorTexture(0.08, 0.08, 0.10, 0.9)
+        frame.bg:SetColorTexture(unpack(COLORS.ROW_BG))
     end
 end
 
@@ -505,7 +485,7 @@ function DropsTab:UpdateDecorSelectionVisual(row, isSelected, textBrightness)
         row.selectionHighlight:SetShown(isSelected)
     end
     if isSelected then
-        row.name:SetTextColor(1, 0.82, 0, 1)  -- Gold for selected
+        row.name:SetTextColor(unpack(COLORS.GOLD))
     else
         row.name:SetTextColor(textBrightness, textBrightness, textBrightness, 1)
     end
@@ -578,7 +558,7 @@ function DropsTab:SetupSourceRow(frame, elementData)
     frame.sourceNameKey = elementData.sourceName
 
     addon:ResetBackgroundTexture(frame.bg)
-    frame.bg:SetColorTexture(0.08, 0.08, 0.10, 0.9)
+    frame.bg:SetColorTexture(unpack(COLORS.ROW_BG))
 
     frame.sourceContainer:Show()
     frame.decorContainer:Show()
@@ -586,7 +566,7 @@ function DropsTab:SetupSourceRow(frame, elementData)
 
     local displayName = elementData.sourceName or L["UNKNOWN"]
     frame.sourceName:SetText(displayName)
-    frame.sourceName:SetTextColor(0.92, 0.76, 0, 1)
+    frame.sourceName:SetTextColor(unpack(COLORS.SOURCE_NAME_GOLD))
     addon:SetFontSize(frame.sourceName, 14, "")
 
     -- Progress
@@ -628,7 +608,7 @@ function DropsTab:SetupSourceRow(frame, elementData)
 
     frame:SetScript("OnLeave", function(f)
         if self.selectedSourceName ~= elementData.sourceName then
-            f.bg:SetColorTexture(0.08, 0.08, 0.10, 0.9)
+            f.bg:SetColorTexture(unpack(COLORS.ROW_BG))
         end
         self:RestoreSelectionOnLeave()
     end)
@@ -668,7 +648,7 @@ function DropsTab:SetupDecorRows(frame, decorIds)
             selHighlight:SetWidth(2)
             selHighlight:SetPoint("TOPLEFT", 0, 0)
             selHighlight:SetPoint("BOTTOMLEFT", 0, 0)
-            selHighlight:SetColorTexture(1, 0.82, 0, 1)
+            selHighlight:SetColorTexture(unpack(COLORS.GOLD))
             selHighlight:Hide()
             row.selectionHighlight = selHighlight
 
@@ -710,14 +690,7 @@ function DropsTab:SetupDecorRows(frame, decorIds)
 
         row:SetScript("OnClick", function()
             if IsShiftKeyDown() then
-                local trackingType = Enum.ContentTrackingType.Decor
-                if C_ContentTracking.IsTracking(trackingType, decorId) then
-                    C_ContentTracking.StopTracking(trackingType, decorId, Enum.ContentTrackingStopType.Manual)
-                    addon:Print(L["DROPS_TRACKING_STOPPED"])
-                else
-                    local err = C_ContentTracking.StartTracking(trackingType, decorId)
-                    addon:PrintTrackingResult(err, "DROPS_TRACKING_STARTED", "DROPS_TRACKING_FAILED", "DROPS_TRACKING_MAX_REACHED", "DROPS_TRACKING_ALREADY")
-                end
+                addon:ToggleTracking(decorId)
                 return
             end
 

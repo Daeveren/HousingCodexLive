@@ -87,6 +87,11 @@ function MainFrame:Create()
     -- Restore saved layout
     self:RestoreLayout()
 
+    -- Deferred initial tab layout (titleBar anchor widths resolve next frame)
+    C_Timer.After(0, function()
+        self:UpdateTabLayout()
+    end)
+
     -- Add to special frames for ESC handling
     tinsert(UISpecialFrames, "HousingCodexMainFrame")
 
@@ -151,6 +156,25 @@ function MainFrame:CreateTitleBar()
         frame:SetUserPlaced(false)
         MainFrame:SavePosition()
     end)
+end
+
+function MainFrame:UpdateTabLayout()
+    if not addon.Tabs or not addon.Tabs.container then return end
+    if not self.titleBar then return end
+
+    local titleBarWidth = self.titleBar:GetWidth()
+    if not titleBarWidth or titleBarWidth <= 0 then return end
+
+    -- Left reserved: icon offset(12) + icon(25) + gap(8) + titleText + gap(16)
+    local titleTextWidth = self.titleText and self.titleText:GetStringWidth() or 120
+    local leftReserved = 12 + 25 + 8 + titleTextWidth + 16
+
+    -- Right reserved: wishlist button + gap(8) + close button(~32)
+    local wishlistWidth = self.wishlistButton and self.wishlistButton:GetWidth() or 100
+    local rightReserved = wishlistWidth + 8 + 32
+
+    local availableForTabs = titleBarWidth - leftReserved - rightReserved
+    addon.Tabs:UpdateLayout(availableForTabs)
 end
 
 function MainFrame:CreateWishlistButton(titleBar)
@@ -431,6 +455,11 @@ function MainFrame:SetupResizing()
         frame:StopMovingOrSizing()
         frame:SetUserPlaced(false)
         MainFrame:SaveSize()
+    end)
+
+    -- Update tab layout on any frame resize
+    frame:SetScript("OnSizeChanged", function()
+        MainFrame:UpdateTabLayout()
     end)
 end
 

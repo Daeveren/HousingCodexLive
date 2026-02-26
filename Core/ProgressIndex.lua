@@ -156,6 +156,24 @@ function addon:GetProgressBySourceType()
         targetTabKey = "PROFESSIONS",
     })
 
+    -- PvP
+    local pvpOwned, pvpTotal = 0, 0
+    for _, category in ipairs(self:GetSortedPvPCategories()) do
+        local cOwned, cTotal = self:GetPvPCategoryCollectionProgress(category)
+        pvpOwned = pvpOwned + cOwned
+        pvpTotal = pvpTotal + cTotal
+    end
+    if pvpTotal > 0 then
+        table.insert(result, {
+            key = "PVP",
+            labelKey = "PROGRESS_SOURCE_PVP",
+            owned = pvpOwned,
+            total = pvpTotal,
+            percent = pvpTotal > 0 and (pvpOwned / pvpTotal * 100) or 0,
+            targetTabKey = "PVP",
+        })
+    end
+
     self.progressCache.bySource = result
     return result
 end

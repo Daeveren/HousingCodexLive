@@ -204,15 +204,12 @@ function LDB:UpdateText()
     dataObject.text = table.concat(segments, "/")
 end
 
--- Debounced refresh: rebuild indexes and update broker text
+-- Debounced refresh: update broker text (indexes already patched by Data.lua)
 local function DebouncedRefresh(delay)
     if LDB.updatePending then return end
     LDB.updatePending = true
     C_Timer.After(delay, function()
         LDB.updatePending = false
-        if addon.indexesBuilt then
-            addon:BuildIndexes()
-        end
         LDB:UpdateText()
     end)
 end
@@ -245,8 +242,3 @@ function HousingCodex_OnAddonCompartmentLeave()
     GameTooltip:Hide()
 end
 
--- Also listen for bulk storage updates
-addon:RegisterWoWEvent("HOUSING_STORAGE_UPDATED", function()
-    if not addon.dataLoaded then return end
-    DebouncedRefresh(0.5)
-end)

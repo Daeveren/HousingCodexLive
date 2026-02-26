@@ -308,12 +308,22 @@ function addon:BuildQuestHierarchy()
         return C_QuestLog.GetQuestDifficultyLevel(questKey) or 0
     end
 
+    -- Precompute sort keys once (O(n) API calls instead of O(n log n) in comparator)
+    local levelCache = {}
+    for _, expData in pairs(self.questHierarchy) do
+        for _, quests in pairs(expData.zones) do
+            for _, questKey in ipairs(quests) do
+                levelCache[questKey] = GetQuestLevel(questKey)
+            end
+        end
+    end
+
     -- Sort quests within each zone by level then title
     for _, expData in pairs(self.questHierarchy) do
         for _, quests in pairs(expData.zones) do
             table.sort(quests, function(a, b)
-                local levelA = GetQuestLevel(a)
-                local levelB = GetQuestLevel(b)
+                local levelA = levelCache[a] or 0
+                local levelB = levelCache[b] or 0
                 if levelA ~= levelB then return levelA < levelB end
 
                 local titleA = addon.questTitleCache[a] or tostring(a)
@@ -512,10 +522,7 @@ end)
 -- Periodic refresh of completion status (some quests may be completed elsewhere)
 addon:RegisterWoWEvent("QUEST_LOG_UPDATE", function()
     if not addon.questIndexBuilt then return end
-
-    -- Only refresh if we have quests indexed
-    local hasQuests = next(addon.questIndex) ~= nil
-    if not hasQuests then return end
+    if not next(addon.questIndex) then return end
 
     -- Invalidate completion cache (will be refreshed on next access)
     wipe(addon.questCompletionCache)

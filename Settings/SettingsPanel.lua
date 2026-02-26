@@ -10,6 +10,26 @@ addon.Settings = {}
 -- Shared keybind helpers (defined in Init.lua)
 local BINDING_ACTION = addon.BINDING_ACTION
 local GetKeybindDisplayText = addon.GetKeybindDisplayText
+local L = addon.L
+
+-- Keybind conflict confirmation dialog
+StaticPopupDialogs["HOUSINGCODEX_KEYBIND_CONFLICT"] = {
+    text = "%s",
+    button1 = YES,
+    button2 = NO,
+    OnAccept = function(dialog, data)
+        local key1, key2 = GetBindingKey(BINDING_ACTION)
+        if key1 then SetBinding(key1, nil) end
+        if key2 then SetBinding(key2, nil) end
+        SetBinding(data.fullKey, BINDING_ACTION)
+        SaveBindings(GetCurrentBindingSet())
+        if data.updateFunc then data.updateFunc() end
+    end,
+    timeout = 0,
+    whileDead = true,
+    hideOnEscape = true,
+    preferredIndex = 3,
+}
 
 --------------------------------------------------------------------------------
 -- Helper: Create checkbox with tooltip
@@ -60,7 +80,6 @@ local function CreateDivider(parent, yOffset)
 end
 
 local function CreateResetButton(parent, labelKey, tooltipKey, onClick)
-    local L = addon.L
     local btn = CreateFrame("Button", nil, parent, "UIPanelButtonTemplate")
     btn:SetSize(160, 24)
     btn:SetText(L[labelKey])
@@ -80,8 +99,6 @@ end
 -- Settings Panel Initialization
 --------------------------------------------------------------------------------
 function addon.Settings:Initialize()
-    local L = addon.L
-
     -- Create the settings panel frame
     local panel = CreateFrame("Frame", "HousingCodexSettingsPanel", UIParent)
     panel.name = L["ADDON_NAME"]
@@ -222,16 +239,22 @@ function addon.Settings:Initialize()
         UpdateKeybindButtonText()
     end
 
+    -- Apply a keybind (no conflict check)
+    local function ApplyKeybind(fullKey)
+        local key1, key2 = GetBindingKey(BINDING_ACTION)
+        if key1 then SetBinding(key1, nil) end
+        if key2 then SetBinding(key2, nil) end
+        SetBinding(fullKey, BINDING_ACTION)
+        SaveBindings(GetCurrentBindingSet())
+        UpdateKeybindButtonText()
+        addon:Debug("Keybind set via standard system: " .. fullKey)
+    end
+
     -- Handle key press during capture
     local function OnKeyCaptured(btn, key)
         if addon.MODIFIER_KEYS[key] then return end
 
-        if key == "ESCAPE" then
-            StopKeyCapture(btn)
-            return
-        end
-
-        if InCombatLockdown() then
+        if key == "ESCAPE" or InCombatLockdown() then
             StopKeyCapture(btn)
             return
         end
@@ -245,18 +268,19 @@ function addon.Settings:Initialize()
 
         local fullKey = table.concat(modifiers, "-")
 
-        -- Clear all existing bindings for our action (key1 and key2)
-        local key1, key2 = GetBindingKey(BINDING_ACTION)
-        if key1 then SetBinding(key1, nil) end
-        if key2 then SetBinding(key2, nil) end
-
-        -- Set new binding
-        SetBinding(fullKey, BINDING_ACTION)
-        SaveBindings(GetCurrentBindingSet())
-
         StopKeyCapture(btn)
-        UpdateKeybindButtonText()
-        addon:Debug("Keybind set via standard system: " .. fullKey)
+
+        -- Check for conflict with existing binding
+        local existingAction = GetBindingAction(fullKey)
+        if existingAction and existingAction ~= "" and existingAction ~= BINDING_ACTION then
+            local existingName = GetBindingName(existingAction)
+            local keyDisplay = GetBindingText(fullKey)
+            local msg = L["OPTIONS_KEYBIND_CONFLICT"]:format(keyDisplay, existingName)
+            StaticPopup_Show("HOUSINGCODEX_KEYBIND_CONFLICT", msg, nil, { fullKey = fullKey, updateFunc = UpdateKeybindButtonText })
+            return
+        end
+
+        ApplyKeybind(fullKey)
     end
 
     keybindBtn:SetScript("OnEnter", function(btn)
@@ -358,6 +382,27 @@ function addon.Settings:Initialize()
     )
     treasureHuntCheck:SetPoint("TOPLEFT", COL1_X, yOffset)
     self.treasureHuntCheck = treasureHuntCheck
+
+    -- TomTom Waypoints checkbox
+    local tomtomInstalled = addon.Waypoints and addon.Waypoints:IsTomTomAvailable()
+    local tomtomLabel = tomtomInstalled and L["OPTIONS_USE_TOMTOM"] or L["OPTIONS_USE_TOMTOM_NOT_INSTALLED"]
+    local tomtomCheck = CreateCheckbox(
+        panel,
+        tomtomLabel,
+        L["OPTIONS_USE_TOMTOM_TOOLTIP"],
+        function() return addon.db and addon.db.settings.useTomTom end,
+        function(checked)
+            if addon.db then
+                addon.db.settings.useTomTom = checked
+            end
+        end
+    )
+    tomtomCheck:SetPoint("TOPLEFT", COL2_X, yOffset)
+    if not tomtomInstalled then
+        tomtomCheck:Disable()
+        tomtomCheck.Text:SetTextColor(0.5, 0.5, 0.5)
+    end
+    self.tomtomCheck = tomtomCheck
     yOffset = yOffset - 30
 
     CreateDivider(panel, yOffset)

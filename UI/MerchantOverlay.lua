@@ -152,10 +152,8 @@ end
 function MerchantOverlay:Initialize()
     self:HookMerchantFrame()
 
-    -- Listen for housing storage updates, merchant events, and market data
+    -- Listen for merchant events and market data (ownership handled via internal RECORD_OWNERSHIP_UPDATED)
     self.eventFrame = CreateFrame("Frame")
-    self.eventFrame:RegisterEvent("HOUSING_STORAGE_UPDATED")
-    self.eventFrame:RegisterEvent("HOUSING_STORAGE_ENTRY_UPDATED")
     self.eventFrame:RegisterEvent("MERCHANT_CLOSED")
     self.eventFrame:RegisterEvent("MERCHANT_SHOW")
     self.eventFrame:RegisterEvent("HOUSING_MARKET_AVAILABILITY_UPDATED")
@@ -185,10 +183,6 @@ function MerchantOverlay:Initialize()
             waitingForMarketData = false
             ClearSessionCache()
             self:HideAllOverlays()
-        else
-            -- HOUSING_STORAGE_UPDATED / HOUSING_STORAGE_ENTRY_UPDATED
-            ClearSessionCache()
-            self:UpdateMerchantButtons()
         end
     end)
 

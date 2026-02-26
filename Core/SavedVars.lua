@@ -77,6 +77,7 @@ local defaults = {
         includeCollectedVendorDecor = false,  -- Include already-collected vendor decor in zone overlay
         zoneOverlayPreviewScale = 1.0,        -- Preview size scale (0.5, 1.0, 1.5)
         autoRotatePreview = true,             -- Auto-rotate 3D preview models
+        useTomTom = false,                   -- Use TomTom waypoints instead of native
     },
     wishlistUI = {
         tileSize = 152,      -- Separate from browser.tileSize
@@ -240,17 +241,6 @@ function addon:RestoreFrameSize(frame, dbKey, minWidth, minHeight, maxWidth, max
     return true
 end
 
-function addon:SaveFrameLayout(frame, dbKey)
-    self:SaveFramePosition(frame, dbKey)
-    self:SaveFrameSize(frame, dbKey)
-end
-
-function addon:RestoreFrameLayout(frame, dbKey, minWidth, minHeight, maxWidth, maxHeight)
-    local posRestored = self:RestoreFramePosition(frame, dbKey)
-    local sizeRestored = self:RestoreFrameSize(frame, dbKey, minWidth, minHeight, maxWidth, maxHeight)
-    return posRestored or sizeRestored
-end
-
 -- Wishlist Helpers
 function addon:IsWishlisted(recordID)
     return self.db.wishlist[recordID] == true
@@ -276,10 +266,3 @@ function addon:ToggleWishlist(recordID)
     return isWishlisted
 end
 
-function addon:GetWishlistCount()
-    local count = 0
-    for _ in pairs(self.db.wishlist) do
-        count = count + 1
-    end
-    return count
-end

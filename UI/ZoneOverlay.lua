@@ -20,13 +20,13 @@ local ICON_SIZE = 20
 local PREVIEW_SIZE = 240
 local PADDING = 8
 local MAX_VISIBLE_ENTRIES = 10
-local COLLAPSED_HEIGHT = 22   -- TITLE_BAR_HEIGHT (28) - 6
+local COLLAPSED_HEIGHT = TITLE_BAR_HEIGHT - 6
 local TITLE_FONT_SIZE = 11
 local ITEM_FONT_SIZE = 10
 local BACKDROP_ALPHA_FACTOR = 0.95  -- Reduce backdrop alpha slightly vs user setting for visual separation
 
 -- Model scene constants (same as tile display)
-local MODEL_SCENE_ID = 1317
+local MODEL_SCENE_ID = addon.CONSTANTS.MODEL_SCENE_ID
 local MODEL_ACTOR_TAG = "decor"
 
 -- Auto-rotation speed (centralized in CONSTANTS.CAMERA)
@@ -39,8 +39,9 @@ local ARROW_EXPANDED = 3 * math.pi / 2    -- Points up
 -- Fallback icon for missing textures
 local FALLBACK_ICON = "Interface\\Icons\\INV_Misc_QuestionMark"
 
--- Debounce timer handle
+-- Debounce timer handles
 local updateTimer = nil
+local ownershipTimer = nil
 
 -- State
 local currentMapID = nil
@@ -69,19 +70,13 @@ end
 -- Helper: place a map pin for a vendor NPC
 local function PlaceVendorWaypoint(npcId, npcName)
     local L = addon.L
-    local point, _, errorKey = addon.VendorsTab:GetVendorTrackPoint(npcId)
+    local point, locData, errorKey = addon.VendorsTab:GetVendorTrackPoint(npcId)
     if not point then
         addon:Print(L[errorKey or "VENDOR_NO_LOCATION"])
         return
     end
 
-    if not C_Map.CanSetUserWaypointOnMap(point.uiMapID) then
-        addon:Print(L["VENDOR_MAP_RESTRICTED"])
-        return
-    end
-
-    C_Map.SetUserWaypoint(point)
-    C_SuperTrack.SetSuperTrackedUserWaypoint(true)
+    addon.Waypoints:Set(locData.uiMapId, locData.x / 100, locData.y / 100, npcName or L["VENDOR_FALLBACK_NAME"])
     addon:Print(string.format(L["VENDOR_WAYPOINT_SET"], npcName or L["VENDOR_FALLBACK_NAME"]))
 end
 
@@ -335,6 +330,58 @@ local function CreateOverlayFrame()
             highlight:SetAllPoints()
             highlight:SetColorTexture(1, 1, 1, 0.08)
             row.highlight = highlight
+
+            row:EnableMouse(true)
+
+            -- Static unified handlers (branch on self.isHeader at runtime)
+            row:SetScript("OnMouseUp", function(self, button)
+                if self.isHeader then
+                    if button == "LeftButton" and self.categoryKey then
+                        expandedCategories[self.categoryKey] = not expandedCategories[self.categoryKey]
+                        ZoneOverlay:RefreshLayout()
+                    end
+                else
+                    if self.categoryKey ~= "vendors" or not self.sourceId then return end
+                    if button == "LeftButton" then
+                        PlaceVendorWaypoint(self.sourceId, self.sourceName)
+                    elseif button == "RightButton" then
+                        if InCombatLockdown() then
+                            addon:Print(addon.L["COMBAT_LOCKDOWN_MESSAGE"])
+                            return
+                        end
+                        addon.MainFrame:Show()
+                        addon.Tabs:SelectTab("VENDORS")
+                        addon.VendorsTab:NavigateToVendor(self.sourceId)
+                    end
+                end
+            end)
+
+            row:SetScript("OnEnter", function(self)
+                if self.isHeader or not self.recordID then return end
+                ShowPreview(self, self.recordID)
+                GameTooltip:SetOwner(self, "ANCHOR_NONE")
+                GameTooltip:SetPoint("TOPLEFT", self, "BOTTOMLEFT", 0, -2)
+                local L = addon.L
+                if self.categoryKey == "vendors" and self.sourceName then
+                    local locationLine = self.cityName
+                        and string.format(L["ZONE_OVERLAY_SOURCE_VENDOR_CITY"], self.cityName)
+                        or L["ZONE_OVERLAY_SOURCE_VENDOR"]
+                    GameTooltip:SetText(self.sourceName, 0, 0.8, 0)
+                    GameTooltip:AddLine(locationLine, 0.67, 0.67, 0.67)
+                    GameTooltip:AddLine(" ")
+                    GameTooltip:AddLine(L["ZONE_OVERLAY_CLICK_WAYPOINT"], 0.7, 0.7, 0.7)
+                    GameTooltip:AddLine(L["ZONE_OVERLAY_CLICK_OPEN_HC"], 0.7, 0.7, 0.7)
+                elseif self.sourceName then
+                    GameTooltip:SetText("|cFFaaaaaa" .. self.sourceName .. "|r")
+                end
+                GameTooltip:Show()
+            end)
+
+            row:SetScript("OnLeave", function(self)
+                if self.isHeader then return end
+                HidePreview()
+                GameTooltip:Hide()
+            end)
         end
 
         if elementData.isHeader then
@@ -344,21 +391,14 @@ local function CreateOverlayFrame()
             row.headerText:Show()
             row.icon:Hide()
             row.name:Hide()
-            row:EnableMouse(true)
-            row:SetScript("OnEnter", nil)
-            row:SetScript("OnLeave", nil)
-            row:SetScript("OnMouseUp", function(self, button)
-                if button == "LeftButton" and elementData.categoryKey then
-                    expandedCategories[elementData.categoryKey] = not expandedCategories[elementData.categoryKey]
-                    ZoneOverlay:RefreshLayout()
-                end
-            end)
+            row.isHeader = true
+            row.categoryKey = elementData.categoryKey
         else
             row.headerArrow:Hide()
             row.headerText:Hide()
             row.icon:Show()
             row.name:Show()
-            row:EnableMouse(true)
+            row.isHeader = false
 
             SetIcon(row.icon, elementData.icon, elementData.iconType)
 
@@ -376,49 +416,6 @@ local function CreateOverlayFrame()
             row.categoryKey = elementData.categoryKey
             row.isCollected = elementData.isCollected
             row.cityName = elementData.cityName
-
-            -- Click handlers (vendor items only)
-            row:SetScript("OnMouseUp", function(self, button)
-                if self.categoryKey ~= "vendors" or not self.sourceId then return end
-                if button == "LeftButton" then
-                    PlaceVendorWaypoint(self.sourceId, self.sourceName)
-                elseif button == "RightButton" then
-                    if InCombatLockdown() then
-                        addon:Print(addon.L["COMBAT_LOCKDOWN_MESSAGE"])
-                        return
-                    end
-                    addon.MainFrame:Show()
-                    addon.Tabs:SelectTab("VENDORS")
-                    addon.VendorsTab:NavigateToVendor(self.sourceId)
-                end
-            end)
-
-            row:SetScript("OnEnter", function(self)
-                if self.recordID then
-                    ShowPreview(self, self.recordID)
-                    GameTooltip:SetOwner(self, "ANCHOR_NONE")
-                    GameTooltip:SetPoint("TOPLEFT", self, "BOTTOMLEFT", 0, -2)
-                    local L = addon.L
-                    if self.categoryKey == "vendors" and self.sourceName then
-                        local locationLine = self.cityName
-                            and string.format(L["ZONE_OVERLAY_SOURCE_VENDOR_CITY"], self.cityName)
-                            or L["ZONE_OVERLAY_SOURCE_VENDOR"]
-                        GameTooltip:SetText(self.sourceName, 0, 0.8, 0)
-                        GameTooltip:AddLine(locationLine, 0.67, 0.67, 0.67)
-                        GameTooltip:AddLine(" ")
-                        GameTooltip:AddLine(L["ZONE_OVERLAY_CLICK_WAYPOINT"], 0.7, 0.7, 0.7)
-                        GameTooltip:AddLine(L["ZONE_OVERLAY_CLICK_OPEN_HC"], 0.7, 0.7, 0.7)
-                    elseif self.sourceName then
-                        GameTooltip:SetText("|cFFaaaaaa" .. self.sourceName .. "|r")
-                    end
-                    GameTooltip:Show()
-                end
-            end)
-
-            row:SetScript("OnLeave", function()
-                HidePreview()
-                GameTooltip:Hide()
-            end)
         end
     end)
 
@@ -446,6 +443,11 @@ end
 --------------------------------------------------------------------------------
 -- Layout refresh
 --------------------------------------------------------------------------------
+local function HideOverlay()
+    frame:Hide()
+    HidePreview()
+end
+
 function ZoneOverlay:RefreshLayout()
     if not frame or not addon.db then return end
 
@@ -460,10 +462,8 @@ function ZoneOverlay:RefreshLayout()
     local items = currentMapID and addon:GetZoneDecorItems(currentMapID)
     local uncollected, total = addon:GetZoneDecorProgress(currentMapID or 0)
 
-    -- Hide overlay entirely for zones with no data
     if not items or total == 0 then
-        frame:Hide()
-        HidePreview()
+        HideOverlay()
         return
     end
 
@@ -483,10 +483,8 @@ function ZoneOverlay:RefreshLayout()
         end
     end
 
-    -- Hide overlay entirely when nothing to show
     if displayCount == 0 then
-        frame:Hide()
-        HidePreview()
+        HideOverlay()
         return
     end
 
@@ -557,11 +555,9 @@ function ZoneOverlay:RefreshLayout()
     PrepareSection(items.quests, L["ZONE_OVERLAY_QUESTS"], "quests", false)
     PrepareSection(items.treasures, L["ZONE_OVERLAY_TREASURE"], "treasures", false)
 
-    -- Auto-expand logic: if 1 category, auto-expand it; if >1, all collapsed (on zone change)
-    if currentMapID == lastCategoryMapID and next(expandedCategories) == nil then
-        if #sections == 1 then
-            expandedCategories[sections[1].categoryKey] = true
-        end
+    -- Auto-expand single-category zones; multi-category zones start collapsed
+    if not next(expandedCategories) and #sections == 1 then
+        expandedCategories[sections[1].categoryKey] = true
     end
 
     -- Build flatData with header + conditional item rows
@@ -663,8 +659,7 @@ function ZoneOverlay:UpdateVisibility()
         frame:Show()
         self:RefreshLayout()
     else
-        frame:Hide()
-        HidePreview()
+        HideOverlay()
     end
 end
 
@@ -712,15 +707,17 @@ local function InitializeOverlay()
     end)
 
     WorldMapFrame:HookScript("OnHide", function()
-        frame:Hide()
-        HidePreview()
+        HideOverlay()
     end)
 
-    -- Refresh on ownership changes
+    -- Refresh on ownership changes (debounced to coalesce rapid updates)
     addon:RegisterInternalEvent("ZONE_DECOR_CACHE_INVALIDATED", function()
-        if frame and frame:IsShown() then
+        if not frame or not frame:IsShown() then return end
+        if ownershipTimer then ownershipTimer:Cancel() end
+        ownershipTimer = C_Timer.NewTimer(0.05, function()
+            ownershipTimer = nil
             ZoneOverlay:RefreshLayout()
-        end
+        end)
     end)
 
     -- Initial state (always start collapsed)

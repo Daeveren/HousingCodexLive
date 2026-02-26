@@ -289,7 +289,9 @@ function addon:ProcessSearchResults()
     -- Fire loaded event
     self:FireEvent("DATA_LOADED", recordCount)
 
-    self:Print(string.format(self.L["LOADED_MESSAGE"], recordCount))
+    local collectedCount = self:GetUniqueCollectedCount()
+    local collectedPct = recordCount > 0 and (collectedCount / recordCount * 100) or 0
+    self:Print(string.format(self.L["LOADED_MESSAGE"], collectedPct))
 end
 
 function addon:OnSearchResultsUpdated(entries)
@@ -327,11 +329,9 @@ end
 function addon:GetCategoryInfo(categoryID)
     local cached = self.categoryCache[categoryID]
     if cached then return cached end
+    if not C_HousingCatalog or not C_HousingCatalog.GetCatalogCategoryInfo then return nil end
 
-    local getter = C_HousingCatalog.GetCatalogCategoryInfo
-    if not getter then return nil end
-
-    local info = getter(categoryID)
+    local info = C_HousingCatalog.GetCatalogCategoryInfo(categoryID)
     if info then
         self.categoryCache[categoryID] = info
     end
@@ -341,11 +341,9 @@ end
 function addon:GetSubcategoryInfo(subcategoryID)
     local cached = self.subcategoryCache[subcategoryID]
     if cached then return cached end
+    if not C_HousingCatalog or not C_HousingCatalog.GetCatalogSubcategoryInfo then return nil end
 
-    local getter = C_HousingCatalog.GetCatalogSubcategoryInfo
-    if not getter then return nil end
-
-    local info = getter(subcategoryID)
+    local info = C_HousingCatalog.GetCatalogSubcategoryInfo(subcategoryID)
     if info then
         self.subcategoryCache[subcategoryID] = info
     end
@@ -675,6 +673,15 @@ addon:RegisterWoWEvent("HOUSING_STORAGE_ENTRY_UPDATED", function(entryID)
     local wasCollected = record.isCollected
     RefreshRecordOwnership(record, info)
     local collectionStateChanged = (record.isCollected ~= wasCollected)
+
+    -- O(1) index patch for the single updated record (avoids full BuildIndexes rebuild)
+    if addon.indexesBuilt and addon.indexes and addon.indexes.collected and collectionStateChanged then
+        if record.isCollected then
+            addon.indexes.collected[recordID] = true
+        else
+            addon.indexes.collected[recordID] = nil
+        end
+    end
 
     addon:FireEvent("RECORD_OWNERSHIP_UPDATED", recordID, collectionStateChanged, "targeted")
 end)

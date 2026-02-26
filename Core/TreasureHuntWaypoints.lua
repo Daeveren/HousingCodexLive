@@ -8,11 +8,10 @@
 
 local ADDON_NAME, addon = ...
 
-addon.TreasureHuntWaypoints = addon.TreasureHuntWaypoints or {}
+addon.TreasureHuntWaypoints = {}
 
 -- State
 local activeQuestId = nil
-local listenersRegistered = false
 
 -- Housing zone map IDs
 local HOUSING_ZONES = {
@@ -35,24 +34,15 @@ local function SetWaypoint(questId)
         return
     end
 
-    if not C_Map.CanSetUserWaypointOnMap(loc.mapID) then
+    if not addon.Waypoints:Set(loc.mapID, loc.x, loc.y, "Decor Treasure") then
         addon:Debug(string.format("Treasure Hunt: Cannot set waypoint on map %d", loc.mapID))
         return
     end
 
-    local point = UiMapPoint.CreateFromCoordinates(loc.mapID, loc.x, loc.y)
-    if not point then
-        addon:Debug(string.format("Treasure Hunt: Failed to create waypoint point for map %d", loc.mapID))
-        return
-    end
-
-    C_Map.ClearUserWaypoint()
-    C_Map.SetUserWaypoint(point)
-    C_SuperTrack.SetSuperTrackedUserWaypoint(true)
     activeQuestId = questId
 
     -- Get clickable map pin link and notify user
-    local hyperlink = C_Map.GetUserWaypointHyperlink()
+    local hyperlink = addon.Waypoints:GetHyperlink()
     if hyperlink then
         addon:Print(addon.L["TREASURE_HUNT_WAYPOINT_SET"] .. " " .. hyperlink)
     end
@@ -63,7 +53,7 @@ end
 
 local function ClearWaypoint()
     if activeQuestId then
-        C_Map.ClearUserWaypoint()
+        addon.Waypoints:Clear()
         addon:Debug("Treasure Hunt waypoint cleared")
         activeQuestId = nil
     end
@@ -106,23 +96,12 @@ local function OnQuestEnded(questId)
     end
 end
 
-local function RegisterListeners()
-    if listenersRegistered then
-        return
-    end
-
-    addon:RegisterWoWEvent("QUEST_ACCEPTED", OnQuestAccepted)
-    addon:RegisterWoWEvent("QUEST_TURNED_IN", OnQuestEnded)
-    addon:RegisterWoWEvent("QUEST_REMOVED", OnQuestEnded)
-    listenersRegistered = true
-end
-
 --------------------------------------------------------------------------------
 -- Initialization
 --------------------------------------------------------------------------------
 addon:RegisterInternalEvent("DATA_LOADED", function()
-    addon:Debug("TreasureHunt: Registering quest event listeners")
-    RegisterListeners()
-
+    addon:RegisterWoWEvent("QUEST_ACCEPTED", OnQuestAccepted)
+    addon:RegisterWoWEvent("QUEST_TURNED_IN", OnQuestEnded)
+    addon:RegisterWoWEvent("QUEST_REMOVED", OnQuestEnded)
     addon:Debug("TreasureHunt: Ready")
 end)

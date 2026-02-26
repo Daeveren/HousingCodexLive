@@ -67,6 +67,37 @@ function TabBaseMixin:UpdateToolbarLayout(toolbarWidth)
 end
 
 --------------------------------------------------------------------------------
+-- Search Box Debounce Wiring
+--------------------------------------------------------------------------------
+
+-- Wire up debounced search behavior for a SearchBoxTemplate EditBox.
+-- Calls self:OnSearchTextChanged(text) after INPUT_DEBOUNCE delay.
+-- Clear button bypasses debounce for immediate feedback.
+function TabBaseMixin:WireSearchBox(searchBox)
+    local searchDebounceTimer
+    searchBox:HookScript("OnTextChanged", function(box, userInput)
+        if userInput then
+            if searchDebounceTimer then searchDebounceTimer:Cancel() end
+            local text = box:GetText()
+            searchDebounceTimer = C_Timer.NewTimer(CONSTS.TIMER.INPUT_DEBOUNCE, function()
+                searchDebounceTimer = nil
+                self:OnSearchTextChanged(text)
+            end)
+        end
+    end)
+
+    if searchBox.clearButton then
+        searchBox.clearButton:HookScript("OnClick", function()
+            if searchDebounceTimer then searchDebounceTimer:Cancel(); searchDebounceTimer = nil end
+            self:OnSearchTextChanged("")
+        end)
+    end
+
+    searchBox:SetScript("OnEnterPressed", function(box) box:ClearFocus() end)
+    searchBox:SetScript("OnEscapePressed", function(box) box:ClearFocus() end)
+end
+
+--------------------------------------------------------------------------------
 -- Ownership Refresh Helper
 --------------------------------------------------------------------------------
 

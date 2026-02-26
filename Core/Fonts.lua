@@ -75,13 +75,6 @@ function addon:CreateFontString(parent, layer, templateName)
     return fontString
 end
 
-function addon:UnregisterFontString(fontString)
-    if fontString and fontString.hcFontRegistryID then
-        self.fontStringRegistry[fontString.hcFontRegistryID] = nil
-        fontString.hcFontRegistryID = nil
-    end
-end
-
 -- Sets font with custom size, storing info for re-application when font settings change
 function addon:SetFontSize(fontString, size, flags)
     flags = flags or ""

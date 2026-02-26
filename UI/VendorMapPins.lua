@@ -170,14 +170,6 @@ local function AddBulletedTooltipLine(text)
     GameTooltip:AddLine(TOOLTIP_LIST_INDENT .. TOOLTIP_LIST_BULLET .. text, TOOLTIP_LIST_R, TOOLTIP_LIST_G, TOOLTIP_LIST_B)
 end
 
-local function AddTooltipSpacerLine()
-    GameTooltip:AddLine(" ")
-end
-
-local function GetAggregateZoneMapID(vendorData)
-    return addon:GetZoneRootMapID(vendorData.uiMapId) or vendorData.uiMapId
-end
-
 local function ScheduleRefresh(provider)
     local map = provider:GetMap()
     if not map or not map:IsShown() then
@@ -418,7 +410,7 @@ function HousingCodexVendorPinMixin:OnMouseEnter()
 
     local r, g, b = GetProgressColor(owned, total)
     GameTooltip:AddLine(string.format(L["VENDOR_PIN_COLLECTED"], owned, total), r, g, b)
-    AddTooltipSpacerLine()
+    GameTooltip:AddLine(" ")
 
     if owned < total and #missingNames > 0 then
         GameTooltip:AddLine(L["VENDOR_PIN_UNCOLLECTED_HEADER"], 0.85, 0.85, 0.85)
@@ -438,7 +430,7 @@ function HousingCodexVendorPinMixin:OnMouseEnter()
         GameTooltip:AddLine(L["VENDOR_PIN_FACTION_HORDE"], 1, 0.3, 0.3)
     end
 
-    AddTooltipSpacerLine()
+    GameTooltip:AddLine(" ")
     GameTooltip:AddLine(L["VENDOR_PIN_CLICK_WAYPOINT"], 0.6, 0.6, 0.6)
     GameTooltip:Show()
 end
@@ -453,7 +445,7 @@ function HousingCodexVendorPinMixin:OnMouseClickAction(button)
     end
 
     if IsAggregateVendorPin(self) then
-        local zoneMapID = GetAggregateZoneMapID(self.vendorData)
+        local zoneMapID = addon:GetZoneRootMapID(self.vendorData.uiMapId) or self.vendorData.uiMapId
         if zoneMapID and not InCombatLockdown() then
             C_Map.OpenWorldMap(zoneMapID)
         end
@@ -461,7 +453,12 @@ function HousingCodexVendorPinMixin:OnMouseClickAction(button)
     end
 
     local mapID = self.vendorData.uiMapId
-    if not addon.IsValidMapId(mapID) or not C_Map.CanSetUserWaypointOnMap(mapID) then
+    if not addon.IsValidMapId(mapID) then
+        return
+    end
+
+    local tomtomActive = addon.Waypoints and addon.Waypoints:IsTomTomActive()
+    if not tomtomActive and not C_Map.CanSetUserWaypointOnMap(mapID) then
         return
     end
 
@@ -469,13 +466,9 @@ function HousingCodexVendorPinMixin:OnMouseClickAction(button)
         return
     end
 
-    local point = UiMapPoint.CreateFromCoordinates(mapID, self.vendorData.x / 100, self.vendorData.y / 100)
-    if not point then
-        return
-    end
-
-    C_Map.SetUserWaypoint(point)
-    C_SuperTrack.SetSuperTrackedUserWaypoint(true)
+    local normX, normY = self.vendorData.x / 100, self.vendorData.y / 100
+    local npcName = self.vendorData.npcName
+    addon.Waypoints:Set(mapID, normX, normY, npcName or "Vendor")
     PlaySound(SOUNDKIT.UI_MAP_WAYPOINT_BUTTON_CLICK_ON)
 end
 

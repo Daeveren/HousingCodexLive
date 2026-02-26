@@ -100,6 +100,13 @@ addon.CONSTANTS = {
         PANEL_NORMAL_ALT = { 0.12, 0.12, 0.14, 0.95 },  -- Zone/darker variant
         PANEL_HOVER_ALT = { 0.16, 0.16, 0.18, 1 },
 
+        -- Row backgrounds
+        ROW_BG = { 0.08, 0.08, 0.10, 0.9 },
+        ROW_BG_SOLID = { 0.08, 0.08, 0.10, 1 },
+
+        -- Source/vendor name gold (intentionally dimmer than GOLD)
+        SOURCE_NAME_GOLD = { 0.92, 0.76, 0, 1 },
+
         -- Selection state
         ROW_SELECTED = { 0.20, 0.20, 0.22, 1 },
     },
@@ -159,6 +166,7 @@ addon.CONSTANTS = {
         [69] = Enum.HousingCatalogEntryModelScenePresets.DecorHuge,
     },
     DEFAULT_SCENE_ID = Enum.HousingCatalogEntryModelScenePresets.DecorDefault,
+    MODEL_SCENE_ID = 1317,  -- HOUSING_CATALOG_DECOR_MODELSCENEID_DEFAULT
 
     -- Button styling
     TOGGLE_BUTTON_BACKDROP = {
@@ -628,7 +636,7 @@ function addon:SetupTileFrame(tile, tileSize, onLeaveCallback)
 end
 
 -- ModelScene constants for tile 3D preview
-local TILE_MODEL_SCENE_ID = 1317  -- HOUSING_CATALOG_DECOR_MODELSCENEID_DEFAULT
+local TILE_MODEL_SCENE_ID = addon.CONSTANTS.MODEL_SCENE_ID
 local TILE_MODEL_ACTOR_TAG = "decor"
 
 -- Sets up a tile to display either a 3D model or 2D icon based on record data.
