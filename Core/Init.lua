@@ -352,9 +352,13 @@ function addon:GetDecorLink(recordID, callback)
     end
 end
 
-function addon:Debug(msg)
+function addon:Debug(...)
     if self.db and self.db.settings and self.db.settings.debugMode then
-        print("|cFF888888[HC Debug]|r " .. tostring(msg))
+        local parts = {}
+        for i = 1, select("#", ...) do
+            parts[i] = tostring(select(i, ...))
+        end
+        print("|cFF888888[HC Debug]|r " .. table.concat(parts, " "))
     end
 end
 

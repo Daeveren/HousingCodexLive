@@ -45,26 +45,6 @@ local function ApplyCategoryButtonState(frame, isSelected)
     end
 end
 
--- Format encounter source names with colored parts:
--- "Boss - Instance (Expansion > Zone)" → colored inline text
--- Boss: base gold (via SetTextColor), Instance: light blue, Expansion: orange, Zone: light green
-local function FormatEncounterName(sourceName)
-    local boss, instance, expansion, zone = sourceName:match("^(.+) %- (.+) %((.+) > (.+)%)$")
-    if not boss then return sourceName end
-
-    local dim = "|cFF999999"  -- Separator color
-    local blue = "|cFF7EC8E3"  -- Light blue for instance
-    local orange = "|cFFFF9933"  -- Orange for expansion
-
-    return boss .. dim .. " - |r"
-        .. blue .. instance .. "|r"
-        .. dim .. " (|r"
-        .. orange .. expansion .. "|r"
-        .. dim .. " > |r"
-        .. zone
-        .. dim .. ")|r"
-end
-
 addon.DropsTab = {}
 local DropsTab = addon.DropsTab
 
@@ -604,11 +584,7 @@ function DropsTab:SetupSourceRow(frame, elementData)
     frame.decorContainer:Show()
     frame.decorContainer:SetHeight(decorCount * DECOR_ROW_HEIGHT)
 
-    -- Source name (encounter entries get color-coded parts)
     local displayName = elementData.sourceName or L["UNKNOWN"]
-    if elementData.sourceCategory == "encounter" then
-        displayName = FormatEncounterName(displayName)
-    end
     frame.sourceName:SetText(displayName)
     frame.sourceName:SetTextColor(0.92, 0.76, 0, 1)
     addon:SetFontSize(frame.sourceName, 14, "")
@@ -821,7 +797,6 @@ local function SourcePassesCompletionFilter(sourceData, filter)
     local isComplete = total > 0 and owned == total
     if filter == "complete" then return isComplete end
     if filter == "incomplete" then return not isComplete end
-    return true
 end
 
 --------------------------------------------------------------------------------
@@ -842,7 +817,29 @@ local function FindSourceInList(elements, sourceName)
     return false
 end
 
-function DropsTab:BuildCategoryDisplay()
+-- Evaluate source visibility once, keyed by "category\0sourceName" → true
+local function BuildSourceVisibilityCache(filter, searchText)
+    local cache = {}
+    for _, category in ipairs(addon:GetSortedDropCategories()) do
+        for _, sourceData in ipairs(addon:GetDropsForCategory(category)) do
+            if SourcePassesCompletionFilter(sourceData, filter)
+                and SourceMatchesSearch(sourceData, searchText, category) then
+                cache[category .. "\0" .. sourceData.sourceName] = true
+            end
+        end
+    end
+    return cache
+end
+
+local function IsSourceVisible(sourceData, category, filter, searchText, visCache)
+    if visCache then
+        return visCache[category .. "\0" .. sourceData.sourceName] or false
+    end
+    return SourcePassesCompletionFilter(sourceData, filter)
+        and SourceMatchesSearch(sourceData, searchText, category)
+end
+
+function DropsTab:BuildCategoryDisplay(visCache)
     if not self.categoryScrollBox or not self.categoryDataProvider then return false end
 
     local elements = {}
@@ -852,8 +849,7 @@ function DropsTab:BuildCategoryDisplay()
     for _, category in ipairs(addon:GetSortedDropCategories()) do
         local hasVisibleContent = false
         for _, sourceData in ipairs(addon:GetDropsForCategory(category)) do
-            if SourcePassesCompletionFilter(sourceData, filter)
-                and SourceMatchesSearch(sourceData, searchText, category) then
+            if IsSourceVisible(sourceData, category, filter, searchText, visCache) then
                 hasVisibleContent = true
                 break
             end
@@ -884,7 +880,7 @@ function DropsTab:BuildCategoryDisplay()
     return false
 end
 
-function DropsTab:BuildSourceDisplay()
+function DropsTab:BuildSourceDisplay(visCache)
     if not self.sourceScrollBox or not self.sourceDataProvider then return end
 
     local elements = {}
@@ -895,8 +891,7 @@ function DropsTab:BuildSourceDisplay()
         local searchText = strlower(strtrim(self.searchBox and self.searchBox:GetText() or ""))
 
         for _, sourceData in ipairs(addon:GetDropsForCategory(category)) do
-            if SourcePassesCompletionFilter(sourceData, filter)
-                and SourceMatchesSearch(sourceData, searchText, category) then
+            if IsSourceVisible(sourceData, category, filter, searchText, visCache) then
                 table.insert(elements, sourceData)
             end
         end
@@ -920,8 +915,13 @@ end
 -- Rebuild categories, then sources if categories didn't already trigger a source rebuild
 function DropsTab:RefreshDisplay()
     addon:CountDebug("rebuild", "DropsTab")
-    local rebuilt = self:BuildCategoryDisplay()
-    if not rebuilt then self:BuildSourceDisplay() end
+
+    local filter = self:GetCompletionFilter()
+    local searchText = strlower(strtrim(self.searchBox and self.searchBox:GetText() or ""))
+    local visCache = BuildSourceVisibilityCache(filter, searchText)
+
+    local rebuilt = self:BuildCategoryDisplay(visCache)
+    if not rebuilt then self:BuildSourceDisplay(visCache) end
 end
 
 --------------------------------------------------------------------------------

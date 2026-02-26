@@ -387,12 +387,10 @@ function QuestsTab:Show()
         self.selectedExpansionKey = saved.selectedExpansionKey
         self.selectedQuestID = saved.selectedQuestID
         self.selectedRecordID = saved.selectedRecordID
-        self:SetCompletionFilter(saved.completionFilter or "incomplete")
     end
 
-    -- Update displays
-    self:RefreshDisplay()
-    self:UpdateEmptyStates()
+    -- Always apply completion filter (triggers RefreshDisplay → BuildZoneQuestDisplay → UpdateEmptyStates)
+    self:SetCompletionFilter(saved and saved.completionFilter or "incomplete")
 end
 
 function QuestsTab:Hide()
@@ -779,8 +777,7 @@ local function QuestPassesCompletionFilter(questKey, filter)
     local owned, total = addon:GetQuestCollectionProgress(questKey)
     local isComplete = total > 0 and owned == total
     if filter == "complete" then return isComplete end
-    if filter == "incomplete" then return not isComplete end
-    return true
+    return not isComplete  -- "incomplete" or unknown defaults to showing incomplete
 end
 
 function QuestsTab:BuildExpansionDisplay()
@@ -813,23 +810,19 @@ function QuestsTab:BuildExpansionDisplay()
         self.expansionDataProvider:InsertTable(elements)
     end
 
-    -- Helper to check if expansion key exists in elements
-    local function HasExpansion(key)
-        for _, elem in ipairs(elements) do
-            if elem.expansionKey == key then
-                return true
-            end
-        end
-        return false
+    -- Build lookup set for O(1) visibility checks
+    local visibleExpansions = {}
+    for _, elem in ipairs(elements) do
+        visibleExpansions[elem.expansionKey] = true
     end
 
     -- Auto-select expansion if none selected (prefer The War Within)
     -- Returns true when this function already triggered BuildZoneQuestDisplay internally
     if not self.selectedExpansionKey and #elements > 0 then
         local defaultKey = "EXPANSION_TWW"
-        self:SelectExpansion(HasExpansion(defaultKey) and defaultKey or elements[1].expansionKey)
+        self:SelectExpansion(visibleExpansions[defaultKey] and defaultKey or elements[1].expansionKey)
         return true
-    elseif self.selectedExpansionKey and not HasExpansion(self.selectedExpansionKey) then
+    elseif self.selectedExpansionKey and not visibleExpansions[self.selectedExpansionKey] then
         -- Current selection no longer visible
         if #elements > 0 then
             self:SelectExpansion(elements[1].expansionKey)
@@ -979,31 +972,14 @@ function QuestsTab:CreateEmptyStates()
 end
 
 function QuestsTab:UpdateEmptyStates()
-    local questCount = addon:GetQuestCount()
-    local hasQuests = questCount > 0
+    local hasQuests = addon:GetQuestCount() > 0
+    local hasExpansion = self.selectedExpansionKey ~= nil
 
-    -- Show "no sources" if no quests found at all
-    if self.emptyState then
-        self.emptyState:SetShown(not hasQuests)
-    end
-
-    -- Show "select an expansion" in zone panel when no expansion is selected
-    if self.noExpansionState then
-        self.noExpansionState:SetShown(hasQuests and not self.selectedExpansionKey)
-    end
-
-    -- Show/hide expansion scroll box based on state
-    if self.expansionScrollBox then
-        self.expansionScrollBox:SetShown(hasQuests)
-    end
-
-    -- Show/hide zone/quest scroll boxes based on state
-    if self.zoneQuestScrollBox then
-        self.zoneQuestScrollBox:SetShown(hasQuests and self.selectedExpansionKey ~= nil)
-    end
-    if self.zoneQuestScrollBar then
-        self.zoneQuestScrollBar:SetShown(hasQuests and self.selectedExpansionKey ~= nil)
-    end
+    self.emptyState:SetShown(not hasQuests)
+    self.noExpansionState:SetShown(hasQuests and not hasExpansion)
+    self.expansionScrollBox:SetShown(hasQuests)
+    self.zoneQuestScrollBox:SetShown(hasQuests and hasExpansion)
+    self.zoneQuestScrollBar:SetShown(hasQuests and hasExpansion)
 end
 
 --------------------------------------------------------------------------------
@@ -1024,7 +1000,6 @@ addon:RegisterInternalEvent("DATA_LOADED", function()
         addon:BuildQuestIndex()
         addon:BuildQuestHierarchy()
         QuestsTab:RefreshDisplay()
-        QuestsTab:UpdateEmptyStates()
     end
 end)
 

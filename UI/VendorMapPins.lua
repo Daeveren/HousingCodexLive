@@ -20,11 +20,6 @@ local VENDOR_AREA_POI_STYLE_INFO = {
     atlasName = "UI-EventPoi-Horn-big",
 }
 
--- Use shared helper from VendorMapIndex.lua
-local function GetZoneRootMapID(uiMapID)
-    return addon:GetZoneRootMapID(uiMapID)
-end
-
 local function IsSupportedVendorMapType(mapType)
     return mapType == Enum.UIMapType.Continent
         or mapType == Enum.UIMapType.Zone
@@ -60,7 +55,7 @@ local function IsIncompleteProgress(owned, total)
     return total > 0 and owned < total
 end
 
-local function GetOrCreateZoneCluster(clustersByZone, zoneMapID, owned, total)
+local function GetOrCreateZoneCluster(clustersByZone, zoneMapID)
     local cluster = clustersByZone[zoneMapID]
     if cluster then
         return cluster
@@ -70,8 +65,8 @@ local function GetOrCreateZoneCluster(clustersByZone, zoneMapID, owned, total)
         xSum = 0,
         ySum = 0,
         count = 0,
-        owned = owned,
-        total = total,
+        owned = 0,
+        total = 0,
         vendors = {},
     }
     clustersByZone[zoneMapID] = cluster
@@ -82,6 +77,8 @@ local function AddClusterVendor(cluster, vendorData, owned, total, x, y)
     cluster.xSum = cluster.xSum + x
     cluster.ySum = cluster.ySum + y
     cluster.count = cluster.count + 1
+    cluster.owned = cluster.owned + owned
+    cluster.total = cluster.total + total
     cluster.vendors[#cluster.vendors + 1] = {
         npcId = vendorData.npcId,
         npcName = vendorData.npcName,
@@ -96,29 +93,34 @@ end
 
 local function BuildPinEntriesForMap(mapID, mapType)
     local entries = {}
-    local clustersByZone = mapType == Enum.UIMapType.Continent and {} or nil
+    local isContinent = mapType == Enum.UIMapType.Continent
+    local clustersByZone = isContinent and {} or nil
+    local seenNpcIds = isContinent and {} or nil
 
     local vendorsByMapID = addon:GetAllVendorMapVendors()
     for vendorMapID, vendors in pairs(vendorsByMapID or {}) do
         for _, vendorData in ipairs(vendors) do
-            local x, y = GetProjectedCoordinates(vendorData, vendorMapID, mapID)
-            if x and y then
-                local owned, total = addon:GetVendorPinProgress(vendorData.npcId)
-                if IsIncompleteProgress(owned, total) then
-                    if mapType == Enum.UIMapType.Continent then
-                        local zoneMapID = GetZoneRootMapID(vendorMapID) or vendorMapID
-                        local cluster = GetOrCreateZoneCluster(clustersByZone, zoneMapID, owned, total)
-                        AddClusterVendor(cluster, vendorData, owned, total, x, y)
-                    else
-                        entries[#entries + 1] = {
-                            vendorData = vendorData,
-                            owned = owned,
-                            total = total,
-                            x = x,
-                            y = y,
-                            vendorCount = 1,
-                            isAggregate = false,
-                        }
+            if not (isContinent and seenNpcIds[vendorData.npcId]) then
+                local x, y = GetProjectedCoordinates(vendorData, vendorMapID, mapID)
+                if x and y then
+                    local owned, total = addon:GetVendorPinProgress(vendorData.npcId)
+                    if IsIncompleteProgress(owned, total) then
+                        if isContinent then
+                            seenNpcIds[vendorData.npcId] = true
+                            local zoneMapID = addon:GetZoneRootMapID(vendorMapID) or vendorMapID
+                            local cluster = GetOrCreateZoneCluster(clustersByZone, zoneMapID)
+                            AddClusterVendor(cluster, vendorData, owned, total, x, y)
+                        else
+                            entries[#entries + 1] = {
+                                vendorData = vendorData,
+                                owned = owned,
+                                total = total,
+                                x = x,
+                                y = y,
+                                vendorCount = 1,
+                                isAggregate = false,
+                            }
+                        end
                     end
                 end
             end
@@ -173,7 +175,7 @@ local function AddTooltipSpacerLine()
 end
 
 local function GetAggregateZoneMapID(vendorData)
-    return GetZoneRootMapID(vendorData.uiMapId) or vendorData.uiMapId
+    return addon:GetZoneRootMapID(vendorData.uiMapId) or vendorData.uiMapId
 end
 
 local function ScheduleRefresh(provider)

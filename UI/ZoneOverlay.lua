@@ -75,6 +75,11 @@ local function PlaceVendorWaypoint(npcId, npcName)
         return
     end
 
+    if not C_Map.CanSetUserWaypointOnMap(point.uiMapID) then
+        addon:Print(L["VENDOR_MAP_RESTRICTED"])
+        return
+    end
+
     C_Map.SetUserWaypoint(point)
     C_SuperTrack.SetSuperTrackedUserWaypoint(true)
     addon:Print(string.format(L["VENDOR_WAYPOINT_SET"], npcName or L["VENDOR_FALLBACK_NAME"]))

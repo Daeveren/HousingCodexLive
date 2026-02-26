@@ -36,12 +36,14 @@ local CONTINENT_TO_EXPANSION = {
 }
 
 local ZONE_TO_EXPANSION = addon.ZONE_TO_EXPANSION
+local EMPTY = {}  -- Shared empty table for cache misses (never mutate)
 
 -- Shared expansion order; module-specific unknowns fall back to 0 at usage sites
 local EXPANSION_ORDER = addon.CONSTANTS.EXPANSION_ORDER
 
 -- Runtime data structures
 addon.questIndex = {}           -- questKey -> { [recordID] = true, ... } (questKey = questID or questName for nil IDs)
+addon.questSortedRecords = {}   -- questKey -> sorted { recordID, ... } (cached at build time)
 addon.questHierarchy = {}       -- expansionKey -> { order, zones = { zoneName -> { questKeys } } }
 addon.questTitleCache = {}      -- questKey -> title string
 addon.questCompletionCache = {} -- questKey -> boolean
@@ -113,10 +115,11 @@ local function ParseQuestID(sourceText)
 end
 
 -- Cache helper for unknown locations
-local function CacheUnknownLocation(questID)
-    local result = { zoneName = addon.L["QUESTS_UNKNOWN_ZONE"], expansionKey = "QUESTS_UNKNOWN_EXPANSION" }
-    addon.questZoneCache[questID] = result
-    return result.zoneName, result.expansionKey
+local function CacheUnknownLocation(questKey)
+    local zoneName = addon.L["QUESTS_UNKNOWN_ZONE"]
+    local expansionKey = "QUESTS_UNKNOWN_EXPANSION"
+    addon.questZoneCache[questKey] = { zoneName = zoneName, expansionKey = expansionKey }
+    return zoneName, expansionKey
 end
 
 -- Get quest location (zone name and expansion) from quest key
@@ -172,6 +175,7 @@ function addon:BuildQuestIndex()
 
     -- Clear existing data
     wipe(self.questIndex)
+    wipe(self.questSortedRecords)
     wipe(self.questZoneFromScrape)
     wipe(self.questTitleCache)
 
@@ -252,6 +256,16 @@ function addon:BuildQuestIndex()
                 self.questIndex[questID][recordID] = true
             end
         end
+    end
+
+    -- Pre-build sorted record lists (all call sites are read-only ipairs)
+    for questKey, records in pairs(self.questIndex) do
+        local sorted = {}
+        for recordID in pairs(records) do
+            sorted[#sorted + 1] = recordID
+        end
+        table.sort(sorted)
+        self.questSortedRecords[questKey] = sorted
     end
 
     local elapsedMs = math.floor(debugprofilestop() - startTime)
@@ -352,18 +366,10 @@ function addon:GetQuestsForZone(expansionKey, zoneName)
     return expData.zones[zoneName]
 end
 
--- Get record IDs for a specific quest
+-- Get record IDs for a specific quest (returns cached sorted array)
 -- questKey can be a numeric questID or a string questName
 function addon:GetRecordsForQuest(questKey)
-    local records = self.questIndex[questKey]
-    if not records then return {} end
-
-    local result = {}
-    for recordID in pairs(records) do
-        table.insert(result, recordID)
-    end
-    table.sort(result)  -- Deterministic "(1)", "(2)" order
-    return result
+    return self.questSortedRecords[questKey] or EMPTY
 end
 
 -- Get collection progress for a quest (owned/total decor items)

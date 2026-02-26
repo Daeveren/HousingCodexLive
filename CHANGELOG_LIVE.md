@@ -2,6 +2,15 @@
 
 All notable changes to Housing Codex.
 
+## [1.6.1] - 2026-02-26
+
+### Changed
+- Updated item database with corrected vendor and drop sources
+
+### Fixed
+- Various improvements for vendor map pins and quest tracking
+- Codebase improvements for smoother performance
+
 ## [1.6.0] - 2026-02-25
 
 ### Added

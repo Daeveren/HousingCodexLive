@@ -23,8 +23,11 @@ local CATEGORY_ORDER = {
     [81] = 12,     -- Feats of Strength
 }
 
+local EMPTY = {}  -- Shared empty table for cache misses (never mutate)
+
 -- Runtime data structures
 addon.achievementIndex = {}           -- achievementId -> { [recordID] = true, ... }
+addon.achievementSortedRecords = {}   -- achievementId -> sorted { recordID, ... } (cached at build time)
 addon.achievementHierarchy = {}       -- categoryId -> { achievements[] }
 addon.achievementCompletionCache = {} -- achievementId -> boolean
 addon.achievementIndexBuilt = false
@@ -41,6 +44,7 @@ function addon:BuildAchievementIndex()
 
     -- Clear existing data
     wipe(self.achievementIndex)
+    wipe(self.achievementSortedRecords)
 
     local achievementCount = 0
     local decorCount = 0
@@ -66,6 +70,16 @@ function addon:BuildAchievementIndex()
                 achievementCount = achievementCount + 1
             end
         end
+    end
+
+    -- Pre-build sorted record lists (all call sites are read-only ipairs)
+    for achievementId, records in pairs(self.achievementIndex) do
+        local sorted = {}
+        for recordID in pairs(records) do
+            sorted[#sorted + 1] = recordID
+        end
+        table.sort(sorted)
+        self.achievementSortedRecords[achievementId] = sorted
     end
 
     local elapsedMs = math.floor(debugprofilestop() - startTime)
@@ -152,17 +166,9 @@ function addon:GetAchievementsForCategory(categoryId)
     return self.achievementHierarchy[categoryId] or {}
 end
 
--- Get record IDs for a specific achievement
+-- Get record IDs for a specific achievement (returns cached sorted array)
 function addon:GetRecordsForAchievement(achievementId)
-    local records = self.achievementIndex[achievementId]
-    if not records then return {} end
-
-    local result = {}
-    for recordID in pairs(records) do
-        table.insert(result, recordID)
-    end
-    table.sort(result)  -- Deterministic "(1)", "(2)" order
-    return result
+    return self.achievementSortedRecords[achievementId] or EMPTY
 end
 
 -- Get achievement name (prefers localized API name)

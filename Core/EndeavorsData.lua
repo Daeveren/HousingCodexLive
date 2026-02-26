@@ -51,6 +51,7 @@ end
 local function SafeCall(func, ...)
     local ok, result = pcall(func, ...)
     if ok then return result end
+    addon:Debug("Endeavors: SafeCall failed:", result)
     return nil
 end
 
@@ -60,7 +61,11 @@ end
 
 local function CheckNeighborhoodZone()
     local wasInNeighborhood = state.isInNeighborhood
-    state.isInNeighborhood = C_Housing.IsOnNeighborhoodMap() or C_Housing.IsInsideHouseOrPlot()
+    local isOnMap = C_Housing.IsOnNeighborhoodMap()
+    local isInHouse = C_Housing.IsInsideHouseOrPlot()
+    state.isInNeighborhood = isOnMap or isInHouse
+
+    addon:Debug("Endeavors: CheckNeighborhoodZone - onMap:", isOnMap, "inHouse:", isInHouse, "was:", wasInNeighborhood, "now:", state.isInNeighborhood)
 
     if state.isInNeighborhood and not wasInNeighborhood then
         EndeavorsData:OnEnterNeighborhood()
@@ -140,7 +145,7 @@ local function OnHouseListUpdated(houseInfoList)
     if matchedHouse.houseGUID then
         state.houseGUID = matchedHouse.houseGUID
         -- Request favor data (SecretArgs, async, fires HOUSE_LEVEL_FAVOR_UPDATED)
-        pcall(C_Housing.GetCurrentHouseLevelFavor, state.houseGUID)
+        SafeCall(C_Housing.GetCurrentHouseLevelFavor, state.houseGUID)
     end
 
     addon:FireEvent("ENDEAVORS_HOUSE_LEVEL_UPDATED")
@@ -185,7 +190,7 @@ end
 local function OnHouseLevelChanged()
     if not state.isInNeighborhood or not state.houseGUID then return end
     -- Re-request favor for fresh bar after level-up
-    pcall(C_Housing.GetCurrentHouseLevelFavor, state.houseGUID)
+    SafeCall(C_Housing.GetCurrentHouseLevelFavor, state.houseGUID)
 end
 
 --------------------------------------------------------------------------------
@@ -237,18 +242,34 @@ local function DiffTaskProgress(info)
 end
 
 local function OnInitiativeUpdated()
+    addon:Debug("Endeavors: OnInitiativeUpdated - isInNeighborhood:", state.isInNeighborhood)
     if not state.isInNeighborhood then return end
 
     local info = C_NeighborhoodInitiative.GetNeighborhoodInitiativeInfo()
+    addon:Debug("Endeavors: info:", info ~= nil, "isLoaded:", info and info.isLoaded, "tasks:", info and info.tasks and #info.tasks or 0)
     if not info or not info.isLoaded then return end
 
     state.initiativeInfo = info
+
+    -- Debug: log snapshot state before diff
+    local snapshotCount = 0
+    for _ in pairs(state.taskSnapshots) do snapshotCount = snapshotCount + 1 end
+    addon:Debug("Endeavors: pre-diff snapshots:", snapshotCount)
+
     DiffTaskProgress(info)
+
+    -- Debug: log snapshot state after diff
+    local afterCount = 0
+    for _ in pairs(state.taskSnapshots) do afterCount = afterCount + 1 end
+    local progressCount = 0
+    for _ in pairs(state.sessionProgress) do progressCount = progressCount + 1 end
+    addon:Debug("Endeavors: post-diff snapshots:", afterCount, "sessionProgress:", progressCount)
 
     addon:FireEvent("ENDEAVORS_INITIATIVE_UPDATED")
 end
 
 local function OnTaskCompleted()
+    addon:Debug("Endeavors: INITIATIVE_TASK_COMPLETED fired, isInNeighborhood:", state.isInNeighborhood)
     if not state.isInNeighborhood then return end
     -- Request fresh data to update the diff
     C_NeighborhoodInitiative.RequestNeighborhoodInitiativeInfo()
@@ -323,6 +344,15 @@ function EndeavorsData:GetActiveTasks()
     table.sort(result, function(a, b)
         return a.lastChangedTime > b.lastChangedTime
     end)
+
+    -- Debug: log why tasks were filtered
+    if next(state.sessionProgress) and #result == 0 then
+        local now = GetTime()
+        for taskID, entry in pairs(state.sessionProgress) do
+            local age = now - entry.lastChangedTime
+            addon:Debug("Endeavors: filtered task", taskID, "delta:", entry.delta, "completed:", entry.completed, "age:", string.format("%.1f", age), "limit:", CONST.TASK_FADE_TIMEOUT)
+        end
+    end
 
     return result
 end

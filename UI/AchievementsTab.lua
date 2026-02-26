@@ -350,12 +350,10 @@ function AchievementsTab:Show()
         self.selectedCategory = saved.selectedCategory
         self.selectedAchievementID = saved.selectedAchievementID
         self.selectedRecordID = saved.selectedRecordID
-        self:SetCompletionFilter(saved.completionFilter or "incomplete")
     end
 
-    -- Update displays
-    self:RefreshDisplay()
-    self:UpdateEmptyStates()
+    -- Always apply completion filter (triggers RefreshDisplay → BuildAchievementDisplay → UpdateEmptyStates)
+    self:SetCompletionFilter(saved and saved.completionFilter or "incomplete")
 end
 
 function AchievementsTab:Hide()
@@ -918,7 +916,6 @@ addon:RegisterInternalEvent("DATA_LOADED", function()
         addon:BuildAchievementIndex()
         addon:BuildAchievementHierarchy()
         AchievementsTab:RefreshDisplay()
-        AchievementsTab:UpdateEmptyStates()
     end
 end)
 
