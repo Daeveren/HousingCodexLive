@@ -641,8 +641,6 @@ function QuestsTab:SelectExpansion(expansionKey)
         end
         addon:FireEvent("RECORD_SELECTED", nil)
     end
-
-    self:UpdateEmptyStates()
 end
 
 --------------------------------------------------------------------------------

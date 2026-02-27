@@ -604,8 +604,6 @@ function AchievementsTab:SelectCategory(categoryId)
         end
         addon:FireEvent("RECORD_SELECTED", nil)
     end
-
-    self:UpdateEmptyStates()
 end
 
 --------------------------------------------------------------------------------

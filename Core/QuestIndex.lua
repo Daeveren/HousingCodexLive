@@ -6,35 +6,6 @@
 
 local ADDON_NAME, addon = ...
 
--- Continent ID to Expansion mapping (manually maintained)
--- Higher order = newer expansion = appears first in UI
-local CONTINENT_TO_EXPANSION = {
-    -- Classic (order 1)
-    [12] = { order = 1, key = "EXPANSION_CLASSIC" },   -- Kalimdor
-    [13] = { order = 1, key = "EXPANSION_CLASSIC" },   -- Eastern Kingdoms
-    -- The Burning Crusade (order 2)
-    [101] = { order = 2, key = "EXPANSION_TBC" },      -- Outland
-    -- Wrath of the Lich King (order 3)
-    [113] = { order = 3, key = "EXPANSION_WRATH" },    -- Northrend
-    -- Cataclysm (order 4)
-    [948] = { order = 4, key = "EXPANSION_CATA" },     -- The Maelstrom
-    -- Mists of Pandaria (order 5)
-    [424] = { order = 5, key = "EXPANSION_MOP" },      -- Pandaria
-    -- Warlords of Draenor (order 6)
-    [572] = { order = 6, key = "EXPANSION_WOD" },      -- Draenor
-    -- Legion (order 7)
-    [619] = { order = 7, key = "EXPANSION_LEGION" },   -- Broken Isles
-    -- Battle for Azeroth (order 8)
-    [875] = { order = 8, key = "EXPANSION_BFA" },      -- Zandalar
-    [876] = { order = 8, key = "EXPANSION_BFA" },      -- Kul Tiras
-    -- Shadowlands (order 9)
-    [1550] = { order = 9, key = "EXPANSION_SL" },      -- The Shadowlands
-    -- Dragonflight (order 10)
-    [1978] = { order = 10, key = "EXPANSION_DF" },     -- Dragon Isles
-    -- The War Within (order 11)
-    [2248] = { order = 11, key = "EXPANSION_TWW" },    -- Khaz Algar
-}
-
 local ZONE_TO_EXPANSION = addon.ZONE_TO_EXPANSION
 local EMPTY = {}  -- Shared empty table for cache misses (never mutate)
 

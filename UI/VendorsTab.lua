@@ -356,8 +356,6 @@ function VendorsTab:SelectExpansion(expansionKey)
         self.selectedDecorId = nil
         addon:FireEvent("RECORD_SELECTED", nil)
     end
-
-    self:UpdateEmptyStates()
 end
 
 --------------------------------------------------------------------------------
@@ -1073,7 +1071,9 @@ function VendorsTab:ToggleVendorDecorTracking(npcId, decorId)
 
     local vendorEntry = addon.vendorIndex and addon.vendorIndex[npcId]
     local vendorName = vendorEntry and vendorEntry.npcName or L["VENDOR_FALLBACK_NAME"]
-    addon.Waypoints:Set(locData.uiMapId, locData.x / 100, locData.y / 100, vendorName)
+    if not addon.Waypoints:Set(locData.uiMapId, locData.x / 100, locData.y / 100, vendorName) then
+        return
+    end
 
     self.activeTrackedNpcId = npcId
     self.activeTrackedDecorId = decorId
@@ -1090,7 +1090,10 @@ function VendorsTab:SetWaypoint(npcId, npcName)
         return
     end
 
-    addon.Waypoints:Set(locData.uiMapId, locData.x / 100, locData.y / 100, npcName or L["VENDOR_FALLBACK_NAME"])
+    if not addon.Waypoints:Set(locData.uiMapId, locData.x / 100, locData.y / 100, npcName or L["VENDOR_FALLBACK_NAME"]) then
+        return
+    end
+
     addon:Print(string.format(L["VENDOR_WAYPOINT_SET"], npcName or L["VENDOR_FALLBACK_NAME"]))
 
     if not InCombatLockdown() then

@@ -2,6 +2,16 @@
 
 All notable changes to Housing Codex.
 
+## [1.7.2] - 2026-02-27
+
+### Added
+- New quest and achievement sources added to the item database
+
+### Fixed
+- Fixed a memory leak that occurred each time the welcome screen was opened
+- Waypoint sound and chat message no longer play when the waypoint fails to set
+- Endeavors panel no longer errors when you don't have a house
+
 ## [1.7.1] - 2026-02-27
 
 ### Added

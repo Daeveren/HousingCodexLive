@@ -14,7 +14,6 @@ local MIN_TILE_SIZE = CONSTS.MIN_TILE_SIZE
 local MAX_TILE_SIZE = CONSTS.MAX_TILE_SIZE
 
 local TOOLBAR_HEIGHT = 32
-local WISHLIST_STAR_SIZE = CONSTS.WISHLIST_STAR_SIZE_GRID
 
 -- Sort options for dropdown (isNative: true = HousingCatalogSearcher, false = client-side)
 local SORT_OPTIONS = {

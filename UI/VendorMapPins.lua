@@ -468,7 +468,10 @@ function HousingCodexVendorPinMixin:OnMouseClickAction(button)
 
     local normX, normY = self.vendorData.x / 100, self.vendorData.y / 100
     local npcName = self.vendorData.npcName
-    addon.Waypoints:Set(mapID, normX, normY, npcName or "Vendor")
+    if not addon.Waypoints:Set(mapID, normX, normY, npcName or "Vendor") then
+        return
+    end
+
     PlaySound(SOUNDKIT.UI_MAP_WAYPOINT_BUTTON_CLICK_ON)
 end
 

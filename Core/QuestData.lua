@@ -28,6 +28,10 @@ addon.QuestSourceData = {
         { questId = 26390, questName = "Ending the Invasion!", decorIds = {4447} },
         { questId = 7604, questName = "A Binding Contract", decorIds = {11274} },
     },
+    ["Blasted Lands"] = {
+        { questId = 25720, questName = "The Downfall of Marl Wormthorn", decorIds = {1481} },
+        { questId = 26187, questName = "The Downfall of Marl Wormthorn", decorIds = {1481} },
+    },
     ["Boralus Harbor"] = {
         { questId = 53720, questName = "Allegiance of Kul Tiras", decorIds = {9052} },
     },
@@ -546,6 +550,7 @@ addon.DecorToQuestLookup = {
     [1436] = { questId = 93077, questName = "Decor Treasure Hunt" },
     [1437] = { questId = 93078, questName = "Decor Treasure Hunt" },
     [1438] = { questId = 93079, questName = "Decor Treasure Hunt" },
+    [1481] = { questId = 25720, questName = "The Downfall of Marl Wormthorn" },
     [1443] = { questId = 36592, questName = "Bigger is Better" },
     [1486] = { questId = 93004, questName = "Decor Treasure Hunt" },
     [1488] = { questId = 93001, questName = "Decor Treasure Hunt" },

@@ -116,6 +116,7 @@ local function OnHouseListUpdated(houseInfoList)
 
     if not houseInfoList or #houseInfoList == 0 then
         state.hasHouse = false
+        state.houseGUID = nil
         addon:FireEvent("ENDEAVORS_HOUSE_LEVEL_UPDATED")
         return
     end
@@ -136,6 +137,7 @@ local function OnHouseListUpdated(houseInfoList)
     -- No house in this neighborhood — treat as unowned
     if not matchedHouse then
         state.hasHouse = false
+        state.houseGUID = nil
         addon:FireEvent("ENDEAVORS_HOUSE_LEVEL_UPDATED")
         return
     end

@@ -91,7 +91,9 @@ end
 -- Frame Creation
 --------------------------------------------------------------------------------
 
-local function CreateMainFrame()
+function WhatsNew:EnsureFrame()
+    if self.frame then return self.frame end
+
     local frame = CreateFrame("Frame", "HousingCodexWhatsNewFrame", UIParent, "BackdropTemplate")
     frame:SetFrameStrata("DIALOG")
     frame:SetClampedToScreen(true)
@@ -122,18 +124,9 @@ local function CreateMainFrame()
         end
     end)
 
-    -- Add to UISpecialFrames only once (frame is recreated each Build)
-    local found = false
-    for _, name in ipairs(UISpecialFrames) do
-        if name == "HousingCodexWhatsNewFrame" then
-            found = true
-            break
-        end
-    end
-    if not found then
-        tinsert(UISpecialFrames, "HousingCodexWhatsNewFrame")
-    end
+    tinsert(UISpecialFrames, "HousingCodexWhatsNewFrame")
 
+    self.frame = frame
     return frame
 end
 
@@ -159,7 +152,7 @@ local function CreateHeader(frame)
 
     -- HC icon
     local icon = header:CreateTexture(nil, "ARTWORK")
-    icon:SetSize(48, 48) -- Further increased icon size
+    icon:SetSize(48, 48)
     icon:SetPoint("LEFT", 14, 0)
     icon:SetTexture("Interface\\AddOns\\HousingCodex\\HC")
     frame.headerIcon = icon
@@ -192,7 +185,6 @@ end
 --------------------------------------------------------------------------------
 
 local function CreateFeatureEntry(parent, index, feature, hasImage)
-    local L = addon.L
     local entry = CreateFrame("Frame", nil, parent)
     entry:SetHeight(1)  -- Auto-sized by content
 
@@ -545,22 +537,33 @@ end
 -- Build Popup (variant = "whatsnew" or "welcome")
 --------------------------------------------------------------------------------
 
-function WhatsNew:Build(variant)
-    if self.frame then
-        self.frame:Hide()
-        self.frame:SetParent(nil)
-        self.frame = nil
-    end
+-- Detach a frame child created during a previous Build (Blizzard pool pattern)
+local function ReleaseChild(child)
+    child:Hide()
+    child:SetParent(nil)
+end
 
+function WhatsNew:Build(variant)
+    local frame = self:EnsureFrame()
+    frame:Hide()
+
+    -- Detach previous variant's children before rebuilding
+    if self.header then ReleaseChild(self.header); self.header = nil end
+    if self.footer then ReleaseChild(self.footer); self.footer = nil end
+    if self.showcase then
+        ReleaseChild(self.showcase); self.showcase = nil
+        frame.showcase = nil; frame.showcaseImage = nil; frame.showcasePlaceholder = nil
+    end
+    if self.contentArea then ReleaseChild(self.contentArea); self.contentArea = nil end
+
+    -- Reset state
     self.currentVariant = variant
     self.featureEntries = {}
     self.selectedIndex = nil
     self.checkboxChecked = false
 
-    local frame = CreateMainFrame()
-    self.frame = frame
-
-    -- Size and position based on variant
+    -- Size and position based on variant (clear old anchors from previous variant/animation)
+    frame:ClearAllPoints()
     if variant == "welcome" then
         frame:SetSize(WN.WELCOME_WIDTH, WN.WELCOME_HEIGHT)
         frame:SetPoint("CENTER", UIParent, "CENTER", 0, 30)
@@ -572,9 +575,9 @@ function WhatsNew:Build(variant)
 
     -- Header
     local header = CreateHeader(frame)
+    self.header = header
 
     if variant == "welcome" then
-        -- Add height to header so the larger text works
         header:SetHeight(72)
         frame.headerTitle:SetText(L["WELCOME_TITLE"])
         frame.headerSubtitle:SetText(L["WELCOME_SUBTITLE"])
@@ -585,13 +588,13 @@ function WhatsNew:Build(variant)
     end
 
     -- Footer
-    CreateFooter(frame, variant)
+    self.footer = CreateFooter(frame, variant)
 
     -- Content area (between header and footer)
     local content = CreateFrame("Frame", nil, frame)
-    content:SetPoint("TOPLEFT", header, "BOTTOMLEFT", 0, -8) -- Move down slightly
+    content:SetPoint("TOPLEFT", header, "BOTTOMLEFT", 0, -8)
     content:SetPoint("BOTTOMRIGHT", -3, 3 + WN.FOOTER_HEIGHT)
-    frame.contentArea = content
+    self.contentArea = content
 
     if variant == "whatsnew" then
         self:BuildWhatsNewContent(content)
@@ -621,6 +624,7 @@ function WhatsNew:BuildWhatsNewContent(content)
 
     -- Right column: showcase image
     local showcase = CreateShowcase(self.frame)
+    self.showcase = showcase
     showcase:SetPoint("TOPLEFT", featureList, "TOPRIGHT", 0, -8)
     showcase:SetPoint("BOTTOMRIGHT", content, "BOTTOMRIGHT", -8, 8)
 
@@ -700,19 +704,15 @@ function WhatsNew:SelectFeature(index)
     end
 end
 
+-- WoW has no callback for texture load success, so we always show the image unconditionally
 function WhatsNew:SetShowcaseImage(imagePath)
     if not self.frame or not self.frame.showcaseImage then return end
 
-    local img = self.frame.showcaseImage
-    local placeholder = self.frame.showcasePlaceholder
-
-    -- Try to set the texture
-    img:SetTexture(imagePath)
-
-    -- If the texture is valid, show it; otherwise show placeholder
-    -- (WoW doesn't provide a way to check if a texture loaded, so we always show it)
-    img:Show()
-    if placeholder then placeholder:Hide() end
+    self.frame.showcaseImage:SetTexture(imagePath)
+    self.frame.showcaseImage:Show()
+    if self.frame.showcasePlaceholder then
+        self.frame.showcasePlaceholder:Hide()
+    end
 end
 
 --------------------------------------------------------------------------------

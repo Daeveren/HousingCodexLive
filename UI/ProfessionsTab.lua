@@ -400,7 +400,6 @@ function ProfessionsTab:SelectProfession(professionName)
     end
 
     self:BuildCraftDisplay()
-    self:UpdateEmptyStates()
 end
 
 --------------------------------------------------------------------------------

@@ -27,7 +27,6 @@ local MODEL_VIEWPORT_HEIGHT = 450  -- Fixed height for consistent model scale
 local HEADER_HEIGHT = 32
 local TOOLBAR_HEIGHT = 32
 local PREVIEW_WIDTH = 380  -- Embedded preview panel width
-local WISHLIST_STAR_SIZE = CONSTS.WISHLIST_STAR_SIZE_GRID
 local DETAILS_MIN_HEIGHT = 60  -- Minimum details area height
 local DETAILS_PADDING = 8
 local DETAILS_SPACING = 4
