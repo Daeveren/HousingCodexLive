@@ -214,6 +214,7 @@ addon.CONSTANTS = {
         INPUT_DEBOUNCE = 0.15,            -- User input debounce (search, slider, resize)
         OWNERSHIP_REFRESH_DEBOUNCE = 0.1, -- Collection state change coalescing
         QUEST_REFRESH_DEBOUNCE = 0.1,     -- Quest event coalescing (completion + cache invalidation)
+        QUEST_LOG_UPDATE_DEBOUNCE = 0.2,  -- QUEST_LOG_UPDATE coalescing (wider window, fires more aggressively)
     },
 
     -- What's New / Welcome popup
@@ -258,6 +259,7 @@ addon.CONSTANTS = {
         WIDTH_ANIM_DURATION = 0.3,    -- seconds for width tween animation
         BAR_LAYOUT_DURATION = 0.35,   -- seconds for stacked ↔ inline bar animation
         TASK_GONE_LAYOUT_DELAY = 60,  -- seconds to keep inline layout after tasks disappear
+        INITIATIVE_POLL_INTERVAL = 10, -- seconds between initiative data re-requests (progress detection)
     },
 
     -- Vendor world map pins
@@ -293,6 +295,11 @@ end
 
 -- Dispatch a callback list with snapshot isolation (safe for self-unregister during dispatch)
 local function DispatchCallbacks(callbacks, ...)
+    -- Fast path: single listener needs no snapshot allocation
+    if #callbacks == 1 then
+        xpcall(callbacks[1], CallErrorHandler, ...)
+        return
+    end
     local snapshot = {}
     for i, cb in ipairs(callbacks) do
         snapshot[i] = cb

@@ -74,8 +74,7 @@ function addon:BuildIndexes()
         end
     end
     for recordID, record in pairs(self.fallbackRecords) do
-        -- Skip false sentinel values (failed lookups cached as false)
-        if record and record.itemID then
+        if record.itemID then
             itemIDToRecordID[record.itemID] = recordID
         end
     end

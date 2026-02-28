@@ -28,7 +28,7 @@ local function IsSupportedVendorMapType(mapType)
         or mapType == Enum.UIMapType.Orphan
 end
 
-local function GetProjectedCoordinates(vendorData, vendorMapID, targetMapID)
+local function GetProjectedCoordinates(vendorData, vendorMapID, targetMapID, cachedRect)
     if not addon.HasValidCoordinates(vendorData) then
         return nil, nil
     end
@@ -37,7 +37,12 @@ local function GetProjectedCoordinates(vendorData, vendorMapID, targetMapID)
         return vendorData.x / 100, vendorData.y / 100
     end
 
-    local left, right, top, bottom = C_Map.GetMapRectOnMap(vendorMapID, targetMapID)
+    local left, right, top, bottom
+    if cachedRect then
+        left, right, top, bottom = cachedRect[1], cachedRect[2], cachedRect[3], cachedRect[4]
+    else
+        left, right, top, bottom = C_Map.GetMapRectOnMap(vendorMapID, targetMapID)
+    end
     if not left or not right or not top or not bottom then
         return nil, nil
     end
@@ -96,12 +101,29 @@ local function BuildPinEntriesForMap(mapID, mapType)
     local isContinent = mapType == Enum.UIMapType.Continent
     local clustersByZone = isContinent and {} or nil
     local seenNpcIds = isContinent and {} or nil
+    local rectCache = {}  -- cache map rect per source map (static geometry, safe within one refresh)
 
     local vendorsByMapID = addon:GetAllVendorMapVendors()
     for vendorMapID, vendors in pairs(vendorsByMapID or {}) do
+        -- Resolve map rect once per unique source map
+        if not rectCache[vendorMapID] then
+            if vendorMapID == mapID then
+                rectCache[vendorMapID] = true  -- identity: no projection needed
+            else
+                local left, right, top, bottom = C_Map.GetMapRectOnMap(vendorMapID, mapID)
+                if left and right and top and bottom then
+                    rectCache[vendorMapID] = {left, right, top, bottom}
+                else
+                    rectCache[vendorMapID] = false  -- invalid: skip projection
+                end
+            end
+        end
+        local rect = rectCache[vendorMapID]
+        local resolvedRect = type(rect) == "table" and rect or nil
+
         for _, vendorData in ipairs(vendors) do
             if not (isContinent and seenNpcIds[vendorData.npcId]) then
-                local x, y = GetProjectedCoordinates(vendorData, vendorMapID, mapID)
+                local x, y = GetProjectedCoordinates(vendorData, vendorMapID, mapID, resolvedRect)
                 if x and y then
                     local owned, total = addon:GetVendorPinProgress(vendorData.npcId)
                     if IsIncompleteProgress(owned, total) then

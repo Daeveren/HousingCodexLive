@@ -368,7 +368,7 @@ end
 
 -- Resolve a record by trying direct API lookup when not in catalog search results.
 -- Used for items with HiddenInCatalog flag (e.g., boss drops not yet in catalog browser).
--- Results are cached in fallbackRecords (false sentinel = tried and failed).
+-- Successful lookups are cached in fallbackRecords; failures return nil without caching.
 function addon:ResolveRecord(recordID)
     -- Check primary records first
     local record = self.decorRecords[recordID]
@@ -377,18 +377,15 @@ function addon:ResolveRecord(recordID)
     -- Check fallback cache
     local cached = self.fallbackRecords[recordID]
     if cached then return cached end
-    if cached == false then return nil end  -- Already tried, not found
 
     -- Try direct API lookup (bypasses catalog search filter)
     if not C_HousingCatalog or not C_HousingCatalog.GetCatalogEntryInfoByRecordID then
-        self.fallbackRecords[recordID] = false
         return nil
     end
 
     local info = C_HousingCatalog.GetCatalogEntryInfoByRecordID(
         Enum.HousingCatalogEntryType.Decor, recordID, true)
     if not info then
-        self.fallbackRecords[recordID] = false
         return nil
     end
 

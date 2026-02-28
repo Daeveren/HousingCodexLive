@@ -2,6 +2,15 @@
 
 All notable changes to Housing Codex.
 
+## [1.7.5] - 2026-02-28
+
+### Fixed
+- Improved item display in the zone overlay
+- Removed a non-existent item from the Drops tab
+- Endeavors panel now detects task progress in real-time while in your neighborhood
+- Items that temporarily fail to load no longer get permanently stuck as missing
+- Performance improvements across search, animations, quest loading, and map pins
+
 ## [1.7.4] - 2026-02-28
 
 ### Fixed

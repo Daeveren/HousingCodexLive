@@ -53,6 +53,9 @@ local barLayoutTarget = 0
 local barLayoutDriver = nil
 local taskGoneTimer = nil  -- delay before collapsing from inline back to stacked
 
+-- Cached active tasks (invalidated on each Refresh, persists across animation frames)
+local cachedActiveTasks = nil
+
 -- Content backdrop slide state (expanded mode: slides down when title hides, up on hover)
 local contentBackdropDriver = nil
 local contentBackdropTopOffset = 0  -- 0 = flush with frame top, negative = slid down
@@ -987,8 +990,9 @@ function EP:UpdateLayout()
     local db = addon.db.endeavors
 
     -- When minimized: only show title bar — auto-expand for new tasks unless user manually minimized
+    if not cachedActiveTasks then cachedActiveTasks = addon.EndeavorsData:GetActiveTasks() end
     if db.minimized then
-        local activeTasks = addon.EndeavorsData:GetActiveTasks()
+        local activeTasks = cachedActiveTasks
         if #activeTasks > 0 and not userMinimized then
             -- New tasks arrived while minimized: auto-expand
             db.minimized = false
@@ -1110,7 +1114,7 @@ function EP:UpdateLayout()
     end
 
     -- Task container
-    local activeTasks = addon.EndeavorsData:GetActiveTasks()
+    local activeTasks = cachedActiveTasks
     local taskCount = math.min(#activeTasks, CONST.MAX_VISIBLE_TASKS)
     local hasVisibleTasks = taskCount > 0
 
@@ -1335,6 +1339,7 @@ end
 function EP:Refresh()
     if not frame or not frame:IsShown() then return end
 
+    cachedActiveTasks = nil  -- force fresh data on explicit refresh
     self:UpdateLayout()
     self:UpdateXPBar()
     self:UpdateEndeavorBar()
@@ -1384,13 +1389,16 @@ function EP:TryShow()
     -- Start inactivity auto-minimize timer
     ScheduleInactivityMinimize()
 
+    -- Start initiative progress poll (NEIGHBORHOOD_INITIATIVE_UPDATED is request/response only)
+    addon.EndeavorsData:StartInitiativePoll()
+
     -- Start prune ticker
     if not pruneTicker then
         pruneTicker = C_Timer.NewTicker(CONST.FADE_CHECK_INTERVAL, function()
             if not frame or not frame:IsShown() then return end
             local pruned = addon.EndeavorsData:PruneExpiredTasks()
             if pruned then
-                EP:UpdateLayout()
+                EP:Refresh()
             end
         end)
     end
@@ -1423,6 +1431,9 @@ function EP:TryHide()
 
     -- Reset bar layout to stacked
     ResetBarLayout()
+
+    -- Stop initiative progress poll
+    addon.EndeavorsData:StopInitiativePoll()
 
     -- Stop prune ticker
     if pruneTicker then

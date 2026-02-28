@@ -485,19 +485,33 @@ addon:RegisterWoWEvent("QUEST_DATA_LOAD_RESULT", function(questID, success)
 end)
 
 -- Update quest completion cache on quest turn-in
+local recentTurnIns = {}
 addon:RegisterWoWEvent("QUEST_TURNED_IN", function(questID)
     if addon.questIndex[questID] then
         addon.questCompletionCache[questID] = true
+        recentTurnIns[questID] = true
         addon:FireEvent("QUEST_COMPLETION_CHANGED", questID, true)
     end
 end)
 
 -- Periodic refresh of completion status (some quests may be completed elsewhere)
+-- Debounced: QUEST_LOG_UPDATE fires frequently for any quest progress change
+local questLogUpdatePending = false
 addon:RegisterWoWEvent("QUEST_LOG_UPDATE", function()
     if not addon.questIndexBuilt then return end
     if not next(addon.questIndex) then return end
+    if questLogUpdatePending then return end
 
-    -- Invalidate completion cache (will be refreshed on next access)
-    wipe(addon.questCompletionCache)
-    addon:FireEvent("QUEST_COMPLETION_CACHE_INVALIDATED")
+    questLogUpdatePending = true
+    C_Timer.After(addon.CONSTANTS.TIMER.QUEST_LOG_UPDATE_DEBOUNCE, function()
+        questLogUpdatePending = false
+        -- Selective wipe: preserve confirmed turn-ins, invalidate everything else
+        for questID in pairs(addon.questCompletionCache) do
+            if not recentTurnIns[questID] then
+                addon.questCompletionCache[questID] = nil
+            end
+        end
+        wipe(recentTurnIns)
+        addon:FireEvent("QUEST_COMPLETION_CACHE_INVALIDATED")
+    end)
 end)

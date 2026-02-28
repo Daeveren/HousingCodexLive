@@ -23,7 +23,7 @@ addon.DropSourceData = {
         { sourceName = "Belo'ren, Child of Al'ar", decorIds = {15467} },
         { sourceName = "Charonus (Voidscar Arena)", decorIds = {15574} },
         { sourceName = "Chimaerus the Undreamt God", decorIds = {15481, 17629, 18397, 19197} },
-        { sourceName = "Crown of the Cosmos (The Voidspire)", decorIds = {15764, 17630, 18398, 19252, 20632} },
+        { sourceName = "Crown of the Cosmos (The Voidspire)", decorIds = {17630, 18398, 19252, 20632} },
         { sourceName = "Dargrul the Underking", decorIds = {1232} },
         { sourceName = "Degentrius (Magisters' Terrace)", decorIds = {15061} },
         { sourceName = "Echo of Doragosa (Algeth'ar Academy)", decorIds = {14330} },
@@ -149,7 +149,7 @@ addon.DecorToDropLookup = {
     [15758] = { category = "encounter" },
     [15761] = { category = "encounter" },
     [15762] = { category = "encounter" },
-    [15764] = { category = "encounter" },
+
     [16094] = { category = "encounter" },
     [17628] = { category = "encounter" },
     [17629] = { category = "encounter" },
@@ -240,7 +240,7 @@ addon.DropDecorNames = {
     [15758] = "Banded Domanaar Storage Crate",
     [15761] = "Imperator's Torment Crystal",
     [15762] = "Voltaic Trigore Egg",
-    [15764] = "Voidspire Vanquisher's Trophy",
+
     [16094] = "Amani Warding Hex",
     [17628] = "March on Quel'Danas Vanquisher's Aureate Trophy",
     [17629] = "Dreamrift Vanquisher's Aureate Trophy",

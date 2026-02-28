@@ -32,6 +32,7 @@ EndeavorsData.state = state
 -- Debounce timers
 local zoneCheckTimer = nil
 local initiativeUpdateTimer = nil
+local initiativePollTicker = nil
 
 --------------------------------------------------------------------------------
 -- Helpers
@@ -91,6 +92,8 @@ end
 
 function EndeavorsData:OnLeaveNeighborhood()
     addon:Debug("Endeavors: left neighborhood")
+
+    self:StopInitiativePoll()
 
     -- Clear transient state but preserve session progress
     state.hasHouse = false
@@ -377,6 +380,31 @@ function EndeavorsData:PruneExpiredTasks()
     end
 
     return pruned
+end
+
+--------------------------------------------------------------------------------
+-- Initiative Poll (progress detection requires periodic re-request)
+-- NEIGHBORHOOD_INITIATIVE_UPDATED only fires in response to
+-- RequestNeighborhoodInitiativeInfo(), not on every task progress increment.
+--------------------------------------------------------------------------------
+
+function EndeavorsData:StartInitiativePoll()
+    if initiativePollTicker then return end
+    if not state.isInNeighborhood then return end
+    initiativePollTicker = C_Timer.NewTicker(CONST.INITIATIVE_POLL_INTERVAL, function()
+        if not state.isInNeighborhood then
+            EndeavorsData:StopInitiativePoll()
+            return
+        end
+        C_NeighborhoodInitiative.RequestNeighborhoodInitiativeInfo()
+    end)
+end
+
+function EndeavorsData:StopInitiativePoll()
+    if initiativePollTicker then
+        initiativePollTicker:Cancel()
+        initiativePollTicker = nil
+    end
 end
 
 --------------------------------------------------------------------------------

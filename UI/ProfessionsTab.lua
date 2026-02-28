@@ -117,6 +117,30 @@ local function CraftMatchesActiveFilters(craft, filter, searchText)
     return CraftPassesCompletionFilter(craft, filter) and CraftMatchesSearch(craft, searchText)
 end
 
+-- Evaluate craft visibility once per refresh; two-level table avoids string allocation per entry
+local function BuildCraftVisibilityCache(filter, searchText)
+    local cache = {}
+    for _, professionInfo in ipairs(addon:GetSortedProfessions()) do
+        local professionName = professionInfo.name
+        local profCache = {}
+        for _, craft in ipairs(addon:GetCraftsForProfession(professionName)) do
+            if CraftMatchesActiveFilters(craft, filter, searchText) then
+                profCache[craft.decorId] = true
+            end
+        end
+        cache[professionName] = profCache
+    end
+    return cache
+end
+
+local function IsCraftVisible(craft, professionName, filter, searchText, visCache)
+    if visCache then
+        local profCache = visCache[professionName]
+        return profCache and profCache[craft.decorId] or false
+    end
+    return CraftMatchesActiveFilters(craft, filter, searchText)
+end
+
 addon.ProfessionsTab = {}
 local ProfessionsTab = addon.ProfessionsTab
 
@@ -616,7 +640,7 @@ local function FindCraftInList(elements, decorId)
     return false
 end
 
-function ProfessionsTab:BuildProfessionDisplay()
+function ProfessionsTab:BuildProfessionDisplay(visCache)
     if not self.professionScrollBox or not self.professionDataProvider then return false end
 
     local professionElements = {}
@@ -627,7 +651,7 @@ function ProfessionsTab:BuildProfessionDisplay()
         local professionName = professionInfo.name
         local hasVisibleContent = false
         for _, craft in ipairs(addon:GetCraftsForProfession(professionName)) do
-            if CraftMatchesActiveFilters(craft, filter, searchText) then
+            if IsCraftVisible(craft, professionName, filter, searchText, visCache) then
                 hasVisibleContent = true
                 break
             end
@@ -665,7 +689,7 @@ function ProfessionsTab:BuildProfessionDisplay()
     return false
 end
 
-function ProfessionsTab:BuildCraftDisplay()
+function ProfessionsTab:BuildCraftDisplay(visCache)
     if not self.craftScrollBox or not self.craftDataProvider then return end
 
     local craftElements = {}
@@ -676,7 +700,7 @@ function ProfessionsTab:BuildCraftDisplay()
         local searchText = GetSearchText(self.searchBox)
 
         for _, craft in ipairs(addon:GetCraftsForProfession(professionName)) do
-            if CraftMatchesActiveFilters(craft, filter, searchText) then
+            if IsCraftVisible(craft, professionName, filter, searchText, visCache) then
                 table.insert(craftElements, craft)
             end
         end
@@ -697,8 +721,11 @@ end
 
 function ProfessionsTab:RefreshDisplay()
     addon:CountDebug("rebuild", "ProfessionsTab")
-    if not self:BuildProfessionDisplay() then
-        self:BuildCraftDisplay()
+    local filter = self:GetCompletionFilter()
+    local searchText = GetSearchText(self.searchBox)
+    local visCache = BuildCraftVisibilityCache(filter, searchText)
+    if not self:BuildProfessionDisplay(visCache) then
+        self:BuildCraftDisplay(visCache)
     end
 end
 

@@ -322,7 +322,7 @@ function addon:GetZoneDecorItems(mapID)
     local function AddItem(targetList, recordID, sourceName, sourceId, cityName)
         if seenRecords[recordID] then return end
         seenRecords[recordID] = true
-        local record = self:GetRecord(recordID)
+        local record = self:GetRecord(recordID) or self:ResolveRecord(recordID)
         table.insert(targetList, {
             recordID = recordID,
             decorName = self:ResolveDecorName(recordID, record),
@@ -447,8 +447,9 @@ function addon:InvalidateZoneDecorCache()
     wipe(zoneProgressCache)
 end
 
--- Invalidate on ownership changes
-addon:RegisterInternalEvent("RECORD_OWNERSHIP_UPDATED", function()
+-- Invalidate on ownership changes (only when collection state actually changed)
+addon:RegisterInternalEvent("RECORD_OWNERSHIP_UPDATED", function(recordID, collectionStateChanged)
+    if not collectionStateChanged then return end
     addon:InvalidateZoneDecorCache()
     addon:FireEvent("ZONE_DECOR_CACHE_INVALIDATED")
 end)
