@@ -392,6 +392,7 @@ L["VENDORS_DECOR_ID"] = "Decor #%d"
 -- Vendor zone annotations
 L["VENDOR_CLASS_HALL_SUFFIX"] = "class hall"
 L["VENDOR_HOUSING_ZONE_SUFFIX"] = "housing zone"
+L["VENDOR_CLASS_ONLY_SUFFIX"] = "%s Only"
 
 --------------------------------------------------------------------------------
 -- Drops Tab

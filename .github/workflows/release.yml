@@ -1,0 +1,27 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Extract latest changelog section
+        run: |
+          awk '/^## \[/{count++; if(count>3) exit} count>0' CHANGELOG_LIVE.md > .release_changelog.md
+          echo "--- Release changelog ---"
+          cat .release_changelog.md
+
+      - name: Package and Upload
+        uses: BigWigsMods/packager@v2
+        env:
+          CF_API_KEY: ${{ secrets.CF_API_KEY }}
+          GITHUB_OAUTH: ${{ secrets.GITHUB_TOKEN }}

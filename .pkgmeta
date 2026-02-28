@@ -1,0 +1,9 @@
+package-as: HousingCodex
+
+manual-changelog: .release_changelog.md
+manual-changelog-markup: markdown
+
+ignore:
+  - .github
+  - .release_changelog.md
+  - README.md

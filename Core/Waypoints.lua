@@ -50,10 +50,6 @@ function Waypoints:Set(mapID, normX, normY, title)
     end
 
     local point = UiMapPoint.CreateFromCoordinates(mapID, normX, normY)
-    if not point then
-        return false
-    end
-
     C_Map.SetUserWaypoint(point)
     C_SuperTrack.SetSuperTrackedUserWaypoint(true)
     activeWaypoint = { mapID = mapID, x = normX, y = normY, title = title }

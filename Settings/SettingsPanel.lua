@@ -99,6 +99,8 @@ end
 -- Settings Panel Initialization
 --------------------------------------------------------------------------------
 function addon.Settings:Initialize()
+    if self.panel then return end
+
     -- Create the settings panel frame
     local panel = CreateFrame("Frame", "HousingCodexSettingsPanel", UIParent)
     panel.name = L["ADDON_NAME"]

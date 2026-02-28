@@ -43,6 +43,22 @@ local CLASS_HALL_ZONES = {
     ["Skyhold"] = "Warrior",
 }
 
+-- Display name -> class file token for RAID_CLASS_COLORS lookup
+local CLASS_FILE_TOKENS = {
+    ["Death Knight"] = "DEATHKNIGHT",
+    ["Demon Hunter"] = "DEMONHUNTER",
+    ["Druid"] = "DRUID",
+    ["Hunter"] = "HUNTER",
+    ["Mage"] = "MAGE",
+    ["Monk"] = "MONK",
+    ["Paladin"] = "PALADIN",
+    ["Priest"] = "PRIEST",
+    ["Rogue"] = "ROGUE",
+    ["Shaman"] = "SHAMAN",
+    ["Warlock"] = "WARLOCK",
+    ["Warrior"] = "WARRIOR",
+}
+
 -- Housing zones (faction-specific player housing areas)
 local HOUSING_ZONES = {
     ["Founder's Point"] = "Alliance",
@@ -63,6 +79,29 @@ end
 
 function addon:GetHousingZoneAnnotation(zoneName)
     return zoneName and HOUSING_ZONES[zoneName]
+end
+
+local function ResolveClassColor(className)
+    local token = className and CLASS_FILE_TOKENS[className]
+    return token and RAID_CLASS_COLORS and RAID_CLASS_COLORS[token]
+end
+
+-- Returns "|cffRRGGBB" escape code for the given class display name, or gray fallback
+function addon:GetClassColorCode(className)
+    local color = ResolveClassColor(className)
+    if color then
+        return string.format("|cff%02x%02x%02x", math.floor(color.r * 255), math.floor(color.g * 255), math.floor(color.b * 255))
+    end
+    return "|cff888888"
+end
+
+-- Returns r, g, b for the given class display name (for GameTooltip:AddLine), or gray fallback
+function addon:GetClassColorRGB(className)
+    local color = ResolveClassColor(className)
+    if color then
+        return color.r, color.g, color.b
+    end
+    return 0.6, 0.6, 0.6
 end
 
 function addon:BuildVendorIndex()

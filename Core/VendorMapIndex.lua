@@ -59,7 +59,8 @@ local CITY_CHILDREN = {
     [37]   = { 84 },   -- Elwynn Forest -> Stormwind City
     [27]   = { 87 },   -- Dun Morogh -> Ironforge
     [18]   = { 90 },   -- Tirisfal Glades -> Undercity
-    [94]   = { 110 },  -- Eversong Woods -> Silvermoon City
+    [94]   = { 110 },  -- Eversong Woods -> Silvermoon City (TBC)
+    [2395] = { 2393 }, -- Eversong Woods -> Silvermoon City (Midnight)
     -- Kalimdor
     [1]    = { 85 },   -- Durotar -> Orgrimmar
     [7]    = { 88 },   -- Mulgore -> Thunder Bluff

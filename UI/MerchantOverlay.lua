@@ -23,6 +23,7 @@ local sessionCache = {}
 
 -- State tracking for market data refresh
 local waitingForMarketData = false
+local initialized = false
 
 local function ClearSessionCache()
     wipe(sessionCache)
@@ -150,6 +151,9 @@ end
 
 -- Initialize
 function MerchantOverlay:Initialize()
+    if initialized then return end
+    initialized = true
+
     self:HookMerchantFrame()
 
     -- Listen for merchant events and market data (ownership handled via internal RECORD_OWNERSHIP_UPDATED)

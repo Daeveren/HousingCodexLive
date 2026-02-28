@@ -2,6 +2,18 @@
 
 All notable changes to Housing Codex.
 
+## [1.7.3] - 2026-02-28
+
+### Added
+- Class hall vendor tooltips and labels now show class-specific colors
+
+### Changed
+- Updated item database with new vendor items and improved vendor location coverage
+
+### Fixed
+- Midnight zone vendors now appear correctly on the map and in the zone overlay
+- Stability improvements
+
 ## [1.7.2] - 2026-02-27
 
 ### Added

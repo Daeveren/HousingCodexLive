@@ -12,6 +12,7 @@ addon.TreasureHuntWaypoints = {}
 
 -- State
 local activeQuestId = nil
+local eventsRegistered = false
 
 -- Housing zone map IDs
 local HOUSING_ZONES = {
@@ -99,9 +100,14 @@ end
 --------------------------------------------------------------------------------
 -- Initialization
 --------------------------------------------------------------------------------
-addon:RegisterInternalEvent("DATA_LOADED", function()
+local function Initialize()
+    if eventsRegistered then return end
+    eventsRegistered = true
+
     addon:RegisterWoWEvent("QUEST_ACCEPTED", OnQuestAccepted)
     addon:RegisterWoWEvent("QUEST_TURNED_IN", OnQuestEnded)
     addon:RegisterWoWEvent("QUEST_REMOVED", OnQuestEnded)
     addon:Debug("TreasureHunt: Ready")
-end)
+end
+
+addon:RegisterInternalEvent("DATA_LOADED", Initialize)

@@ -136,6 +136,8 @@ end
 -- ============================================================================
 
 function LDB:Initialize()
+    if dataObject then return end
+
     -- Check for LibDataBroker availability (provided by broker display addons)
     local LibStub = _G.LibStub
     if not LibStub then return end

@@ -2,7 +2,7 @@
 ## Title: |cffffd100Housing|r |cffff8000Codex|r
 ## Notes: Decor discovery and inspection addon for WoW Housing
 ## Author: Daev
-## Version: 1.7.2
+## Version: 1.7.3
 ## SavedVariables: HousingCodexDB
 ## IconTexture: Interface\AddOns\HousingCodex\HC
 ## AddonCompartmentFunc: HousingCodex_OnAddonCompartmentClick
@@ -11,6 +11,7 @@
 ## Category-enUS: Housing
 ## Category-deDE: Behausung
 ## OptionalDeps: Blizzard_POIButton, TomTom
+## X-Curse-Project-ID: 1444752
 
 # Libraries
 Libs\LibStub\LibStub.lua

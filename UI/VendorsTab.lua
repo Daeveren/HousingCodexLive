@@ -637,10 +637,9 @@ function VendorsTab:SetupZoneHeader(frame, elementData)
     local classHall = addon:GetClassHallAnnotation(elementData.zoneName)
     local housingZone = addon:GetHousingZoneAnnotation(elementData.zoneName)
     if classHall then
-        -- Dimmer gray for the class hall annotation
-        frame.zoneLabel:SetText(elementData.zoneName .. " |cff888888(" .. classHall .. " " .. L["VENDOR_CLASS_HALL_SUFFIX"] .. ")|r")
+        local colorCode = addon:GetClassColorCode(classHall)
+        frame.zoneLabel:SetText(elementData.zoneName .. " " .. colorCode .. "(" .. classHall .. " " .. L["VENDOR_CLASS_HALL_SUFFIX"] .. ")|r")
     elseif housingZone then
-        -- Dimmer gray for the housing zone annotation
         frame.zoneLabel:SetText(elementData.zoneName .. " |cff888888(" .. housingZone .. " " .. L["VENDOR_HOUSING_ZONE_SUFFIX"] .. ")|r")
     else
         frame.zoneLabel:SetText(elementData.zoneName)
@@ -683,7 +682,14 @@ function VendorsTab:SetupVendorRow(frame, elementData)
     frame.decorContainer:Show()
     frame.decorContainer:SetHeight(decorCount * DECOR_ROW_HEIGHT)
 
-    frame.vendorName:SetText(elementData.npcName or L["VENDOR_UNKNOWN"])
+    local vendorDisplayName = elementData.npcName or L["VENDOR_UNKNOWN"]
+    local zoneCache = addon.vendorZoneCache and addon.vendorZoneCache[elementData.npcId]
+    local classHall = zoneCache and addon:GetClassHallAnnotation(zoneCache.zoneName)
+    if classHall then
+        local colorCode = addon:GetClassColorCode(classHall)
+        vendorDisplayName = vendorDisplayName .. " " .. colorCode .. "(" .. string.format(L["VENDOR_CLASS_ONLY_SUFFIX"], classHall) .. ")|r"
+    end
+    frame.vendorName:SetText(vendorDisplayName)
     addon:SetFontSize(frame.vendorName, 14, "")
     frame.vendorName:SetTextColor(unpack(COLORS.SOURCE_NAME_GOLD))
 

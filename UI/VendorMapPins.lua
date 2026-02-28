@@ -408,6 +408,13 @@ function HousingCodexVendorPinMixin:OnMouseEnter()
 
     GameTooltip:AddLine(vendorName, 1, 0.82, 0)
 
+    local zoneCache = addon.vendorZoneCache and addon.vendorZoneCache[self.vendorData.npcId]
+    local classHall = zoneCache and addon:GetClassHallAnnotation(zoneCache.zoneName)
+    if classHall then
+        local cr, cg, cb = addon:GetClassColorRGB(classHall)
+        GameTooltip:AddLine(string.format(L["VENDOR_CLASS_ONLY_SUFFIX"], classHall), cr, cg, cb)
+    end
+
     local r, g, b = GetProgressColor(owned, total)
     GameTooltip:AddLine(string.format(L["VENDOR_PIN_COLLECTED"], owned, total), r, g, b)
     GameTooltip:AddLine(" ")
