@@ -177,9 +177,9 @@ function MerchantOverlay:Initialize()
                 end
             end)
         elseif event == "HOUSING_MARKET_AVAILABILITY_UPDATED" then
-            -- Market data is now ready - refresh if we're waiting
-            if waitingForMarketData and MerchantFrame and MerchantFrame:IsShown() then
-                waitingForMarketData = false
+            -- Market data is now ready - always clear flag, refresh if merchant open
+            waitingForMarketData = false
+            if MerchantFrame and MerchantFrame:IsShown() then
                 ClearSessionCache()
                 self:UpdateMerchantButtons()
             end

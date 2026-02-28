@@ -467,18 +467,20 @@ end
 
 -- Handle quest data load completion
 addon:RegisterWoWEvent("QUEST_DATA_LOAD_RESULT", function(questID, success)
-    if not success then return end
     if not addon.pendingQuestLoads[questID] then return end
-
     addon.pendingQuestLoads[questID] = nil
 
-    -- Get and cache the title
-    if C_QuestLog and C_QuestLog.GetTitleForQuestID then
+    -- Cache title on success
+    if success and C_QuestLog and C_QuestLog.GetTitleForQuestID then
         local title = C_QuestLog.GetTitleForQuestID(questID)
         if title and title ~= "" then
             addon.questTitleCache[questID] = title
-            addon:FireEvent("QUEST_TITLE_LOADED", questID, title)
         end
+    end
+
+    -- Signal when all pending title loads are resolved
+    if not next(addon.pendingQuestLoads) then
+        addon:FireEvent("QUEST_ALL_TITLES_LOADED")
     end
 end)
 

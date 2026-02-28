@@ -3,12 +3,14 @@
 -- Quest IDs fetched from Wowhead for quests missing IDs in scraped data
 --
 -- DO NOT EDIT MANUALLY - regenerate with: python tools/run_quest_lookup.py
+-- Exception: manual entries at bottom are marked with source comments
 
 local ADDON_NAME, addon = ...
 
 addon.QuestIdOverrides = {
     ["A Last Resort"] = 66683,
     ["Augmenting a Dragon"] = 72515,
+    ["Can We Heal This?"] = 86866, -- Wowhead confirmed (Harandar, patch 12.0.1)
     ["Cheese for Glowergold"] = 13103,
     ["Draconic Decor"] = 92578,
     ["Dreamy Inspiration"] = 92577,
@@ -18,6 +20,8 @@ addon.QuestIdOverrides = {
     ["On New Wings"] = 76597,
     ["Pool of Visions"] = 33470,
     ["Return to Keeshan"] = 28183,
+    ["Root of the World"] = 243544, -- Beta data only, needs in-game verification
+    ["Sky's Hope"] = 1247274, -- Beta data only, needs in-game verification
     ["Spare A Chair"] = 92580,
     ["The Bargain is Struck"] = 47432,
     ["The Downfall of Marl Wormthorn"] = 26187,

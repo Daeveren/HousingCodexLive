@@ -2,6 +2,13 @@
 
 All notable changes to Housing Codex.
 
+## [1.7.4] - 2026-02-28
+
+### Fixed
+- Promotional vendors (Dennia, Gabbi, Tuuran) no longer show inflated item counts — inventories now match what they actually sell in-game
+- Improved vendor overlay checkmark reliability when opening a vendor
+- Quest names in the Quests tab now load more reliably
+
 ## [1.7.3] - 2026-02-28
 
 ### Added

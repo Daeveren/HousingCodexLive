@@ -990,7 +990,7 @@ local function DebouncedQuestRefresh()
     end)
 end
 
-addon:RegisterInternalEvent("QUEST_TITLE_LOADED", DebouncedQuestRefresh)
+addon:RegisterInternalEvent("QUEST_ALL_TITLES_LOADED", DebouncedQuestRefresh)
 addon:RegisterInternalEvent("QUEST_COMPLETION_CHANGED", DebouncedQuestRefresh)
 addon:RegisterInternalEvent("QUEST_COMPLETION_CACHE_INVALIDATED", DebouncedQuestRefresh)
 

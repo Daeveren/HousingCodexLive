@@ -22,6 +22,8 @@ jobs:
 
       - name: Package and Upload
         uses: BigWigsMods/packager@v2
+        with:
+          args: -n "{package-name}-{project-version}{nolib}{classic}:{package-name} {project-version}"
         env:
           CF_API_KEY: ${{ secrets.CF_API_KEY }}
           GITHUB_OAUTH: ${{ secrets.GITHUB_TOKEN }}
