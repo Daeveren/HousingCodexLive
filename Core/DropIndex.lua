@@ -6,6 +6,7 @@
 ]]
 
 local ADDON_NAME, addon = ...
+local L = addon.L
 
 -- Source category display info
 local SOURCE_CATEGORY_INFO = {
@@ -54,7 +55,7 @@ function addon:BuildDropIndex()
 
         for _, sourceData in ipairs(sources) do
             local entry = {
-                sourceName = sourceData.sourceName or "Unknown",
+                sourceName = sourceData.sourceName or L["UNKNOWN"],
                 sourceCategory = category,
                 decorIds = sourceData.decorIds or {},
             }

@@ -2,6 +2,14 @@
 
 All notable changes to Housing Codex.
 
+## [1.7.8] - 2026-03-01
+
+### Added
+- Vendor Tooltip Overlay — hovering over an NPC vendor that sells housing decor now shows your collection progress and uncollected item names directly in the tooltip (toggle in Settings)
+
+### Changed
+- Locale cleanup
+
 ## [1.7.7] - 2026-03-01
 
 ### Added

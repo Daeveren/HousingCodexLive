@@ -462,6 +462,22 @@ function addon.Settings:Initialize()
     self.vendorOwnedCheck = vendorOwnedCheck
     yOffset = yOffset - 30
 
+    -- Show Vendor Tooltips checkbox
+    local vendorTooltipsCheck = CreateCheckbox(
+        panel,
+        L["OPTIONS_VENDOR_TOOLTIPS"],
+        L["OPTIONS_VENDOR_TOOLTIPS_TOOLTIP"],
+        function() return addon.db and addon.db.settings.showVendorTooltips end,
+        function(checked)
+            if addon.db then
+                addon.db.settings.showVendorTooltips = checked
+            end
+        end
+    )
+    vendorTooltipsCheck:SetPoint("TOPLEFT", COL1_X, yOffset)
+    self.vendorTooltipsCheck = vendorTooltipsCheck
+    yOffset = yOffset - 30
+
     CreateDivider(panel, yOffset)
     yOffset = yOffset - 20
 

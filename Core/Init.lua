@@ -356,7 +356,7 @@ end
 
 function addon:GetDecorLink(recordID, callback)
     local record = recordID and self:GetRecord(recordID)
-    local fallback = string.format("|cFFFFD100[%s]|r", record and record.name or "Unknown")
+    local fallback = string.format("|cFFFFD100[%s]|r", record and record.name or addon.L["UNKNOWN"])
 
     if record and record.itemID and record.itemID ~= 0 then
         local item = Item:CreateFromItemID(record.itemID)

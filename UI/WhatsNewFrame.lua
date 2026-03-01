@@ -460,7 +460,7 @@ local function CreateShowcase(frame)
     -- Placeholder text (when no image available)
     local placeholder = addon:CreateFontString(showcase, "OVERLAY", "GameFontNormal")
     placeholder:SetPoint("CENTER")
-    placeholder:SetText("Screenshot")
+    placeholder:SetText(L["WHATS_NEW_NO_IMAGE"])
     placeholder:SetTextColor(0.4, 0.4, 0.4, 1)
     frame.showcasePlaceholder = placeholder
 

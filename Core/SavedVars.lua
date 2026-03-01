@@ -78,6 +78,7 @@ local defaults = {
         zoneOverlayPreviewScale = 1.0,        -- Preview size scale (0.5, 1.0, 1.5)
         autoRotatePreview = true,             -- Auto-rotate 3D preview models
         useTomTom = false,                   -- Use TomTom waypoints instead of native
+        showVendorTooltips = true,           -- Show decor progress in vendor NPC tooltips
     },
     wishlistUI = {
         tileSize = 152,      -- Separate from browser.tileSize

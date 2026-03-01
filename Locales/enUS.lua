@@ -34,15 +34,12 @@ L["TAB_ACHIEVEMENTS_DESC"] = "Achievement sources for housing items"
 L["TAB_VENDORS_DESC"] = "Vendor locations for housing items"
 L["TAB_DROPS_DESC"] = "Drop sources for housing items"
 L["TAB_PROFESSIONS_DESC"] = "Crafted housing items"
-L["TAB_COMING_SOON"] = "Coming Soon"
-
 --------------------------------------------------------------------------------
 -- Search & Filters
 --------------------------------------------------------------------------------
 L["SEARCH_PLACEHOLDER"] = "Search..."
 L["FILTER_ALL"] = "All Items"
 L["FILTER_COLLECTED"] = "Collected"
-L["FILTER_UNCOLLECTED"] = "Uncollected"
 L["FILTER_NOT_COLLECTED"] = "Not Collected"
 L["FILTER_TRACKABLE"] = "Trackable Only"
 L["FILTER_NOT_TRACKABLE"] = "Not Trackable"
@@ -53,7 +50,6 @@ L["FILTER_OUTDOORS"] = "Outdoors"
 L["FILTER_DYEABLE"] = "Dyeable"
 L["FILTER_FIRST_ACQUISITION"] = "First Acquisition Bonus"
 L["FILTER_WISHLIST_ONLY"] = "Wishlist Only"
-L["FILTER_PLACED_IN_HOUSE"] = "Placed in House"
 L["FILTERS"] = "Filters"
 L["CHECK_ALL"] = "Check All"
 L["UNCHECK_ALL"] = "Uncheck All"
@@ -111,7 +107,6 @@ L["DETAILS_SOURCE_UNKNOWN"] = "Unknown source"
 L["UNKNOWN"] = "Unknown"
 
 -- Size names
-L["SIZE_NONE"] = "None"
 L["SIZE_TINY"] = "Tiny"
 L["SIZE_SMALL"] = "Small"
 L["SIZE_MEDIUM"] = "Medium"
@@ -119,9 +114,6 @@ L["SIZE_LARGE"] = "Large"
 L["SIZE_HUGE"] = "Huge"
 
 -- Placement types
-L["PLACEMENT_INDOORS"] = "Indoors"
-L["PLACEMENT_OUTDOORS"] = "Outdoors"
-L["PLACEMENT_BOTH"] = "Both"
 L["PLACEMENT_IN"] = "In"
 L["PLACEMENT_OUT"] = "Out"
 
@@ -151,7 +143,6 @@ L["ACTION_UNTRACK_TOOLTIP"] = "Stop tracking this item"
 L["ACTION_TRACK_DISABLED_TOOLTIP"] = "This item cannot be tracked"
 L["ACTION_LINK_TOOLTIP"] = "Insert item link into chat"
 L["ACTION_LINK_TOOLTIP_RIGHTCLICK"] = "Right-click: Copy Wowhead URL"
-L["ACTION_LINK_DISABLED_TOOLTIP"] = "Open chat to insert link"
 L["TRACKING_ERROR_MAX"] = "Cannot track: Maximum tracked items reached"
 L["TRACKING_ERROR_UNTRACKABLE"] = "This item cannot be tracked"
 L["TRACKING_STARTED"] = "Now tracking: %s"
@@ -176,8 +167,6 @@ L["PREVIEW_NOT_IN_CATALOG"] = "Not yet in housing catalog"
 L["OPTIONS_SECTION_DISPLAY"] = "Display"
 L["OPTIONS_SECTION_MAP_NAV"]  = "Map & Navigation"
 L["OPTIONS_SECTION_MERCHANT"] = "Merchant"
-L["OPTIONS_USE_CUSTOM_FONT"] = "Use Housing Codex font"
-L["OPTIONS_USE_CUSTOM_FONT_TOOLTIP"] = "When disabled, the addon uses the default WoW font instead"
 L["OPTIONS_SHOW_COLLECTED"] = "Show owned quantity on tiles"
 L["OPTIONS_SHOW_COLLECTED_TOOLTIP"] = "Display owned count on grid tiles for collected items"
 L["OPTIONS_SHOW_MINIMAP"] = "Show minimap button"
@@ -244,7 +233,6 @@ L["POSITION_RESET"] = "Window position reset to center"
 -- Errors
 --------------------------------------------------------------------------------
 L["ERROR_API_UNAVAILABLE"] = "Housing APIs not available"
-L["ERROR_NO_DATA"] = "No decor data loaded"
 L["ERROR_LOAD_FAILED"] = "Failed to load housing data after multiple attempts. Use /hc retry to try again."
 L["ERROR_LOAD_FAILED_SHORT"] = "Failed to load data. Use /hc retry"
 
@@ -270,8 +258,6 @@ L["QUESTS_FILTER_COMPLETE"] = "Complete"
 L["QUESTS_EMPTY_NO_SOURCES"] = "No quest sources found"
 L["QUESTS_EMPTY_NO_SOURCES_DESC"] = "Quest data may not be exposed by the WoW API"
 L["QUESTS_SELECT_EXPANSION"] = "Select an expansion"
-L["QUESTS_EMPTY_NO_RESULTS"] = "No quests match your search"
-L["QUESTS_LOADING"] = "Loading..."
 L["QUESTS_UNKNOWN_QUEST"] = "Quest #%d"
 L["QUESTS_UNKNOWN_ZONE"] = "Unknown Zone"
 L["QUESTS_UNKNOWN_EXPANSION"] = "Other"
@@ -318,10 +304,6 @@ L["ACHIEVEMENTS_TRACKING_MAX_REACHED"] = "Cannot track - maximum items reached (
 L["ACHIEVEMENTS_TRACKING_ALREADY"] = "Already tracking this item"
 L["ACHIEVEMENTS_TRACKING_FAILED"] = "Cannot track this achievement"
 
--- Wowhead link messages
-L["WOWHEAD_LINK_COPIED"] = "Copied to clipboard: %s"
-L["WOWHEAD_LINK_NO_ID"] = "Cannot copy link - quest ID unknown"
-
 --------------------------------------------------------------------------------
 -- Context Menu
 --------------------------------------------------------------------------------
@@ -341,7 +323,6 @@ L["VENDORS_FILTER_COMPLETE"] = "Complete"
 L["VENDORS_EMPTY_NO_SOURCES"] = "No vendor sources found"
 L["VENDORS_EMPTY_NO_SOURCES_DESC"] = "Vendor data may not be available"
 L["VENDORS_SELECT_EXPANSION"] = "Select an expansion"
-L["VENDORS_EMPTY_NO_RESULTS"] = "No vendors match your search"
 L["VENDORS_UNKNOWN_EXPANSION"] = "Other"
 L["VENDORS_UNKNOWN_ZONE"] = "Unknown Zone"
 
@@ -354,10 +335,6 @@ L["VENDOR_MAP_RESTRICTED"] = "Cannot set waypoint on this map"
 -- Vendor fallback names
 L["VENDOR_UNKNOWN"] = "Unknown Vendor"
 L["VENDOR_FALLBACK_NAME"] = "vendor"
-
--- Vendor faction indicators
-L["VENDOR_FACTION_ALLIANCE"] = "Alliance only"
-L["VENDOR_FACTION_HORDE"] = "Horde only"
 
 -- Vendor world map pins
 L["VENDOR_PIN_COLLECTED"] = "Collected: %d/%d"
@@ -375,15 +352,12 @@ L["VENDOR_PIN_VENDORS_MORE"] = "+%d more vendors"
 -- Vendor tracking messages
 L["VENDORS_TRACKING_STARTED"] = "Added a map pin to %s in %s"
 L["VENDORS_TRACKING_STOPPED"] = "Removed map pin for %s in %s"
-L["VENDORS_TRACKING_MAX_REACHED"] = "Cannot track - maximum items reached (15)"
-L["VENDORS_TRACKING_ALREADY"] = "Already tracking this item"
-L["VENDORS_TRACKING_FAILED"] = "Cannot track this item"
 L["VENDORS_ACTION_TRACK_TOOLTIP"] = "Track this vendor item by setting a waypoint to its vendor"
 L["VENDORS_ACTION_UNTRACK_TOOLTIP"] = "Stop vendor waypoint tracking for this item"
 L["VENDORS_ACTION_TRACK_DISABLED_TOOLTIP"] = "This vendor has no valid waypoint location"
 
 -- Vendor cost display
-L["VENDOR_COST_GOLD"] = "%s gold"
+L["CURRENCY_GOLD"] = "gold"
 L["VENDOR_COST_CURRENCY"] = "%s %s"
 
 -- Vendor decor fallback
@@ -393,6 +367,11 @@ L["VENDORS_DECOR_ID"] = "Decor #%d"
 L["VENDOR_CLASS_HALL_SUFFIX"] = "class hall"
 L["VENDOR_HOUSING_ZONE_SUFFIX"] = "housing zone"
 L["VENDOR_CLASS_ONLY_SUFFIX"] = "%s Only"
+
+-- Vendor tooltip overlay
+L["VENDOR_TOOLTIP_HEADER"] = "Housing Codex"
+L["OPTIONS_VENDOR_TOOLTIPS"] = "Show vendor decor in tooltips"
+L["OPTIONS_VENDOR_TOOLTIPS_TOOLTIP"] = "Display Housing Codex collection progress when mousing over decor vendor NPCs"
 
 --------------------------------------------------------------------------------
 -- Drops Tab
@@ -444,7 +423,6 @@ L["TAB_PROGRESS"] = "PROGRESS"
 L["TAB_PROGRESS_DESC"] = "Collection progress overview"
 L["PROGRESS_COLLECTED"] = "Collected"
 L["PROGRESS_TOTAL"] = "Total"
-L["PROGRESS_PERCENT"] = "Complete"
 L["PROGRESS_REMAINING"] = "Remaining"
 L["PROGRESS_BY_SOURCE"] = "By Source"
 L["PROGRESS_VENDOR_EXPANSIONS"] = "Vendor Expansions"
@@ -459,7 +437,6 @@ L["PROGRESS_SOURCE_ACHIEVEMENTS"] = "Achievements"
 L["PROGRESS_SOURCE_PROFESSIONS"] = "Professions"
 L["PROGRESS_SOURCE_PVP"] = "PvP"
 L["PROGRESS_LOADING"] = "Loading progress data..."
-L["PROGRESS_NO_DATA"] = "No decor data available"
 
 --------------------------------------------------------------------------------
 -- Zone Overlay (World Map)
@@ -490,6 +467,7 @@ L["OPTIONS_ZONE_OVERLAY_TOOLTIP"] = "Display a panel on the world map showing av
 L["WHATSNEW_TITLE"] = "What's New in Housing Codex"
 L["WHATSNEW_DONT_SHOW"] = "Don't show this again for v%s"
 L["WHATSNEW_EXPLORE"] = "Explore Housing Codex"
+L["WHATS_NEW_NO_IMAGE"] = "Screenshot"
 
 --------------------------------------------------------------------------------
 -- Welcome Popup

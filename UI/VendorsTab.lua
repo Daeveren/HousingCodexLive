@@ -1188,7 +1188,7 @@ local function VendorMatchesSearch(vendorData, searchText, zoneName, expansionKe
         result = true
     elseif strlower(addon.L[expansionKey] or expansionKey):find(searchText, 1, true) then
         result = true
-    elseif strlower(vendorData.currencyName or "gold"):find(searchText, 1, true) then
+    elseif strlower(vendorData.currencyName or addon.L["CURRENCY_GOLD"]):find(searchText, 1, true) then
         result = true
     else
         for _, decorId in ipairs(vendorData.decorIds or {}) do
