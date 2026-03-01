@@ -2,6 +2,14 @@
 
 All notable changes to Housing Codex.
 
+## [1.7.7] - 2026-03-01
+
+### Added
+- Midnight decor vendor updates
+
+### Changed
+- Main UI tab tweaks
+
 ## [1.7.6] - 2026-03-01
 
 ### Changed

@@ -108,8 +108,8 @@ local function CreateTabButton(parent, tabConfig, index)
         -- No tooltip or interaction for disabled tabs
         -- No OnClick = clicking does nothing
     else
-        -- Enabled but not selected - set initial color (GameFontNormal default is yellow)
-        label:SetTextColor(unpack(COLORS.TEXT_TERTIARY))
+        -- Enabled but not selected - set initial color (dimmed from TEXT_TERTIARY)
+        label:SetTextColor(unpack(COLORS.TAB_TEXT_INACTIVE))
         -- Enable hover effects + tooltip
         btn:SetScript("OnEnter", function(self)
             if not Tabs:IsSelected(tabConfig.key) then
@@ -236,7 +236,7 @@ function Tabs:SelectTab(tabKey, skipSave)
         local oldBtn = self.buttons[self.currentTab]
         oldBtn.bg:SetColorTexture(unpack(COLORS.TAB_NORMAL))
         oldBtn.selectBar:Hide()
-        oldBtn.label:SetTextColor(unpack(COLORS.TEXT_TERTIARY))
+        oldBtn.label:SetTextColor(unpack(COLORS.TAB_TEXT_INACTIVE))
     end
 
     -- Select new

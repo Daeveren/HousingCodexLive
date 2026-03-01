@@ -1364,13 +1364,7 @@ end
 -- Event Handlers
 --------------------------------------------------------------------------------
 
-addon:RegisterInternalEvent("TAB_CHANGED", function(tabKey)
-    if tabKey == "VENDORS" then
-        VendorsTab:Show()
-    else
-        VendorsTab:Hide()
-    end
-end)
+VendorsTab:RegisterTabVisibility("VENDORS")
 
 addon:RegisterInternalEvent("DATA_LOADED", function()
     if VendorsTab:IsShown() and not addon.vendorIndexBuilt then

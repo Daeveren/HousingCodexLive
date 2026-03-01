@@ -129,3 +129,19 @@ function TabBaseMixin:RegisterOwnershipRefresh(refreshFn)
         end
     end)
 end
+
+--------------------------------------------------------------------------------
+-- Tab Visibility Helper
+--------------------------------------------------------------------------------
+
+-- Register TAB_CHANGED handler to show/hide this tab frame
+-- @param tabKey: string matching the tab's key (e.g., "QUESTS", "VENDORS")
+function TabBaseMixin:RegisterTabVisibility(tabKey)
+    addon:RegisterInternalEvent("TAB_CHANGED", function(activeKey)
+        if activeKey == tabKey then
+            self:Show()
+        else
+            self:Hide()
+        end
+    end)
+end

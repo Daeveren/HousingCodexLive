@@ -949,13 +949,7 @@ end
 -- Event Handlers
 --------------------------------------------------------------------------------
 
-addon:RegisterInternalEvent("TAB_CHANGED", function(tabKey)
-    if tabKey == "QUESTS" then
-        QuestsTab:Show()
-    else
-        QuestsTab:Hide()
-    end
-end)
+QuestsTab:RegisterTabVisibility("QUESTS")
 
 addon:RegisterInternalEvent("DATA_LOADED", function()
     -- Build quest index when data is available

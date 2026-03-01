@@ -82,6 +82,7 @@ addon.CONSTANTS = {
         TAB_NORMAL = { 0.1, 0.1, 0.12, 0.8 },
         TAB_HOVER = { 0.15, 0.15, 0.17, 0.9 },
         TAB_SELECTED = { 0.12, 0.12, 0.14, 1 },
+        TAB_TEXT_INACTIVE = { 0.56, 0.56, 0.56, 1 },
         TEXT_PRIMARY = { 1, 1, 1, 1 },
         TEXT_SECONDARY = { 0.9, 0.9, 0.9, 1 },
         TEXT_TERTIARY = { 0.7, 0.7, 0.7, 1 },

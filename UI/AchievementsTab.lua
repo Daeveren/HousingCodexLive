@@ -878,13 +878,7 @@ end
 -- Event Handlers
 --------------------------------------------------------------------------------
 
-addon:RegisterInternalEvent("TAB_CHANGED", function(tabKey)
-    if tabKey == "ACHIEVEMENTS" then
-        AchievementsTab:Show()
-    else
-        AchievementsTab:Hide()
-    end
-end)
+AchievementsTab:RegisterTabVisibility("ACHIEVEMENTS")
 
 addon:RegisterInternalEvent("DATA_LOADED", function()
     if AchievementsTab:IsShown() and not addon.achievementIndexBuilt then

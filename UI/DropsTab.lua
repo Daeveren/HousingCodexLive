@@ -914,13 +914,7 @@ end
 -- Event Handlers
 --------------------------------------------------------------------------------
 
-addon:RegisterInternalEvent("TAB_CHANGED", function(tabKey)
-    if tabKey == "DROPS" then
-        DropsTab:Show()
-    else
-        DropsTab:Hide()
-    end
-end)
+DropsTab:RegisterTabVisibility("DROPS")
 
 addon:RegisterInternalEvent("DATA_LOADED", function()
     if DropsTab:IsShown() and not addon.dropIndexBuilt then

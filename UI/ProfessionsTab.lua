@@ -766,13 +766,7 @@ end
 -- Event Handlers
 --------------------------------------------------------------------------------
 
-addon:RegisterInternalEvent("TAB_CHANGED", function(tabKey)
-    if tabKey == "PROFESSIONS" then
-        ProfessionsTab:Show()
-    else
-        ProfessionsTab:Hide()
-    end
-end)
+ProfessionsTab:RegisterTabVisibility("PROFESSIONS")
 
 addon:RegisterInternalEvent("DATA_LOADED", function()
     if ProfessionsTab:IsShown() then

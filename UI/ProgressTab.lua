@@ -682,13 +682,7 @@ end
 -- Event Handlers
 --------------------------------------------------------------------------------
 
-addon:RegisterInternalEvent("TAB_CHANGED", function(tabKey)
-    if tabKey == "PROGRESS" then
-        ProgressTab:Show()
-    else
-        ProgressTab:Hide()
-    end
-end)
+ProgressTab:RegisterTabVisibility("PROGRESS")
 
 addon:RegisterInternalEvent("DATA_LOADED", function()
     if not ProgressTab:IsShown() then return end

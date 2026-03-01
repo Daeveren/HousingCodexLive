@@ -943,13 +943,7 @@ end
 -- Event Handlers
 --------------------------------------------------------------------------------
 
-addon:RegisterInternalEvent("TAB_CHANGED", function(tabKey)
-    if tabKey == "PVP" then
-        PvPTab:Show()
-    else
-        PvPTab:Hide()
-    end
-end)
+PvPTab:RegisterTabVisibility("PVP")
 
 addon:RegisterInternalEvent("DATA_LOADED", function()
     if PvPTab:IsShown() and not addon.pvpIndexBuilt then
