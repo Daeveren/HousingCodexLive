@@ -116,10 +116,10 @@ function VendorsTab:Show()
 
     local saved = GetVendorsDB()
     if saved then
+        -- Reset expanded zones before first render (SetCompletionFilter triggers RefreshDisplay)
+        saved.expandedZones = {}
         self.selectedExpansionKey = saved.selectedExpansionKey
         self:SetCompletionFilter(saved.completionFilter or "incomplete")
-        -- Reset expanded zones each session
-        saved.expandedZones = {}
     end
 
     self:UpdateEmptyStates()
@@ -557,12 +557,8 @@ end
 
 -- Shared selection toggle for vendor rows and decor rows
 function VendorsTab:HandleItemSelection(params)
-    local isCurrentlySelected
-    if params.isVendorRow then
-        isCurrentlySelected = self.selectedVendorNpcId == params.npcId and self.selectedDecorId == params.decorId
-    else
-        isCurrentlySelected = self.selectedDecorId == params.decorId
-    end
+    local isCurrentlySelected = self.selectedVendorNpcId == params.npcId
+        and self.selectedDecorId == params.decorId
 
     if isCurrentlySelected then
         -- Deselect
@@ -586,7 +582,7 @@ function VendorsTab:HandleItemSelection(params)
         -- Clear previous decor highlight
         if self.selectedDecorId then
             self.vendorScrollBox:ForEachFrame(function(f)
-                if f.decorRows then
+                if f.decorRows and f.npcId == self.selectedVendorNpcId then
                     for _, row in pairs(f.decorRows) do
                         if row.decorId == self.selectedDecorId then
                             self:UpdateDecorSelectionVisual(row, false, row.textBrightness or 0.7)
@@ -821,8 +817,8 @@ function VendorsTab:SetupDecorRows(frame, decorIds)
         row.name:SetText(displayName)
         addon:SetFontSize(row.name, 13, "")
 
-        -- Check if this item is currently selected
-        local isItemSelected = self.selectedDecorId == decorId
+        -- Check if this item is currently selected (composite key: vendor + decor)
+        local isItemSelected = self.selectedVendorNpcId == frame.npcId and self.selectedDecorId == decorId
         self:UpdateDecorSelectionVisual(row, isItemSelected, textBrightness)
 
         row:SetScript("OnClick", function()
@@ -840,7 +836,7 @@ function VendorsTab:SetupDecorRows(frame, decorIds)
         end)
 
         row:SetScript("OnEnter", function(r)
-            if self.selectedDecorId ~= decorId then
+            if not (self.selectedVendorNpcId == frame.npcId and self.selectedDecorId == decorId) then
                 r.name:SetTextColor(1, 1, 1, 1)
             end
             self.hoveringRecordID = decorId
@@ -867,7 +863,7 @@ function VendorsTab:SetupDecorRows(frame, decorIds)
         end)
 
         row:SetScript("OnLeave", function(r)
-            if self.selectedDecorId ~= decorId then
+            if not (self.selectedVendorNpcId == frame.npcId and self.selectedDecorId == decorId) then
                 r.name:SetTextColor(r.textBrightness, r.textBrightness, r.textBrightness, 1)
             end
             GameTooltip:Hide()
@@ -1113,14 +1109,14 @@ end
 
 function VendorsTab:IsZoneExpanded(expansionKey, zoneName)
     local db = GetVendorsDB()
-    if not db then return false end
+    if not db or not db.expandedZones then return false end
     local key = expansionKey .. ":" .. zoneName
     return db.expandedZones[key] == true
 end
 
 function VendorsTab:ToggleZone(expansionKey, zoneName)
     local db = GetVendorsDB()
-    if db then
+    if db and db.expandedZones then
         local key = expansionKey .. ":" .. zoneName
         db.expandedZones[key] = not db.expandedZones[key]
     end

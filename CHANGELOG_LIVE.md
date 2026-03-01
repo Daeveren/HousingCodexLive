@@ -2,6 +2,19 @@
 
 All notable changes to Housing Codex.
 
+## [1.7.6] - 2026-03-01
+
+### Changed
+- Endeavors panel now shows in any neighborhood you visit (no longer requires owning a house there)
+
+### Fixed
+- Drops tab now correctly shows owned status for some items that were previously appearing as uncollected
+- Item selection in Vendors and Drops tabs no longer highlights the wrong row when the same decor appears under multiple sources
+- Quest zone toggle no longer requires two clicks to collapse on first use
+- Search clear button no longer briefly re-applies the old search text after clearing
+- Re-enabling the Endeavors panel in settings now correctly checks if you're in a neighborhood
+- Stability and performance improvements
+
 ## [1.7.5] - 2026-02-28
 
 ### Fixed

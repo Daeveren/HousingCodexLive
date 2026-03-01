@@ -493,12 +493,8 @@ end
 
 -- Shared selection toggle for source rows and decor rows
 function DropsTab:HandleItemSelection(params)
-    local isCurrentlySelected
-    if params.isSourceRow then
-        isCurrentlySelected = self.selectedSourceName == params.sourceNameKey and self.selectedDecorId == params.decorId
-    else
-        isCurrentlySelected = self.selectedDecorId == params.decorId
-    end
+    local isCurrentlySelected = self.selectedSourceName == params.sourceNameKey
+        and self.selectedDecorId == params.decorId
 
     if isCurrentlySelected then
         -- Deselect
@@ -524,7 +520,7 @@ function DropsTab:HandleItemSelection(params)
             self.sourceScrollBox:ForEachFrame(function(f)
                 if f.decorRows then
                     for _, row in pairs(f.decorRows) do
-                        if row.decorId == self.selectedDecorId then
+                        if row.decorId == self.selectedDecorId and f.sourceNameKey == self.selectedSourceName then
                             self:UpdateDecorSelectionVisual(row, false, row.textBrightness or 0.7)
                         end
                     end
@@ -570,10 +566,7 @@ function DropsTab:SetupSourceRow(frame, elementData)
     addon:SetFontSize(frame.sourceName, 14, "")
 
     -- Progress
-    local owned = 0
-    for _, decorId in ipairs(decorIds) do
-        if addon:IsDecorCollected(decorId) then owned = owned + 1 end
-    end
+    local owned = addon:GetDropSourceCollectionProgress(elementData)
     frame.sourceProgress:SetText(string.format("%d/%d", owned, decorCount))
     local progressComplete = owned == decorCount and decorCount > 0
     frame.sourceProgress:SetTextColor(unpack(progressComplete and COLORS.PROGRESS_COMPLETE or COLORS.TEXT_TERTIARY))
@@ -684,8 +677,8 @@ function DropsTab:SetupDecorRows(frame, decorIds)
         row.name:SetText(displayName)
         addon:SetFontSize(row.name, 13, "")
 
-        -- Check if this item is currently selected
-        local isItemSelected = self.selectedDecorId == decorId
+        -- Check if this item is currently selected (composite key: source + decor)
+        local isItemSelected = self.selectedSourceName == frame.sourceNameKey and self.selectedDecorId == decorId
         self:UpdateDecorSelectionVisual(row, isItemSelected, textBrightness)
 
         row:SetScript("OnClick", function()
@@ -703,7 +696,7 @@ function DropsTab:SetupDecorRows(frame, decorIds)
         end)
 
         row:SetScript("OnEnter", function(r)
-            if self.selectedDecorId ~= decorId then
+            if not (self.selectedSourceName == frame.sourceNameKey and self.selectedDecorId == decorId) then
                 r.name:SetTextColor(1, 1, 1, 1)
             end
             self.hoveringRecordID = decorId
@@ -721,7 +714,7 @@ function DropsTab:SetupDecorRows(frame, decorIds)
         end)
 
         row:SetScript("OnLeave", function(r)
-            if self.selectedDecorId ~= decorId then
+            if not (self.selectedSourceName == frame.sourceNameKey and self.selectedDecorId == decorId) then
                 r.name:SetTextColor(r.textBrightness, r.textBrightness, r.textBrightness, 1)
             end
             GameTooltip:Hide()
@@ -761,12 +754,7 @@ end
 local function SourcePassesCompletionFilter(sourceData, filter)
     if filter == "all" then return true end
 
-    local owned, total = 0, 0
-    for _, decorId in ipairs(sourceData.decorIds or {}) do
-        total = total + 1
-        if addon:IsDecorCollected(decorId) then owned = owned + 1 end
-    end
-
+    local owned, total = addon:GetDropSourceCollectionProgress(sourceData)
     local isComplete = total > 0 and owned == total
     if filter == "complete" then return isComplete end
     if filter == "incomplete" then return not isComplete end

@@ -394,7 +394,7 @@ function addon:ResolveRecord(recordID)
     local totalOwned = CalculateTotalOwned(info)
     -- For showQuantity=false items, quantity fields are always 0 — entrySubtype is the ownership signal
     -- entrySubtype: 1=Unowned, 2=OwnedModifiedStack, 3=OwnedUnmodifiedStack
-    local entrySubtype = info.entryID and info.entryID.entrySubtype or 1
+    local entrySubtype = (info.entryID and info.entryID.entrySubtype) or 1
     local entryID = info.entryID or {
         recordID = recordID,
         entryType = Enum.HousingCatalogEntryType.Decor,
@@ -659,7 +659,30 @@ addon:RegisterWoWEvent("HOUSING_STORAGE_ENTRY_UPDATED", function(entryID)
 
     local recordID = entryID.recordID
     local record = addon.decorRecords[recordID]
-    if not record then return end
+
+    if not record then
+        -- Check fallback records (hidden-catalog items resolved via ResolveRecord)
+        record = addon.fallbackRecords[recordID]
+        if not record then return end
+
+        local info = C_HousingCatalog.GetCatalogEntryInfo(entryID)
+        if not info then return end
+
+        addon:Debug("Storage entry updated (fallback): " .. tostring(recordID))
+        addon:CountDebug("ownership", "targeted")
+
+        local wasCollected = record.isCollected
+        RefreshRecordOwnership(record, info)
+        -- RefreshRecordOwnership uses totalOwned > 0, but fallback items with
+        -- showQuantity=false have totalOwned=0 even when owned (entrySubtype > 1)
+        local entrySubtype = (info.entryID and info.entryID.entrySubtype) or 1
+        record.isCollected = record.totalOwned > 0 or entrySubtype > 1
+        local collectionStateChanged = (record.isCollected ~= wasCollected)
+
+        -- Skip collected index patch — fallback items are excluded by design
+        addon:FireEvent("RECORD_OWNERSHIP_UPDATED", recordID, collectionStateChanged, "targeted")
+        return
+    end
 
     local info = C_HousingCatalog.GetCatalogEntryInfo(entryID)
     if not info then return end
@@ -687,6 +710,10 @@ end)
 addon:RegisterWoWEvent("HOUSING_STORAGE_UPDATED", function()
     if not addon.dataLoaded then return end
     addon:CountDebug("ownership", "bulk")
+
+    -- Wipe fallback records so ResolveRecord re-queries with fresh ownership
+    -- Safe: BuildIndexes only iterates decorRecords, fallbackRecords repopulate on demand
+    wipe(addon.fallbackRecords)
 
     -- ALWAYS: Lightweight index rebuild (needed by LDB, merchant overlay)
     addon:BuildIndexes()

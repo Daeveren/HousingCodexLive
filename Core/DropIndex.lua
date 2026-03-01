@@ -103,8 +103,7 @@ function addon:GetDropSourceCollectionProgress(source)
     local owned, total = 0, 0
     for _, decorId in ipairs(source.decorIds or {}) do
         total = total + 1
-        local record = self:GetRecord(decorId)
-        if record and record.isCollected then
+        if self:IsDecorCollected(decorId) then
             owned = owned + 1
         end
     end

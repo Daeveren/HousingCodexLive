@@ -382,7 +382,7 @@ local function CreateWelcomeFeatureGrid(parent)
         end
     end)
 
-    return entries
+    return entries, sweepDriver
 end
 
 --------------------------------------------------------------------------------
@@ -554,6 +554,10 @@ function WhatsNew:Build(variant)
         ReleaseChild(self.showcase); self.showcase = nil
         frame.showcase = nil; frame.showcaseImage = nil; frame.showcasePlaceholder = nil
     end
+    if self.sweepDriver then
+        self.sweepDriver:SetScript("OnUpdate", nil)
+        self.sweepDriver = nil
+    end
     if self.contentArea then ReleaseChild(self.contentArea); self.contentArea = nil end
 
     -- Reset state
@@ -670,7 +674,7 @@ end
 
 function WhatsNew:BuildWelcomeContent(content, frame)
     -- Welcome uses a 2-column feature grid (no image panel)
-    CreateWelcomeFeatureGrid(content)
+    _, self.sweepDriver = CreateWelcomeFeatureGrid(content)
 
     -- Quick setup row above footer
     CreateQuickSetupRow(frame, content)
@@ -899,6 +903,8 @@ end
 -- Auto-trigger on DATA_LOADED
 --------------------------------------------------------------------------------
 
+local autoShowPending = false
+
 addon:RegisterInternalEvent("DATA_LOADED", function()
     -- Reset dismiss count when version changes
     if addon.db and addon.db.whatsNew then
@@ -909,7 +915,11 @@ addon:RegisterInternalEvent("DATA_LOADED", function()
         end
     end
 
+    if autoShowPending then return end
+    autoShowPending = true
+
     C_Timer.After(WN.SHOW_DELAY, function()
+        autoShowPending = false
         local variant = WhatsNew:ShouldShow()
         if variant then
             WhatsNew:Show(variant)

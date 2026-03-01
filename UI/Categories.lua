@@ -52,6 +52,7 @@ function Categories:Initialize(sidebar)
         button.subcategoryID = nil
         button.isBack = nil
         button.isAll = nil
+        button.isSelected = false
     end)
 
     -- Create result count text at bottom of sidebar

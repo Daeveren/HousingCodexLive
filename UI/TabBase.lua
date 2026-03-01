@@ -81,7 +81,9 @@ function TabBaseMixin:WireSearchBox(searchBox)
             local text = box:GetText()
             searchDebounceTimer = C_Timer.NewTimer(CONSTS.TIMER.INPUT_DEBOUNCE, function()
                 searchDebounceTimer = nil
-                self:OnSearchTextChanged(text)
+                if self:IsShown() then
+                    self:OnSearchTextChanged(text)
+                end
             end)
         end
     end)

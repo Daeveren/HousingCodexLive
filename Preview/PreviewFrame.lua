@@ -972,10 +972,6 @@ function Preview:ClearModel()
     self.placeholderText:Show()
 end
 
-function Preview:GetCurrentRecordID()
-    return self.currentRecordID
-end
-
 -- ============================================================================
 -- Visibility
 -- ============================================================================

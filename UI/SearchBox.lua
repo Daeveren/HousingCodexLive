@@ -54,6 +54,7 @@ function SearchBox:Create(parent)
     -- Clear button handler
     if frame.clearButton then
         frame.clearButton:HookScript("OnClick", function()
+            self:CancelDebounce()
             self:ApplySearch(nil)
         end)
     end

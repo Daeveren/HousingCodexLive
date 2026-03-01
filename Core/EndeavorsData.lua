@@ -34,6 +34,10 @@ local zoneCheckTimer = nil
 local initiativeUpdateTimer = nil
 local initiativePollTicker = nil
 
+-- House list retry (guards against nil neighborhoodGUID on early event)
+local houseListRetryCount = 0
+local HOUSE_LIST_MAX_RETRIES = 3
+
 --------------------------------------------------------------------------------
 -- Helpers
 --------------------------------------------------------------------------------
@@ -61,6 +65,10 @@ end
 --------------------------------------------------------------------------------
 
 local function CheckNeighborhoodZone()
+    if not (addon.db and addon.db.endeavors and addon.db.endeavors.enabled) then
+        state.isInNeighborhood = false
+        return
+    end
     local wasInNeighborhood = state.isInNeighborhood
     local isOnMap = C_Housing.IsOnNeighborhoodMap()
     local isInHouse = C_Housing.IsInsideHouseOrPlot()
@@ -94,6 +102,7 @@ function EndeavorsData:OnLeaveNeighborhood()
     addon:Debug("Endeavors: left neighborhood")
 
     self:StopInitiativePoll()
+    houseListRetryCount = 0
 
     -- Clear transient state but preserve session progress
     state.hasHouse = false
@@ -137,6 +146,18 @@ local function OnHouseListUpdated(houseInfoList)
         end
     end
 
+    -- neighborhoodGUID not ready yet — retry instead of treating as unowned
+    if not matchedHouse and not neighborhoodGUID and houseListRetryCount < HOUSE_LIST_MAX_RETRIES then
+        houseListRetryCount = houseListRetryCount + 1
+        addon:Debug("Endeavors: neighborhoodGUID nil, retry", houseListRetryCount)
+        C_Timer.After(1.0, function()
+            if state.isInNeighborhood then
+                C_Housing.GetPlayerOwnedHouses()
+            end
+        end)
+        return
+    end
+
     -- No house in this neighborhood — treat as unowned
     if not matchedHouse then
         state.hasHouse = false
@@ -145,6 +166,7 @@ local function OnHouseListUpdated(houseInfoList)
         return
     end
 
+    houseListRetryCount = 0
     state.hasHouse = true
 
     if matchedHouse.houseGUID then
@@ -257,18 +279,22 @@ local function OnInitiativeUpdated()
     state.initiativeInfo = info
 
     -- Debug: log snapshot state before diff
-    local snapshotCount = 0
-    for _ in pairs(state.taskSnapshots) do snapshotCount = snapshotCount + 1 end
-    addon:Debug("Endeavors: pre-diff snapshots:", snapshotCount)
+    if addon.db and addon.db.settings and addon.db.settings.debugMode then
+        local snapshotCount = 0
+        for _ in pairs(state.taskSnapshots) do snapshotCount = snapshotCount + 1 end
+        addon:Debug("Endeavors: pre-diff snapshots:", snapshotCount)
+    end
 
     DiffTaskProgress(info)
 
     -- Debug: log snapshot state after diff
-    local afterCount = 0
-    for _ in pairs(state.taskSnapshots) do afterCount = afterCount + 1 end
-    local progressCount = 0
-    for _ in pairs(state.sessionProgress) do progressCount = progressCount + 1 end
-    addon:Debug("Endeavors: post-diff snapshots:", afterCount, "sessionProgress:", progressCount)
+    if addon.db and addon.db.settings and addon.db.settings.debugMode then
+        local afterCount = 0
+        for _ in pairs(state.taskSnapshots) do afterCount = afterCount + 1 end
+        local progressCount = 0
+        for _ in pairs(state.sessionProgress) do progressCount = progressCount + 1 end
+        addon:Debug("Endeavors: post-diff snapshots:", afterCount, "sessionProgress:", progressCount)
+    end
 
     addon:FireEvent("ENDEAVORS_INITIATIVE_UPDATED")
 end

@@ -555,9 +555,7 @@ local function CreateConfigFrame()
         if db.enabled then
             EP:TryShow()
         else
-            -- Force hide by bypassing the neighborhood guard
-            if frame and frame:IsShown() then frame:Hide() end
-            if configFrame and configFrame:IsShown() then configFrame:Hide() end
+            EP:TryHide()
         end
     end)
     enableCheck:SetScript("OnEnter", function(self)
@@ -1032,7 +1030,7 @@ function EP:UpdateLayout()
     end
 
     local yOffset = -(CONST.TITLE_BAR_HEIGHT + 4)  -- Below title bar + padding
-    local showXP = db.showHouseXP
+    local showXP = db.showHouseXP and addon.EndeavorsData:HasHouse()
     local showEndeavor = db.showEndeavorProgress and addon.EndeavorsData:IsInitiativeEnabled()
 
     local barLeftInset = 28  -- Space for icon (6 + 22 circle bg)
@@ -1355,7 +1353,8 @@ function EP:ShouldShow()
     if not db.enabled then return false end
     if not db.shown then return false end
     if not addon.EndeavorsData:IsInNeighborhood() then return false end
-    if not addon.EndeavorsData:HasHouse() then return false end
+    -- Need at least one content source: house XP or initiative
+    if not (addon.EndeavorsData:HasHouse() or addon.EndeavorsData:IsInitiativeEnabled()) then return false end
     return true
 end
 
@@ -1429,6 +1428,12 @@ function EP:TryHide()
         inactivityTimer = nil
     end
 
+    -- Stop title bar fade timer
+    if titleHideTimer then
+        titleHideTimer:Cancel()
+        titleHideTimer = nil
+    end
+
     -- Reset bar layout to stacked
     ResetBarLayout()
 
@@ -1453,8 +1458,8 @@ end
 
 addon:RegisterInternalEvent("ENDEAVORS_ZONE_CHANGED", function(isInNeighborhood)
     if isInNeighborhood then
-        -- Delayed show attempt: house data arrives async after zone detection
-        C_Timer.After(1.5, function()
+        -- Delayed show attempt: zone APIs need a moment to settle
+        C_Timer.After(0.5, function()
             if EP:ShouldShow() and (not frame or not frame:IsShown()) then
                 EP:TryShow()
             end

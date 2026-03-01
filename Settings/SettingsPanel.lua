@@ -18,6 +18,7 @@ StaticPopupDialogs["HOUSINGCODEX_KEYBIND_CONFLICT"] = {
     button1 = YES,
     button2 = NO,
     OnAccept = function(dialog, data)
+        if InCombatLockdown() then return end
         local key1, key2 = GetBindingKey(BINDING_ACTION)
         if key1 then SetBinding(key1, nil) end
         if key2 then SetBinding(key2, nil) end
@@ -301,6 +302,7 @@ function addon.Settings:Initialize()
 
     keybindBtn:SetScript("OnClick", function(btn, button)
         if button == "RightButton" then
+            if InCombatLockdown() then return end
             -- Unbind both primary and secondary from standard WoW system
             local key1, key2 = GetBindingKey(BINDING_ACTION)
             if key1 then SetBinding(key1, nil) end
@@ -482,7 +484,7 @@ function addon.Settings:Initialize()
                 addon.db.endeavors.enabled = checked
                 if addon.EndeavorsPanel then
                     if checked then
-                        addon.EndeavorsPanel:TryShow()
+                        addon.EndeavorsData:RecheckNeighborhoodZone()
                     else
                         addon.EndeavorsPanel:TryHide()
                     end

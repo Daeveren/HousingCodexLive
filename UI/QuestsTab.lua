@@ -859,20 +859,16 @@ end
 
 function QuestsTab:IsZoneExpanded(expansionKey, zoneName)
     local db = GetQuestsDB()
-    if not db then return true end  -- Default to expanded
+    if not db or not db.expandedZones then return true end
     local key = expansionKey .. ":" .. zoneName
-    -- Default to expanded (true) if not explicitly set
-    if db.expandedZones[key] == nil then
-        return true
-    end
-    return db.expandedZones[key]
+    return db.expandedZones[key] ~= false
 end
 
 function QuestsTab:ToggleZone(expansionKey, zoneName)
     local db = GetQuestsDB()
-    if db then
+    if db and db.expandedZones then
         local key = expansionKey .. ":" .. zoneName
-        db.expandedZones[key] = not db.expandedZones[key]
+        db.expandedZones[key] = not self:IsZoneExpanded(expansionKey, zoneName)
     end
     self:BuildZoneQuestDisplay()
 end

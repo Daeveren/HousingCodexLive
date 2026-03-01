@@ -128,6 +128,7 @@ end
 -- Deferred initialization (WorldMapFrame may not be loaded yet)
 --------------------------------------------------------------------------------
 local buttonCreated = false
+local waitingForWorldMap = false
 
 local function CreateWorldMapButton()
     if buttonCreated then return end
@@ -143,9 +144,11 @@ addon:RegisterInternalEvent("DATA_LOADED", function()
 
     if WorldMapFrame and WorldMapFrame.AddDataProvider then
         CreateWorldMapButton()
-    else
+    elseif not waitingForWorldMap then
+        waitingForWorldMap = true
         local function onAddonLoaded(loadedAddon)
             if loadedAddon == "Blizzard_WorldMap" then
+                waitingForWorldMap = false
                 CreateWorldMapButton()
                 addon:UnregisterWoWEvent("ADDON_LOADED", onAddonLoaded)
             end

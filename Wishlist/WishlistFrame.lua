@@ -80,7 +80,6 @@ WishlistFrame.emptyState = nil
 -- State
 WishlistFrame.tileSize = DEFAULT_TILE_SIZE
 WishlistFrame.selectedRecordID = nil
-WishlistFrame.currentRecordIDs = {}
 
 -- Helper to get wishlist UI db
 local function GetWishlistDB()
@@ -917,8 +916,6 @@ function WishlistFrame:RefreshData()
         local nameB = recB and recB.name or ""
         return nameA < nameB
     end)
-
-    self.currentRecordIDs = recordIDs
 
     -- Update empty state
     local isEmpty = #recordIDs == 0

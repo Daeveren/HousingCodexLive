@@ -676,6 +676,15 @@ function ZoneOverlay:ScheduleUpdate(mapID)
     end
     currentMapID = mapID
 
+    -- Skip data work when overlay is disabled (after mapID update for re-enable correctness)
+    if not addon.db or not addon.db.settings.showZoneOverlay then
+        if updateTimer then
+            updateTimer:Cancel()
+            updateTimer = nil
+        end
+        return
+    end
+
     if updateTimer then
         updateTimer:Cancel()
     end
@@ -690,6 +699,7 @@ end
 -- Initialization
 --------------------------------------------------------------------------------
 local initialized = false
+local waitingForWorldMap = false
 
 local function InitializeOverlay()
     if initialized then return end
@@ -741,9 +751,11 @@ addon:RegisterInternalEvent("DATA_LOADED", function()
 
     if WorldMapFrame and WorldMapFrame.ScrollContainer then
         InitializeOverlay()
-    else
+    elseif not waitingForWorldMap then
+        waitingForWorldMap = true
         local function onAddonLoaded(loadedAddon)
             if loadedAddon == "Blizzard_WorldMap" then
+                waitingForWorldMap = false
                 InitializeOverlay()
                 addon:UnregisterWoWEvent("ADDON_LOADED", onAddonLoaded)
             end
