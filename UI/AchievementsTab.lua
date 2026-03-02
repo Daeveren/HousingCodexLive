@@ -20,19 +20,6 @@ local CATEGORY_BUTTON_HEIGHT = CONSTS.HIERARCHY_HEADER_HEIGHT
 
 -- Category IDs are used for logic, GetCategoryInfo(id) gets localized names for display
 
--- Helper to apply category button visual state
-local function ApplyCategoryButtonState(frame, isSelected)
-    if isSelected then
-        frame.bg:SetColorTexture(unpack(COLORS.PANEL_HOVER))
-        frame.selectionBorder:Show()
-        frame.label:SetTextColor(unpack(COLORS.GOLD))
-    else
-        frame.bg:SetColorTexture(unpack(COLORS.PANEL_NORMAL))
-        frame.selectionBorder:Hide()
-        frame.label:SetTextColor(unpack(COLORS.TEXT_SECONDARY))
-    end
-end
-
 -- Helper to apply achievement row visual state
 local function ApplyAchievementRowState(frame, isSelected)
     addon:ResetBackgroundTexture(frame.bg)
@@ -465,52 +452,18 @@ end
 --------------------------------------------------------------------------------
 
 function AchievementsTab:CreateCategoryPanel(parent)
-    local panel = CreateFrame("Frame", nil, parent)
-    panel:SetPoint("TOPLEFT", self.toolbar, "BOTTOMLEFT", -SIDEBAR_WIDTH, 0)
-    panel:SetPoint("BOTTOMLEFT", parent, "BOTTOMLEFT", -SIDEBAR_WIDTH, 0)
-    panel:SetWidth(CATEGORY_PANEL_WIDTH)
-    self.categoryPanel = panel
-
-    -- Background
-    local bg = panel:CreateTexture(nil, "BACKGROUND")
-    bg:SetAllPoints()
-    bg:SetColorTexture(0.04, 0.04, 0.06, 0.98)
-
-    -- Right border separator
-    local border = panel:CreateTexture(nil, "ARTWORK")
-    border:SetWidth(1)
-    border:SetPoint("TOPRIGHT", 0, 0)
-    border:SetPoint("BOTTOMRIGHT", 0, 0)
-    border:SetColorTexture(0.2, 0.2, 0.25, 1)
-
-    -- Create scroll container
-    local scrollContainer = CreateFrame("Frame", nil, panel)
-    scrollContainer:SetPoint("TOPLEFT", HIERARCHY_PADDING, -HIERARCHY_PADDING)
-    scrollContainer:SetPoint("BOTTOMRIGHT", -HIERARCHY_PADDING, HIERARCHY_PADDING)
-
-    -- Create ScrollBox
-    local scrollBox = CreateFrame("Frame", nil, scrollContainer, "WowScrollBoxList")
-    scrollBox:SetAllPoints()
-    self.categoryScrollBox = scrollBox
-
-    -- Create list view with FIXED height
-    local view = CreateScrollBoxListLinearView()
-    view:SetElementExtent(CATEGORY_BUTTON_HEIGHT)
-    view:SetPadding(0, 0, 0, 0, 4)
-    view:SetElementInitializer("Button", function(frame, elementData)
-        self:SetupCategoryButton(frame, elementData)
-    end)
-
-    scrollBox:Init(view)
-
-    -- Initialize DataProvider once (reused via Flush/InsertTable)
-    self.categoryDataProvider = CreateDataProvider()
-    scrollBox:SetDataProvider(self.categoryDataProvider)
+    self:CreateHierarchyPanel(parent, {
+        panelKey        = "categoryPanel",
+        scrollBoxKey    = "categoryScrollBox",
+        dataProviderKey = "categoryDataProvider",
+        elementExtent   = CATEGORY_BUTTON_HEIGHT,
+        setupFn         = function(frame, elementData)
+            self:SetupCategoryButton(frame, elementData)
+        end,
+    })
 end
 
 function AchievementsTab:SetupCategoryButton(frame, elementData)
-    local L = addon.L
-
     -- One-time frame setup
     if not frame.bg then
         local bg = frame:CreateTexture(nil, "BACKGROUND")
@@ -540,12 +493,10 @@ function AchievementsTab:SetupCategoryButton(frame, elementData)
         frame:EnableMouse(true)
     end
 
-    -- Reset state
-    frame.selectionBorder:Hide()
     frame.categoryId = elementData.categoryId
 
     local isSelected = self.selectedCategory == elementData.categoryId
-    ApplyCategoryButtonState(frame, isSelected)
+    self:ApplySelectionButtonState(frame, isSelected)
 
     -- Get localized category name from ID
     local categoryName = addon:GetCategoryName(elementData.categoryId) or tostring(elementData.categoryId)
@@ -570,7 +521,7 @@ function AchievementsTab:SetupCategoryButton(frame, elementData)
     end)
 
     frame:SetScript("OnLeave", function(f)
-        ApplyCategoryButtonState(f, self.selectedCategory == f.categoryId)
+        self:ApplySelectionButtonState(f, self.selectedCategory == f.categoryId)
     end)
 end
 
@@ -586,7 +537,7 @@ function AchievementsTab:SelectCategory(categoryId)
     if self.categoryScrollBox then
         self.categoryScrollBox:ForEachFrame(function(frame)
             if frame.categoryId then
-                ApplyCategoryButtonState(frame, frame.categoryId == categoryId)
+                self:ApplySelectionButtonState(frame, frame.categoryId == categoryId)
             end
         end)
     end

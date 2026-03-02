@@ -51,6 +51,76 @@ function TabBaseMixin:GetProgressColor(percent, useAltDim)
 end
 
 --------------------------------------------------------------------------------
+-- Hierarchy Panel Factory
+--------------------------------------------------------------------------------
+
+-- Create a left-panel hierarchy selector (expansion, category, profession panels).
+-- Handles frame, background, right border, scroll container, ScrollBox, view, and DataProvider.
+-- @param parent: Parent frame to attach the panel to
+-- @param config: Table with fields:
+--   panelKey       (string)   self key to store the panel (e.g. "expansionPanel")
+--   scrollBoxKey   (string)   self key to store the ScrollBox (e.g. "expansionScrollBox")
+--   dataProviderKey(string)   self key to store the DataProvider (e.g. "expansionDataProvider")
+--   elementExtent  (number)   row height in pixels (default: CONSTS.HIERARCHY_HEADER_HEIGHT)
+--   setupFn        (function) element initializer: function(frame, elementData)
+function TabBaseMixin:CreateHierarchyPanel(parent, config)
+    local panel = CreateFrame("Frame", nil, parent)
+    panel:SetPoint("TOPLEFT", self.toolbar, "BOTTOMLEFT", -CONSTS.SIDEBAR_WIDTH, 0)
+    panel:SetPoint("BOTTOMLEFT", parent, "BOTTOMLEFT", -CONSTS.SIDEBAR_WIDTH, 0)
+    panel:SetWidth(config.width or CONSTS.HIERARCHY_PANEL_WIDTH)
+    self[config.panelKey] = panel
+
+    local bg = panel:CreateTexture(nil, "BACKGROUND")
+    bg:SetAllPoints()
+    bg:SetColorTexture(0.04, 0.04, 0.06, 0.98)
+
+    local border = panel:CreateTexture(nil, "ARTWORK")
+    border:SetWidth(1)
+    border:SetPoint("TOPRIGHT", 0, 0)
+    border:SetPoint("BOTTOMRIGHT", 0, 0)
+    border:SetColorTexture(0.2, 0.2, 0.25, 1)
+
+    local pad = CONSTS.HIERARCHY_PADDING
+    local scrollContainer = CreateFrame("Frame", nil, panel)
+    scrollContainer:SetPoint("TOPLEFT", pad, -pad)
+    scrollContainer:SetPoint("BOTTOMRIGHT", -pad, pad)
+
+    local scrollBox = CreateFrame("Frame", nil, scrollContainer, "WowScrollBoxList")
+    scrollBox:SetAllPoints()
+    self[config.scrollBoxKey] = scrollBox
+
+    local view = CreateScrollBoxListLinearView()
+    view:SetElementExtent(config.elementExtent or CONSTS.HIERARCHY_HEADER_HEIGHT)
+    view:SetPadding(0, 0, 0, 0, 4)
+    view:SetElementInitializer("Button", config.setupFn)
+
+    scrollBox:Init(view)
+    self[config.dataProviderKey] = CreateDataProvider()
+    scrollBox:SetDataProvider(self[config.dataProviderKey])
+
+    return panel
+end
+
+--------------------------------------------------------------------------------
+-- Selection Button State Helper
+--------------------------------------------------------------------------------
+
+-- Apply visual state to hierarchy panel selection buttons (expansions, categories, professions)
+-- @param frame: Button frame with .bg, .selectionBorder, .label elements
+-- @param isSelected: boolean
+function TabBaseMixin:ApplySelectionButtonState(frame, isSelected)
+    if isSelected then
+        frame.bg:SetColorTexture(unpack(COLORS.PANEL_HOVER))
+        frame.selectionBorder:Show()
+        frame.label:SetTextColor(unpack(COLORS.GOLD))
+    else
+        frame.bg:SetColorTexture(unpack(COLORS.PANEL_NORMAL))
+        frame.selectionBorder:Hide()
+        frame.label:SetTextColor(unpack(COLORS.TEXT_SECONDARY))
+    end
+end
+
+--------------------------------------------------------------------------------
 -- Responsive Toolbar Layout
 --------------------------------------------------------------------------------
 

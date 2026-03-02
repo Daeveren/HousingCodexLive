@@ -192,8 +192,6 @@ function addon:GetAchievementName(achievementId)
     return string.format(self.L["ACHIEVEMENTS_UNKNOWN"], achievementId)
 end
 
-addon.GetAchievementCategory = addon.GetWoWAchievementCategory
-
 -- Check if achievement is completed (uses WoW API, cached)
 -- Returns: true (complete), false (incomplete), or nil (invalid achievement)
 function addon:IsAchievementCompleted(achievementId)

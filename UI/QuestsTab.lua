@@ -18,19 +18,6 @@ local ROW_HEIGHT = CONSTS.HIERARCHY_ROW_HEIGHT
 local GRID_OUTER_PAD = CONSTS.GRID_OUTER_PAD
 local WISHLIST_STAR_SIZE = CONSTS.WISHLIST_STAR_SIZE_HIERARCHY
 
--- Helper to apply expansion button visual state
-local function ApplyExpansionButtonState(frame, isSelected)
-    if isSelected then
-        frame.bg:SetColorTexture(unpack(COLORS.PANEL_HOVER))
-        frame.selectionBorder:Show()
-        frame.label:SetTextColor(unpack(COLORS.GOLD))
-    else
-        frame.bg:SetColorTexture(unpack(COLORS.PANEL_NORMAL))
-        frame.selectionBorder:Hide()
-        frame.label:SetTextColor(unpack(COLORS.TEXT_SECONDARY))
-    end
-end
-
 -- Helper to apply quest row visual state
 local function ApplyQuestRowState(frame, isSelected)
     addon:ResetBackgroundTexture(frame.bg)
@@ -494,49 +481,15 @@ end
 --------------------------------------------------------------------------------
 
 function QuestsTab:CreateExpansionPanel(parent)
-    local panel = CreateFrame("Frame", nil, parent)
-    -- Offset left by SIDEBAR_WIDTH to cover the sidebar area
-    panel:SetPoint("TOPLEFT", self.toolbar, "BOTTOMLEFT", -SIDEBAR_WIDTH, 0)
-    panel:SetPoint("BOTTOMLEFT", parent, "BOTTOMLEFT", -SIDEBAR_WIDTH, 0)
-    panel:SetWidth(EXPANSION_PANEL_WIDTH)
-    self.expansionPanel = panel
-
-    -- Background (darker, matches sidebar)
-    local bg = panel:CreateTexture(nil, "BACKGROUND")
-    bg:SetAllPoints()
-    bg:SetColorTexture(0.04, 0.04, 0.06, 0.98)
-
-    -- Right border separator
-    local border = panel:CreateTexture(nil, "ARTWORK")
-    border:SetWidth(1)
-    border:SetPoint("TOPRIGHT", 0, 0)
-    border:SetPoint("BOTTOMRIGHT", 0, 0)
-    border:SetColorTexture(0.2, 0.2, 0.25, 1)
-
-    -- Create scroll container (no scrollbar - expansions fit in one view)
-    local scrollContainer = CreateFrame("Frame", nil, panel)
-    scrollContainer:SetPoint("TOPLEFT", HIERARCHY_PADDING, -HIERARCHY_PADDING)
-    scrollContainer:SetPoint("BOTTOMRIGHT", -HIERARCHY_PADDING, HIERARCHY_PADDING)
-
-    -- Create ScrollBox
-    local scrollBox = CreateFrame("Frame", nil, scrollContainer, "WowScrollBoxList")
-    scrollBox:SetAllPoints()
-    self.expansionScrollBox = scrollBox
-
-    -- Create list view with FIXED height (all expansions same height)
-    local view = CreateScrollBoxListLinearView()
-    view:SetElementExtent(HEADER_HEIGHT)
-    view:SetPadding(0, 0, 0, 0, 4)  -- Add 4px spacing between expansion items
-    view:SetElementInitializer("Button", function(frame, elementData)
-        self:SetupExpansionButton(frame, elementData)
-    end)
-
-    -- Initialize ScrollBox without scrollbar (call Init directly)
-    scrollBox:Init(view)
-
-    -- Initialize DataProvider once (reused via Flush/InsertTable)
-    self.expansionDataProvider = CreateDataProvider()
-    scrollBox:SetDataProvider(self.expansionDataProvider)
+    self:CreateHierarchyPanel(parent, {
+        panelKey        = "expansionPanel",
+        scrollBoxKey    = "expansionScrollBox",
+        dataProviderKey = "expansionDataProvider",
+        elementExtent   = HEADER_HEIGHT,
+        setupFn         = function(frame, elementData)
+            self:SetupExpansionButton(frame, elementData)
+        end,
+    })
 end
 
 function QuestsTab:SetupExpansionButton(frame, elementData)
@@ -571,12 +524,10 @@ function QuestsTab:SetupExpansionButton(frame, elementData)
         frame:EnableMouse(true)
     end
 
-    -- Reset state
-    frame.selectionBorder:Hide()
     frame.expansionKey = elementData.expansionKey
 
     local isSelected = self.selectedExpansionKey == elementData.expansionKey
-    ApplyExpansionButtonState(frame, isSelected)
+    self:ApplySelectionButtonState(frame, isSelected)
 
     frame.label:SetText(L[elementData.expansionKey] or elementData.expansionKey)
     addon:SetFontSize(frame.label, 13, "")
@@ -599,7 +550,7 @@ function QuestsTab:SetupExpansionButton(frame, elementData)
     end)
 
     frame:SetScript("OnLeave", function(f)
-        ApplyExpansionButtonState(f, self.selectedExpansionKey == f.expansionKey)
+        self:ApplySelectionButtonState(f, self.selectedExpansionKey == f.expansionKey)
     end)
 end
 
@@ -623,7 +574,7 @@ function QuestsTab:SelectExpansion(expansionKey)
     if self.expansionScrollBox then
         self.expansionScrollBox:ForEachFrame(function(frame)
             if frame.expansionKey then
-                ApplyExpansionButtonState(frame, frame.expansionKey == expansionKey)
+                self:ApplySelectionButtonState(frame, frame.expansionKey == expansionKey)
             end
         end)
     end

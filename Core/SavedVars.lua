@@ -214,34 +214,6 @@ function addon:RestoreFramePosition(frame, dbKey)
     return true
 end
 
-function addon:SaveFrameSize(frame, dbKey)
-    if not frame or not dbKey then return end
-
-    local width, height = frame:GetSize()
-    if not width or not height then return end
-
-    self.db[dbKey] = self.db[dbKey] or {}
-    self.db[dbKey].size = { width = width, height = height }
-end
-
-function addon:RestoreFrameSize(frame, dbKey, minWidth, minHeight, maxWidth, maxHeight)
-    if not frame or not dbKey then return false end
-
-    local data = self.db[dbKey]
-    if not data or not data.size then return false end
-
-    local width = data.size.width
-    local height = data.size.height
-
-    if minWidth then width = math.max(width, minWidth) end
-    if minHeight then height = math.max(height, minHeight) end
-    if maxWidth then width = math.min(width, maxWidth) end
-    if maxHeight then height = math.min(height, maxHeight) end
-
-    frame:SetSize(width, height)
-    return true
-end
-
 -- Wishlist Helpers
 function addon:IsWishlisted(recordID)
     return self.db.wishlist[recordID] == true

@@ -32,19 +32,6 @@ local function ResolveDecorIcon(decorId)
     return "Interface\\Icons\\INV_Misc_QuestionMark"
 end
 
--- Helper to apply category button visual state
-local function ApplyCategoryButtonState(frame, isSelected)
-    if isSelected then
-        frame.bg:SetColorTexture(unpack(COLORS.PANEL_HOVER))
-        frame.selectionBorder:Show()
-        frame.label:SetTextColor(unpack(COLORS.GOLD))
-    else
-        frame.bg:SetColorTexture(unpack(COLORS.PANEL_NORMAL))
-        frame.selectionBorder:Hide()
-        frame.label:SetTextColor(unpack(COLORS.TEXT_SECONDARY))
-    end
-end
-
 addon.DropsTab = {}
 local DropsTab = addon.DropsTab
 
@@ -206,7 +193,7 @@ function DropsTab:GetCompletionFilter()
     return db and db.completionFilter or "incomplete"
 end
 
-function DropsTab:OnSearchTextChanged(text)
+function DropsTab:OnSearchTextChanged(_)
     self:RefreshDisplay()
 end
 
@@ -215,40 +202,15 @@ end
 --------------------------------------------------------------------------------
 
 function DropsTab:CreateCategoryPanel(parent)
-    local panel = CreateFrame("Frame", nil, parent)
-    panel:SetPoint("TOPLEFT", self.toolbar, "BOTTOMLEFT", -SIDEBAR_WIDTH, 0)
-    panel:SetPoint("BOTTOMLEFT", parent, "BOTTOMLEFT", -SIDEBAR_WIDTH, 0)
-    panel:SetWidth(CATEGORY_PANEL_WIDTH)
-    self.categoryPanel = panel
-
-    local bg = panel:CreateTexture(nil, "BACKGROUND")
-    bg:SetAllPoints()
-    bg:SetColorTexture(0.04, 0.04, 0.06, 0.98)
-
-    local border = panel:CreateTexture(nil, "ARTWORK")
-    border:SetWidth(1)
-    border:SetPoint("TOPRIGHT", 0, 0)
-    border:SetPoint("BOTTOMRIGHT", 0, 0)
-    border:SetColorTexture(0.2, 0.2, 0.25, 1)
-
-    local scrollContainer = CreateFrame("Frame", nil, panel)
-    scrollContainer:SetPoint("TOPLEFT", HIERARCHY_PADDING, -HIERARCHY_PADDING)
-    scrollContainer:SetPoint("BOTTOMRIGHT", -HIERARCHY_PADDING, HIERARCHY_PADDING)
-
-    local scrollBox = CreateFrame("Frame", nil, scrollContainer, "WowScrollBoxList")
-    scrollBox:SetAllPoints()
-    self.categoryScrollBox = scrollBox
-
-    local view = CreateScrollBoxListLinearView()
-    view:SetElementExtent(HEADER_HEIGHT)
-    view:SetPadding(0, 0, 0, 0, 4)
-    view:SetElementInitializer("Button", function(frame, elementData)
-        self:SetupCategoryButton(frame, elementData)
-    end)
-
-    scrollBox:Init(view)
-    self.categoryDataProvider = CreateDataProvider()
-    scrollBox:SetDataProvider(self.categoryDataProvider)
+    self:CreateHierarchyPanel(parent, {
+        panelKey        = "categoryPanel",
+        scrollBoxKey    = "categoryScrollBox",
+        dataProviderKey = "categoryDataProvider",
+        elementExtent   = HEADER_HEIGHT,
+        setupFn         = function(frame, elementData)
+            self:SetupCategoryButton(frame, elementData)
+        end,
+    })
 end
 
 function DropsTab:SetupCategoryButton(frame, elementData)
@@ -287,11 +249,10 @@ function DropsTab:SetupCategoryButton(frame, elementData)
         frame:EnableMouse(true)
     end
 
-    frame.selectionBorder:Hide()
     frame.category = elementData.category
 
     local isSelected = self.selectedCategory == elementData.category
-    ApplyCategoryButtonState(frame, isSelected)
+    self:ApplySelectionButtonState(frame, isSelected)
 
     local catInfo = addon:GetSourceCategoryInfo(elementData.category)
     if catInfo then
@@ -325,7 +286,7 @@ function DropsTab:SetupCategoryButton(frame, elementData)
     end)
 
     frame:SetScript("OnLeave", function(f)
-        ApplyCategoryButtonState(f, self.selectedCategory == f.category)
+        self:ApplySelectionButtonState(f, self.selectedCategory == f.category)
     end)
 end
 
@@ -339,7 +300,7 @@ function DropsTab:SelectCategory(category)
     if self.categoryScrollBox then
         self.categoryScrollBox:ForEachFrame(function(frame)
             if frame.category then
-                ApplyCategoryButtonState(frame, frame.category == category)
+                self:ApplySelectionButtonState(frame, frame.category == category)
             end
         end)
     end

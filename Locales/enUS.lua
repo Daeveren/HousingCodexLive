@@ -120,7 +120,6 @@ L["PLACEMENT_OUT"] = "Out"
 --------------------------------------------------------------------------------
 -- Wishlist
 --------------------------------------------------------------------------------
-L["WISHLIST"] = "Wishlist"
 L["WISHLIST_ADD"] = "Add to Wishlist"
 L["WISHLIST_REMOVE"] = "Remove from Wishlist"
 L["WISHLIST_ADDED"] = "Added to wishlist: %s"
@@ -200,7 +199,6 @@ L["OPTIONS_PRESS_KEY"] = "Press a key..."
 L["OPTIONS_UNBIND_TOOLTIP"] = "Right-click to unbind"
 L["OPTIONS_KEYBIND_HINT"] = "Click to set keybind. Right-click to clear. ESC to cancel."
 L["OPTIONS_KEYBIND_CONFLICT"] = "\"%s\" is already bound to \"%s\".\n\nDo you want to reassign it to Housing Codex?"
-L["OPTIONS_KEYBIND_CONFLICT_TITLE"] = "Keybind Conflict"
 
 --------------------------------------------------------------------------------
 -- Slash Command Help

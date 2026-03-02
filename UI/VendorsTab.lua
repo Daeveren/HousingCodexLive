@@ -22,19 +22,6 @@ local DECOR_ICON_SIZE = 22
 local WAYPOINT_BUTTON_SIZE = 20
 local WAYPOINT_MATCH_EPSILON = CONSTS.WAYPOINT_MATCH_EPSILON or 0.0001
 
--- Helper to apply expansion button visual state
-local function ApplyExpansionButtonState(frame, isSelected)
-    if isSelected then
-        frame.bg:SetColorTexture(unpack(COLORS.PANEL_HOVER))
-        frame.selectionBorder:Show()
-        frame.label:SetTextColor(unpack(COLORS.GOLD))
-    else
-        frame.bg:SetColorTexture(unpack(COLORS.PANEL_NORMAL))
-        frame.selectionBorder:Hide()
-        frame.label:SetTextColor(unpack(COLORS.TEXT_SECONDARY))
-    end
-end
-
 addon.VendorsTab = {}
 local VendorsTab = addon.VendorsTab
 
@@ -230,40 +217,15 @@ end
 --------------------------------------------------------------------------------
 
 function VendorsTab:CreateExpansionPanel(parent)
-    local panel = CreateFrame("Frame", nil, parent)
-    panel:SetPoint("TOPLEFT", self.toolbar, "BOTTOMLEFT", -SIDEBAR_WIDTH, 0)
-    panel:SetPoint("BOTTOMLEFT", parent, "BOTTOMLEFT", -SIDEBAR_WIDTH, 0)
-    panel:SetWidth(EXPANSION_PANEL_WIDTH)
-    self.expansionPanel = panel
-
-    local bg = panel:CreateTexture(nil, "BACKGROUND")
-    bg:SetAllPoints()
-    bg:SetColorTexture(0.04, 0.04, 0.06, 0.98)
-
-    local border = panel:CreateTexture(nil, "ARTWORK")
-    border:SetWidth(1)
-    border:SetPoint("TOPRIGHT", 0, 0)
-    border:SetPoint("BOTTOMRIGHT", 0, 0)
-    border:SetColorTexture(0.2, 0.2, 0.25, 1)
-
-    local scrollContainer = CreateFrame("Frame", nil, panel)
-    scrollContainer:SetPoint("TOPLEFT", HIERARCHY_PADDING, -HIERARCHY_PADDING)
-    scrollContainer:SetPoint("BOTTOMRIGHT", -HIERARCHY_PADDING, HIERARCHY_PADDING)
-
-    local scrollBox = CreateFrame("Frame", nil, scrollContainer, "WowScrollBoxList")
-    scrollBox:SetAllPoints()
-    self.expansionScrollBox = scrollBox
-
-    local view = CreateScrollBoxListLinearView()
-    view:SetElementExtent(HEADER_HEIGHT)
-    view:SetPadding(0, 0, 0, 0, 4)
-    view:SetElementInitializer("Button", function(frame, elementData)
-        self:SetupExpansionButton(frame, elementData)
-    end)
-
-    scrollBox:Init(view)
-    self.expansionDataProvider = CreateDataProvider()
-    scrollBox:SetDataProvider(self.expansionDataProvider)
+    self:CreateHierarchyPanel(parent, {
+        panelKey        = "expansionPanel",
+        scrollBoxKey    = "expansionScrollBox",
+        dataProviderKey = "expansionDataProvider",
+        elementExtent   = HEADER_HEIGHT,
+        setupFn         = function(frame, elementData)
+            self:SetupExpansionButton(frame, elementData)
+        end,
+    })
 end
 
 function VendorsTab:SetupExpansionButton(frame, elementData)
@@ -297,11 +259,10 @@ function VendorsTab:SetupExpansionButton(frame, elementData)
         frame:EnableMouse(true)
     end
 
-    frame.selectionBorder:Hide()
     frame.expansionKey = elementData.expansionKey
 
     local isSelected = self.selectedExpansionKey == elementData.expansionKey
-    ApplyExpansionButtonState(frame, isSelected)
+    self:ApplySelectionButtonState(frame, isSelected)
 
     frame.label:SetText(L[elementData.expansionKey] or elementData.expansionKey)
     addon:SetFontSize(frame.label, 13, "")
@@ -323,7 +284,7 @@ function VendorsTab:SetupExpansionButton(frame, elementData)
     end)
 
     frame:SetScript("OnLeave", function(f)
-        ApplyExpansionButtonState(f, self.selectedExpansionKey == f.expansionKey)
+        self:ApplySelectionButtonState(f, self.selectedExpansionKey == f.expansionKey)
     end)
 end
 
@@ -344,7 +305,7 @@ function VendorsTab:SelectExpansion(expansionKey)
     if self.expansionScrollBox then
         self.expansionScrollBox:ForEachFrame(function(frame)
             if frame.expansionKey then
-                ApplyExpansionButtonState(frame, frame.expansionKey == expansionKey)
+                self:ApplySelectionButtonState(frame, frame.expansionKey == expansionKey)
             end
         end)
     end

@@ -23,8 +23,9 @@ local ORBIT_MOUSE_PITCH = CONSTS.CAMERA.ORBIT_MOUSE_PITCH
 local ORBIT_MOUSE_ZOOM = CONSTS.CAMERA.ORBIT_MOUSE_ZOOM
 local ORBIT_MOUSE_PAN_HORIZONTAL = CONSTS.CAMERA.ORBIT_MOUSE_PAN_HORIZONTAL
 local ORBIT_MOUSE_PAN_VERTICAL = CONSTS.CAMERA.ORBIT_MOUSE_PAN_VERTICAL
-local PREVIEW_MIN_ZOOM_SCALE = CONSTS.CAMERA.PREVIEW_MIN_ZOOM_SCALE or 0.5
+local PREVIEW_MIN_ZOOM_SCALE = CONSTS.CAMERA.PREVIEW_MIN_ZOOM_SCALE
 local ROTATION_SPEED = CONSTS.CAMERA.ROTATION_SPEED
+local ZOOM_STEP = CONSTS.CAMERA.ZOOM_STEP
 local SCENE_PRESETS = CONSTS.SCENE_PRESETS
 local DEFAULT_SCENE_ID = CONSTS.DEFAULT_SCENE_ID
 
@@ -36,24 +37,11 @@ local COLOR_PRESET_INACTIVE = { 0.5, 0.5, 0.5, 0.8 }
 local COLOR_PRESET_HOVER = { 0.8, 0.8, 0.8, 1 }
 local COLOR_PRESET_ACTIVE = { 0.9, 0.75, 0.3, 1 }  -- Gold
 
--- Zoom constant: 2% per wheel notch (50 steps for full range)
-local ZOOM_STEP = 0.02
-
 -- Category text color (light purple)
 local COLOR_CATEGORY = { 0.75, 0.65, 0.9 }
 
 addon.Preview = {}
 local Preview = addon.Preview
-
--- Helper: Set texture icon (handles atlas vs texture path)
-local function SetIcon(texture, icon, iconType)
-    if iconType == "atlas" then
-        texture:SetAtlas(icon)
-    else
-        texture:SetTexture(icon)
-    end
-end
-
 
 -- Helper: Format category path as "Category > Subcategory"
 function Preview:FormatCategoryPath(record)
@@ -112,7 +100,6 @@ function Preview:CreateContentArea()
     modelArea:SetPoint("TOPLEFT", separator, "BOTTOMLEFT", 0, 0)
     modelArea:SetPoint("BOTTOMRIGHT", region, "BOTTOMRIGHT", 0, 0)
     self.modelArea = modelArea
-    self.contentArea = modelArea  -- For compatibility with existing code
 
     -- Model background (solid black for 3D)
     local modelBg = modelArea:CreateTexture(nil, "BACKGROUND")
@@ -143,14 +130,9 @@ function Preview:CreateModelScene()
         self:OnModelSceneMouseWheel(delta)
     end)
 
-    -- Apply per-frame camera adjustments (vertical drag inversion).
-    -- IMPORTANT: Use a separate child frame instead of HookScript("OnUpdate") to avoid
-    -- taint propagation. HookScript runs addon code in Blizzard's OnUpdate execution
-    -- context, tainting SetCameraOrientationByYawPitchRoll (SecretArguments=AllowedWhenUntainted).
-    local updateDriver = CreateFrame("Frame", nil, modelScene)
-    updateDriver:SetScript("OnUpdate", function(_, elapsed)
-        self:OnModelSceneUpdate(elapsed)
-    end)
+    -- Per-frame camera updates (inverted drag + auto-rotation).
+    -- Uses a child frame instead of HookScript to avoid taint on SetCameraOrientationByYawPitchRoll.
+    self:CreateCameraUpdateDriver(modelScene)
 end
 
 function Preview:OnModelSceneMouseWheel(delta)
@@ -185,6 +167,50 @@ function Preview:ConfigureOrbitCameraControls(camera)
     if camera.SetMouseWheelMode then
         camera:SetMouseWheelMode(ORBIT_MOUSE_ZOOM, false)
     end
+end
+
+function Preview:CreateCameraUpdateDriver(modelScene)
+    local lastPitchCamera = nil
+    local lastPitchValue = nil
+
+    local updateDriver = CreateFrame("Frame", nil, modelScene)
+    updateDriver:SetScript("OnUpdate", function(_, elapsed)
+        if not modelScene:IsShown() then return end
+        if modelScene:GetWidth() == 0 or modelScene:GetHeight() == 0 then return end
+
+        local camera = modelScene:GetActiveCamera()
+        if not camera then return end
+
+        -- Inverted vertical drag
+        if camera.GetPitch and camera.SetPitch then
+            local currentPitch = camera:GetPitch()
+            if lastPitchCamera ~= camera then
+                lastPitchCamera = camera
+                lastPitchValue = currentPitch
+            elseif lastPitchValue and modelScene:IsLeftMouseButtonDown() then
+                local pitchDelta = currentPitch - lastPitchValue
+                if pitchDelta ~= 0 then
+                    camera:SetPitch(lastPitchValue - pitchDelta)
+                    if camera.SnapToTargetInterpolationPitch then
+                        camera:SnapToTargetInterpolationPitch()
+                    end
+                end
+            end
+            lastPitchValue = camera:GetPitch()
+        end
+
+        -- Auto-rotation
+        if not (addon.db and addon.db.settings.autoRotatePreview) then return end
+        if modelScene:IsLeftMouseButtonDown() or modelScene:IsRightMouseButtonDown() then return end
+
+        local yaw = camera:GetYaw() or 0
+        camera:SetYaw((yaw + elapsed * ROTATION_SPEED) % (math.pi * 2))
+        if camera.SnapToTargetInterpolationYaw then
+            camera:SnapToTargetInterpolationYaw()
+        end
+    end)
+
+    return updateDriver
 end
 
 function Preview:CaptureSceneCameraBaseline(sceneID, camera)
@@ -240,56 +266,6 @@ function Preview:ApplySceneZoomRange(sceneID, camera)
 
     if camera.SnapToTargetInterpolationZoom then
         camera:SnapToTargetInterpolationZoom()
-    end
-end
-
-function Preview:ApplyInvertedVerticalDrag(camera)
-    if not camera or not camera.GetPitch or not camera.SetPitch then return end
-
-    local currentPitch = camera:GetPitch()
-    if self.lastPitchCamera ~= camera then
-        self.lastPitchCamera = camera
-        self.lastPitchValue = currentPitch
-        return
-    end
-
-    if not self.lastPitchValue then return end
-    if not (camera.IsLeftMouseButtonDown and camera:IsLeftMouseButtonDown()) then return end
-
-    local pitchDelta = currentPitch - self.lastPitchValue
-    if pitchDelta == 0 then return end
-
-    -- Invert default Orbit camera vertical drag direction.
-    camera:SetPitch(self.lastPitchValue - pitchDelta)
-    if camera.SnapToTargetInterpolationPitch then
-        camera:SnapToTargetInterpolationPitch()
-    end
-end
-
-function Preview:OnModelSceneUpdate(elapsed)
-    if not self.modelScene or not self.modelScene:IsShown() then return end
-    if self.modelScene:GetWidth() == 0 or self.modelScene:GetHeight() == 0 then return end
-
-    local camera = self:GetActiveOrbitCamera()
-    if not camera then return end
-
-    -- Inverted vertical drag
-    self:ApplyInvertedVerticalDrag(camera)
-    self.lastPitchValue = camera:GetPitch()
-
-    -- Auto-rotation (requires elapsed for delta-based yaw)
-    if not elapsed then return end
-    if not (addon.db and addon.db.settings.autoRotatePreview) then return end
-
-    -- Pause when user is dragging
-    if self.modelScene:IsLeftMouseButtonDown() or self.modelScene:IsRightMouseButtonDown() then
-        return
-    end
-
-    local yaw = camera:GetYaw() or 0
-    camera:SetYaw((yaw + elapsed * ROTATION_SPEED) % (math.pi * 2))
-    if camera.SnapToTargetInterpolationYaw then
-        camera:SnapToTargetInterpolationYaw()
     end
 end
 
@@ -947,7 +923,7 @@ function Preview:ShowFallback(message, icon, iconType)
 
     -- Configure fallback icon
     if icon then
-        SetIcon(self.fallbackIcon, icon, iconType)
+        addon:SetIcon(self.fallbackIcon, icon, iconType)
     end
     self.fallbackIcon:SetShown(icon ~= nil)
     self.fallbackMessage:SetText(message or "")

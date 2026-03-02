@@ -19,9 +19,6 @@ addon.addonName = ADDON_NAME
 -- Localization table (populated by Locales/*.lua)
 addon.L = {}
 
--- Module registry (for cross-file communication)
-addon.modules = {}
-
 -- Data state
 addon.dataLoaded = false
 addon.decorRecords = {}
@@ -154,6 +151,7 @@ addon.CONSTANTS = {
         ORBIT_MOUSE_PAN_VERTICAL = ORBIT_CAMERA_MOUSE_PAN_VERTICAL or 8,
         PREVIEW_MIN_ZOOM_SCALE = 0.5, -- Medium zoom-in boost (50% of scene minimum distance)
         ROTATION_SPEED = 0.5, -- Auto-rotation (radians/sec, ~12.5s full rotation)
+        ZOOM_STEP = 0.02, -- Wheel zoom per notch (2%, 50 steps for full range)
     },
 
     -- Scene presets by Enum.HousingCatalogEntrySize values (0, 65-69)
@@ -754,6 +752,13 @@ SlashCmdList["HOUSINGCODEX"] = function(msg)
         addon:Print(L["RETRYING_DATA_LOAD"])
         addon.loadRetryCount = 0
         addon.dataLoaded = false
+        addon.indexesBuilt = false
+        addon.achievementIndexBuilt = false
+        addon.questIndexBuilt = false
+        addon.vendorIndexBuilt = false
+        addon.dropIndexBuilt = false
+        addon.craftingIndexBuilt = false
+        addon.pvpIndexBuilt = false
         addon:LoadData()
     elseif cmd == "reset" then
         if addon.MainFrame then
@@ -913,7 +918,7 @@ addon.urlPopup = nil
 function addon:CreateURLPopup()
     if self.urlPopup then return self.urlPopup end
 
-    local popup = CreateFrame("Frame", nil, UIParent, "BackdropTemplate")
+    local popup = CreateFrame("Frame", "HousingCodexURLPopup", UIParent, "BackdropTemplate")
     popup:SetSize(480, 40)
     popup:SetFrameStrata("DIALOG")
     popup:SetBackdrop({
@@ -926,6 +931,7 @@ function addon:CreateURLPopup()
     popup:SetBackdropBorderColor(0.6, 0.6, 0.6)
     popup:Hide()
     popup:EnableMouse(true)
+    tinsert(UISpecialFrames, "HousingCodexURLPopup")
 
     -- Close button (top-right)
     local closeBtn = CreateFrame("Button", nil, popup, "UIPanelCloseButton")
@@ -992,6 +998,16 @@ function addon:ShowActionLinkTooltip(btn)
     GameTooltip:AddLine(self.L["ACTION_LINK_TOOLTIP"], 1, 1, 1)
     GameTooltip:AddLine(self.L["ACTION_LINK_TOOLTIP_RIGHTCLICK"], 0.7, 0.7, 0.7)
     GameTooltip:Show()
+end
+
+-- Helper: set texture icon (handles atlas vs texture path)
+function addon:SetIcon(texture, icon, iconType)
+    if not icon then return end
+    if iconType == "atlas" then
+        texture:SetAtlas(icon)
+    else
+        texture:SetTexture(icon)
+    end
 end
 
 -- Addon Initialization

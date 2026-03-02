@@ -52,15 +52,6 @@ local previewModelScene = nil
 local expandedCategories = {}   -- categoryKey -> true/false
 local lastCategoryMapID = nil   -- reset on zone change
 
--- Helper: set atlas or texture on a texture object
-local function SetIcon(texture, icon, iconType)
-    if iconType == "atlas" then
-        texture:SetAtlas(icon)
-    else
-        texture:SetTexture(icon or FALLBACK_ICON)
-    end
-end
-
 -- Helper: get preview size based on scale setting
 local function GetPreviewSize()
     local scale = addon.db and addon.db.settings.zoneOverlayPreviewScale or 1.0
@@ -186,7 +177,7 @@ local function ShowPreview(itemRow, recordID)
 
     -- Fallback: 2D icon
     if previewModelScene then previewModelScene:Hide() end
-    SetIcon(previewFrame.icon, record.icon, record.iconType)
+    addon:SetIcon(previewFrame.icon, record.icon or FALLBACK_ICON, record.iconType)
     previewFrame.icon:Show()
     previewFrame:Show()
 end
@@ -403,7 +394,7 @@ local function CreateOverlayFrame()
             row.name:Show()
             row.isHeader = false
 
-            SetIcon(row.icon, elementData.icon, elementData.iconType)
+            addon:SetIcon(row.icon, elementData.icon or FALLBACK_ICON, elementData.iconType)
 
             row.name:SetText(elementData.decorName or "")
             if elementData.isCollected then

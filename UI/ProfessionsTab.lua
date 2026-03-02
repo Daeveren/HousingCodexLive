@@ -33,18 +33,6 @@ local KNOWN_PROFESSIONS = {
     cooking = true,
 }
 
-local function ApplyProfessionButtonState(frame, isSelected)
-    if isSelected then
-        frame.bg:SetColorTexture(unpack(COLORS.PANEL_HOVER))
-        frame.selectionBorder:Show()
-        frame.label:SetTextColor(unpack(COLORS.GOLD))
-    else
-        frame.bg:SetColorTexture(unpack(COLORS.PANEL_NORMAL))
-        frame.selectionBorder:Hide()
-        frame.label:SetTextColor(unpack(COLORS.TEXT_SECONDARY))
-    end
-end
-
 local function NormalizeSkillLine(skillLine)
     if type(skillLine) ~= "string" then return nil end
     local trimmed = strtrim(skillLine)
@@ -299,7 +287,7 @@ function ProfessionsTab:GetCompletionFilter()
     return db and db.completionFilter or "incomplete"
 end
 
-function ProfessionsTab:OnSearchTextChanged(text)
+function ProfessionsTab:OnSearchTextChanged(_)
     self:RefreshDisplay()
 end
 
@@ -308,40 +296,15 @@ end
 --------------------------------------------------------------------------------
 
 function ProfessionsTab:CreateProfessionPanel(parent)
-    local panel = CreateFrame("Frame", nil, parent)
-    panel:SetPoint("TOPLEFT", self.toolbar, "BOTTOMLEFT", -SIDEBAR_WIDTH, 0)
-    panel:SetPoint("BOTTOMLEFT", parent, "BOTTOMLEFT", -SIDEBAR_WIDTH, 0)
-    panel:SetWidth(PROFESSION_PANEL_WIDTH)
-    self.professionPanel = panel
-
-    local bg = panel:CreateTexture(nil, "BACKGROUND")
-    bg:SetAllPoints()
-    bg:SetColorTexture(0.04, 0.04, 0.06, 0.98)
-
-    local border = panel:CreateTexture(nil, "ARTWORK")
-    border:SetWidth(1)
-    border:SetPoint("TOPRIGHT", 0, 0)
-    border:SetPoint("BOTTOMRIGHT", 0, 0)
-    border:SetColorTexture(0.2, 0.2, 0.25, 1)
-
-    local scrollContainer = CreateFrame("Frame", nil, panel)
-    scrollContainer:SetPoint("TOPLEFT", HIERARCHY_PADDING, -HIERARCHY_PADDING)
-    scrollContainer:SetPoint("BOTTOMRIGHT", -HIERARCHY_PADDING, HIERARCHY_PADDING)
-
-    local scrollBox = CreateFrame("Frame", nil, scrollContainer, "WowScrollBoxList")
-    scrollBox:SetAllPoints()
-    self.professionScrollBox = scrollBox
-
-    local view = CreateScrollBoxListLinearView()
-    view:SetElementExtent(HEADER_HEIGHT)
-    view:SetPadding(0, 0, 0, 0, 4)
-    view:SetElementInitializer("Button", function(frame, elementData)
-        self:SetupProfessionButton(frame, elementData)
-    end)
-
-    scrollBox:Init(view)
-    self.professionDataProvider = CreateDataProvider()
-    scrollBox:SetDataProvider(self.professionDataProvider)
+    self:CreateHierarchyPanel(parent, {
+        panelKey        = "professionPanel",
+        scrollBoxKey    = "professionScrollBox",
+        dataProviderKey = "professionDataProvider",
+        elementExtent   = HEADER_HEIGHT,
+        setupFn         = function(frame, elementData)
+            self:SetupProfessionButton(frame, elementData)
+        end,
+    })
 end
 
 function ProfessionsTab:SetupProfessionButton(frame, elementData)
@@ -373,11 +336,10 @@ function ProfessionsTab:SetupProfessionButton(frame, elementData)
         frame:EnableMouse(true)
     end
 
-    frame.selectionBorder:Hide()
     frame.professionName = elementData.professionName
 
     local isSelected = self.selectedProfession == elementData.professionName
-    ApplyProfessionButtonState(frame, isSelected)
+    self:ApplySelectionButtonState(frame, isSelected)
 
     frame.label:SetText(elementData.professionName)
     addon:SetFontSize(frame.label, 13, "")
@@ -399,7 +361,7 @@ function ProfessionsTab:SetupProfessionButton(frame, elementData)
     end)
 
     frame:SetScript("OnLeave", function(f)
-        ApplyProfessionButtonState(f, self.selectedProfession == f.professionName)
+        self:ApplySelectionButtonState(f, self.selectedProfession == f.professionName)
     end)
 end
 
@@ -418,7 +380,7 @@ function ProfessionsTab:SelectProfession(professionName)
     if self.professionScrollBox then
         self.professionScrollBox:ForEachFrame(function(frame)
             if frame.professionName then
-                ApplyProfessionButtonState(frame, frame.professionName == professionName)
+                self:ApplySelectionButtonState(frame, frame.professionName == professionName)
             end
         end)
     end

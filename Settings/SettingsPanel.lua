@@ -151,7 +151,6 @@ function addon.Settings:Initialize()
         end
     )
     minimapCheck:SetPoint("TOPLEFT", COL1_X, yOffset)
-    self.minimapCheck = minimapCheck
 
     -- Show Collected Indicator checkbox
     local collectedCheck = CreateCheckbox(
@@ -348,7 +347,6 @@ function addon.Settings:Initialize()
         end
     )
     vendorMapPinsCheck:SetPoint("TOPLEFT", COL1_X, yOffset)
-    self.vendorMapPinsCheck = vendorMapPinsCheck
 
     -- Show Zone Overlay checkbox
     local zoneOverlayCheck = CreateCheckbox(
@@ -366,7 +364,6 @@ function addon.Settings:Initialize()
         end
     )
     zoneOverlayCheck:SetPoint("TOPLEFT", COL2_X, yOffset)
-    self.zoneOverlayCheck = zoneOverlayCheck
     yOffset = yOffset - 30
 
     -- Treasure Hunt Waypoints checkbox
@@ -509,7 +506,6 @@ function addon.Settings:Initialize()
         end
     )
     endeavorsEnabledCheck:SetPoint("TOPLEFT", COL1_X, yOffset)
-    self.endeavorsEnabledCheck = endeavorsEnabledCheck
     yOffset = yOffset - 30
 
     local endeavorsBtn = CreateResetButton(panel, "ENDEAVORS_OPTIONS", "ENDEAVORS_OPTIONS_TOOLTIP", function(self)

@@ -2,6 +2,15 @@
 
 All notable changes to Housing Codex.
 
+## [1.7.9] - 2026-03-03
+
+### Fixed
+- URL popup now closes with the ESC key
+- `/hc retry` now properly refreshes all data indexes
+
+### Changed
+- Codebase improvements in order to make the addon run more smooth
+
 ## [1.7.8] - 2026-03-01
 
 ### Added
