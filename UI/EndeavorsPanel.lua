@@ -406,6 +406,31 @@ local function CreateTaskRow(parent, index)
     -- Constrain name text so it doesn't overlap progress text
     nameText:SetPoint("RIGHT", progressText, "LEFT", -4, 0)
 
+    -- Tooltip on hover
+    row:EnableMouse(true)
+    row:SetScript("OnEnter", function(self)
+        local data = self.taskData
+        if not data then return end
+
+        GameTooltip:SetOwner(self, "ANCHOR_NONE")
+        GameTooltip:SetPoint("LEFT", self, "RIGHT", 15, 0)
+        GameTooltip:AddLine(data.taskName or "", 1, 0.82, 0)
+
+        if data.timesCompleted and data.timesCompleted > 0 then
+            GameTooltip:AddLine(string.format(L["ENDEAVORS_COMPLETED_TIMES"], data.timesCompleted), 1, 1, 1)
+        end
+
+        if data.rewardQuestID and data.rewardQuestID > 0 then
+            GameTooltip:AddLine(" ")
+            GameTooltip_AddQuestRewardsToTooltip(GameTooltip, data.rewardQuestID, TOOLTIP_QUEST_REWARDS_STYLE_INITIATIVE_TASK)
+        end
+
+        GameTooltip:Show()
+    end)
+    row:SetScript("OnLeave", function()
+        GameTooltip:Hide()
+    end)
+
     row:Hide()
     return row
 end
@@ -413,6 +438,7 @@ end
 local function UpdateTaskRow(row, taskData)
     if not row or not taskData then return end
 
+    row.taskData = taskData
     row.nameText:SetText(taskData.taskName)
 
     if taskData.completed then
@@ -453,6 +479,19 @@ local function ShowEndeavorTooltip(self)
         GameTooltip:AddLine(info.description, 1, 1, 1, true)
     end
 
+    -- Time remaining
+    if info.duration and info.duration > 0 then
+        local timeStr
+        if info.duration >= 86400 then
+            local days = math.floor(info.duration / 86400)
+            timeStr = string.format(L["ENDEAVORS_TIME_DAYS_LEFT"], days)
+        else
+            local hours = math.max(1, math.floor(info.duration / 3600))
+            timeStr = string.format(L["ENDEAVORS_TIME_HOURS_LEFT"], hours)
+        end
+        GameTooltip:AddLine(timeStr, 0.7, 0.7, 0.7)
+    end
+
     -- Progress
     if info.currentProgress and info.progressRequired then
         GameTooltip:AddLine(" ")
@@ -462,6 +501,16 @@ local function ShowEndeavorTooltip(self)
     -- Player contribution
     if info.playerTotalContribution and info.playerTotalContribution > 0 then
         GameTooltip:AddLine(string.format(L["ENDEAVORS_YOUR_CONTRIBUTION"], info.playerTotalContribution), 0.7, 0.7, 0.7)
+    end
+
+    -- Community Coupons (currency 3363)
+    local ok, currInfo = pcall(C_CurrencyInfo.GetCurrencyInfo, CONST.COMMUNITY_COUPON_CURRENCY_ID)
+    if ok and currInfo then
+        local earned = currInfo.useTotalEarnedForMaxQty and currInfo.totalEarned or currInfo.quantity
+        local cap = currInfo.maxQuantity
+        if cap and cap > 0 then
+            GameTooltip:AddLine(string.format(L["ENDEAVORS_COUPONS_EARNED"], earned, cap, currInfo.name), 0.7, 0.7, 0.7)
+        end
     end
 
     -- Milestones (compare currentProgress against requiredContributionAmount)

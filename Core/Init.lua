@@ -259,6 +259,7 @@ addon.CONSTANTS = {
         BAR_LAYOUT_DURATION = 0.35,   -- seconds for stacked ↔ inline bar animation
         TASK_GONE_LAYOUT_DELAY = 60,  -- seconds to keep inline layout after tasks disappear
         INITIATIVE_POLL_INTERVAL = 10, -- seconds between initiative data re-requests (progress detection)
+        COMMUNITY_COUPON_CURRENCY_ID = 3363,
     },
 
     -- Vendor world map pins

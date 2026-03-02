@@ -541,6 +541,10 @@ L["OPTIONS_ENDEAVORS_ENABLED"] = "Enable Endeavors Panel"
 L["OPTIONS_ENDEAVORS_ENABLED_TOOLTIP"] = "Show the Endeavors mini-panel when in a neighborhood with a house"
 L["ENDEAVORS_OPT_ENABLED"] = "Enable Endeavors Panel"
 L["ENDEAVORS_OPT_ENABLED_TIP"] = "Show the Endeavors panel when in a neighborhood with a house"
+L["ENDEAVORS_COMPLETED_TIMES"] = "Completed %d |4time:times;"
+L["ENDEAVORS_TIME_DAYS_LEFT"] = "%d |4day:days; left"
+L["ENDEAVORS_TIME_HOURS_LEFT"] = "%d |4hour:hours; left"
+L["ENDEAVORS_COUPONS_EARNED"] = "%d/%d %s earned this Endeavor"
 
 --------------------------------------------------------------------------------
 -- PvP Tab

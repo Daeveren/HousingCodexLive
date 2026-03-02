@@ -2,6 +2,13 @@
 
 All notable changes to Housing Codex.
 
+## [1.7.10] - 2026-03-03
+
+### Added
+- Endeavor task tooltips — hover a task row to see the task name, how many times you've completed it, and what rewards it gives
+- Endeavor bar tooltip now shows how much time is left until the current endeavor ends
+- Endeavor bar tooltip now shows your current community coupons
+
 ## [1.7.9] - 2026-03-03
 
 ### Fixed

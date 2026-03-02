@@ -250,6 +250,9 @@ local function DiffTaskProgress(info)
                             lastChangedTime = GetTime(),
                             delta = (state.sessionProgress[taskID] and state.sessionProgress[taskID].delta or 0) + math.max(delta, 0),
                             completed = isCompleted,
+                            timesCompleted = task.timesCompleted or 0,
+                            rewardQuestID = task.rewardQuestID or 0,
+                            taskType = task.taskType,
                         }
 
                         if isCompleted then
@@ -257,8 +260,12 @@ local function DiffTaskProgress(info)
                         end
                     elseif state.sessionProgress[taskID] then
                         -- Update current/max without touching lastChangedTime
-                        state.sessionProgress[taskID].current = current
-                        state.sessionProgress[taskID].max = max
+                        local prog = state.sessionProgress[taskID]
+                        prog.current = current
+                        prog.max = max
+                        prog.timesCompleted = task.timesCompleted or 0
+                        prog.rewardQuestID = task.rewardQuestID or 0
+                        prog.taskType = task.taskType
                     end
                 end
 
@@ -367,6 +374,9 @@ function EndeavorsData:GetActiveTasks()
                 completed = entry.completed,
                 age = age,
                 lastChangedTime = entry.lastChangedTime,
+                timesCompleted = entry.timesCompleted,
+                rewardQuestID = entry.rewardQuestID,
+                taskType = entry.taskType,
             }
         end
     end
@@ -378,7 +388,6 @@ function EndeavorsData:GetActiveTasks()
 
     -- Debug: log why tasks were filtered
     if next(state.sessionProgress) and #result == 0 then
-        local now = GetTime()
         for taskID, entry in pairs(state.sessionProgress) do
             local age = now - entry.lastChangedTime
             addon:Debug("Endeavors: filtered task", taskID, "delta:", entry.delta, "completed:", entry.completed, "age:", string.format("%.1f", age), "limit:", CONST.TASK_FADE_TIMEOUT)
