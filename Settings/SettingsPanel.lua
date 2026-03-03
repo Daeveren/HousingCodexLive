@@ -131,7 +131,7 @@ function addon.Settings:Initialize()
     displayHeader:SetPoint("TOPLEFT", 16, yOffset)
     displayHeader:SetText(L["OPTIONS_SECTION_DISPLAY"])
     displayHeader:SetTextColor(1, 0.82, 0)
-    yOffset = yOffset - 22
+    yOffset = yOffset - 20
 
     -- Custom font toggle hidden from UI; use /hc font to toggle
 
@@ -169,7 +169,7 @@ function addon.Settings:Initialize()
     )
     collectedCheck:SetPoint("TOPLEFT", COL2_X, yOffset)
     self.collectedCheck = collectedCheck
-    yOffset = yOffset - 30
+    yOffset = yOffset - 26
 
     -- Auto-rotate 3D preview checkbox
     local autoRotateCheck = CreateCheckbox(
@@ -185,10 +185,10 @@ function addon.Settings:Initialize()
     )
     autoRotateCheck:SetPoint("TOPLEFT", COL1_X, yOffset)
     self.autoRotateCheck = autoRotateCheck
-    yOffset = yOffset - 30
+    yOffset = yOffset - 26
 
     CreateDivider(panel, yOffset)
-    yOffset = yOffset - 20
+    yOffset = yOffset - 14
 
     --------------------------------------------------------------------------------
     -- KEYBIND SECTION
@@ -197,7 +197,7 @@ function addon.Settings:Initialize()
     keybindHeader:SetPoint("TOPLEFT", 16, yOffset)
     keybindHeader:SetText(L["OPTIONS_SECTION_KEYBIND"])
     keybindHeader:SetTextColor(1, 0.82, 0)
-    yOffset = yOffset - 22
+    yOffset = yOffset - 20
 
     -- Keybind label
     local keybindLabel = panel:CreateFontString(nil, "ARTWORK", "GameFontNormal")
@@ -319,10 +319,10 @@ function addon.Settings:Initialize()
         end
     end)
 
-    yOffset = yOffset - 30
+    yOffset = yOffset - 26
 
     CreateDivider(panel, yOffset)
-    yOffset = yOffset - 20
+    yOffset = yOffset - 14
 
     --------------------------------------------------------------------------------
     -- MAP & NAVIGATION SECTION
@@ -331,7 +331,7 @@ function addon.Settings:Initialize()
     mapNavHeader:SetPoint("TOPLEFT", 16, yOffset)
     mapNavHeader:SetText(L["OPTIONS_SECTION_MAP_NAV"])
     mapNavHeader:SetTextColor(1, 0.82, 0)
-    yOffset = yOffset - 22
+    yOffset = yOffset - 20
 
     -- Show Vendor Map Pins checkbox
     local vendorMapPinsCheck = CreateCheckbox(
@@ -364,7 +364,7 @@ function addon.Settings:Initialize()
         end
     )
     zoneOverlayCheck:SetPoint("TOPLEFT", COL2_X, yOffset)
-    yOffset = yOffset - 30
+    yOffset = yOffset - 26
 
     -- Treasure Hunt Waypoints checkbox
     local treasureHuntCheck = CreateCheckbox(
@@ -404,10 +404,10 @@ function addon.Settings:Initialize()
         tomtomCheck.Text:SetTextColor(0.5, 0.5, 0.5)
     end
     self.tomtomCheck = tomtomCheck
-    yOffset = yOffset - 30
+    yOffset = yOffset - 26
 
     CreateDivider(panel, yOffset)
-    yOffset = yOffset - 20
+    yOffset = yOffset - 14
 
     --------------------------------------------------------------------------------
     -- MERCHANT SECTION
@@ -416,7 +416,7 @@ function addon.Settings:Initialize()
     merchantHeader:SetPoint("TOPLEFT", 16, yOffset)
     merchantHeader:SetText(L["OPTIONS_SECTION_MERCHANT"])
     merchantHeader:SetTextColor(1, 0.82, 0)
-    yOffset = yOffset - 22
+    yOffset = yOffset - 20
 
     -- Show Vendor Decor Indicators checkbox
     local vendorCheck = CreateCheckbox(
@@ -457,7 +457,7 @@ function addon.Settings:Initialize()
     )
     vendorOwnedCheck:SetPoint("TOPLEFT", COL2_X, yOffset)
     self.vendorOwnedCheck = vendorOwnedCheck
-    yOffset = yOffset - 30
+    yOffset = yOffset - 26
 
     -- Show Vendor Tooltips checkbox
     local vendorTooltipsCheck = CreateCheckbox(
@@ -473,10 +473,63 @@ function addon.Settings:Initialize()
     )
     vendorTooltipsCheck:SetPoint("TOPLEFT", COL1_X, yOffset)
     self.vendorTooltipsCheck = vendorTooltipsCheck
-    yOffset = yOffset - 30
+    yOffset = yOffset - 26
 
     CreateDivider(panel, yOffset)
+    yOffset = yOffset - 14
+
+    --------------------------------------------------------------------------------
+    -- BAGS & BANK SECTION
+    --------------------------------------------------------------------------------
+    local containersHeader = panel:CreateFontString(nil, "ARTWORK", "GameFontNormal")
+    containersHeader:SetPoint("TOPLEFT", 16, yOffset)
+    containersHeader:SetText(L["OPTIONS_SECTION_CONTAINERS"])
+    containersHeader:SetTextColor(1, 0.82, 0)
     yOffset = yOffset - 20
+
+    -- Show Container Decor Indicators checkbox
+    local containerCheck = CreateCheckbox(
+        panel,
+        L["OPTIONS_CONTAINER_INDICATORS"],
+        L["OPTIONS_CONTAINER_INDICATORS_TOOLTIP"],
+        function() return addon.db and addon.db.settings.showContainerDecorIndicators end,
+        function(checked)
+            if addon.db then
+                addon.db.settings.showContainerDecorIndicators = checked
+                if addon.ContainerOverlay then
+                    if checked then
+                        addon.ContainerOverlay:UpdateAllContainerFrames()
+                    else
+                        addon.ContainerOverlay:HideAllOverlays()
+                    end
+                end
+            end
+        end
+    )
+    containerCheck:SetPoint("TOPLEFT", COL1_X, yOffset)
+    self.containerCheck = containerCheck
+
+    -- Show Container Owned Checkmark checkbox
+    local containerOwnedCheck = CreateCheckbox(
+        panel,
+        L["OPTIONS_CONTAINER_OWNED_CHECKMARK"],
+        L["OPTIONS_CONTAINER_OWNED_CHECKMARK_TOOLTIP"],
+        function() return addon.db and addon.db.settings.showContainerOwnedCheckmark end,
+        function(checked)
+            if addon.db then
+                addon.db.settings.showContainerOwnedCheckmark = checked
+                if addon.ContainerOverlay then
+                    addon.ContainerOverlay:UpdateAllContainerFrames()
+                end
+            end
+        end
+    )
+    containerOwnedCheck:SetPoint("TOPLEFT", COL2_X, yOffset)
+    self.containerOwnedCheck = containerOwnedCheck
+    yOffset = yOffset - 26
+
+    CreateDivider(panel, yOffset)
+    yOffset = yOffset - 14
 
     --------------------------------------------------------------------------------
     -- ENDEAVORS SECTION
@@ -485,7 +538,7 @@ function addon.Settings:Initialize()
     endeavorsHeader:SetPoint("TOPLEFT", 16, yOffset)
     endeavorsHeader:SetText(L["OPTIONS_SECTION_ENDEAVORS"])
     endeavorsHeader:SetTextColor(1, 0.82, 0)
-    yOffset = yOffset - 22
+    yOffset = yOffset - 20
 
     local endeavorsEnabledCheck = CreateCheckbox(
         panel,
@@ -506,7 +559,7 @@ function addon.Settings:Initialize()
         end
     )
     endeavorsEnabledCheck:SetPoint("TOPLEFT", COL1_X, yOffset)
-    yOffset = yOffset - 30
+    yOffset = yOffset - 26
 
     local endeavorsBtn = CreateResetButton(panel, "ENDEAVORS_OPTIONS", "ENDEAVORS_OPTIONS_TOOLTIP", function(self)
         if addon.EndeavorsPanel then
@@ -514,10 +567,10 @@ function addon.Settings:Initialize()
         end
     end)
     endeavorsBtn:SetPoint("TOPLEFT", 16, yOffset)
-    yOffset = yOffset - 30
+    yOffset = yOffset - 26
 
     CreateDivider(panel, yOffset)
-    yOffset = yOffset - 20
+    yOffset = yOffset - 14
 
     --------------------------------------------------------------------------------
     -- TROUBLESHOOTING SECTION
@@ -526,7 +579,7 @@ function addon.Settings:Initialize()
     troubleshootHeader:SetPoint("TOPLEFT", 16, yOffset)
     troubleshootHeader:SetText(L["OPTIONS_SECTION_TROUBLESHOOTING"])
     troubleshootHeader:SetTextColor(1, 0.82, 0)
-    yOffset = yOffset - 22
+    yOffset = yOffset - 20
 
     -- Reset Position button
     local resetPosBtn = CreateResetButton(panel, "OPTIONS_RESET_POSITION", "OPTIONS_RESET_POSITION_TOOLTIP", function()

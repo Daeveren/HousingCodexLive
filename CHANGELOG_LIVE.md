@@ -2,6 +2,13 @@
 
 All notable changes to Housing Codex.
 
+## [1.8.0] - 2026-03-03
+
+### Added
+- NEW - Bag & Bank decor indicators — housing decor items in your bags, character bank, and warband bank now show a Housing Codex icon and a green checkmark if you already own them
+- Only works with the default UI for now, extended support for popular bag addons coming in the future
+- Two new settings under "Bags & Bank" to toggle the decor icon and ownership checkmark independently
+
 ## [1.7.11] - 2026-03-03
 
 ### Added
