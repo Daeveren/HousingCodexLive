@@ -2,6 +2,15 @@
 
 All notable changes to Housing Codex.
 
+## [1.7.11] - 2026-03-03
+
+### Added
+- Vendor map pin transparency setting — choose how visible the vendor pins are on the world map (100/80/60/40%)
+- Vendor map pin size setting — adjust the size of vendor pins on the world map (60/80/100/120/140%)
+
+### Changed
+- World map button menu reorganized
+
 ## [1.7.10] - 2026-03-03
 
 ### Added

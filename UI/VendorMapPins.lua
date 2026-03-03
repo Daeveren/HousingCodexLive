@@ -11,6 +11,14 @@ local C = addon.CONSTANTS.VENDOR_PIN
 local TEMPLATE_NAME = "HousingCodexVendorPinTemplate"
 local WORLD_MAP_ADDON_NAME = "Blizzard_WorldMap"
 local VENDOR_PIN_TEXTURE = "Interface\\AddOns\\HousingCodex\\HC64"
+
+local function GetPinSetting(key)
+    local db = addon.db
+    if not db or not db.settings then return 1 end
+    local v = db.settings[key]
+    return (v ~= nil) and v or 1
+end
+
 local TOOLTIP_LIST_INDENT = "    "
 local TOOLTIP_LIST_BULLET = "- "
 local TOOLTIP_LIST_R, TOOLTIP_LIST_G, TOOLTIP_LIST_B = 0.9, 0.9, 0.9
@@ -311,6 +319,18 @@ function HousingCodexVendorDataProviderMixin:RefreshAllData(fromOnShow)
     end
 end
 
+function HousingCodexVendorDataProviderMixin:ApplyPinAppearance()
+    local map = self:GetMap()
+    if not map then return end
+    local alpha = GetPinSetting("vendorPinAlpha")
+    local scale = GetPinSetting("vendorPinScale")
+    for pin in map:EnumeratePinsByTemplate(TEMPLATE_NAME) do
+        pin:SetAlpha(alpha)
+        pin:SetScalingLimits(C.SCALE_FACTOR, C.SCALE_MIN * scale, C.SCALE_MAX * scale)
+        pin:ApplyCurrentScale()
+    end
+end
+
 HousingCodexVendorPinMixin = CreateFromMixins(MapCanvasPinMixin, POIButtonMixin)
 
 function HousingCodexVendorPinMixin:DisableInheritedMotionScriptsWarning()
@@ -364,7 +384,9 @@ function HousingCodexVendorPinMixin:OnAcquired(vendorData, owned, total, vendorC
     self.aggregateVendors = aggregateVendors
 
     self:ApplyPOIStyle()
-    self:SetAlpha(1)
+    self:SetAlpha(GetPinSetting("vendorPinAlpha"))
+    local scale = GetPinSetting("vendorPinScale")
+    self:SetScalingLimits(C.SCALE_FACTOR, C.SCALE_MIN * scale, C.SCALE_MAX * scale)
     self:UpdateCountText()
 end
 
@@ -378,6 +400,7 @@ function HousingCodexVendorPinMixin:OnReleased()
     self.HCIcon:SetTexture(nil)
     self:UpdateCountText()
     self:SetAlpha(1)
+    self:SetScalingLimits(C.SCALE_FACTOR, C.SCALE_MIN, C.SCALE_MAX)
     MapCanvasPinMixin.OnReleased(self)
 end
 

@@ -24,7 +24,11 @@ function HousingCodexWorldMapButtonMixin:Refresh()
     self:SetupMenu(function(dropdown, rootDescription)
         rootDescription:SetTag("MENU_WORLD_MAP_HOUSINGCODEX")
 
-        -- Checkbox: Show Zone Overlay
+        ----------------------------------------------------------------
+        -- Zone Overlay section
+        ----------------------------------------------------------------
+        rootDescription:CreateTitle(L["ZONE_OVERLAY_SECTION_HEADER"])
+
         rootDescription:CreateCheckbox(
             L["ZONE_OVERLAY_SHOW"],
             function() return db.settings.showZoneOverlay end,
@@ -36,23 +40,6 @@ function HousingCodexWorldMapButtonMixin:Refresh()
             end
         )
 
-        -- Checkbox: Show Vendor Map Pins
-        rootDescription:CreateCheckbox(
-            L["ZONE_OVERLAY_PINS"],
-            function() return db.settings.showVendorMapPins end,
-            function()
-                db.settings.showVendorMapPins = not db.settings.showVendorMapPins
-                local provider = addon.vendorMapProvider
-                if provider then
-                    local map = provider:GetMap()
-                    if map and map:IsShown() then
-                        provider:RefreshAllData()
-                    end
-                end
-            end
-        )
-
-        -- Checkbox: Include already unlocked decor vendors
         rootDescription:CreateCheckbox(
             L["ZONE_OVERLAY_INCLUDE_COLLECTED_VENDORS"],
             function() return db.settings.includeCollectedVendorDecor end,
@@ -63,7 +50,6 @@ function HousingCodexWorldMapButtonMixin:Refresh()
             end
         )
 
-        -- Submenu: Panel Position
         local posSubmenu = rootDescription:CreateButton(L["ZONE_OVERLAY_POSITION"])
         posSubmenu:CreateRadio(
             L["ZONE_OVERLAY_POS_TOPLEFT"],
@@ -82,7 +68,6 @@ function HousingCodexWorldMapButtonMixin:Refresh()
             end
         )
 
-        -- Submenu: Transparency
         local alphaSubmenu = rootDescription:CreateButton(L["ZONE_OVERLAY_TRANSPARENCY"])
         for _, pct in ipairs({ 100, 80, 60, 40 }) do
             alphaSubmenu:CreateRadio(
@@ -95,7 +80,6 @@ function HousingCodexWorldMapButtonMixin:Refresh()
             )
         end
 
-        -- Submenu: Preview Size
         local previewSubmenu = rootDescription:CreateButton(L["ZONE_OVERLAY_PREVIEW_SIZE"])
         for _, info in ipairs({ { label = "50%", scale = 0.5 }, { label = "100%", scale = 1.0 }, { label = "150%", scale = 1.5 } }) do
             previewSubmenu:CreateRadio(
@@ -104,6 +88,53 @@ function HousingCodexWorldMapButtonMixin:Refresh()
                 function()
                     db.settings.zoneOverlayPreviewScale = info.scale
                     if addon.ZoneOverlay then addon.ZoneOverlay:UpdatePreviewSize() end
+                end
+            )
+        end
+
+        ----------------------------------------------------------------
+        -- Vendor Map Pins section
+        ----------------------------------------------------------------
+        rootDescription:CreateDivider()
+        rootDescription:CreateTitle(L["VENDOR_PINS_SECTION_HEADER"])
+
+        rootDescription:CreateCheckbox(
+            L["ZONE_OVERLAY_PINS"],
+            function() return db.settings.showVendorMapPins end,
+            function()
+                db.settings.showVendorMapPins = not db.settings.showVendorMapPins
+                local provider = addon.vendorMapProvider
+                if provider then
+                    local map = provider:GetMap()
+                    if map and map:IsShown() then
+                        provider:RefreshAllData()
+                    end
+                end
+            end
+        )
+
+        local pinAlphaSubmenu = rootDescription:CreateButton(L["VENDOR_PINS_TRANSPARENCY"])
+        for _, pct in ipairs({ 100, 80, 60, 40 }) do
+            pinAlphaSubmenu:CreateRadio(
+                pct .. "%",
+                function() return math.floor((db.settings.vendorPinAlpha or 1) * 100 + 0.5) == pct end,
+                function()
+                    db.settings.vendorPinAlpha = pct / 100
+                    local provider = addon.vendorMapProvider
+                    if provider then provider:ApplyPinAppearance() end
+                end
+            )
+        end
+
+        local pinScaleSubmenu = rootDescription:CreateButton(L["VENDOR_PINS_SCALE"])
+        for _, info in ipairs({ { label = "60%", scale = 0.6 }, { label = "80%", scale = 0.8 }, { label = "100%", scale = 1.0 }, { label = "120%", scale = 1.2 }, { label = "140%", scale = 1.4 } }) do
+            pinScaleSubmenu:CreateRadio(
+                info.label,
+                function() return math.floor((db.settings.vendorPinScale or 1) * 100 + 0.5) == math.floor(info.scale * 100 + 0.5) end,
+                function()
+                    db.settings.vendorPinScale = info.scale
+                    local provider = addon.vendorMapProvider
+                    if provider then provider:ApplyPinAppearance() end
                 end
             )
         end
