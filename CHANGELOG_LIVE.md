@@ -2,6 +2,11 @@
 
 All notable changes to Housing Codex.
 
+## [1.8.1] - 2026-03-04
+
+### Changed
+- Updated Midnight decor vendor data
+
 ## [1.8.0] - 2026-03-03
 
 ### Added
