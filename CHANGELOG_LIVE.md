@@ -2,6 +2,12 @@
 
 All notable changes to Housing Codex.
 
+## [1.8.4] - 2026-03-05
+
+### Added
+- Achievement-locked vendor items (such as the crafting vendors in Silvermoon selling the "shop sign" decor) now show "locked" in vendor tooltips, map pin tooltips, and NPC tooltips
+- 4 missing Midnight profession shop sign vendors added (Eriden, Yatheon, Amwa'ana, Mowaia)
+
 ## [1.8.3] - 2026-03-04
 
 ### Added
