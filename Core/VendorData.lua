@@ -47,6 +47,7 @@ addon.VendorSourceData = {
             { npcId = 252916, npcName = "Hesta Forlath", cost = 1500, decorIds = {1446, 9483, 9486, 9487, 9488, 9489, 9490, 9628, 9629} },
             { npcId = 256828, npcName = "Dennia Silvertongue", decorIds = {1458, 1894, 2231, 4843, 9149, 9150, 9151, 9152, 11287, 14467, 15148, 15149, 15151, 15668} },
             { npcId = 258181, npcName = "Construct Ali'a", decorIds = {17439, 17440, 17441, 17442, 17443, 17444, 17446, 17447, 17449, 17450, 17452, 17453, 17454, 17455, 17456, 17457, 17458, 17459, 17460, 17462, 17464, 17465, 17467, 17469, 17472, 17474, 17518, 17519, 17520, 17521, 17522, 17523} },
+            { npcId = 250982, npcName = "Dethelin", cost = 3000, currencyName = "Resonance Crystals", decorIds = {714, 1227, 1236} },
         },
         ["The Bazaar, Silvermoon City"] = {
             { npcId = 252915, npcName = "Corlen Hordralin", cost = 5000, decorIds = {9479, 9480, 9481, 9482, 9484, 9485, 9491, 9492, 9493, 9494, 9495, 9496, 9497} },

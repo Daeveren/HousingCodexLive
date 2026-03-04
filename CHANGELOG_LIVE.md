@@ -2,6 +2,11 @@
 
 All notable changes to Housing Codex.
 
+## [1.8.3] - 2026-03-04
+
+### Added
+- Added Dethelin decor vendor in Silvermoon City (sells the Twilight Ascension decor)
+
 ## [1.8.2] - 2026-03-04
 
 ### Fixed
