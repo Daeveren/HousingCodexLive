@@ -465,6 +465,7 @@ L["ZONE_OVERLAY_SECTION_HEADER"] = "Zone Overlay"
 L["VENDOR_PINS_SECTION_HEADER"] = "Vendor Map Pins"
 L["VENDOR_PINS_TRANSPARENCY"] = "Pin Transparency"
 L["VENDOR_PINS_SCALE"] = "Pin Size"
+L["VENDOR_PINS_MINIMAL"] = "Icon Only (No Background)"
 L["OPTIONS_ZONE_OVERLAY"] = "Show Zone Overlay on World Map"
 L["OPTIONS_ZONE_OVERLAY_TOOLTIP"] = "Display a panel on the world map showing available decor items for the current zone"
 

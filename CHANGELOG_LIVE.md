@@ -2,6 +2,11 @@
 
 All notable changes to Housing Codex.
 
+## [1.8.2] - 2026-03-04
+
+### Fixed
+- Vendor NPC tooltips now appear immediately — previously they wouldn't show until the Vendors tab or world map was opened at least once
+
 ## [1.8.1] - 2026-03-04
 
 ### Changed

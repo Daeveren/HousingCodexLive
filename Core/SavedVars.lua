@@ -80,6 +80,7 @@ local defaults = {
         zoneOverlayPreviewScale = 1.0,        -- Preview size scale (0.5, 1.0, 1.5)
         vendorPinAlpha = 1.0,                -- Vendor pin transparency (0.4 - 1.0)
         vendorPinScale = 1.0,                -- Vendor pin scale multiplier (0.6 - 1.4)
+        vendorPinMinimal = false,            -- Minimal pin style (icon + shadow only, no POI background)
         autoRotatePreview = true,             -- Auto-rotate 3D preview models
         useTomTom = false,                   -- Use TomTom waypoints instead of native
         showVendorTooltips = true,           -- Show decor progress in vendor NPC tooltips

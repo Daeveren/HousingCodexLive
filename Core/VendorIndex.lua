@@ -317,3 +317,11 @@ addon:RegisterInternalEvent("RECORD_OWNERSHIP_UPDATED", function()
     wipe(addon.vendorExpansionProgressCache)
     wipe(addon.vendorZoneProgressCache)
 end)
+
+-- Eagerly build vendor index at data load so tooltip overlay and map pins
+-- have data immediately (instead of waiting for UI to trigger lazy build)
+addon:RegisterInternalEvent("DATA_LOADED", function()
+    if not addon.vendorIndexBuilt then
+        addon:BuildVendorIndex()
+    end
+end)
