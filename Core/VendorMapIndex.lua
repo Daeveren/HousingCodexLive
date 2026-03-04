@@ -176,9 +176,9 @@ function addon:GetVendorPinProgress(npcId)
             owned = owned + 1
         elseif #missingNames < limit then
             local name = addon:ResolveDecorName(decorId, record)
-            -- Items with a non-vendor sourceCategory (treasure, drop) are locked behind a prerequisite
             local fallbackInfo = addon.VendorItemFallback and addon.VendorItemFallback[decorId]
-            if fallbackInfo and fallbackInfo.sourceCategory then
+            local achId = addon.DecorToAchievementLookup and addon.DecorToAchievementLookup[decorId]
+            if (fallbackInfo and fallbackInfo.sourceCategory) or (achId and not addon:IsAchievementCompleted(achId)) then
                 name = name .. " |cff888888(" .. L["VENDOR_PIN_ITEM_LOCKED"] .. ")|r"
             end
             missingNames[#missingNames + 1] = name
@@ -199,5 +199,9 @@ function addon:InvalidateVendorPinCache()
 end
 
 addon:RegisterInternalEvent("RECORD_OWNERSHIP_UPDATED", function()
+    addon:InvalidateVendorPinCache()
+end)
+
+addon:RegisterInternalEvent("ACHIEVEMENT_COMPLETION_CHANGED", function()
     addon:InvalidateVendorPinCache()
 end)
