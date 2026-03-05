@@ -107,8 +107,10 @@ end
 local function BuildPinEntriesForMap(mapID, mapType)
     local entries = {}
     local isContinent = mapType == Enum.UIMapType.Continent
+    local isZone = mapType == Enum.UIMapType.Zone
     local clustersByZone = isContinent and {} or nil
-    local seenNpcIds = isContinent and {} or nil
+    local clustersBySubzone = isZone and {} or nil
+    local seenNpcIds = (isContinent or isZone) and {} or nil
     local rectCache = {}  -- cache map rect per source map (static geometry, safe within one refresh)
 
     local vendorsByMapID = addon:GetAllVendorMapVendors()
@@ -130,15 +132,20 @@ local function BuildPinEntriesForMap(mapID, mapType)
         local resolvedRect = type(rect) == "table" and rect or nil
 
         for _, vendorData in ipairs(vendors) do
-            if not (isContinent and seenNpcIds[vendorData.npcId]) then
+            if not seenNpcIds or not seenNpcIds[vendorData.npcId] then
                 local x, y = GetProjectedCoordinates(vendorData, vendorMapID, mapID, resolvedRect)
                 if x and y then
                     local owned, total = addon:GetVendorPinProgress(vendorData.npcId)
                     if IsIncompleteProgress(owned, total) then
-                        if isContinent then
+                        if seenNpcIds then
                             seenNpcIds[vendorData.npcId] = true
+                        end
+                        if isContinent then
                             local zoneMapID = addon:GetZoneRootMapID(vendorMapID) or vendorMapID
                             local cluster = GetOrCreateZoneCluster(clustersByZone, zoneMapID)
+                            AddClusterVendor(cluster, vendorData, owned, total, x, y)
+                        elseif isZone and vendorData.uiMapId and vendorData.uiMapId ~= mapID then
+                            local cluster = GetOrCreateZoneCluster(clustersBySubzone, vendorData.uiMapId)
                             AddClusterVendor(cluster, vendorData, owned, total, x, y)
                         else
                             entries[#entries + 1] = {
@@ -157,7 +164,7 @@ local function BuildPinEntriesForMap(mapID, mapType)
         end
     end
 
-    if mapType == Enum.UIMapType.Continent then
+    if isContinent then
         for _, cluster in pairs(clustersByZone) do
             table.sort(cluster.vendors, function(a, b)
                 return (a.npcName or "") < (b.npcName or "")
@@ -174,6 +181,37 @@ local function BuildPinEntriesForMap(mapID, mapType)
                 isAggregate = true,
                 aggregateVendors = cluster.vendors,
             }
+        end
+    end
+
+    if isZone then
+        for _, cluster in pairs(clustersBySubzone) do
+            if cluster.count >= 2 then
+                table.sort(cluster.vendors, function(a, b)
+                    return (a.npcName or "") < (b.npcName or "")
+                end)
+                local representative = cluster.vendors[1]
+                entries[#entries + 1] = {
+                    vendorData = representative,
+                    owned = cluster.owned,
+                    total = cluster.total,
+                    x = cluster.xSum / cluster.count,
+                    y = cluster.ySum / cluster.count,
+                    vendorCount = cluster.count,
+                    isAggregate = true,
+                    aggregateVendors = cluster.vendors,
+                }
+            else
+                entries[#entries + 1] = {
+                    vendorData = cluster.vendors[1],
+                    owned = cluster.owned,
+                    total = cluster.total,
+                    x = cluster.xSum / cluster.count,
+                    y = cluster.ySum / cluster.count,
+                    vendorCount = 1,
+                    isAggregate = false,
+                }
+            end
         end
     end
 

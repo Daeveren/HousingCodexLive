@@ -2,6 +2,11 @@
 
 All notable changes to Housing Codex.
 
+**1.8.6** (2026-05-03)
+
+**Added**
+- On Eversong Woods map, the vendors in Silvermoon City are shown as one vendor icon (stacked map pin) instead of individual pins
+
 **1.8.5** (2026-04-03)
 
 **Changed**
