@@ -102,30 +102,45 @@ function Grid:CreateToolbar(parent)
 
     local L = addon.L
 
-    -- === LEFT SIDE: Size slider + Collection buttons + Filter dropdown ===
+    -- === RIGHT SIDE: Sort dropdown + Sort label (anchored from right edge) ===
 
-    -- Size label (shortened from "Tile Size:")
-    local label = addon:CreateFontString(toolbar, "OVERLAY", "GameFontNormalSmall")
-    label:SetPoint("LEFT", toolbar, "LEFT", GRID_OUTER_PAD, 0)
-    label:SetText(L["SIZE_LABEL"])
-    label:SetTextColor(0.8, 0.8, 0.8, 1)
+    -- Sort dropdown (rightmost element in toolbar)
+    local sortDropdown = self:CreateSortDropdown(toolbar)
+    sortDropdown:SetPoint("RIGHT", toolbar, "RIGHT", -GRID_OUTER_PAD, 0)
+    self.sortDropdown = sortDropdown
 
-    -- Size value display
+    -- "Sort by" label (left of sort dropdown)
+    local sortLabel = addon:CreateFontString(toolbar, "OVERLAY", "GameFontNormalSmall")
+    sortLabel:SetPoint("RIGHT", sortDropdown, "LEFT", -6, 0)
+    sortLabel:SetText(L["SORT_BY_LABEL"])
+    sortLabel:SetTextColor(0.8, 0.8, 0.8, 1)
+    self.sortLabel = sortLabel
+
+    -- === MIDDLE: Filter dropdown + Size slider (anchored from sort label leftward) ===
+
+    -- Filter dropdown (includes collection, trackable, special filters, tags)
+    local filterDropdown = addon.FilterBar:CreateDropdown(toolbar)
+    filterDropdown:SetPoint("RIGHT", sortLabel, "LEFT", -8, 0)
+    self.filterDropdown = filterDropdown
+
+    -- Size value display (created early so slider closure can reference it)
     local valueText = addon:CreateFontString(toolbar, "OVERLAY", "GameFontNormalSmall")
-    valueText:SetPoint("LEFT", label, "RIGHT", 6, 0)
     valueText:SetTextColor(1, 0.82, 0, 1)
     valueText:SetText(tostring(self.tileSize))
     self.tileSizeValueText = valueText
 
-    -- Size slider (halved width: 150 -> 75)
+    -- Size slider
     local slider = CreateFrame("Slider", nil, toolbar, "MinimalSliderTemplate")
-    slider:SetPoint("LEFT", valueText, "RIGHT", 12, 0)
+    slider:SetPoint("RIGHT", filterDropdown, "LEFT", -8, 0)
     slider:SetSize(75, 16)
     slider:SetMinMaxValues(MIN_TILE_SIZE, MAX_TILE_SIZE)
     slider:SetValueStep(8)
     slider:SetObeyStepOnDrag(true)
     slider:SetValue(self.tileSize)
     self.tileSizeSlider = slider
+
+    -- Anchor value text left of slider
+    valueText:SetPoint("RIGHT", slider, "LEFT", -6, 0)
 
     -- Slider change handler with debounce
     slider:SetScript("OnValueChanged", function(sliderFrame, value)
@@ -141,29 +156,16 @@ function Grid:CreateToolbar(parent)
         end)
     end)
 
-    -- Filter dropdown (includes collection, trackable, special filters, tags)
-    local filterDropdown = addon.FilterBar:CreateDropdown(toolbar)
-    filterDropdown:SetPoint("LEFT", slider, "RIGHT", 16, 0)
-    self.filterDropdown = filterDropdown
+    -- Size label (left of value)
+    local label = addon:CreateFontString(toolbar, "OVERLAY", "GameFontNormalSmall")
+    label:SetPoint("RIGHT", valueText, "LEFT", -6, 0)
+    label:SetText(L["SIZE_LABEL"])
+    label:SetTextColor(0.8, 0.8, 0.8, 1)
 
-    -- === RIGHT SIDE: Sort dropdown + Sort label ===
-
-    -- Sort dropdown (rightmost element in toolbar)
-    local sortDropdown = self:CreateSortDropdown(toolbar)
-    sortDropdown:SetPoint("RIGHT", toolbar, "RIGHT", -GRID_OUTER_PAD, 0)
-    self.sortDropdown = sortDropdown
-
-    -- "Sort by" label (left of sort dropdown)
-    local sortLabel = addon:CreateFontString(toolbar, "OVERLAY", "GameFontNormalSmall")
-    sortLabel:SetPoint("RIGHT", sortDropdown, "LEFT", -6, 0)
-    sortLabel:SetText(L["SORT_BY_LABEL"])
-    sortLabel:SetTextColor(0.8, 0.8, 0.8, 1)
-    self.sortLabel = sortLabel
-
-    -- === CENTER: Search box (flexible width via two-point anchoring) ===
+    -- === LEFT SIDE: Search box (flexible width, fills remaining space) ===
     local searchBox = addon.SearchBox:Create(toolbar)
-    searchBox:SetPoint("LEFT", filterDropdown, "RIGHT", 16, 0)
-    searchBox:SetPoint("RIGHT", sortLabel, "LEFT", -16, 0)
+    searchBox:SetPoint("LEFT", toolbar, "LEFT", GRID_OUTER_PAD, 0)
+    searchBox:SetPoint("RIGHT", label, "LEFT", -8, 0)
     self.searchBox = searchBox
 
     -- Store element references for responsive hiding
@@ -187,6 +189,7 @@ end
 
 -- Update toolbar element visibility based on available width
 -- Hide order: Size slider -> Filter dropdown -> Search box -> Sort dropdown (always visible)
+-- Search box is leftmost and expands as middle elements hide
 -- Breakpoints (content area width):
 --   >= 450px: All visible
 --   350-449px: Hide size slider
@@ -222,30 +225,17 @@ function Grid:UpdateToolbarLayout(toolbarWidth)
     elems.filterDropdown:SetShown(showFilter)
     elems.searchBox:SetShown(showSearch)
 
-    -- Determine left anchor for filter dropdown (slider if visible, otherwise toolbar edge)
-    local filterLeftAnchor = showSlider and elems.sizeSlider or self.toolbar
-    local filterLeftPoint = showSlider and "RIGHT" or "LEFT"
-    local filterLeftOffset = showSlider and 16 or GRID_OUTER_PAD
-
-    elems.filterDropdown:ClearAllPoints()
-    if showFilter then
-        elems.filterDropdown:SetPoint("LEFT", filterLeftAnchor, filterLeftPoint, filterLeftOffset, 0)
-    end
-
-    -- Determine left anchor for search box (rightmost visible element on the left)
-    local searchLeftAnchor, searchLeftPoint, searchLeftOffset
-    if showFilter then
-        searchLeftAnchor, searchLeftPoint, searchLeftOffset = elems.filterDropdown, "RIGHT", 16
-    elseif showSlider then
-        searchLeftAnchor, searchLeftPoint, searchLeftOffset = elems.sizeSlider, "RIGHT", 16
-    else
-        searchLeftAnchor, searchLeftPoint, searchLeftOffset = self.toolbar, "LEFT", GRID_OUTER_PAD
-    end
-
+    -- Search box RIGHT anchor adjusts to the first visible middle element (or sort label)
     elems.searchBox:ClearAllPoints()
     if showSearch then
-        elems.searchBox:SetPoint("LEFT", searchLeftAnchor, searchLeftPoint, searchLeftOffset, 0)
-        elems.searchBox:SetPoint("RIGHT", elems.sortLabel, "LEFT", -16, 0)
+        elems.searchBox:SetPoint("LEFT", self.toolbar, "LEFT", GRID_OUTER_PAD, 0)
+        if showSlider then
+            elems.searchBox:SetPoint("RIGHT", elems.sizeLabel, "LEFT", -8, 0)
+        elseif showFilter then
+            elems.searchBox:SetPoint("RIGHT", elems.filterDropdown, "LEFT", -8, 0)
+        else
+            elems.searchBox:SetPoint("RIGHT", elems.sortLabel, "LEFT", -8, 0)
+        end
     end
 
     addon:Debug("Toolbar layout: " .. newLayout .. " (width: " .. math.floor(toolbarWidth) .. ")")

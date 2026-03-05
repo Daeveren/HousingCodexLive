@@ -16,7 +16,7 @@ jobs:
 
       - name: Extract latest changelog section
         run: |
-          awk '/^## \[/{count++; if(count>3) exit} count>0' CHANGELOG_LIVE.md > .release_changelog.md
+          awk '/^\*\*[0-9]/{count++; if(count>3) exit} count>0' CHANGELOG_LIVE.md > .release_changelog.md
           echo "--- Release changelog ---"
           cat .release_changelog.md
 

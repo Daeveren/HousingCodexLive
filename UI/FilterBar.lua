@@ -42,8 +42,10 @@ function FilterBar:CreateDropdown(parent)
 
     -- Create dropdown using WowStyle1FilterDropdownTemplate
     local dropdown = CreateFrame("DropdownButton", nil, parent, "WowStyle1FilterDropdownTemplate")
-    dropdown:SetSize(93, 22)
+    dropdown.resizeToTextPadding = 36
     dropdown:SetText(L["FILTERS"])
+    dropdown.Text:ClearAllPoints()
+    dropdown.Text:SetPoint("TOP", -6, 0)
     self.dropdownButton = dropdown
 
     -- Setup the menu
