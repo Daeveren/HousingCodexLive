@@ -12,11 +12,22 @@ local TEMPLATE_NAME = "HousingCodexVendorPinTemplate"
 local WORLD_MAP_ADDON_NAME = "Blizzard_WorldMap"
 local VENDOR_PIN_TEXTURE = "Interface\\AddOns\\HousingCodex\\HC64"
 
+local CUSTOM_LEVEL_LOW = "PIN_FRAME_LEVEL_HC_VENDOR_LOW"
+local CUSTOM_LEVEL_HIGH = "PIN_FRAME_LEVEL_HC_VENDOR_HIGH"
+local customLevelsRegistered = false
+
 local function GetPinSetting(key)
     local db = addon.db
     if not db or not db.settings then return 1 end
     local v = db.settings[key]
     return (v ~= nil) and v or 1
+end
+
+local function GetPinFrameLevelType()
+    if not customLevelsRegistered then
+        return "PIN_FRAME_LEVEL_AREA_POI"
+    end
+    return (GetPinSetting("vendorPinLayer") == "above") and CUSTOM_LEVEL_HIGH or CUSTOM_LEVEL_LOW
 end
 
 local TOOLTIP_LIST_INDENT = "    "
@@ -26,6 +37,12 @@ local VENDOR_AREA_POI_STYLE_INFO = {
     areaPoiID = 0,
     isCurrentEvent = false,
     atlasName = "UI-EventPoi-Horn-big",
+}
+
+-- Vendors inside sub-areas with no separate uiMapId: override display coords to entrance
+local PIN_COORD_OVERRIDES = {
+    [255114] = { x = 58, y = 51 },  -- Maku (The Den, Harandar)
+    [258540] = { x = 53, y = 51 },  -- Hawli (The Den, Harandar)
 }
 
 local function IsSupportedVendorMapType(mapType)
@@ -134,6 +151,10 @@ local function BuildPinEntriesForMap(mapID, mapType)
         for _, vendorData in ipairs(vendors) do
             if not seenNpcIds or not seenNpcIds[vendorData.npcId] then
                 local x, y = GetProjectedCoordinates(vendorData, vendorMapID, mapID, resolvedRect)
+                local pinOverride = PIN_COORD_OVERRIDES[vendorData.npcId]
+                if pinOverride and vendorMapID == mapID then
+                    x, y = pinOverride.x / 100, pinOverride.y / 100
+                end
                 if x and y then
                     local owned, total = addon:GetVendorPinProgress(vendorData.npcId)
                     if IsIncompleteProgress(owned, total) then
@@ -362,11 +383,14 @@ function HousingCodexVendorDataProviderMixin:ApplyPinAppearance()
     if not map then return end
     local alpha = GetPinSetting("vendorPinAlpha")
     local scale = GetPinSetting("vendorPinScale")
+    local levelType = GetPinFrameLevelType()
     for pin in map:EnumeratePinsByTemplate(TEMPLATE_NAME) do
         pin:SetAlpha(alpha)
         pin:SetScalingLimits(C.SCALE_FACTOR, C.SCALE_MIN * scale, C.SCALE_MAX * scale)
         pin:ApplyCurrentScale()
         pin:ApplyPOIStyle()
+        pin:UseFrameLevelType(levelType)
+        pin:ApplyFrameLevel()
     end
 end
 
@@ -383,7 +407,7 @@ end
 function HousingCodexVendorPinMixin:OnLoad()
     self:SetSize(C.SIZE, C.SIZE)
     self:SetScalingLimits(C.SCALE_FACTOR, C.SCALE_MIN, C.SCALE_MAX)
-    self:UseFrameLevelType("PIN_FRAME_LEVEL_AREA_POI")
+    self:UseFrameLevelType(GetPinFrameLevelType())
 
     self:SetStyle(POIButtonUtil.Style.AreaPOI)
     self:SetAreaPOIInfo(VENDOR_AREA_POI_STYLE_INFO)
@@ -438,6 +462,8 @@ function HousingCodexVendorPinMixin:OnAcquired(vendorData, owned, total, vendorC
     local scale = GetPinSetting("vendorPinScale")
     self:SetScalingLimits(C.SCALE_FACTOR, C.SCALE_MIN * scale, C.SCALE_MAX * scale)
     self:UpdateCountText()
+    self:UseFrameLevelType(GetPinFrameLevelType())
+    self:ApplyFrameLevel()
 end
 
 function HousingCodexVendorPinMixin:OnReleased()
@@ -593,6 +619,13 @@ local function RegisterProvider()
     WorldMapFrame:AddDataProvider(provider)
     addon.vendorMapProvider = provider
     providerRegistered = true
+
+    local manager = WorldMapFrame:GetPinFrameLevelsManager()
+    if manager then
+        local lowOk = manager:InsertFrameLevelBelow(CUSTOM_LEVEL_LOW, "PIN_FRAME_LEVEL_DUNGEON_ENTRANCE")
+        local highOk = manager:InsertFrameLevelAbove(CUSTOM_LEVEL_HIGH, "PIN_FRAME_LEVEL_QUEST_PING")
+        customLevelsRegistered = (lowOk ~= false) and (highOk ~= false)
+    end
 end
 
 local function OnWorldMapAddonLoaded(loadedAddon)

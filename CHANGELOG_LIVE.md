@@ -2,6 +2,15 @@
 
 All notable changes to Housing Codex.
 
+**1.8.8** (2026-06-07)
+
+**Added**
+- New "Adjust Map Pin Layer" option in the world map button menu — choose whether vendor pins appear below or on top of other map icons
+
+**Fixed**
+- Vendor map pins no longer overlap with event icons (e.g., Saltheril's Soiree)
+- Corrected vendor pin positions for The Den vendors in Harandar
+
 **1.8.7** (2026-06-03)
 
 **Changed**

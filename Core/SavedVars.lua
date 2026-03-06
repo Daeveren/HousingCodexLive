@@ -81,6 +81,7 @@ local defaults = {
         vendorPinAlpha = 1.0,                -- Vendor pin transparency (0.4 - 1.0)
         vendorPinScale = 1.0,                -- Vendor pin scale multiplier (0.6 - 1.4)
         vendorPinMinimal = false,            -- Minimal pin style (icon + shadow only, no POI background)
+        vendorPinLayer = "below",            -- Pin layer: "below" (under dungeon entrances) or "above" (on top of events)
         autoRotatePreview = true,             -- Auto-rotate 3D preview models
         useTomTom = false,                   -- Use TomTom waypoints instead of native
         showVendorTooltips = true,           -- Show decor progress in vendor NPC tooltips

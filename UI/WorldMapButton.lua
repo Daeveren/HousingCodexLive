@@ -149,6 +149,22 @@ function HousingCodexWorldMapButtonMixin:Refresh()
                 end
             )
         end
+
+        local pinLayerSubmenu = rootDescription:CreateButton(L["VENDOR_PINS_LAYER"])
+        for _, info in ipairs({
+            { label = L["VENDOR_PINS_LAYER_BELOW"], value = "below" },
+            { label = L["VENDOR_PINS_LAYER_ABOVE"], value = "above" },
+        }) do
+            pinLayerSubmenu:CreateRadio(
+                info.label,
+                function() return (db.settings.vendorPinLayer or "below") == info.value end,
+                function()
+                    db.settings.vendorPinLayer = info.value
+                    local provider = addon.vendorMapProvider
+                    if provider then provider:ApplyPinAppearance() end
+                end
+            )
+        end
     end)
 end
 
