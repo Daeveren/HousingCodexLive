@@ -39,7 +39,7 @@ local function CreateBrokerPopup()
     tinsert(UISpecialFrames, "HousingCodexBrokerPopup")
 
     -- Title
-    local title = popup:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+    local title = addon:CreateFontString(popup, "OVERLAY", "GameFontNormal")
     title:SetPoint("TOP", 0, -10)
     title:SetText(L["LDB_POPUP_TITLE"])
     title:SetTextColor(1, 0.82, 0, 1)
@@ -48,7 +48,8 @@ local function CreateBrokerPopup()
     local function CreatePopupCheckbox(parent, yOffset, label, settingsKey)
         local check = CreateFrame("CheckButton", nil, parent, "UICheckButtonTemplate")
         check:SetPoint("TOPLEFT", 12, yOffset)
-        check.Text:SetFontObject(GameFontHighlightSmall)
+        check.Text:SetFontObject(addon:GetFontObject("GameFontHighlightSmall"))
+        addon:RegisterFontString(check.Text, "GameFontHighlightSmall")
         check.Text:SetText(label)
         check.settingsKey = settingsKey
         check:SetChecked(addon.db.settings[settingsKey])
@@ -169,6 +170,10 @@ end
 
 function LDB:SetMinimapShown(show)
     if not libDBIcon then return end
+
+    if addon.db and addon.db.minimap then
+        addon.db.minimap.hide = not show
+    end
 
     if show then
         libDBIcon:Show(ADDON_NAME)

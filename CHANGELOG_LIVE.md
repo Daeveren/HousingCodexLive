@@ -2,6 +2,15 @@
 
 All notable changes to Housing Codex.
 
+**1.8.7** (2026-06-03)
+
+**Changed**
+- Track button in the Vendors tab renamed to "Waypoint" for clarity
+
+**Fixed**
+- Fixes for #1 and #2 on issue tracker
+- Improvements on how buttons width auto-adjusts
+
 **1.8.6** (2026-05-03)
 
 **Added**

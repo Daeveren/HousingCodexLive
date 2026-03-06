@@ -37,7 +37,8 @@ StaticPopupDialogs["HOUSINGCODEX_KEYBIND_CONFLICT"] = {
 --------------------------------------------------------------------------------
 local function CreateCheckbox(parent, label, tooltip, getValue, setValue)
     local check = CreateFrame("CheckButton", nil, parent, "UICheckButtonTemplate")
-    check.Text:SetFontObject(GameFontNormal)
+    check.Text:SetFontObject(addon:GetFontObject("GameFontNormal"))
+    addon:RegisterFontString(check.Text, "GameFontNormal")
     check.Text:SetTextColor(1, 0.82, 0)
     check.Text:SetText(label)
     check:SetChecked(getValue())
@@ -114,7 +115,7 @@ function addon.Settings:Initialize()
     titleIcon:SetTexture("Interface\\AddOns\\HousingCodex\\HC64")
 
     -- Title text
-    local title = panel:CreateFontString(nil, "ARTWORK", "GameFontNormalLarge")
+    local title = addon:CreateFontString(panel, "ARTWORK", "GameFontNormalLarge")
     title:SetPoint("LEFT", titleIcon, "RIGHT", 6, 0)
     title:SetText(L["ADDON_NAME"])
     title:SetTextColor(1, 0.82, 0)
@@ -127,7 +128,7 @@ function addon.Settings:Initialize()
     --------------------------------------------------------------------------------
     -- DISPLAY SECTION
     --------------------------------------------------------------------------------
-    local displayHeader = panel:CreateFontString(nil, "ARTWORK", "GameFontNormal")
+    local displayHeader = addon:CreateFontString(panel, "ARTWORK", "GameFontNormal")
     displayHeader:SetPoint("TOPLEFT", 16, yOffset)
     displayHeader:SetText(L["OPTIONS_SECTION_DISPLAY"])
     displayHeader:SetTextColor(1, 0.82, 0)
@@ -193,14 +194,14 @@ function addon.Settings:Initialize()
     --------------------------------------------------------------------------------
     -- KEYBIND SECTION
     --------------------------------------------------------------------------------
-    local keybindHeader = panel:CreateFontString(nil, "ARTWORK", "GameFontNormal")
+    local keybindHeader = addon:CreateFontString(panel, "ARTWORK", "GameFontNormal")
     keybindHeader:SetPoint("TOPLEFT", 16, yOffset)
     keybindHeader:SetText(L["OPTIONS_SECTION_KEYBIND"])
     keybindHeader:SetTextColor(1, 0.82, 0)
     yOffset = yOffset - 20
 
     -- Keybind label
-    local keybindLabel = panel:CreateFontString(nil, "ARTWORK", "GameFontNormal")
+    local keybindLabel = addon:CreateFontString(panel, "ARTWORK", "GameFontNormal")
     keybindLabel:SetPoint("TOPLEFT", 16, yOffset)
     keybindLabel:SetText(L["OPTIONS_TOGGLE_KEYBIND"])
     keybindLabel:SetTextColor(0.9, 0.9, 0.9)
@@ -213,7 +214,7 @@ function addon.Settings:Initialize()
     self.keybindBtn = keybindBtn
 
     -- Hint text (inline, right of keybind button)
-    local hintText = panel:CreateFontString(nil, "ARTWORK", "GameFontNormalSmall")
+    local hintText = addon:CreateFontString(panel, "ARTWORK", "GameFontNormalSmall")
     hintText:SetPoint("LEFT", keybindBtn, "RIGHT", 12, 0)
     hintText:SetText(L["OPTIONS_KEYBIND_HINT"])
     hintText:SetTextColor(0.6, 0.6, 0.6)
@@ -327,7 +328,7 @@ function addon.Settings:Initialize()
     --------------------------------------------------------------------------------
     -- MAP & NAVIGATION SECTION
     --------------------------------------------------------------------------------
-    local mapNavHeader = panel:CreateFontString(nil, "ARTWORK", "GameFontNormal")
+    local mapNavHeader = addon:CreateFontString(panel, "ARTWORK", "GameFontNormal")
     mapNavHeader:SetPoint("TOPLEFT", 16, yOffset)
     mapNavHeader:SetText(L["OPTIONS_SECTION_MAP_NAV"])
     mapNavHeader:SetTextColor(1, 0.82, 0)
@@ -412,7 +413,7 @@ function addon.Settings:Initialize()
     --------------------------------------------------------------------------------
     -- MERCHANT SECTION
     --------------------------------------------------------------------------------
-    local merchantHeader = panel:CreateFontString(nil, "ARTWORK", "GameFontNormal")
+    local merchantHeader = addon:CreateFontString(panel, "ARTWORK", "GameFontNormal")
     merchantHeader:SetPoint("TOPLEFT", 16, yOffset)
     merchantHeader:SetText(L["OPTIONS_SECTION_MERCHANT"])
     merchantHeader:SetTextColor(1, 0.82, 0)
@@ -481,7 +482,7 @@ function addon.Settings:Initialize()
     --------------------------------------------------------------------------------
     -- BAGS & BANK SECTION
     --------------------------------------------------------------------------------
-    local containersHeader = panel:CreateFontString(nil, "ARTWORK", "GameFontNormal")
+    local containersHeader = addon:CreateFontString(panel, "ARTWORK", "GameFontNormal")
     containersHeader:SetPoint("TOPLEFT", 16, yOffset)
     containersHeader:SetText(L["OPTIONS_SECTION_CONTAINERS"])
     containersHeader:SetTextColor(1, 0.82, 0)
@@ -534,7 +535,7 @@ function addon.Settings:Initialize()
     --------------------------------------------------------------------------------
     -- ENDEAVORS SECTION
     --------------------------------------------------------------------------------
-    local endeavorsHeader = panel:CreateFontString(nil, "ARTWORK", "GameFontNormal")
+    local endeavorsHeader = addon:CreateFontString(panel, "ARTWORK", "GameFontNormal")
     endeavorsHeader:SetPoint("TOPLEFT", 16, yOffset)
     endeavorsHeader:SetText(L["OPTIONS_SECTION_ENDEAVORS"])
     endeavorsHeader:SetTextColor(1, 0.82, 0)
@@ -575,7 +576,7 @@ function addon.Settings:Initialize()
     --------------------------------------------------------------------------------
     -- TROUBLESHOOTING SECTION
     --------------------------------------------------------------------------------
-    local troubleshootHeader = panel:CreateFontString(nil, "ARTWORK", "GameFontNormal")
+    local troubleshootHeader = addon:CreateFontString(panel, "ARTWORK", "GameFontNormal")
     troubleshootHeader:SetPoint("TOPLEFT", 16, yOffset)
     troubleshootHeader:SetText(L["OPTIONS_SECTION_TROUBLESHOOTING"])
     troubleshootHeader:SetTextColor(1, 0.82, 0)

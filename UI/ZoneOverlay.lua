@@ -234,6 +234,7 @@ local function CreateOverlayFrame()
     titleText:SetJustifyH("LEFT")
     titleText:SetWordWrap(false)
     titleText:SetFont(addon:GetFontPath(), TITLE_FONT_SIZE, "")
+    addon:RegisterFontStringWithSize(titleText, "GameFontNormal", TITLE_FONT_SIZE, "")
     titleText:SetTextColor(1, 0.82, 0, 1)
     frame.titleText = titleText
 
@@ -302,6 +303,7 @@ local function CreateOverlayFrame()
             headerText:SetPoint("RIGHT", -PADDING, 0)
             headerText:SetJustifyH("LEFT")
             headerText:SetFont(addon:GetFontPath(), ITEM_FONT_SIZE, "")
+            addon:RegisterFontStringWithSize(headerText, "GameFontNormal", ITEM_FONT_SIZE, "")
             headerText:SetTextColor(0.7, 0.7, 0.7, 1)
             row.headerText = headerText
 
@@ -318,6 +320,7 @@ local function CreateOverlayFrame()
             name:SetJustifyH("LEFT")
             name:SetWordWrap(false)
             name:SetFont(addon:GetFontPath(), ITEM_FONT_SIZE, "")
+            addon:RegisterFontStringWithSize(name, "GameFontNormal", ITEM_FONT_SIZE, "")
             row.name = name
 
             local highlight = row:CreateTexture(nil, "HIGHLIGHT")

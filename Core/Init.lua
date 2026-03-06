@@ -534,9 +534,11 @@ function addon:CreateActionButton(parent, label, onClick, onTooltip)
         UpdateVisuals()
     end
 
-    -- Update button text
+    -- Update button text and resize to fit
     function btn:SetText(newLabel)
         self.text:SetText(newLabel)
+        local newWidth = math.max(AB.MIN_WIDTH, self.text:GetStringWidth() + AB.PADDING_H)
+        self:SetWidth(newWidth)
     end
 
     btn:SetScript("OnClick", function(_, mouseButton)

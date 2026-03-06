@@ -17,6 +17,7 @@ local FONT_TEMPLATES = {
     "GameFontNormalHuge",
     "GameFontNormalHuge2",
     "GameFontNormalHuge3",
+    "GameFont_Gigantic",
     "NumberFontNormal",
 }
 
@@ -73,6 +74,25 @@ function addon:CreateFontString(parent, layer, templateName)
     }
 
     return fontString
+end
+
+-- Register an existing FontString in the font registry (for toggle support)
+function addon:RegisterFontString(fontString, templateName)
+    templateName = templateName or "GameFontNormal"
+    registryCounter = registryCounter + 1
+    fontString.hcFontRegistryID = registryCounter
+    self.fontStringRegistry[registryCounter] = {
+        fontString = fontString,
+        templateName = templateName,
+    }
+end
+
+-- Register an existing FontString with custom size/flags (for toggle support)
+function addon:RegisterFontStringWithSize(fontString, templateName, size, flags)
+    self:RegisterFontString(fontString, templateName)
+    local entry = self.fontStringRegistry[registryCounter]
+    entry.customSize = size
+    entry.customFlags = flags or ""
 end
 
 -- Sets font with custom size, storing info for re-application when font settings change

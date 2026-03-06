@@ -392,6 +392,7 @@ function HousingCodexVendorPinMixin:OnLoad()
     local fontPath = addon:GetFontPath()
     local _, size = self.CountMaskText:GetFont()
     self.CountMaskText:SetFont(fontPath, (size or 10) + 1, "OUTLINE")
+    addon:RegisterFontStringWithSize(self.CountMaskText, "GameFontNormalSmall", (size or 10) + 1, "OUTLINE")
     self.CountMaskText:SetTextColor(1, 1, 1, 1)
 end
 

@@ -10,6 +10,7 @@ local COLORS = addon.CONSTANTS.COLORS
 -- Details panel constants (1C.6)
 local DETAILS_MIN_HEIGHT = 60   -- Minimum height when empty/placeholder
 local PADDING = 8
+local ROW_GAP = 10              -- Vertical spacing between detail rows
 local SPACING_SMALL = 2
 local METADATA_GAP = 4          -- Extra spacing before metadata row
 local DIVIDER_OFFSET = 1        -- Inset from left edge to clear MainFrame divider
@@ -383,7 +384,7 @@ function Preview:CreateIdentityBlock()
 
     -- Source text container (hyperlink-enabled for currency/quest/item tooltips)
     local sourceContainer = CreateFrame("Frame", nil, details)
-    sourceContainer:SetPoint("TOPLEFT", owned, "BOTTOMLEFT", 0, -PADDING)
+    sourceContainer:SetPoint("TOPLEFT", owned, "BOTTOMLEFT", 0, -ROW_GAP)
     sourceContainer:SetPoint("RIGHT", details, "RIGHT", -PADDING, 0)
     sourceContainer:SetHeight(60)  -- Resized based on content
     sourceContainer:SetHyperlinksEnabled(true)
@@ -397,7 +398,7 @@ function Preview:CreateIdentityBlock()
     end)
     self.sourceContainer = sourceContainer
 
-    local source = sourceContainer:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
+    local source = addon:CreateFontString(sourceContainer, "OVERLAY", "GameFontHighlight")
     source:SetAllPoints()
     source:SetJustifyH("LEFT")
     source:SetJustifyV("TOP")
@@ -408,7 +409,7 @@ function Preview:CreateIdentityBlock()
     -- ========== Metadata Section (1C.7) ==========
     -- Row 1: Size + Place (always on first row)
     local sizeLabel = addon:CreateFontString(details, "OVERLAY", "GameFontHighlight")
-    sizeLabel:SetPoint("TOPLEFT", sourceContainer, "BOTTOMLEFT", 0, -PADDING - METADATA_GAP)
+    sizeLabel:SetPoint("TOPLEFT", sourceContainer, "BOTTOMLEFT", 0, -ROW_GAP - METADATA_GAP)
     sizeLabel:SetText(addon.L["DETAILS_SIZE"])
     sizeLabel:SetTextColor(0.5, 0.5, 0.5)
     self.detailsSizeLabel = sizeLabel
@@ -454,7 +455,7 @@ function Preview:CreateActionsRow(details, anchorElement)
     -- Actions row container (below metadata)
     local actionsRow = CreateFrame("Frame", nil, details)
     actionsRow:SetHeight(AB.HEIGHT + 4)  -- Button height + padding
-    actionsRow:SetPoint("TOPLEFT", anchorElement, "BOTTOMLEFT", 0, -PADDING)
+    actionsRow:SetPoint("TOPLEFT", anchorElement, "BOTTOMLEFT", 0, -ROW_GAP)
     actionsRow:SetPoint("RIGHT", details, "RIGHT", -PADDING, 0)
     self.actionsRow = actionsRow
 
@@ -623,6 +624,24 @@ function Preview:UpdateDetails(record)
     self:RecalculateDetailsHeight()
 end
 
+local function GetVendorsTrackingContext()
+    if not addon.Tabs or not addon.Tabs:IsSelected("VENDORS") then
+        return nil, nil
+    end
+
+    local vendorsTab = addon.VendorsTab
+    if not vendorsTab or not vendorsTab.IsShown or not vendorsTab:IsShown() then
+        return nil, nil
+    end
+
+    local npcId = vendorsTab.selectedVendorNpcId
+    if not npcId then
+        return nil, nil
+    end
+
+    return vendorsTab, npcId
+end
+
 function Preview:ClearDetails()
     if not self.detailsName then return end  -- Not yet created
 
@@ -640,7 +659,8 @@ function Preview:ClearDetails()
     -- Reset action buttons to disabled state (wishlist uses UpdateWishlistButton which handles nil recordID)
     self:UpdateWishlistButton()
     if self.trackButton then
-        self.trackButton:SetText(addon.L["ACTION_TRACK"])
+        local vendorsTab = GetVendorsTrackingContext()
+        self.trackButton:SetText(vendorsTab and addon.L["VENDORS_ACTION_TRACK"] or addon.L["ACTION_TRACK"])
         self.trackButton:SetEnabled(false)
         self.trackButton:SetActive(false)
     end
@@ -666,13 +686,13 @@ function Preview:RecalculateDetailsHeight()
     if ownedText and ownedText ~= "" then
         height = height + self.detailsOwned:GetStringHeight()
     end
-    height = height + PADDING
+    height = height + ROW_GAP
 
     -- Source (FontString)
     local sourceText = self.detailsSource:GetText()
     if sourceText and sourceText ~= "" then
         height = height + self.detailsSource:GetStringHeight()
-        height = height + PADDING + METADATA_GAP
+        height = height + ROW_GAP + METADATA_GAP
     end
 
     -- Metadata row(s) - layout depends on preview width
@@ -682,7 +702,7 @@ function Preview:RecalculateDetailsHeight()
         height = height + SPACING_SMALL
         height = height + self.detailsDyeable:GetStringHeight()
     end
-    height = height + PADDING
+    height = height + ROW_GAP
 
     -- Actions row (1C.9) - uses shared button height constant
     local AB = addon.CONSTANTS.ACTION_BUTTON
@@ -718,12 +738,12 @@ function Preview:UpdateMetadataLayout()
         self.detailsDyeable:SetPoint("TOPLEFT", self.detailsSizeLabel, "BOTTOMLEFT", 0, -SPACING_SMALL)
         self.detailsCategory:SetPoint("LEFT", self.detailsDyeable, "RIGHT", 12, 0)
         self.detailsCategory:SetPoint("RIGHT", self.detailsArea, "RIGHT", -PADDING, 0)
-        self.actionsRow:SetPoint("TOPLEFT", self.detailsDyeable, "BOTTOMLEFT", 0, -PADDING)
+        self.actionsRow:SetPoint("TOPLEFT", self.detailsDyeable, "BOTTOMLEFT", 0, -ROW_GAP)
     else
         -- Single-row layout: All metadata on one line
         self.detailsDyeable:SetPoint("LEFT", self.detailsPlacement, "RIGHT", 12, 0)
         self.detailsCategory:SetPoint("LEFT", self.detailsDyeable, "RIGHT", 12, 0)
-        self.actionsRow:SetPoint("TOPLEFT", self.detailsSizeLabel, "BOTTOMLEFT", 0, -PADDING)
+        self.actionsRow:SetPoint("TOPLEFT", self.detailsSizeLabel, "BOTTOMLEFT", 0, -ROW_GAP)
     end
     self.actionsRow:SetPoint("RIGHT", self.detailsArea, "RIGHT", -PADDING, 0)
 
@@ -740,29 +760,13 @@ end
 -- Actions (1C.9)
 -- ============================================================================
 
-local function GetVendorsTrackingContext()
-    if not addon.Tabs or not addon.Tabs:IsSelected("VENDORS") then
-        return nil, nil
-    end
-
-    local vendorsTab = addon.VendorsTab
-    if not vendorsTab or not vendorsTab.IsShown or not vendorsTab:IsShown() then
-        return nil, nil
-    end
-
-    local npcId = vendorsTab.selectedVendorNpcId
-    if not npcId then
-        return nil, nil
-    end
-
-    return vendorsTab, npcId
-end
-
-local function ApplyTrackButtonState(btn, enabled, isTracking)
+local function ApplyTrackButtonState(btn, enabled, isTracking, isVendor)
     local L = addon.L
+    local trackKey = isVendor and "VENDORS_ACTION_TRACK" or "ACTION_TRACK"
+    local untrackKey = isVendor and "VENDORS_ACTION_UNTRACK" or "ACTION_UNTRACK"
     btn:SetEnabled(enabled)
     btn:SetActive(enabled and isTracking)
-    btn:SetText(enabled and isTracking and L["ACTION_UNTRACK"] or L["ACTION_TRACK"])
+    btn:SetText(enabled and isTracking and L[untrackKey] or L[trackKey])
 end
 
 function Preview:UpdateActionButtons(record)
@@ -777,11 +781,11 @@ function Preview:UpdateActionButtons(record)
     -- Vendors tab: all items use vendor waypoint tracking
     if vendorsTab and recordID then
         local canTrack = vendorsTab:CanVendorTrackDecor(npcId)
-        ApplyTrackButtonState(self.trackButton, canTrack, canTrack and vendorsTab:IsVendorDecorTracked(npcId, recordID))
+        ApplyTrackButtonState(self.trackButton, canTrack, canTrack and vendorsTab:IsVendorDecorTracked(npcId, recordID), true)
     else
         -- Native tracking behavior on non-Vendors tabs
         local canTrack = record and record.isTrackable
-        ApplyTrackButtonState(self.trackButton, canTrack, canTrack and addon:IsRecordTracked(record.recordID))
+        ApplyTrackButtonState(self.trackButton, canTrack, canTrack and addon:IsRecordTracked(record.recordID), false)
     end
 
     -- Link button is always enabled when an item is selected
@@ -825,11 +829,11 @@ function Preview:ShowTrackButtonTooltip(btn)
 
     if vendorsTab and recordID then
         if not vendorsTab:CanVendorTrackDecor(npcId) then
-            ShowTrackTooltip(btn, L["ACTION_TRACK"], L["VENDORS_ACTION_TRACK_DISABLED_TOOLTIP"], 1, 0.5, 0.5)
+            ShowTrackTooltip(btn, L["VENDORS_ACTION_TRACK"], L["VENDORS_ACTION_TRACK_DISABLED_TOOLTIP"], 1, 0.5, 0.5)
         elseif vendorsTab:IsVendorDecorTracked(npcId, recordID) then
-            ShowTrackTooltip(btn, L["ACTION_UNTRACK"], L["VENDORS_ACTION_UNTRACK_TOOLTIP"], 1, 1, 1)
+            ShowTrackTooltip(btn, L["VENDORS_ACTION_UNTRACK"], L["VENDORS_ACTION_UNTRACK_TOOLTIP"], 1, 1, 1)
         else
-            ShowTrackTooltip(btn, L["ACTION_TRACK"], L["VENDORS_ACTION_TRACK_TOOLTIP"], 1, 1, 1)
+            ShowTrackTooltip(btn, L["VENDORS_ACTION_TRACK"], L["VENDORS_ACTION_TRACK_TOOLTIP"], 1, 1, 1)
         end
         return
     end

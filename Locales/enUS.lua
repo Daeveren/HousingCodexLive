@@ -355,8 +355,10 @@ L["VENDOR_PIN_VENDORS_MORE"] = "+%d more vendors"
 -- Vendor tracking messages
 L["VENDORS_TRACKING_STARTED"] = "Added a map pin to %s in %s"
 L["VENDORS_TRACKING_STOPPED"] = "Removed map pin for %s in %s"
-L["VENDORS_ACTION_TRACK_TOOLTIP"] = "Track this vendor item by setting a waypoint to its vendor"
-L["VENDORS_ACTION_UNTRACK_TOOLTIP"] = "Stop vendor waypoint tracking for this item"
+L["VENDORS_ACTION_TRACK"] = "Waypoint"
+L["VENDORS_ACTION_UNTRACK"] = "Remove Waypoint"
+L["VENDORS_ACTION_TRACK_TOOLTIP"] = "Set a map waypoint to this vendor's location"
+L["VENDORS_ACTION_UNTRACK_TOOLTIP"] = "Remove the vendor waypoint"
 L["VENDORS_ACTION_TRACK_DISABLED_TOOLTIP"] = "This vendor has no valid waypoint location"
 
 -- Vendor cost display
