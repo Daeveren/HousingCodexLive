@@ -37,11 +37,12 @@ local function CreateIconWithShadow(button, size, shadowOffset)
     return icon, shadow
 end
 
--- Check if decor is owned (stored + placed, matching Blizzard's total calculation)
+-- Check if decor is owned (stored + placed + entrySubtype for showQuantity=false items)
 local function IsDecorOwned(catalogInfo)
     if type(catalogInfo) ~= "table" then return false end
     local total = (catalogInfo.quantity or 0) + (catalogInfo.remainingRedeemable or 0) + (catalogInfo.numPlaced or 0)
-    return total > 0
+    if total > 0 then return true end
+    return ((catalogInfo.entryID and catalogInfo.entryID.entrySubtype) or 0) > 1
 end
 
 -- Look up decor info for an itemID (with caching)
@@ -53,17 +54,8 @@ local function GetDecorInfo(itemID)
         return cached or nil
     end
 
-    -- Tier 1: Instant lookup from pre-loaded records
-    local catalogInfo
-    local recordID = addon.itemIDToRecordID and addon.itemIDToRecordID[itemID]
-    if recordID then
-        catalogInfo = addon:GetRecord(recordID)
-    end
-
-    -- Tier 2: API fallback
-    if not catalogInfo and C_HousingCatalog and C_HousingCatalog.GetCatalogEntryInfoByItem then
-        catalogInfo = C_HousingCatalog.GetCatalogEntryInfoByItem(itemID, true)
-    end
+    local catalogInfo = C_HousingCatalog and C_HousingCatalog.GetCatalogEntryInfoByItem
+        and C_HousingCatalog.GetCatalogEntryInfoByItem(itemID, true)
 
     itemDecorCache[itemID] = catalogInfo or false
     return catalogInfo
@@ -171,6 +163,11 @@ function ContainerOverlay:HideAllOverlays()
     end
 end
 
+local function RefreshAll()
+    ClearCache()
+    ContainerOverlay:UpdateAllContainerFrames()
+end
+
 -- Initialize hooks and events
 function ContainerOverlay:Initialize()
     if initialized then return end
@@ -205,20 +202,12 @@ function ContainerOverlay:Initialize()
     self.eventFrame = CreateFrame("Frame")
     self.eventFrame:RegisterEvent("BAG_UPDATE_DELAYED")
     self.eventFrame:RegisterEvent("HOUSING_MARKET_AVAILABILITY_UPDATED")
-    self.eventFrame:SetScript("OnEvent", function(_, event)
-        if event == "BAG_UPDATE_DELAYED" then
-            self:UpdateAllContainerFrames()
-        elseif event == "HOUSING_MARKET_AVAILABILITY_UPDATED" then
-            ClearCache()
-            self:UpdateAllContainerFrames()
-        end
-    end)
+    self.eventFrame:RegisterEvent("HOUSING_STORAGE_ENTRY_UPDATED")
+    self.eventFrame:RegisterEvent("HOUSING_STORAGE_UPDATED")
+    self.eventFrame:SetScript("OnEvent", RefreshAll)
 
     -- Internal ownership updates
-    addon:RegisterInternalEvent("RECORD_OWNERSHIP_UPDATED", function()
-        ClearCache()
-        self:UpdateAllContainerFrames()
-    end)
+    addon:RegisterInternalEvent("RECORD_OWNERSHIP_UPDATED", RefreshAll)
 
     addon:Debug("ContainerOverlay initialized")
 end

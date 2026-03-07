@@ -673,7 +673,7 @@ local function CreateConfigFrame()
     if configFrame then return configFrame end
 
     local cf = CreateFrame("Frame", "HousingCodexEndeavorsConfig", UIParent, "BackdropTemplate")
-    cf:SetSize(220, 280)
+    cf:SetSize(220, 330)
     cf:SetFrameStrata("DIALOG")
     cf:SetBackdrop(FRAME_BACKDROP)
     cf:SetBackdropColor(0.06, 0.06, 0.08, 0.95)
@@ -733,8 +733,8 @@ local function CreateConfigFrame()
     yOfs = yOfs - 26
     CreateConfigCheckbox(cf, "ENDEAVORS_OPT_SHOW_ENDEAVOR_PCT", "ENDEAVORS_OPT_SHOW_ENDEAVOR_PCT_TIP", "showEndeavorPct", yOfs)
 
-    -- Scale selector (S / M / L radio buttons)
-    yOfs = yOfs - 30
+    -- Scale selector (Small / Normal / Big radio buttons, vertical)
+    yOfs = yOfs - 44
     local scaleLabel = addon:CreateFontString(cf, "OVERLAY", "GameFontNormal")
     scaleLabel:SetPoint("TOPLEFT", 10, yOfs)
     scaleLabel:SetText(L["ENDEAVORS_OPT_SCALE"])
@@ -748,9 +748,9 @@ local function CreateConfigFrame()
         local btn = CreateFrame("CheckButton", nil, cf, "UICheckButtonTemplate")
         btn:SetSize(22, 22)
         if idx == 1 then
-            btn:SetPoint("LEFT", scaleLabel, "RIGHT", 8, 0)
+            btn:SetPoint("TOPLEFT", scaleLabel, "BOTTOMLEFT", 20, -4)
         else
-            btn:SetPoint("LEFT", scaleBtns[idx - 1], "RIGHT", 2, 0)
+            btn:SetPoint("TOPLEFT", scaleBtns[idx - 1], "BOTTOMLEFT", 0, -2)
         end
         btn.Text:SetFontObject(addon:GetFontObject("GameFontNormalSmall"))
         addon:RegisterFontString(btn.Text, "GameFontNormalSmall")
@@ -1021,8 +1021,8 @@ local function CreateEndeavorsFrame()
     -- XP percentage text (overlaid on bar fill, subtle white)
     xpPctText = addon:CreateFontString(xpContainer, "OVERLAY", "GameFontNormalSmall")
     xpPctText:SetPoint("CENTER", xpBarBg, "CENTER", 0, 0)
-    xpPctText:SetTextColor(1, 1, 1, 0.55)
-    xpPctText:SetShadowOffset(0, 0)
+    xpPctText:SetTextColor(1, 1, 1, 0.70)
+    xpPctText:SetShadowOffset(1, -1)
     addon:SetFontSize(xpPctText, S(9.5))
 
     -- Hover-to-show XP text + tooltip, click to open Housing Dashboard
@@ -1112,8 +1112,8 @@ local function CreateEndeavorsFrame()
     -- Endeavor percentage text (overlaid on bar fill, subtle white)
     endeavorPctText = addon:CreateFontString(endeavorContainer, "OVERLAY", "GameFontNormalSmall")
     endeavorPctText:SetPoint("CENTER", endeavorBarBg, "CENTER", 0, 0)
-    endeavorPctText:SetTextColor(1, 1, 1, 0.55)
-    endeavorPctText:SetShadowOffset(0, 0)
+    endeavorPctText:SetTextColor(1, 1, 1, 0.70)
+    endeavorPctText:SetShadowOffset(1, -1)
     addon:SetFontSize(endeavorPctText, S(9.5))
 
     -- Tooltip + hover-to-show on endeavor area + click to open Endeavors tab

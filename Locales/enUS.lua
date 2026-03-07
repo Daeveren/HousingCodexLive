@@ -564,9 +564,9 @@ L["ENDEAVORS_TIME_HOURS_LEFT"] = "%d |4hour:hours; left"
 L["ENDEAVORS_COUPONS_EARNED"] = "%d/%d %s earned this Endeavor"
 L["ENDEAVORS_OPT_SCALE"] = "Panel Size"
 L["ENDEAVORS_OPT_SCALE_TIP"] = "Change the size of the Endeavors panel"
-L["ENDEAVORS_OPT_SCALE_SMALL"] = "S"
-L["ENDEAVORS_OPT_SCALE_NORMAL"] = "M"
-L["ENDEAVORS_OPT_SCALE_BIG"] = "L"
+L["ENDEAVORS_OPT_SCALE_SMALL"] = "Small"
+L["ENDEAVORS_OPT_SCALE_NORMAL"] = "Normal"
+L["ENDEAVORS_OPT_SCALE_BIG"] = "Big"
 
 --------------------------------------------------------------------------------
 -- PvP Tab

@@ -71,11 +71,12 @@ function MerchantOverlay:GetOverlay(button, index)
     return buttonOverlays[index]
 end
 
--- Check if decor is owned (stored + placed, matching Blizzard's total calculation)
+-- Check if decor is owned (stored + placed + entrySubtype for showQuantity=false items)
 local function IsDecorOwned(catalogInfo)
     if type(catalogInfo) ~= "table" then return false end
     local total = (catalogInfo.quantity or 0) + (catalogInfo.remainingRedeemable or 0) + (catalogInfo.numPlaced or 0)
-    return total > 0
+    if total > 0 then return true end
+    return ((catalogInfo.entryID and catalogInfo.entryID.entrySubtype) or 0) > 1
 end
 
 -- Update merchant buttons with decor indicators
@@ -105,15 +106,7 @@ function MerchantOverlay:UpdateMerchantButtons()
             if itemID then
                 local cached = sessionCache[itemID]
                 if cached == nil then
-                    -- Tier 1: Instant lookup from pre-loaded records
-                    local recordID = addon.itemIDToRecordID and addon.itemIDToRecordID[itemID]
-                    if recordID then
-                        catalogInfo = addon:GetRecord(recordID)
-                    end
-                    -- Tier 2: API fallback if not in index or record unavailable
-                    if not catalogInfo then
-                        catalogInfo = C_HousingCatalog.GetCatalogEntryInfoByItem(itemID, true)
-                    end
+                    catalogInfo = C_HousingCatalog.GetCatalogEntryInfoByItem(itemID, true)
                     sessionCache[itemID] = catalogInfo or false
                 elseif cached then
                     catalogInfo = cached
@@ -156,11 +149,13 @@ function MerchantOverlay:Initialize()
 
     self:HookMerchantFrame()
 
-    -- Listen for merchant events and market data (ownership handled via internal RECORD_OWNERSHIP_UPDATED)
+    -- Listen for merchant events, market data, and storage changes
     self.eventFrame = CreateFrame("Frame")
     self.eventFrame:RegisterEvent("MERCHANT_CLOSED")
     self.eventFrame:RegisterEvent("MERCHANT_SHOW")
     self.eventFrame:RegisterEvent("HOUSING_MARKET_AVAILABILITY_UPDATED")
+    self.eventFrame:RegisterEvent("HOUSING_STORAGE_ENTRY_UPDATED")
+    self.eventFrame:RegisterEvent("HOUSING_STORAGE_UPDATED")
     self.eventFrame:SetScript("OnEvent", function(_, event)
         if event == "MERCHANT_SHOW" then
             -- Request housing market data refresh when merchant opens
@@ -179,6 +174,11 @@ function MerchantOverlay:Initialize()
         elseif event == "HOUSING_MARKET_AVAILABILITY_UPDATED" then
             -- Market data is now ready - always clear flag, refresh if merchant open
             waitingForMarketData = false
+            if MerchantFrame and MerchantFrame:IsShown() then
+                ClearSessionCache()
+                self:UpdateMerchantButtons()
+            end
+        elseif event == "HOUSING_STORAGE_ENTRY_UPDATED" or event == "HOUSING_STORAGE_UPDATED" then
             if MerchantFrame and MerchantFrame:IsShown() then
                 ClearSessionCache()
                 self:UpdateMerchantButtons()

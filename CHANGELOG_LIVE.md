@@ -2,6 +2,13 @@
 
 All notable changes to Housing Codex.
 
+**1.8.10** (2026-07-08)
+
+**Changed**
+- Improvements to the owned decor logic when visiting decor vendors
+- Improvements to the text on progress bars in the Endeavors panel
+- Tweaks to the Endeavors config panel
+
 **1.8.9** (2026-07-03)
 
 **Added**
