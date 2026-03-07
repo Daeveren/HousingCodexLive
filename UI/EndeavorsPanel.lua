@@ -13,9 +13,28 @@ local CONST = addon.CONSTANTS.ENDEAVORS
 local COLORS = addon.CONSTANTS.COLORS
 local L = addon.L
 
+-- Scale factor tables
+local SCALE_FACTORS = { small = 1.0, normal = 1.25, big = 1.5 }
+local TITLE_SCALE_FACTORS = { small = 1.0, normal = 1.25, big = 1.25 }
+local scaleFactor = 1.0
+local titleScaleFactor = 1.0
+
+-- Round to nearest integer for pixel-crisp results
+local function S(value)
+    return math.floor(value * scaleFactor + 0.5)
+end
+local function ST(value)
+    return math.floor(value * titleScaleFactor + 0.5)
+end
+local function UpdateScaleFactors()
+    local key = (addon.db and addon.db.endeavors and addon.db.endeavors.scale) or "small"
+    scaleFactor = SCALE_FACTORS[key] or 1.0
+    titleScaleFactor = TITLE_SCALE_FACTORS[key] or 1.0
+end
+
 -- Frame references
 local frame = nil
-local titleBar, titleBarBg, xpContainer, endeavorContainer, taskContainer
+local titleBar, titleBarBg, titleText, xpContainer, endeavorContainer, taskContainer
 local xpBarBg, xpBarFill, xpLevelText, xpValueText, xpPctText
 local endeavorBarBg, endeavorBarFill, endeavorLabel, endeavorValueText, endeavorPctText
 local taskRows = {}
@@ -111,10 +130,95 @@ local function SetBarProgress(barFill, barBg, progress, max)
 
     local pct = math.min(progress / max, 1)
     local bgWidth = barBg:GetWidth()
-    if bgWidth <= 0 then bgWidth = CONST.PANEL_WIDTH - 20 end
+    if bgWidth <= 0 then bgWidth = S(CONST.PANEL_WIDTH) - S(20) end
 
     local fillWidth = math.max(pct * bgWidth, 0.001)
     barFill:SetWidth(fillWidth)
+end
+
+local function ApplyScale()
+    if not frame then return end
+    UpdateScaleFactors()
+
+    -- Snap frame width immediately so UpdateLayout reads correct width
+    -- (without this, bars are sized from stale frame:GetWidth() and overflow)
+    local targetW = (isTaskExpanded or barLayoutTarget == 1)
+        and S(CONST.PANEL_WIDTH_EXPANDED) or S(CONST.PANEL_WIDTH)
+    frame:SetWidth(targetW)
+    widthAnimTarget = targetW
+    if widthAnimDriver then
+        widthAnimDriver:SetScript("OnUpdate", nil)
+    end
+
+    -- Title bar (size + anchors)
+    titleBar:SetHeight(ST(CONST.TITLE_BAR_HEIGHT))
+    titleBar:ClearAllPoints()
+    titleBar:SetPoint("TOPLEFT", ST(4), -ST(4))
+    titleBar:SetPoint("TOPRIGHT", -ST(4), -ST(4))
+
+    -- Title text font + position
+    if titleText then
+        addon:SetFontSize(titleText, ST(11))
+        titleText:ClearAllPoints()
+        titleText:SetPoint("LEFT", titleBar, "LEFT", ST(2), 0)
+    end
+
+    -- Title bar buttons
+    cogwheelBtn:SetSize(ST(16), ST(16))
+    cogwheelBtn:ClearAllPoints()
+    cogwheelBtn:SetPoint("RIGHT", -ST(2), 0)
+    minimizeBtn:SetSize(ST(16), ST(16))
+    minimizeBtn:ClearAllPoints()
+    minimizeBtn:SetPoint("RIGHT", cogwheelBtn, "LEFT", -ST(2), 0)
+
+    -- Icon
+    if frame.iconFrame then
+        frame.iconFrame:SetSize(S(18), S(18))
+        if frame.iconBg then frame.iconBg:SetSize(S(22), S(22)) end
+    end
+
+    -- XP bar heights + font sizes + anchor offsets
+    xpContainer:SetHeight(S(CONST.XP_BAR_HEIGHT) + S(4))
+    xpBarBg:SetHeight(S(CONST.XP_BAR_HEIGHT))
+    xpBarFill:SetHeight(S(CONST.XP_BAR_HEIGHT))
+    xpLevelText:ClearAllPoints()
+    xpLevelText:SetPoint("LEFT", S(3), 0)
+    xpBarBg:ClearAllPoints()
+    xpBarBg:SetPoint("LEFT", xpLevelText, "RIGHT", S(4), 0)
+    xpBarBg:SetPoint("RIGHT", xpContainer, "RIGHT", -S(6), 0)
+    addon:SetFontSize(xpLevelText, S(11))
+    addon:SetFontSize(xpValueText, S(10))
+    addon:SetFontSize(xpPctText, S(9.5))
+
+    -- Endeavor bar heights + font sizes + anchor offsets
+    endeavorContainer:SetHeight(S(CONST.ENDEAVOR_BAR_HEIGHT) + S(4))
+    endeavorBarBg:SetHeight(S(CONST.ENDEAVOR_BAR_HEIGHT))
+    endeavorBarFill:SetHeight(S(CONST.ENDEAVOR_BAR_HEIGHT))
+    endeavorLabel:ClearAllPoints()
+    endeavorLabel:SetPoint("LEFT", S(3), 0)
+    endeavorBarBg:ClearAllPoints()
+    endeavorBarBg:SetPoint("LEFT", endeavorLabel, "RIGHT", S(4), 0)
+    endeavorBarBg:SetPoint("RIGHT", endeavorContainer, "RIGHT", -S(6), 0)
+    addon:SetFontSize(endeavorLabel, S(11))
+    addon:SetFontSize(endeavorValueText, S(10))
+    addon:SetFontSize(endeavorPctText, S(9.5))
+
+    -- Task rows (pooled)
+    for i = 1, CONST.MAX_VISIBLE_TASKS do
+        local row = taskRows[i]
+        if row then
+            row:SetHeight(S(CONST.TASK_ROW_HEIGHT))
+            addon:SetFontSize(row.nameText, S(10))
+            addon:SetFontSize(row.progressText, S(10))
+        end
+    end
+
+    -- Task divider insets
+    if taskContainer and taskContainer.divider then
+        taskContainer.divider:ClearAllPoints()
+        taskContainer.divider:SetPoint("TOPLEFT", S(6), 0)
+        taskContainer.divider:SetPoint("TOPRIGHT", -S(6), 0)
+    end
 end
 
 --------------------------------------------------------------------------------
@@ -323,13 +427,11 @@ local function ScheduleHideTitleBar(forceDelay)
         titleHideTimer = nil
         isFirstShow = false
         if frame and frame:IsShown() and not frame:IsMouseOver() then
-            -- Don't fade title bar when minimized — it's the primary visible element
-            if addon.db and addon.db.endeavors and addon.db.endeavors.minimized then return end
             titleBarVisible = false
             FadeTitleBar(0, CONST.TITLE_FADE_OUT)
             if isTaskExpanded and contentBackdrop and contentBackdrop:IsShown() then
                 -- Expanded mode: slide content backdrop down below title bar
-                local slideY = -(CONST.TITLE_BAR_HEIGHT - 2)
+                local slideY = -(ST(CONST.TITLE_BAR_HEIGHT) - 2)
                 SlideContentBackdrop(slideY, CONST.TITLE_FADE_OUT)
             else
                 FadeFrameBackdrop(0, CONST.TITLE_FADE_OUT)
@@ -386,25 +488,25 @@ end
 
 local function CreateTaskRow(parent, index)
     local row = CreateFrame("Frame", nil, parent)
-    row:SetHeight(CONST.TASK_ROW_HEIGHT)
-    row:SetPoint("LEFT", 12, 0)
-    row:SetPoint("RIGHT", -12, 0)
+    row:SetHeight(S(CONST.TASK_ROW_HEIGHT))
+    row:SetPoint("LEFT", S(12), 0)
+    row:SetPoint("RIGHT", -S(12), 0)
 
     local nameText = addon:CreateFontString(row, "OVERLAY", "GameFontNormalSmall")
     nameText:SetPoint("LEFT", 0, 0)
     nameText:SetJustifyH("LEFT")
     nameText:SetWordWrap(false)
-    addon:SetFontSize(nameText, 10)
+    addon:SetFontSize(nameText, S(10))
     row.nameText = nameText
 
     local progressText = addon:CreateFontString(row, "OVERLAY", "GameFontNormalSmall")
     progressText:SetPoint("RIGHT", 0, 0)
     progressText:SetJustifyH("RIGHT")
-    addon:SetFontSize(progressText, 10)
+    addon:SetFontSize(progressText, S(10))
     row.progressText = progressText
 
     -- Constrain name text so it doesn't overlap progress text
-    nameText:SetPoint("RIGHT", progressText, "LEFT", -4, 0)
+    nameText:SetPoint("RIGHT", progressText, "LEFT", -S(4), 0)
 
     -- Tooltip on hover
     row:EnableMouse(true)
@@ -571,7 +673,7 @@ local function CreateConfigFrame()
     if configFrame then return configFrame end
 
     local cf = CreateFrame("Frame", "HousingCodexEndeavorsConfig", UIParent, "BackdropTemplate")
-    cf:SetSize(220, 228)
+    cf:SetSize(220, 280)
     cf:SetFrameStrata("DIALOG")
     cf:SetBackdrop(FRAME_BACKDROP)
     cf:SetBackdropColor(0.06, 0.06, 0.08, 0.95)
@@ -631,6 +733,47 @@ local function CreateConfigFrame()
     yOfs = yOfs - 26
     CreateConfigCheckbox(cf, "ENDEAVORS_OPT_SHOW_ENDEAVOR_PCT", "ENDEAVORS_OPT_SHOW_ENDEAVOR_PCT_TIP", "showEndeavorPct", yOfs)
 
+    -- Scale selector (S / M / L radio buttons)
+    yOfs = yOfs - 30
+    local scaleLabel = addon:CreateFontString(cf, "OVERLAY", "GameFontNormal")
+    scaleLabel:SetPoint("TOPLEFT", 10, yOfs)
+    scaleLabel:SetText(L["ENDEAVORS_OPT_SCALE"])
+    scaleLabel:SetTextColor(0.9, 0.9, 0.9)
+
+    local scaleKeys = { "small", "normal", "big" }
+    local scaleLabels = { L["ENDEAVORS_OPT_SCALE_SMALL"], L["ENDEAVORS_OPT_SCALE_NORMAL"], L["ENDEAVORS_OPT_SCALE_BIG"] }
+    local scaleBtns = {}
+
+    for idx = 1, 3 do
+        local btn = CreateFrame("CheckButton", nil, cf, "UICheckButtonTemplate")
+        btn:SetSize(22, 22)
+        if idx == 1 then
+            btn:SetPoint("LEFT", scaleLabel, "RIGHT", 8, 0)
+        else
+            btn:SetPoint("LEFT", scaleBtns[idx - 1], "RIGHT", 2, 0)
+        end
+        btn.Text:SetFontObject(addon:GetFontObject("GameFontNormalSmall"))
+        addon:RegisterFontString(btn.Text, "GameFontNormalSmall")
+        btn.Text:SetTextColor(0.9, 0.9, 0.9)
+        btn.Text:SetText(scaleLabels[idx])
+        btn:SetChecked(db.scale == scaleKeys[idx])
+        btn:SetScript("OnClick", function()
+            for j = 1, 3 do
+                scaleBtns[j]:SetChecked(j == idx)
+            end
+            db.scale = scaleKeys[idx]
+            ApplyScale()
+            EP:Refresh()
+        end)
+        btn:SetScript("OnEnter", function(self)
+            GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
+            GameTooltip:SetText(L["ENDEAVORS_OPT_SCALE_TIP"])
+            GameTooltip:Show()
+        end)
+        btn:SetScript("OnLeave", function() GameTooltip:Hide() end)
+        scaleBtns[idx] = btn
+    end
+
     -- ESC to close
     tinsert(UISpecialFrames, "HousingCodexEndeavorsConfig")
 
@@ -689,12 +832,13 @@ end
 
 local function CreateEndeavorsFrame()
     if frame then return frame end
+    UpdateScaleFactors()
 
     local db = addon.db.endeavors
 
     -- Main frame
     frame = CreateFrame("Frame", "HousingCodexEndeavorsFrame", UIParent, "BackdropTemplate")
-    frame:SetSize(CONST.PANEL_WIDTH, 100) -- height is dynamic
+    frame:SetSize(S(CONST.PANEL_WIDTH), 100) -- height is dynamic
     frame:SetFrameStrata("MEDIUM")
     frame:SetBackdrop(FRAME_BACKDROP)
     frame:SetBackdropColor(0.02, 0.02, 0.03, 0.75)
@@ -721,9 +865,9 @@ local function CreateEndeavorsFrame()
     -- Title Bar
     ----------------------------------------------------------------------------
     titleBar = CreateFrame("Frame", nil, frame)
-    titleBar:SetHeight(CONST.TITLE_BAR_HEIGHT)
-    titleBar:SetPoint("TOPLEFT", 4, -4)
-    titleBar:SetPoint("TOPRIGHT", -4, -4)
+    titleBar:SetHeight(ST(CONST.TITLE_BAR_HEIGHT))
+    titleBar:SetPoint("TOPLEFT", ST(4), -ST(4))
+    titleBar:SetPoint("TOPRIGHT", -ST(4), -ST(4))
 
     -- Title bar background texture (inherits parent alpha for auto-hide fade)
     titleBarBg = titleBar:CreateTexture(nil, "BACKGROUND")
@@ -752,14 +896,14 @@ local function CreateEndeavorsFrame()
     -- HC icon (left of progress bars — positioned dynamically in UpdateLayout)
     local iconFrame = CreateFrame("Frame", nil, frame)
     iconFrame:SetFrameLevel(titleBar:GetFrameLevel() + 1)
-    iconFrame:SetSize(18, 18)
+    iconFrame:SetSize(S(18), S(18))
     -- Initial anchor; UpdateLayout repositions vertically centered on bars
-    iconFrame:SetPoint("TOPLEFT", frame, "TOPLEFT", 6, -(CONST.TITLE_BAR_HEIGHT + 6))
+    iconFrame:SetPoint("TOPLEFT", frame, "TOPLEFT", S(6), -(ST(CONST.TITLE_BAR_HEIGHT) + S(6)))
 
     -- Circular dark background for HC icon (stays visible when title bar + backdrop fade)
     local iconBg = iconFrame:CreateTexture(nil, "BACKGROUND")
     iconBg:SetPoint("CENTER")
-    iconBg:SetSize(22, 22)
+    iconBg:SetSize(S(22), S(22))
     iconBg:SetColorTexture(0.02, 0.02, 0.03, 0.9)
     local iconMask = iconFrame:CreateMaskTexture()
     iconMask:SetAllPoints(iconBg)
@@ -772,16 +916,17 @@ local function CreateEndeavorsFrame()
     frame.iconFrame = iconFrame  -- ref for UpdateLayout positioning
     frame.iconBg = iconBg        -- ref for toggling circular bg
 
-    -- Title text
-    local titleText = addon:CreateFontString(titleBar, "OVERLAY", "GameFontNormalSmall")
-    titleText:SetPoint("LEFT", titleBar, "LEFT", 2, 0)
+    -- Title text (module-level ref for ApplyScale)
+    titleText = addon:CreateFontString(titleBar, "OVERLAY", "GameFontNormalSmall")
+    titleText:SetPoint("LEFT", titleBar, "LEFT", ST(2), 0)
     titleText:SetText(L["ENDEAVORS_TITLE"])
     titleText:SetTextColor(unpack(COLORS.GOLD))
+    addon:SetFontSize(titleText, ST(11))
 
     -- Cogwheel button (rightmost)
     cogwheelBtn = CreateFrame("Button", nil, titleBar)
-    cogwheelBtn:SetSize(16, 16)
-    cogwheelBtn:SetPoint("RIGHT", -2, 0)
+    cogwheelBtn:SetSize(ST(16), ST(16))
+    cogwheelBtn:SetPoint("RIGHT", -ST(2), 0)
     cogwheelBtn:SetNormalTexture("Interface\\Buttons\\UI-OptionsButton")
     cogwheelBtn:GetNormalTexture():SetVertexColor(0.8, 0.8, 0.8, 0.9)
     cogwheelBtn:SetPushedTexture("Interface\\Buttons\\UI-OptionsButton")
@@ -805,8 +950,8 @@ local function CreateEndeavorsFrame()
 
     -- Minimize button (left of cogwheel)
     minimizeBtn = CreateFrame("Button", nil, titleBar)
-    minimizeBtn:SetSize(16, 16)
-    minimizeBtn:SetPoint("RIGHT", cogwheelBtn, "LEFT", -2, 0)
+    minimizeBtn:SetSize(ST(16), ST(16))
+    minimizeBtn:SetPoint("RIGHT", cogwheelBtn, "LEFT", -ST(2), 0)
     minimizeBtn:SetHighlightTexture("Interface\\Buttons\\UI-PlusButton-Hilight")
     minimizeBtn:GetHighlightTexture():SetAlpha(0.3)
     UpdateMinimizeButton()
@@ -843,26 +988,26 @@ local function CreateEndeavorsFrame()
     -- XP Container (House Level + XP Bar) -- inline layout
     ----------------------------------------------------------------------------
     xpContainer = CreateFrame("Frame", nil, frame)
-    xpContainer:SetHeight(CONST.XP_BAR_HEIGHT + 4) -- bar + padding
-    xpContainer:SetPoint("TOPLEFT", titleBar, "BOTTOMLEFT", 0, -4)
-    xpContainer:SetPoint("RIGHT", frame, "RIGHT", -4, 0)
+    xpContainer:SetHeight(S(CONST.XP_BAR_HEIGHT) + S(4)) -- bar + padding
+    xpContainer:SetPoint("TOPLEFT", titleBar, "BOTTOMLEFT", 0, -S(4))
+    xpContainer:SetPoint("RIGHT", frame, "RIGHT", -S(4), 0)
 
     -- Level text: just the number, inline left of bar
     xpLevelText = addon:CreateFontString(xpContainer, "OVERLAY", "GameFontNormalSmall")
-    xpLevelText:SetPoint("LEFT", 3, 0)
+    xpLevelText:SetPoint("LEFT", S(3), 0)
     xpLevelText:SetTextColor(0.9, 0.9, 0.9, 1)
-    addon:SetFontSize(xpLevelText, 11)
+    addon:SetFontSize(xpLevelText, S(11))
 
     -- XP bar background (right of level text)
     xpBarBg = xpContainer:CreateTexture(nil, "BACKGROUND")
-    xpBarBg:SetHeight(CONST.XP_BAR_HEIGHT)
-    xpBarBg:SetPoint("LEFT", xpLevelText, "RIGHT", 4, 0)
-    xpBarBg:SetPoint("RIGHT", xpContainer, "RIGHT", -6, 0)
+    xpBarBg:SetHeight(S(CONST.XP_BAR_HEIGHT))
+    xpBarBg:SetPoint("LEFT", xpLevelText, "RIGHT", S(4), 0)
+    xpBarBg:SetPoint("RIGHT", xpContainer, "RIGHT", -S(6), 0)
     xpBarBg:SetColorTexture(0.15, 0.15, 0.18, 1)
 
     -- XP bar fill (muted blue)
     xpBarFill = xpContainer:CreateTexture(nil, "ARTWORK")
-    xpBarFill:SetHeight(CONST.XP_BAR_HEIGHT)
+    xpBarFill:SetHeight(S(CONST.XP_BAR_HEIGHT))
     xpBarFill:SetPoint("TOPLEFT", xpBarBg, "TOPLEFT")
     xpBarFill:SetColorTexture(0.25, 0.5, 0.75, 1)
     xpBarFill:SetWidth(0.001)
@@ -871,14 +1016,14 @@ local function CreateEndeavorsFrame()
     xpValueText = addon:CreateFontString(xpContainer, "OVERLAY", "GameFontNormalSmall")
     xpValueText:SetPoint("CENTER", xpBarBg, "CENTER", 0, 0)
     xpValueText:SetTextColor(0.9, 0.9, 0.9, 1)
-    addon:SetFontSize(xpValueText, 10)
+    addon:SetFontSize(xpValueText, S(10))
 
     -- XP percentage text (overlaid on bar fill, subtle white)
     xpPctText = addon:CreateFontString(xpContainer, "OVERLAY", "GameFontNormalSmall")
     xpPctText:SetPoint("CENTER", xpBarBg, "CENTER", 0, 0)
-    xpPctText:SetTextColor(1, 1, 1, 0.5)
+    xpPctText:SetTextColor(1, 1, 1, 0.55)
     xpPctText:SetShadowOffset(0, 0)
-    addon:SetFontSize(xpPctText, 9.5)
+    addon:SetFontSize(xpPctText, S(9.5))
 
     -- Hover-to-show XP text + tooltip, click to open Housing Dashboard
     xpContainer:EnableMouse(true)
@@ -935,25 +1080,25 @@ local function CreateEndeavorsFrame()
     -- Endeavor Container (Initiative Progress Bar) -- inline layout
     ----------------------------------------------------------------------------
     endeavorContainer = CreateFrame("Frame", nil, frame)
-    endeavorContainer:SetHeight(CONST.ENDEAVOR_BAR_HEIGHT + 4)
+    endeavorContainer:SetHeight(S(CONST.ENDEAVOR_BAR_HEIGHT) + S(4))
 
     -- Endeavor label: "E" inline left of bar
     endeavorLabel = addon:CreateFontString(endeavorContainer, "OVERLAY", "GameFontNormalSmall")
-    endeavorLabel:SetPoint("LEFT", 3, 0)
+    endeavorLabel:SetPoint("LEFT", S(3), 0)
     endeavorLabel:SetText("E")
     endeavorLabel:SetTextColor(0.9, 0.9, 0.9, 1)
-    addon:SetFontSize(endeavorLabel, 11)
+    addon:SetFontSize(endeavorLabel, S(11))
 
     -- Endeavor bar background (right of "E" label)
     endeavorBarBg = endeavorContainer:CreateTexture(nil, "BACKGROUND")
-    endeavorBarBg:SetHeight(CONST.ENDEAVOR_BAR_HEIGHT)
-    endeavorBarBg:SetPoint("LEFT", endeavorLabel, "RIGHT", 4, 0)
-    endeavorBarBg:SetPoint("RIGHT", endeavorContainer, "RIGHT", -6, 0)
+    endeavorBarBg:SetHeight(S(CONST.ENDEAVOR_BAR_HEIGHT))
+    endeavorBarBg:SetPoint("LEFT", endeavorLabel, "RIGHT", S(4), 0)
+    endeavorBarBg:SetPoint("RIGHT", endeavorContainer, "RIGHT", -S(6), 0)
     endeavorBarBg:SetColorTexture(0.15, 0.15, 0.18, 1)
 
     -- Endeavor bar fill (muted green)
     endeavorBarFill = endeavorContainer:CreateTexture(nil, "ARTWORK")
-    endeavorBarFill:SetHeight(CONST.ENDEAVOR_BAR_HEIGHT)
+    endeavorBarFill:SetHeight(S(CONST.ENDEAVOR_BAR_HEIGHT))
     endeavorBarFill:SetPoint("TOPLEFT", endeavorBarBg, "TOPLEFT")
     endeavorBarFill:SetColorTexture(0.15, 0.55, 0.3, 1)
     endeavorBarFill:SetWidth(0.001)
@@ -962,14 +1107,14 @@ local function CreateEndeavorsFrame()
     endeavorValueText = addon:CreateFontString(endeavorContainer, "OVERLAY", "GameFontNormalSmall")
     endeavorValueText:SetPoint("CENTER", endeavorBarBg, "CENTER", 0, 0)
     endeavorValueText:SetTextColor(0.9, 0.9, 0.9, 1)
-    addon:SetFontSize(endeavorValueText, 10)
+    addon:SetFontSize(endeavorValueText, S(10))
 
     -- Endeavor percentage text (overlaid on bar fill, subtle white)
     endeavorPctText = addon:CreateFontString(endeavorContainer, "OVERLAY", "GameFontNormalSmall")
     endeavorPctText:SetPoint("CENTER", endeavorBarBg, "CENTER", 0, 0)
-    endeavorPctText:SetTextColor(1, 1, 1, 0.5)
+    endeavorPctText:SetTextColor(1, 1, 1, 0.55)
     endeavorPctText:SetShadowOffset(0, 0)
-    addon:SetFontSize(endeavorPctText, 9.5)
+    addon:SetFontSize(endeavorPctText, S(9.5))
 
     -- Tooltip + hover-to-show on endeavor area + click to open Endeavors tab
     endeavorContainer:EnableMouse(true)
@@ -1015,8 +1160,8 @@ local function CreateEndeavorsFrame()
     -- Task divider (top border of task section)
     local taskDivider = taskContainer:CreateTexture(nil, "ARTWORK")
     taskDivider:SetHeight(1)
-    taskDivider:SetPoint("TOPLEFT", 6, 0)
-    taskDivider:SetPoint("TOPRIGHT", -6, 0)
+    taskDivider:SetPoint("TOPLEFT", S(6), 0)
+    taskDivider:SetPoint("TOPRIGHT", -S(6), 0)
     taskDivider:SetColorTexture(0.3, 0.3, 0.35, 0.4)
     taskContainer.divider = taskDivider
 
@@ -1035,6 +1180,7 @@ end
 
 function EP:UpdateLayout()
     if not frame then return end
+    UpdateScaleFactors()
 
     local db = addon.db.endeavors
 
@@ -1066,31 +1212,31 @@ function EP:UpdateLayout()
             -- Keep icon visible when minimized, at its normal below-title-bar position
             if frame.iconFrame then
                 frame.iconFrame:ClearAllPoints()
-                frame.iconFrame:SetPoint("TOPLEFT", frame, "TOPLEFT", 6, -(CONST.TITLE_BAR_HEIGHT + 6))
+                frame.iconFrame:SetPoint("TOPLEFT", frame, "TOPLEFT", S(6), -(ST(CONST.TITLE_BAR_HEIGHT) + S(6)))
                 frame.iconFrame:Show()
                 if frame.iconBg then frame.iconBg:Show() end
             end
 
             -- Title bar + icon height (icon sits below title bar)
             local iconH = frame.iconFrame and frame.iconFrame:GetHeight() or 0
-            local minimizedHeight = CONST.TITLE_BAR_HEIGHT + 6 + iconH + 6
+            local minimizedHeight = ST(CONST.TITLE_BAR_HEIGHT) + S(6) + iconH + S(6)
             frame:SetHeight(minimizedHeight)
-            AnimateWidth(CONST.PANEL_WIDTH)
+            AnimateWidth(S(CONST.PANEL_WIDTH))
             return
         end
     end
 
-    local yOffset = -(CONST.TITLE_BAR_HEIGHT + 4)  -- Below title bar + padding
+    local yOffset = -(ST(CONST.TITLE_BAR_HEIGHT) + S(4))  -- Below title bar + padding
     local showXP = db.showHouseXP and addon.EndeavorsData:HasHouse()
     local showEndeavor = db.showEndeavorProgress and addon.EndeavorsData:IsInitiativeEnabled()
 
-    local barLeftInset = 28  -- Space for icon (6 + 22 circle bg)
+    local barLeftInset = S(28)  -- Space for icon (6 + 22 circle bg)
     local barsTop = yOffset  -- Track where bars start for icon centering
     local factor = barLayoutFactor  -- 0 = stacked, 1 = inline
     local frameW = frame:GetWidth()
-    local availW = frameW - barLeftInset - 4
-    local gap = 4
-    local halfW = math.max((availW - gap) / 2, 20)
+    local availW = frameW - barLeftInset - S(4)
+    local gap = S(4)
+    local halfW = math.max((availW - gap) / 2, S(20))
 
     -- XP container (stays top-left, width shrinks to half when inline)
     if showXP then
@@ -1109,7 +1255,7 @@ function EP:UpdateLayout()
         if showXP then
             endW = availW - factor * (availW - halfW)
             endX = barLeftInset + factor * (halfW + gap)
-            local stackedY = yOffset - xpContainer:GetHeight() - 2
+            local stackedY = yOffset - xpContainer:GetHeight() - S(2)
             endY = stackedY + factor * (yOffset - stackedY)
         else
             endW = availW
@@ -1127,13 +1273,13 @@ function EP:UpdateLayout()
     -- yOffset after bars (interpolated between stacked and inline height)
     if showXP and showEndeavor then
         local barH = xpContainer:GetHeight()
-        local stackedDrop = 2 * (barH + 2)
-        local inlineDrop = barH + 2
+        local stackedDrop = 2 * (barH + S(2))
+        local inlineDrop = barH + S(2)
         yOffset = yOffset - (stackedDrop - factor * (stackedDrop - inlineDrop))
     elseif showXP then
-        yOffset = yOffset - xpContainer:GetHeight() - 2
+        yOffset = yOffset - xpContainer:GetHeight() - S(2)
     elseif showEndeavor then
-        yOffset = yOffset - endeavorContainer:GetHeight() - 2
+        yOffset = yOffset - endeavorContainer:GetHeight() - S(2)
     end
 
     -- Position icon vertically centered on visible bars
@@ -1145,9 +1291,9 @@ function EP:UpdateLayout()
             local barsMidY = (barsTop + barsBottom) / 2  -- negative offset from frame top
             local iconHalfH = iconFrame:GetHeight() / 2
             -- Icon Y nudge: +1 (up) in mini, -2 (down) in expanded
-            local iconNudge = 0 - factor * 2
+            local iconNudge = 0 - factor * S(2)
             iconFrame:ClearAllPoints()
-            iconFrame:SetPoint("TOPLEFT", frame, "TOPLEFT", 6, barsMidY + iconHalfH + iconNudge)
+            iconFrame:SetPoint("TOPLEFT", frame, "TOPLEFT", S(6), barsMidY + iconHalfH + iconNudge)
             iconFrame:Show()
             -- Hide circular bg in expanded (inline) mode
             if frame.iconBg then
@@ -1169,27 +1315,27 @@ function EP:UpdateLayout()
 
     if hasVisibleTasks then
         taskContainer:ClearAllPoints()
-        taskContainer:SetPoint("TOPLEFT", frame, "TOPLEFT", 0, yOffset - 2)
+        taskContainer:SetPoint("TOPLEFT", frame, "TOPLEFT", 0, yOffset - S(2))
         taskContainer:SetPoint("RIGHT", frame, "RIGHT", 0, 0)
 
-        local taskYOffset = -4  -- Below divider
+        local taskYOffset = -S(4)  -- Below divider
 
         for i = 1, CONST.MAX_VISIBLE_TASKS do
             if i <= taskCount then
                 taskRows[i]:ClearAllPoints()
-                taskRows[i]:SetPoint("TOPLEFT", taskContainer, "TOPLEFT", 12, taskYOffset)
-                taskRows[i]:SetPoint("RIGHT", taskContainer, "RIGHT", -12, 0)
+                taskRows[i]:SetPoint("TOPLEFT", taskContainer, "TOPLEFT", S(12), taskYOffset)
+                taskRows[i]:SetPoint("RIGHT", taskContainer, "RIGHT", -S(12), 0)
                 UpdateTaskRow(taskRows[i], activeTasks[i])
-                taskYOffset = taskYOffset - CONST.TASK_ROW_HEIGHT
+                taskYOffset = taskYOffset - S(CONST.TASK_ROW_HEIGHT)
             else
                 taskRows[i]:Hide()
             end
         end
 
-        local taskHeight = 4 + (taskCount * CONST.TASK_ROW_HEIGHT) + 4
+        local taskHeight = S(4) + (taskCount * S(CONST.TASK_ROW_HEIGHT)) + S(4)
         taskContainer:SetHeight(taskHeight)
         taskContainer:Show()
-        yOffset = yOffset - taskHeight - 2
+        yOffset = yOffset - taskHeight - S(2)
     else
         taskContainer:Hide()
         for i = 1, CONST.MAX_VISIBLE_TASKS do
@@ -1204,9 +1350,9 @@ function EP:UpdateLayout()
         ResetBarLayout()
         if frame.iconFrame then frame.iconFrame:Hide() end
         if contentBackdrop then contentBackdrop:Hide() end
-        local titleOnlyHeight = CONST.TITLE_BAR_HEIGHT + 12
+        local titleOnlyHeight = ST(CONST.TITLE_BAR_HEIGHT) + S(12)
         frame:SetHeight(titleOnlyHeight)
-        AnimateWidth(CONST.PANEL_WIDTH)
+        AnimateWidth(S(CONST.PANEL_WIDTH))
         return
     end
 
@@ -1263,15 +1409,15 @@ function EP:UpdateLayout()
     end
 
     -- Set total frame height
-    local bottomPad = hasVisibleTasks and 0 or 3
+    local bottomPad = hasVisibleTasks and 0 or S(3)
     local totalHeight = math.abs(yOffset) + bottomPad
-    frame:SetHeight(math.max(totalHeight, 40))
+    frame:SetHeight(math.max(totalHeight, S(40)))
 
     -- Dynamic width: expanded when tasks visible or inline layout active
     if hasVisibleTasks or barLayoutTarget == 1 then
-        AnimateWidth(CONST.PANEL_WIDTH_EXPANDED)
+        AnimateWidth(S(CONST.PANEL_WIDTH_EXPANDED))
     else
-        AnimateWidth(CONST.PANEL_WIDTH)
+        AnimateWidth(S(CONST.PANEL_WIDTH))
     end
 end
 
@@ -1387,6 +1533,7 @@ end
 
 function EP:Refresh()
     if not frame or not frame:IsShown() then return end
+    UpdateScaleFactors()
 
     cachedActiveTasks = nil  -- force fresh data on explicit refresh
     self:UpdateLayout()
@@ -1428,6 +1575,7 @@ function EP:TryShow()
         CreateEndeavorsFrame()
     end
 
+    UpdateScaleFactors()
     frame:Show()
     SetFrameBackdropAlpha(1)
     self:Refresh()

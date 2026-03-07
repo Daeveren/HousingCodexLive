@@ -118,26 +118,20 @@ function addon:GetProgressBySourceType()
         targetTabKey = "ACHIEVEMENTS",
     })
 
-    -- Drops (split by sub-category: drops, bosses, treasure)
-    local dropCategories = {
-        { category = "drop",      labelKey = "DROPS_CATEGORY_DROP" },
-        { category = "encounter", labelKey = "DROPS_CATEGORY_ENCOUNTER" },
-        { category = "treasure",  labelKey = "DROPS_CATEGORY_TREASURE" },
-    }
-    for _, dc in ipairs(dropCategories) do
-        if self.dropHierarchy[dc.category] then
-            local dOwned, dTotal = self:GetDropCategoryCollectionProgress(dc.category)
-            if dTotal > 0 then
-                table.insert(result, {
-                    key = dc.category,
-                    labelKey = dc.labelKey,
-                    owned = dOwned,
-                    total = dTotal,
-                    percent = dOwned / dTotal * 100,
-                    targetTabKey = "DROPS",
-                    category = dc.category,
-                })
-            end
+    -- Drops (split by sub-category, dynamically from DropIndex)
+    for _, category in ipairs(self:GetSortedDropCategories()) do
+        local categoryInfo = self:GetSourceCategoryInfo(category)
+        local dOwned, dTotal = self:GetDropCategoryCollectionProgress(category)
+        if dTotal > 0 then
+            table.insert(result, {
+                key = category,
+                labelKey = categoryInfo and categoryInfo.labelKey or category,
+                owned = dOwned,
+                total = dTotal,
+                percent = dOwned / dTotal * 100,
+                targetTabKey = "DROPS",
+                category = category,
+            })
         end
     end
 

@@ -2,6 +2,18 @@
 
 All notable changes to Housing Codex.
 
+**1.8.9** (2026-07-03)
+
+**Added**
+- Endeavors panel size can now be adjusted — choose between Small, Normal, or Big from the cogwheel settings menu
+- Existing users are migrated to Normal size — if you want the previous size before this update, that is now the "Small" one
+
+**Fixed**
+- Progress tab now shows quest progress broken down by expansion — click to jump to the Quests tab filtered by that expansion
+- PvP progress bars in the Progress tab now appear correctly without needing to visit the PvP tab first
+- Quest and Achievement tabs now show a proper "no results" message when search or filters match nothing
+- Vendor tab filters and search now return more accurate results
+
 **1.8.8** (2026-06-07)
 
 **Added**

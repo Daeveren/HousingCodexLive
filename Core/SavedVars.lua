@@ -5,7 +5,7 @@
 
 local ADDON_NAME, addon = ...
 
-local CURRENT_DB_VERSION = 5
+local CURRENT_DB_VERSION = 6
 
 local defaults = {
     version = CURRENT_DB_VERSION,
@@ -101,6 +101,7 @@ local defaults = {
         showEndeavorText = false,
         showXPPct = false,
         showEndeavorPct = false,
+        scale = "normal",
     },
 }
 
@@ -170,6 +171,14 @@ local function MigrateDB(db)
             db.settings.ldbShowText = nil
         end
         db.version = 5
+    end
+
+    -- v5 -> v6: Add endeavors scale setting, default to "normal"
+    if db.version < 6 then
+        if db.endeavors then
+            db.endeavors.scale = "normal"
+        end
+        db.version = 6
     end
 
     return db

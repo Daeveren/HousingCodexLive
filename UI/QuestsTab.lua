@@ -883,17 +883,31 @@ function QuestsTab:CreateEmptyStates()
 
     -- "Select an expansion" state (shown in zone/quest panel when no expansion selected)
     self.noExpansionState = addon:CreateEmptyStateFrame(self.zoneQuestPanel, "QUESTS_SELECT_EXPANSION")
+
+    -- No search/filter results state
+    self.noResultsState = addon:CreateEmptyStateFrame(self.zoneQuestPanel, "QUESTS_EMPTY_NO_RESULTS")
 end
 
 function QuestsTab:UpdateEmptyStates()
     local hasQuests = addon:GetQuestCount() > 0
+    local expansionResults = self.expansionDataProvider and self.expansionDataProvider:GetSize() or 0
+    local hasVisibleExpansions = expansionResults > 0
     local hasExpansion = self.selectedExpansionKey ~= nil
+    local questResults = self.zoneQuestDataProvider and self.zoneQuestDataProvider:GetSize() or 0
+    local showQuestList = hasQuests and hasVisibleExpansions and hasExpansion and questResults > 0
+    local showNoResults = hasQuests and ((not hasVisibleExpansions) or (hasExpansion and questResults == 0))
+    local showNoExpansion = hasQuests and hasVisibleExpansions and not hasExpansion and not showNoResults
 
-    self.emptyState:SetShown(not hasQuests)
-    self.noExpansionState:SetShown(hasQuests and not hasExpansion)
-    self.expansionScrollBox:SetShown(hasQuests)
-    self.zoneQuestScrollBox:SetShown(hasQuests and hasExpansion)
-    self.zoneQuestScrollBar:SetShown(hasQuests and hasExpansion)
+    if self.emptyState then self.emptyState:SetShown(not hasQuests) end
+    if self.noExpansionState then self.noExpansionState:SetShown(showNoExpansion) end
+    if self.noResultsState then self.noResultsState:SetShown(showNoResults) end
+    if self.expansionScrollBox then self.expansionScrollBox:SetShown(hasQuests and hasVisibleExpansions) end
+    if self.zoneQuestScrollBox then self.zoneQuestScrollBox:SetShown(showQuestList) end
+    if self.zoneQuestScrollBar then self.zoneQuestScrollBar:SetShown(showQuestList) end
+
+    if showNoResults then
+        addon:FireEvent("RECORD_SELECTED", nil)
+    end
 end
 
 --------------------------------------------------------------------------------

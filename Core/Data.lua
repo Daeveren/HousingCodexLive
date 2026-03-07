@@ -351,7 +351,8 @@ function addon:GetSubcategoryInfo(subcategoryID)
 end
 
 function addon:GetRecord(recordID)
-    return self.decorRecords[recordID] or self.fallbackRecords[recordID]
+    local record = self.decorRecords[recordID] or self.fallbackRecords[recordID]
+    return record ~= false and record or nil
 end
 
 -- Resolve display name for a decorId with fallback chain:
@@ -368,15 +369,15 @@ end
 
 -- Resolve a record by trying direct API lookup when not in catalog search results.
 -- Used for items with HiddenInCatalog flag (e.g., boss drops not yet in catalog browser).
--- Successful lookups are cached in fallbackRecords; failures return nil without caching.
+-- Successful lookups are cached in fallbackRecords; failures cached as false (negative cache).
 function addon:ResolveRecord(recordID)
     -- Check primary records first
     local record = self.decorRecords[recordID]
     if record then return record end
 
-    -- Check fallback cache
+    -- Check fallback cache (false = negative cache, item confirmed unresolvable)
     local cached = self.fallbackRecords[recordID]
-    if cached then return cached end
+    if cached then return cached ~= false and cached or nil end
 
     -- Try direct API lookup (bypasses catalog search filter)
     if not C_HousingCatalog or not C_HousingCatalog.GetCatalogEntryInfoByRecordID then
@@ -386,6 +387,7 @@ function addon:ResolveRecord(recordID)
     local info = C_HousingCatalog.GetCatalogEntryInfoByRecordID(
         Enum.HousingCatalogEntryType.Decor, recordID, true)
     if not info then
+        self.fallbackRecords[recordID] = false
         return nil
     end
 

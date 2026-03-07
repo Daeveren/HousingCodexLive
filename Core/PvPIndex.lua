@@ -145,6 +145,7 @@ function addon:BuildPvPIndex()
     end
 
     self.pvpIndexBuilt = true
+    wipe(self.progressCache)
 
     self:Debug(string.format("Built PvP index: %d sources, %d decor items in %d ms",
         sourceCount, decorCount, math.floor(debugprofilestop() - startTime)))

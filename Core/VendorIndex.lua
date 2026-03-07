@@ -118,6 +118,7 @@ function addon:BuildVendorIndex()
     wipe(self.vendorExpansionProgressCache)
     wipe(self.vendorZoneProgressCache)
     self.vendorMapVendorsByMapID = nil
+    self:InvalidateVendorPinCache()
 
     local vendorCount, decorCount = 0, 0
 
@@ -151,7 +152,6 @@ function addon:BuildVendorIndex()
                             currencyName = vendorData.currencyName,
                             decorIds = {},
                             decorIdSet = {},
-                            zones = {},
                         }
                         self.vendorIndex[npcId] = vendorEntry
                         vendorCount = vendorCount + 1
@@ -167,8 +167,6 @@ function addon:BuildVendorIndex()
                             end
                         end
                     end
-
-                    vendorEntry.zones[zoneName] = true
 
                     if not self.vendorZoneCache[npcId] then
                         self.vendorZoneCache[npcId] = {
@@ -245,10 +243,12 @@ function addon:GetVendorZoneCollectionProgress(expansionKey, zoneName)
     local owned, total = 0, 0
     for _, vendor in ipairs(self:GetVendorsForZone(expansionKey, zoneName)) do
         for _, decorId in ipairs(vendor.decorIds) do
-            total = total + 1
             local record = self:ResolveRecord(decorId)
-            if record and record.isCollected then
-                owned = owned + 1
+            if record then
+                total = total + 1
+                if record.isCollected then
+                    owned = owned + 1
+                end
             end
         end
     end

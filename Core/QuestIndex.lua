@@ -149,6 +149,7 @@ function addon:BuildQuestIndex()
     wipe(self.questSortedRecords)
     wipe(self.questZoneFromScrape)
     wipe(self.questTitleCache)
+    wipe(self.pendingQuestLoads)
 
     local questCount = 0
     local scrapedCount = 0
@@ -480,6 +481,7 @@ addon:RegisterWoWEvent("QUEST_DATA_LOAD_RESULT", function(questID, success)
 
     -- Signal when all pending title loads are resolved
     if not next(addon.pendingQuestLoads) then
+        addon:BuildQuestHierarchy()
         addon:FireEvent("QUEST_ALL_TITLES_LOADED")
     end
 end)

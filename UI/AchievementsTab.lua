@@ -805,24 +805,25 @@ end
 
 function AchievementsTab:UpdateEmptyStates()
     local hasAchievements = addon:GetAchievementCount() > 0
+    local categoryResults = self.categoryDataProvider and self.categoryDataProvider:GetSize() or 0
+    local hasVisibleCategories = categoryResults > 0
     local hasCategory = self.selectedCategory ~= nil
+    local achievementDataProvider = self.achievementScrollBox and self.achievementScrollBox:GetDataProvider()
+    local achievementResults = achievementDataProvider and achievementDataProvider:GetSize() or 0
+    local showAchievementList = hasAchievements and hasVisibleCategories and hasCategory and achievementResults > 0
+    local showNoResults = hasAchievements and ((not hasVisibleCategories) or (hasCategory and achievementResults == 0))
+    local showNoCategory = hasAchievements and hasVisibleCategories and not hasCategory and not showNoResults
 
-    -- Check if current display has results
-    local dataProvider = self.achievementScrollBox and self.achievementScrollBox:GetDataProvider()
-    local hasResults = dataProvider and dataProvider:GetSize() > 0
+    if self.emptyState then self.emptyState:SetShown(not hasAchievements) end
+    if self.noCategoryState then self.noCategoryState:SetShown(showNoCategory) end
+    if self.noResultsState then self.noResultsState:SetShown(showNoResults) end
+    if self.categoryScrollBox then self.categoryScrollBox:SetShown(hasAchievements and hasVisibleCategories) end
+    if self.achievementScrollBox then self.achievementScrollBox:SetShown(showAchievementList) end
+    if self.achievementScrollBar then self.achievementScrollBar:SetShown(showAchievementList) end
 
-    -- Determine visibility states
-    local showAchievementList = hasAchievements and hasCategory and hasResults
-
-    -- Apply visibility to empty states
-    self.emptyState:SetShown(not hasAchievements)
-    self.noCategoryState:SetShown(hasAchievements and not hasCategory)
-    self.noResultsState:SetShown(hasAchievements and hasCategory and not hasResults)
-
-    -- Apply visibility to scroll elements
-    self.categoryScrollBox:SetShown(hasAchievements)
-    self.achievementScrollBox:SetShown(showAchievementList)
-    self.achievementScrollBar:SetShown(showAchievementList)
+    if showNoResults then
+        addon:FireEvent("RECORD_SELECTED", nil)
+    end
 end
 
 --------------------------------------------------------------------------------

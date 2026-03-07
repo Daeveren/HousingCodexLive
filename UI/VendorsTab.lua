@@ -180,6 +180,8 @@ function VendorsTab:CreateToolbar(parent)
 end
 
 -- Rebuild the expansion list and, if needed, the vendor list.
+local searchCache, filterCache
+
 -- BuildExpansionDisplay returns true when it already triggered BuildVendorDisplay
 -- internally (via SelectExpansion or direct call), so we only call it ourselves
 -- when that didn't happen.
@@ -625,9 +627,24 @@ function VendorsTab:SetupZoneHeader(frame, elementData)
     end)
 end
 
+-- Check if a decorId can be resolved by any game API
+local function IsDecorResolvable(decorId)
+    if addon:ResolveRecord(decorId) then return true end
+    if C_HousingDecor and C_HousingDecor.GetDecorIcon then
+        local icon = C_HousingDecor.GetDecorIcon(decorId)
+        if icon then return true end
+    end
+    return false
+end
+
 function VendorsTab:SetupVendorRow(frame, elementData)
     local L = addon.L
-    local decorIds = elementData.decorIds or {}
+    local decorIds = {}
+    for _, decorId in ipairs(elementData.decorIds or {}) do
+        if IsDecorResolvable(decorId) then
+            decorIds[#decorIds + 1] = decorId
+        end
+    end
     local decorCount = #decorIds
     frame:SetHeight(VENDOR_ROW_BASE_HEIGHT + (decorCount * DECOR_ROW_HEIGHT))
     frame.npcId = elementData.npcId
@@ -766,7 +783,8 @@ function VendorsTab:SetupDecorRows(frame, decorIds)
                 row.icon:SetTexture(record.icon)
             end
         else
-            row.icon:SetTexture("Interface\\Icons\\INV_Misc_QuestionMark")
+            local decorIcon = C_HousingDecor and C_HousingDecor.GetDecorIcon and C_HousingDecor.GetDecorIcon(decorId)
+            row.icon:SetTexture(decorIcon or "Interface\\Icons\\INV_Misc_QuestionMark")
         end
 
         local isCollected = record and record.isCollected
@@ -1133,8 +1151,6 @@ end
 -- Search/Filter Logic (with per-refresh memoization)
 --------------------------------------------------------------------------------
 
-local searchCache, filterCache
-
 local function VendorMatchesSearch(vendorData, searchText, zoneName, expansionKey)
     if searchText == "" then return true end
 
@@ -1158,6 +1174,11 @@ local function VendorMatchesSearch(vendorData, searchText, zoneName, expansionKe
                 result = true
                 break
             end
+            local fallback = addon.VendorItemFallback and addon.VendorItemFallback[decorId]
+            if fallback and fallback.name and strlower(fallback.name):find(searchText, 1, true) then
+                result = true
+                break
+            end
         end
     end
 
@@ -1165,11 +1186,11 @@ local function VendorMatchesSearch(vendorData, searchText, zoneName, expansionKe
     return result
 end
 
-local function VendorPassesCompletionFilter(vendorData, filter)
+local function VendorPassesCompletionFilter(vendorData, filter, zoneName, expansionKey)
     if filter == "all" then return true end
 
-    local npcId = vendorData.npcId
-    if filterCache and filterCache[npcId] ~= nil then return filterCache[npcId] end
+    local cacheKey = vendorData.npcId .. ":" .. zoneName .. ":" .. expansionKey
+    if filterCache and filterCache[cacheKey] ~= nil then return filterCache[cacheKey] end
 
     local owned, total = 0, 0
     for _, decorId in ipairs(vendorData.decorIds or {}) do
@@ -1182,7 +1203,7 @@ local function VendorPassesCompletionFilter(vendorData, filter)
     if filter == "complete" then result = isComplete
     else result = not isComplete end
 
-    if filterCache then filterCache[npcId] = result end
+    if filterCache then filterCache[cacheKey] = result end
     return result
 end
 
@@ -1224,7 +1245,7 @@ function VendorsTab:BuildExpansionDisplay()
         local hasVisibleContent = false
         for _, zoneName in ipairs(addon:GetSortedVendorZones(expansionKey)) do
             for _, vendorData in ipairs(addon:GetVendorsForZone(expansionKey, zoneName)) do
-                if VendorPassesCompletionFilter(vendorData, filter)
+                if VendorPassesCompletionFilter(vendorData, filter, zoneName, expansionKey)
                     and VendorMatchesSearch(vendorData, searchText, zoneName, expansionKey) then
                     hasVisibleContent = true
                     break
@@ -1272,7 +1293,7 @@ function VendorsTab:BuildVendorDisplay()
         for _, zoneName in ipairs(addon:GetSortedVendorZones(expansionKey)) do
             local zoneVendors = {}
             for _, vendorData in ipairs(addon:GetVendorsForZone(expansionKey, zoneName)) do
-                if VendorPassesCompletionFilter(vendorData, filter)
+                if VendorPassesCompletionFilter(vendorData, filter, zoneName, expansionKey)
                     and VendorMatchesSearch(vendorData, searchText, zoneName, expansionKey) then
                     table.insert(zoneVendors, vendorData)
                 end
@@ -1328,8 +1349,7 @@ end
 VendorsTab:RegisterTabVisibility("VENDORS")
 
 addon:RegisterInternalEvent("DATA_LOADED", function()
-    if VendorsTab:IsShown() and not addon.vendorIndexBuilt then
-        addon:BuildVendorIndex()
+    if VendorsTab:IsShown() then
         VendorsTab:RefreshDisplay()
         VendorsTab:UpdateEmptyStates()
     end

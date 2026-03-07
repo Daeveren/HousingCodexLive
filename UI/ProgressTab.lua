@@ -31,6 +31,7 @@ ProgressTab.sourceRows = {}
 ProgressTab.professionRows = {}
 ProgressTab.vendorExpRows = {}
 ProgressTab.almostThereRows = {}
+ProgressTab.questExpRows = {}
 
 -- Override: gray for <100%, green at 100%
 function ProgressTab:GetProgressColor(percent)
@@ -96,6 +97,7 @@ function ProgressTab:Show()
         if not addon.achievementIndexBuilt then addon:BuildAchievementIndex() end
         if not addon.dropIndexBuilt then addon:BuildDropIndex() end
         if not addon.craftingIndexBuilt then addon:BuildCraftingIndex() end
+        if not addon.pvpIndexBuilt then addon:BuildPvPIndex() end
     end
 
     self.frame:Show()
@@ -267,7 +269,7 @@ function ProgressTab:ShowLoadingState()
 end
 
 function ProgressTab:ClearDashboard()
-    local pools = { self.sourceRows, self.professionRows, self.vendorExpRows, self.almostThereRows }
+    local pools = { self.sourceRows, self.professionRows, self.vendorExpRows, self.questExpRows, self.almostThereRows }
     for _, pool in ipairs(pools) do
         for _, frame in ipairs(pool) do
             frame:Hide()
@@ -278,7 +280,7 @@ function ProgressTab:ClearDashboard()
         element:Hide()
     end
 
-    local headers = { "loadingMsg", "sourceHeader", "professionsHeader", "vendorExpHeader", "almostThereHeader" }
+    local headers = { "loadingMsg", "sourceHeader", "professionsHeader", "vendorExpHeader", "questExpHeader", "almostThereHeader" }
     for _, key in ipairs(headers) do
         if self[key] then self[key]:Hide() end
     end
@@ -304,19 +306,22 @@ function ProgressTab:BuildDashboard(preserveScroll)
 
     local columnWidth = math.floor((contentWidth - COLUMN_GAP) / 2)
 
-    -- Left column: By Source + Professions
+    -- Left column: By Source + Most Progressed + Quest Expansions
     local leftY = self:BuildSourceSection(0, columnWidth, 0)
     leftY = leftY - SECTION_PADDING
-    leftY = self:BuildProfessionsSection(leftY, columnWidth, 0)
-
-    -- Right column: Most Progressed + Vendor Expansions
-    local rightX = columnWidth + COLUMN_GAP
-    local rightY = self:BuildAlmostThereSection(0, columnWidth, rightX)
-    if rightY < 0 then
-        rightY = rightY - SECTION_PADDING
+    leftY = self:BuildAlmostThereSection(leftY, columnWidth, 0)
+    local questExpData = addon:GetProgressByExpansion("QUESTS")
+    if #questExpData > 0 then
+        if leftY < 0 then leftY = leftY - SECTION_PADDING end
+        leftY = self:BuildExpansionSection(leftY, columnWidth, "questExp", L["PROGRESS_QUEST_EXPANSIONS"], questExpData, self.questExpRows, 0)
     end
+
+    -- Right column: Professions + Vendor Expansions
+    local rightX = columnWidth + COLUMN_GAP
+    local rightY = self:BuildProfessionsSection(0, columnWidth, rightX)
     local vendorExpData = addon:GetProgressByExpansion("VENDORS")
     if #vendorExpData > 0 then
+        if rightY < 0 then rightY = rightY - SECTION_PADDING end
         rightY = self:BuildExpansionSection(rightY, columnWidth, "vendorExp", L["PROGRESS_VENDOR_EXPANSIONS"], vendorExpData, self.vendorExpRows, rightX)
     end
 
@@ -695,6 +700,7 @@ addon:RegisterInternalEvent("DATA_LOADED", function()
     if not addon.achievementIndexBuilt then addon:BuildAchievementIndex() end
     if not addon.dropIndexBuilt then addon:BuildDropIndex() end
     if not addon.craftingIndexBuilt then addon:BuildCraftingIndex() end
+    if not addon.pvpIndexBuilt then addon:BuildPvPIndex() end
 
     ProgressTab:RefreshDisplay(true)
 end)

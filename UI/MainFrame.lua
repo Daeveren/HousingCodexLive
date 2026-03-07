@@ -651,7 +651,8 @@ function MainFrame:Show()
             addon:RunSearchNow("deferred refresh")
         elseif addon.Grid and addon.Tabs and addon.Tabs:GetCurrentTab() == "DECOR" then
             addon.Grid:Refresh()
-        elseif addon.Tabs and addon.Tabs:GetCurrentTab() == "PROGRESS" then
+        end
+        if addon.Tabs and addon.Tabs:GetCurrentTab() == "PROGRESS" and addon.ProgressTab then
             addon.ProgressTab:RefreshDisplay(true)
         end
     end
