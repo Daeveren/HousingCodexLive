@@ -4,7 +4,7 @@
     title bar auto-hide, minimize, movability, cogwheel config popup.
 ]]
 
-local ADDON_NAME, addon = ...
+local _, addon = ...
 
 local EP = {}
 addon.EndeavorsPanel = EP

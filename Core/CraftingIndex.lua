@@ -3,7 +3,7 @@
     Profession-to-decor index building and progress helpers.
 ]]
 
-local ADDON_NAME, addon = ...
+local _, addon = ...
 
 addon.craftingIndex = {}
 addon.craftingHierarchy = {}

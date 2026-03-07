@@ -3,7 +3,7 @@
     Feature highlight data for What's New and Welcome popups
 ]]
 
-local ADDON_NAME, addon = ...
+local _, addon = ...
 
 -- Version-specific feature highlights (newest first)
 addon.WhatsNewVersions = {

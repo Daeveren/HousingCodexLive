@@ -3,7 +3,7 @@
     Sidebar category navigation with Blizzard-style drill-down
 ]]
 
-local ADDON_NAME, addon = ...
+local _, addon = ...
 
 local CONSTS = addon.CONSTANTS
 local COLORS = CONSTS.COLORS

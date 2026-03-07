@@ -4,7 +4,7 @@
     Left-click opens a dropdown with overlay settings
 ]]
 
-local ADDON_NAME, addon = ...
+local _, addon = ...
 
 --------------------------------------------------------------------------------
 -- Button Mixin (mixed in via WorldMapButton.xml template)

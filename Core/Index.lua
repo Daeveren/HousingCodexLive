@@ -3,7 +3,7 @@
     Search and filter indexes for fast queries
 ]]
 
-local ADDON_NAME, addon = ...
+local _, addon = ...
 
 addon.indexes = {
     collected = {},

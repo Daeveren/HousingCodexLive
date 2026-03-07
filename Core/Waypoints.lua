@@ -3,7 +3,7 @@
     Central waypoint dispatch: routes through TomTom or native Blizzard waypoints
 ]]
 
-local ADDON_NAME, addon = ...
+local _, addon = ...
 
 local Waypoints = {}
 addon.Waypoints = Waypoints

@@ -3,7 +3,7 @@
     Main window with DaevTools styling
 ]]
 
-local ADDON_NAME, addon = ...
+local _, addon = ...
 
 local COLORS = addon.CONSTANTS.COLORS
 local MIN_WIDTH = addon.CONSTANTS.MIN_FRAME_WIDTH

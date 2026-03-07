@@ -4,7 +4,7 @@
     Parses AchievementSourceData for achievement-decor relationships
 ]]
 
-local ADDON_NAME, addon = ...
+local _, addon = ...
 
 -- WoW achievement root category IDs (stable across locales)
 -- Source: ACHIEVEMENTUI_SUMMARYCATEGORIES in Blizzard_AchievementUI.lua

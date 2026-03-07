@@ -4,7 +4,7 @@
     neighborhood initiative progress, and task diff tracking.
 ]]
 
-local ADDON_NAME, addon = ...
+local _, addon = ...
 
 local EndeavorsData = {}
 addon.EndeavorsData = EndeavorsData

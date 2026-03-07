@@ -4,7 +4,7 @@
     with green checkmark for items already owned
 ]]
 
-local ADDON_NAME, addon = ...
+local _, addon = ...
 local MerchantOverlay = {}
 addon.MerchantOverlay = MerchantOverlay
 

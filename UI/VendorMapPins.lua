@@ -3,7 +3,7 @@
     World map vendor pin provider and pin behavior
 ]]
 
-local ADDON_NAME, addon = ...
+local _, addon = ...
 
 local L = addon.L
 local C = addon.CONSTANTS.VENDOR_PIN

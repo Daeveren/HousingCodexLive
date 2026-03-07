@@ -3,7 +3,7 @@
     World map vendor pin indexing and progress caching
 ]]
 
-local ADDON_NAME, addon = ...
+local _, addon = ...
 
 addon.vendorMapVendorsByMapID = nil
 addon.vendorPinProgressCache = addon.vendorPinProgressCache or {}

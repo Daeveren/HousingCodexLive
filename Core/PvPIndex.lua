@@ -5,7 +5,7 @@
     No data duplication — scans existing sources at runtime.
 ]]
 
-local ADDON_NAME, addon = ...
+local _, addon = ...
 
 -- PvP source category display info
 local PVP_SOURCE_CATEGORY_INFO = {

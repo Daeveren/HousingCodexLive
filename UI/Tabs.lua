@@ -3,7 +3,7 @@
     Horizontal tab navigation in title bar (DaevTools pattern)
 ]]
 
-local ADDON_NAME, addon = ...
+local _, addon = ...
 
 local COLORS = addon.CONSTANTS.COLORS
 local HTAB_ICON_SIZE = addon.CONSTANTS.HTAB_ICON_SIZE

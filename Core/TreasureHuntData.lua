@@ -3,7 +3,7 @@
     Quest ID to location mapping for Decor Treasure Hunt daily quests
 ]]
 
-local ADDON_NAME, addon = ...
+local _, addon = ...
 
 -- Quest ID -> location mapping
 -- Coordinates are 0-1 normalized (use directly with UiMapPoint.CreateFromCoordinates)

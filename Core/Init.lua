@@ -1028,6 +1028,10 @@ addon:RegisterWoWEvent("ADDON_LOADED", function(loadedAddon)
         addon.db = HousingCodexDB
     end
 
+    -- Initialize minimap button and Settings panel early (they don't need housing data)
+    if addon.LDB then addon.LDB:Initialize() end
+    if addon.Settings then addon.Settings:Initialize() end
+
     addon:Debug("Addon loaded")
 end)
 

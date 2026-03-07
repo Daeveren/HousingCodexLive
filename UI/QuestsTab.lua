@@ -3,14 +3,13 @@
     Quest sources tab with Expansion > Zone > Quest hierarchy
 ]]
 
-local ADDON_NAME, addon = ...
+local _, addon = ...
 
 local CONSTS = addon.CONSTANTS
 local COLORS = CONSTS.COLORS
 
 -- Layout constants (using centralized values where available)
 local TOOLBAR_HEIGHT = CONSTS.HEADER_HEIGHT
-local SIDEBAR_WIDTH = CONSTS.SIDEBAR_WIDTH
 local EXPANSION_PANEL_WIDTH = CONSTS.HIERARCHY_PANEL_WIDTH
 local HIERARCHY_PADDING = CONSTS.HIERARCHY_PADDING
 local HEADER_HEIGHT = CONSTS.HIERARCHY_HEADER_HEIGHT

@@ -3,7 +3,7 @@
     Custom font system (Roboto Condensed) matching DaevTools pattern
 ]]
 
-local ADDON_NAME, addon = ...
+local _, addon = ...
 
 local CUSTOM_FONT_PATH = "Interface\\AddOns\\HousingCodex\\Fonts\\Roboto_Condensed_semibold.ttf"
 
@@ -105,6 +105,18 @@ function addon:SetFontSize(fontString, size, flags)
     if entry then
         entry.customSize = size
         entry.customFlags = flags
+    end
+end
+
+function addon:UnregisterFontStrings(frame)
+    if not frame then return end
+    for _, region in ipairs({ frame:GetRegions() }) do
+        if region.hcFontRegistryID then
+            self.fontStringRegistry[region.hcFontRegistryID] = nil
+        end
+    end
+    for _, child in ipairs({ frame:GetChildren() }) do
+        self:UnregisterFontStrings(child)
     end
 end
 

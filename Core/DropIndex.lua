@@ -5,7 +5,7 @@
     WowDB provides source names (boss names, event names) but not NPC IDs or zones.
 ]]
 
-local ADDON_NAME, addon = ...
+local _, addon = ...
 local L = addon.L
 
 -- Source category display info

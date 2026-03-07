@@ -3,7 +3,7 @@
     WoW native Settings UI integration (Settings > AddOns > Housing Codex)
 ]]
 
-local ADDON_NAME, addon = ...
+local _, addon = ...
 
 addon.Settings = {}
 
@@ -622,10 +622,3 @@ function addon.Settings:Open()
     end
 end
 
---------------------------------------------------------------------------------
--- Initialize Settings after data is loaded
--- This ensures SavedVariables are available
---------------------------------------------------------------------------------
-addon:RegisterInternalEvent("DATA_LOADED", function()
-    addon.Settings:Initialize()
-end)

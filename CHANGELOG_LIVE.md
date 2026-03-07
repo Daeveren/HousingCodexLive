@@ -2,6 +2,12 @@
 
 All notable changes to Housing Codex.
 
+**1.8.11** (2026-07-08)
+
+**Fixed**
+- Minimap button and Settings now work even if housing data fails to load
+- Welcome panel subtitle text no longer overflows past the frame edge
+
 **1.8.10** (2026-07-08)
 
 **Changed**

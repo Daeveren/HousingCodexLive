@@ -3,7 +3,7 @@
     Collection state filtering using HousingCatalogSearcher
 ]]
 
-local ADDON_NAME, addon = ...
+local _, addon = ...
 
 addon.Filters = {}
 local Filters = addon.Filters

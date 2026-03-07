@@ -4,7 +4,7 @@
     Pure data — no WoW API calls, no UI code.
 ]]
 
-local ADDON_NAME, addon = ...
+local _, addon = ...
 
 local EXPANSION_ORDER = addon.CONSTANTS.EXPANSION_ORDER
 

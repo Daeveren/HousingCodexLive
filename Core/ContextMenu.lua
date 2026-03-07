@@ -4,7 +4,7 @@
     Uses modern MenuUtil.CreateContextMenu API (WoW 12.0+)
 ]]
 
-local ADDON_NAME, addon = ...
+local _, addon = ...
 local L = addon.L
 
 addon.ContextMenu = {}

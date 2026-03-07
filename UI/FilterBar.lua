@@ -3,7 +3,7 @@
     Tag group filter dropdown using modern Blizzard_Menu system
 ]]
 
-local ADDON_NAME, addon = ...
+local _, addon = ...
 
 local L = addon.L
 

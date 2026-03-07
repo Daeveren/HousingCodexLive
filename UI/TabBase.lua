@@ -4,7 +4,7 @@
     Provides common toolbar, filter state, and visual helpers
 ]]
 
-local ADDON_NAME, addon = ...
+local _, addon = ...
 
 addon.TabBaseMixin = {}
 local TabBaseMixin = addon.TabBaseMixin

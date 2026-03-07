@@ -4,7 +4,7 @@
     Uses: C_HousingCatalog, HousingCatalogSearcher, C_ContentTracking
 ]]
 
-local ADDON_NAME, addon = ...
+local _, addon = ...
 
 -- Get localization key for size enum value (returns nil for None/unknown)
 local function GetSizeKey(size)
@@ -365,6 +365,15 @@ function addon:ResolveDecorName(decorId, record)
     end
     local scraped = self.DropDecorNames and self.DropDecorNames[decorId]
     return scraped or string.format(self.L["DROPS_DECOR_ID"], decorId)
+end
+
+-- Resolve display icon for a decorId when no catalog record exists
+function addon:ResolveDecorIcon(decorId)
+    if C_HousingDecor and C_HousingDecor.GetDecorIcon then
+        local icon = C_HousingDecor.GetDecorIcon(decorId)
+        if icon then return icon end
+    end
+    return FALLBACK_ICON
 end
 
 -- Resolve a record by trying direct API lookup when not in catalog search results.

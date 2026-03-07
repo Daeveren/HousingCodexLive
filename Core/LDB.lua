@@ -163,7 +163,8 @@ function LDB:Initialize()
         addon.db.minimap = addon.db.minimap or {}
         libDBIcon:Register(ADDON_NAME, dataObject, addon.db.minimap)
         -- Apply saved visibility setting
-        self:SetMinimapShown(addon.db.settings.showMinimapButton)
+        local showButton = addon.db.settings and addon.db.settings.showMinimapButton
+        self:SetMinimapShown(showButton)
         addon:Debug("LibDBIcon registered")
     end
 end
@@ -223,7 +224,6 @@ end
 
 -- Event handlers
 addon:RegisterInternalEvent("DATA_LOADED", function()
-    LDB:Initialize()
     LDB:UpdateText()
 end)
 

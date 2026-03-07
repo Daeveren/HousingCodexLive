@@ -3,7 +3,7 @@
     Appends decor collection progress to unit tooltips for vendor NPCs
 ]]
 
-local ADDON_NAME, addon = ...
+local _, addon = ...
 local VendorTooltipOverlay = {}
 addon.VendorTooltipOverlay = VendorTooltipOverlay
 

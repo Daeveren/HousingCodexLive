@@ -5,14 +5,13 @@
     Right panel: source entries with decor items
 ]]
 
-local ADDON_NAME, addon = ...
+local _, addon = ...
 
 local CONSTS = addon.CONSTANTS
 local COLORS = CONSTS.COLORS
 local ICON_CROP_COORDS = CONSTS.ICON_CROP_COORDS
 
 local TOOLBAR_HEIGHT = CONSTS.HEADER_HEIGHT
-local SIDEBAR_WIDTH = CONSTS.SIDEBAR_WIDTH
 local CATEGORY_PANEL_WIDTH = CONSTS.HIERARCHY_PANEL_WIDTH
 local HIERARCHY_PADDING = CONSTS.HIERARCHY_PADDING
 local HEADER_HEIGHT = CONSTS.HIERARCHY_HEADER_HEIGHT
@@ -22,15 +21,6 @@ local SOURCE_ROW_BASE_HEIGHT = 32
 local DECOR_ROW_HEIGHT = 24
 local DECOR_ICON_SIZE = 22
 local CATEGORY_ICON_SIZE = 20
-
--- Resolve display icon for a decorId when no catalog record exists
-local function ResolveDecorIcon(decorId)
-    if C_HousingDecor and C_HousingDecor.GetDecorIcon then
-        local icon = C_HousingDecor.GetDecorIcon(decorId)
-        if icon then return icon end
-    end
-    return "Interface\\Icons\\INV_Misc_QuestionMark"
-end
 
 addon.DropsTab = {}
 local DropsTab = addon.DropsTab
@@ -626,7 +616,7 @@ function DropsTab:SetupDecorRows(frame, decorIds)
                 row.icon:SetTexture(record.icon)
             end
         else
-            row.icon:SetTexture(ResolveDecorIcon(decorId))
+            row.icon:SetTexture(addon:ResolveDecorIcon(decorId))
         end
 
         local isCollected = record and record.isCollected

@@ -3,7 +3,7 @@
     Standalone wishlist popup window with grid and preview panel
 ]]
 
-local ADDON_NAME, addon = ...
+local _, addon = ...
 
 local CONSTS = addon.CONSTANTS
 local COLORS = CONSTS.COLORS

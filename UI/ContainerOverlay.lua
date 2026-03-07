@@ -4,7 +4,7 @@
     that are housing decor, with green checkmark for items already owned
 ]]
 
-local ADDON_NAME, addon = ...
+local _, addon = ...
 local ContainerOverlay = {}
 addon.ContainerOverlay = ContainerOverlay
 

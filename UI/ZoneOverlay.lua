@@ -4,7 +4,7 @@
     Parented to WorldMapFrame.ScrollContainer (no taint per Blizzard pattern)
 ]]
 
-local ADDON_NAME, addon = ...
+local _, addon = ...
 
 addon.ZoneOverlay = {}
 

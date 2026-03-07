@@ -6,7 +6,7 @@
     Listens globally - quest ID check filters to treasure hunt quests only.
 ]]
 
-local ADDON_NAME, addon = ...
+local _, addon = ...
 
 addon.TreasureHuntWaypoints = {}
 

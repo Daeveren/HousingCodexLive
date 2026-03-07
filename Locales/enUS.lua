@@ -3,7 +3,7 @@
     English (US) localization - base language
 ]]
 
-local ADDON_NAME, addon = ...
+local _, addon = ...
 
 local L = addon.L
 

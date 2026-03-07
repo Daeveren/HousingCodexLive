@@ -3,7 +3,7 @@
     What's New (upgrade) and Welcome (fresh install) popup frames
 ]]
 
-local ADDON_NAME, addon = ...
+local _, addon = ...
 
 local L = addon.L
 local CONSTS = addon.CONSTANTS
@@ -163,19 +163,21 @@ local function CreateHeader(frame)
     title:SetTextColor(0.9, 0.85, 0.5, 1)
     frame.headerTitle = title
 
-    -- Subtitle (Welcome only)
-    local subtitle = addon:CreateFontString(header, "OVERLAY", "GameFontNormalLarge")
-    subtitle:SetPoint("LEFT", title, "RIGHT", 16, 0)
-    subtitle:SetTextColor(0.7, 0.7, 0.7, 1)
-    subtitle:Hide()
-    frame.headerSubtitle = subtitle
-
     -- Close button
     local closeBtn = CreateFrame("Button", nil, header, "UIPanelCloseButton")
     closeBtn:SetPoint("TOPRIGHT", header, "TOPRIGHT", 0, 0)
     closeBtn:SetScript("OnClick", function()
         WhatsNew:Close()
     end)
+
+    -- Subtitle (Welcome only)
+    local subtitle = addon:CreateFontString(header, "OVERLAY", "GameFontNormalLarge")
+    subtitle:SetPoint("TOPLEFT", title, "BOTTOMLEFT", 0, -10)
+    subtitle:SetPoint("RIGHT", header, "RIGHT", -12, 0)
+    subtitle:SetJustifyH("RIGHT")
+    subtitle:SetTextColor(0.7, 0.7, 0.7, 1)
+    subtitle:Hide()
+    frame.headerSubtitle = subtitle
 
     return header
 end
@@ -540,6 +542,7 @@ end
 
 -- Detach a frame child created during a previous Build (Blizzard pool pattern)
 local function ReleaseChild(child)
+    addon:UnregisterFontStrings(child)
     child:Hide()
     child:SetParent(nil)
 end
@@ -583,7 +586,9 @@ function WhatsNew:Build(variant)
     self.header = header
 
     if variant == "welcome" then
-        header:SetHeight(72)
+        header:SetHeight(82)
+        frame.headerIcon:SetPoint("LEFT", 14, 12)
+        frame.headerTitle:SetPoint("LEFT", frame.headerIcon, "RIGHT", 14, 0)
         frame.headerTitle:SetText(L["WELCOME_TITLE"])
         frame.headerSubtitle:SetText(L["WELCOME_SUBTITLE"])
         frame.headerSubtitle:Show()

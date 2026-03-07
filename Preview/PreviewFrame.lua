@@ -3,7 +3,7 @@
     Docked 3D preview panel (right side of MainFrame)
 ]]
 
-local ADDON_NAME, addon = ...
+local _, addon = ...
 
 local COLORS = addon.CONSTANTS.COLORS
 

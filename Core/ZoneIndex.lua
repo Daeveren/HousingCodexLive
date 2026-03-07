@@ -4,7 +4,7 @@
     Combines vendor, quest, and treasure hunt data by zone/mapID.
 ]]
 
-local ADDON_NAME, addon = ...
+local _, addon = ...
 
 -- Shared zone-to-expansion mapping (used by QuestIndex, VendorIndex, and ZoneIndex)
 -- Source: merged from VendorSourceData and QuestSourceData scraper zone names

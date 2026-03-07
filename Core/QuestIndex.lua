@@ -4,7 +4,7 @@
     Parses sourceText for quest IDs and organizes by Expansion > Zone
 ]]
 
-local ADDON_NAME, addon = ...
+local _, addon = ...
 
 local ZONE_TO_EXPANSION = addon.ZONE_TO_EXPANSION
 local EMPTY = {}  -- Shared empty table for cache misses (never mutate)

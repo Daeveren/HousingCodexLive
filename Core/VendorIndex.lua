@@ -3,7 +3,7 @@
     Vendor-to-decor index building and hierarchy management
 ]]
 
-local ADDON_NAME, addon = ...
+local _, addon = ...
 
 local ZONE_TO_EXPANSION = addon.ZONE_TO_EXPANSION
 

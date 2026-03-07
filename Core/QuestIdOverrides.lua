@@ -5,7 +5,7 @@
 -- DO NOT EDIT MANUALLY - regenerate with: python tools/run_quest_lookup.py
 -- Exception: manual entries at bottom are marked with source comments
 
-local ADDON_NAME, addon = ...
+local _, addon = ...
 
 addon.QuestIdOverrides = {
     ["A Last Resort"] = 66683,

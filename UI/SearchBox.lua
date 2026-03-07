@@ -4,7 +4,7 @@
     Uses HousingCatalogSearcher:SetSearchText() for native search
 ]]
 
-local ADDON_NAME, addon = ...
+local _, addon = ...
 
 local DEBOUNCE_DELAY = 0.2  -- Intentionally higher than CONSTS.TIMER.INPUT_DEBOUNCE (heavier API call)
 local MIN_CHARACTER_SEARCH = 3  -- Blizzard pattern: minimum chars before search triggers

@@ -3,7 +3,7 @@
     Virtualized grid display for decor items using WoW ScrollBox
 ]]
 
-local ADDON_NAME, addon = ...
+local _, addon = ...
 
 local CONSTS = addon.CONSTANTS
 local COLORS = CONSTS.COLORS

@@ -4,7 +4,7 @@
     Sidebar summary panel + two-column layout with StatusBar progress fills.
 ]]
 
-local ADDON_NAME, addon = ...
+local _, addon = ...
 
 local CONSTS = addon.CONSTANTS
 local COLORS = CONSTS.COLORS

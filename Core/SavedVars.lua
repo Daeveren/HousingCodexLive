@@ -3,7 +3,7 @@
     Account-wide data persistence and frame position/size helpers
 ]]
 
-local ADDON_NAME, addon = ...
+local _, addon = ...
 
 local CURRENT_DB_VERSION = 6
 
@@ -13,9 +13,6 @@ local defaults = {
     frameSize = { width = 1200, height = 800 },
     preview = {
         width = 500,     -- Docked panel width (middle preset)
-    },
-    options = {
-        position = { point = "CENTER", relativePoint = "CENTER", xOfs = 0, yOfs = 0 },
     },
     browser = {
         lastTab = "DECOR",
