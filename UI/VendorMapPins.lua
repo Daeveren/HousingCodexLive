@@ -131,38 +131,40 @@ local function BuildPinEntriesForMap(mapID, mapType)
     local rectCache = {}  -- cache map rect per source map (static geometry, safe within one refresh)
 
     local vendorsByMapID = addon:GetAllVendorMapVendors()
-    for vendorMapID, vendors in pairs(vendorsByMapID or {}) do
-        -- Resolve map rect once per unique source map
-        if not rectCache[vendorMapID] then
-            if vendorMapID == mapID then
-                rectCache[vendorMapID] = true  -- identity: no projection needed
-            else
-                local left, right, top, bottom = C_Map.GetMapRectOnMap(vendorMapID, mapID)
-                if left and right and top and bottom then
-                    rectCache[vendorMapID] = {left, right, top, bottom}
-                else
-                    rectCache[vendorMapID] = false  -- invalid: skip projection
-                end
-            end
-        end
-        local rect = rectCache[vendorMapID]
-        local resolvedRect = type(rect) == "table" and rect or nil
-
+    for _, vendors in pairs(vendorsByMapID or {}) do
         for _, vendorData in ipairs(vendors) do
-            if not seenNpcIds or not seenNpcIds[vendorData.npcId] then
-                local x, y = GetProjectedCoordinates(vendorData, vendorMapID, mapID, resolvedRect)
+            local sourceMapID = vendorData.uiMapId
+            local dedupKey = seenNpcIds and (vendorData.npcId .. ":" .. (sourceMapID or 0))
+            if not seenNpcIds or not seenNpcIds[dedupKey] then
+                -- Resolve map rect once per unique source map
+                if sourceMapID and not rectCache[sourceMapID] then
+                    if sourceMapID == mapID then
+                        rectCache[sourceMapID] = true  -- identity: no projection needed
+                    else
+                        local left, right, top, bottom = C_Map.GetMapRectOnMap(sourceMapID, mapID)
+                        if left and right and top and bottom then
+                            rectCache[sourceMapID] = {left, right, top, bottom}
+                        else
+                            rectCache[sourceMapID] = false  -- invalid: skip projection
+                        end
+                    end
+                end
+                local rect = sourceMapID and rectCache[sourceMapID]
+                local resolvedRect = type(rect) == "table" and rect or nil
+
+                local x, y = GetProjectedCoordinates(vendorData, sourceMapID, mapID, resolvedRect)
                 local pinOverride = PIN_COORD_OVERRIDES[vendorData.npcId]
-                if pinOverride and vendorMapID == mapID then
+                if pinOverride and sourceMapID == mapID then
                     x, y = pinOverride.x / 100, pinOverride.y / 100
                 end
                 if x and y then
                     local owned, total = addon:GetVendorPinProgress(vendorData.npcId)
                     if IsIncompleteProgress(owned, total) then
                         if seenNpcIds then
-                            seenNpcIds[vendorData.npcId] = true
+                            seenNpcIds[dedupKey] = true
                         end
                         if isContinent then
-                            local zoneMapID = addon:GetZoneRootMapID(vendorMapID) or vendorMapID
+                            local zoneMapID = addon:GetZoneRootMapID(sourceMapID) or sourceMapID
                             local cluster = GetOrCreateZoneCluster(clustersByZone, zoneMapID)
                             AddClusterVendor(cluster, vendorData, owned, total, x, y)
                         elseif isZone and vendorData.uiMapId and vendorData.uiMapId ~= mapID then
@@ -573,9 +575,17 @@ function HousingCodexVendorPinMixin:OnMouseClickAction(button)
     end
 
     if IsAggregateVendorPin(self) then
-        local zoneMapID = addon:GetZoneRootMapID(self.vendorData.uiMapId) or self.vendorData.uiMapId
-        if zoneMapID and not InCombatLockdown() then
-            C_Map.OpenWorldMap(zoneMapID)
+        if InCombatLockdown() then return end
+        local currentMapID = self:GetMap() and self:GetMap():GetMapID()
+        local currentInfo = currentMapID and C_Map.GetMapInfo(currentMapID)
+        local targetMapID
+        if currentInfo and currentInfo.mapType == Enum.UIMapType.Continent then
+            targetMapID = addon:GetZoneRootMapID(self.vendorData.uiMapId) or self.vendorData.uiMapId
+        else
+            targetMapID = self.vendorData.uiMapId
+        end
+        if targetMapID then
+            OpenWorldMap(targetMapID)
         end
         return
     end
@@ -595,6 +605,7 @@ function HousingCodexVendorPinMixin:OnMouseClickAction(button)
     end
 
     local normX, normY = self.vendorData.x / 100, self.vendorData.y / 100
+    if normX < 0 or normX > 1 or normY < 0 or normY > 1 then return end
     local npcName = self.vendorData.npcName
     if not addon.Waypoints:Set(mapID, normX, normY, npcName or "Vendor") then
         return

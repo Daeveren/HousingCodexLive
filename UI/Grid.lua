@@ -652,7 +652,7 @@ function Grid:Rebuild()
 
     -- Restore data
     self.selectedRecordID = savedSelection
-    if savedUnfilteredIDs and #savedUnfilteredIDs > 0 then
+    if savedUnfilteredIDs then
         self:SetData(savedUnfilteredIDs)
     end
 
@@ -929,8 +929,6 @@ end)
 
 -- Refresh grid when a record's ownership data changes (debounced to coalesce rapid events)
 addon:RegisterInternalEvent("RECORD_OWNERSHIP_UPDATED", function(recordID, collectionStateChanged, updateKind)
-    -- Skip when collection state didn't change (no visual difference)
-    if collectionStateChanged == false then return end
     -- Skip grid updates when MainFrame is hidden
     if not addon.MainFrame or not addon.MainFrame:IsShown() then
         addon.needsGridRefresh = true
@@ -950,6 +948,11 @@ addon:RegisterInternalEvent("WISHLIST_CHANGED", function(recordID, isWishlisted)
                 tile.wishlistStar:SetShown(isWishlisted)
             end
         end)
+    end
+
+    -- If wishlist-only filter is active, reapply filters to remove/add the item
+    if addon.Filters and addon.Filters.showWishlistOnly and addon.Tabs and addon.Tabs:GetCurrentTab() == "DECOR" then
+        Grid:ReapplyFilters()
     end
 end)
 

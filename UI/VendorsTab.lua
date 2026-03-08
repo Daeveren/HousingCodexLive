@@ -1077,7 +1077,7 @@ function VendorsTab:SetWaypoint(npcId, npcName)
     addon:Print(string.format(L["VENDOR_WAYPOINT_SET"], npcName or L["VENDOR_FALLBACK_NAME"]))
 
     if not InCombatLockdown() then
-        C_Map.OpenWorldMap(locData.uiMapId)
+        if OpenWorldMap then OpenWorldMap(locData.uiMapId) end
     end
 end
 

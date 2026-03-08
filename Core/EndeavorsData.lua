@@ -225,17 +225,14 @@ end
 --------------------------------------------------------------------------------
 
 local function DiffTaskProgress(info)
-    if not info or not info.tasks then return end
+    if not info or not info.tasks then return false end
 
+    local hasChanges = false
     for _, task in ipairs(info.tasks) do
         local taskID = task.ID  -- API field is "ID" per InitiativeTaskInfo
         if taskID then
-            local reqText
-            if task.requirementsList and task.requirementsList[1] then
-                reqText = task.requirementsList[1].requirementText
-            end
-
-            local current, max = ParseTaskProgress(reqText)
+            local reqEntry = task.requirementsList and task.requirementsList[1]
+            local current, max = ParseTaskProgress(reqEntry and reqEntry.requirementText)
             if current and max then
                 local oldSnapshot = state.taskSnapshots[taskID]
                 local isCompleted = task.completed  -- API field is "completed" per InitiativeTaskInfo
@@ -243,6 +240,7 @@ local function DiffTaskProgress(info)
                 if oldSnapshot then
                     local delta = current - oldSnapshot.current
                     if delta > 0 or (isCompleted and not (state.sessionProgress[taskID] and state.sessionProgress[taskID].completed)) then
+                        hasChanges = true
                         state.sessionProgress[taskID] = {
                             taskName = task.taskName or "",
                             current = current,
@@ -273,6 +271,8 @@ local function DiffTaskProgress(info)
             end
         end
     end
+
+    return hasChanges
 end
 
 local function OnInitiativeUpdated()
@@ -292,7 +292,7 @@ local function OnInitiativeUpdated()
         addon:Debug("Endeavors: pre-diff snapshots:", snapshotCount)
     end
 
-    DiffTaskProgress(info)
+    local hasChanges = DiffTaskProgress(info)
 
     -- Debug: log snapshot state after diff
     if addon.db and addon.db.settings and addon.db.settings.debugMode then
@@ -300,10 +300,10 @@ local function OnInitiativeUpdated()
         for _ in pairs(state.taskSnapshots) do afterCount = afterCount + 1 end
         local progressCount = 0
         for _ in pairs(state.sessionProgress) do progressCount = progressCount + 1 end
-        addon:Debug("Endeavors: post-diff snapshots:", afterCount, "sessionProgress:", progressCount)
+        addon:Debug("Endeavors: post-diff snapshots:", afterCount, "sessionProgress:", progressCount, "hasChanges:", hasChanges)
     end
 
-    addon:FireEvent("ENDEAVORS_INITIATIVE_UPDATED")
+    addon:FireEvent("ENDEAVORS_INITIATIVE_UPDATED", hasChanges)
 end
 
 local function OnTaskCompleted()
@@ -358,7 +358,7 @@ function EndeavorsData:IsInitiativeEnabled()
 end
 
 -- Returns active session tasks sorted by most recent change
--- Active = delta > 0 AND not completed, AND age < TASK_FADE_TIMEOUT
+-- Active = delta > 0, not completed, age < TASK_FADE_TIMEOUT
 function EndeavorsData:GetActiveTasks()
     local now = GetTime()
     local result = {}
@@ -371,7 +371,6 @@ function EndeavorsData:GetActiveTasks()
                 taskName = entry.taskName,
                 current = entry.current,
                 max = entry.max,
-                completed = entry.completed,
                 age = age,
                 lastChangedTime = entry.lastChangedTime,
                 timesCompleted = entry.timesCompleted,
@@ -390,7 +389,7 @@ function EndeavorsData:GetActiveTasks()
     if next(state.sessionProgress) and #result == 0 then
         for taskID, entry in pairs(state.sessionProgress) do
             local age = now - entry.lastChangedTime
-            addon:Debug("Endeavors: filtered task", taskID, "delta:", entry.delta, "completed:", entry.completed, "age:", string.format("%.1f", age), "limit:", CONST.TASK_FADE_TIMEOUT)
+            addon:Debug("Endeavors: filtered task", taskID, "delta:", entry.delta, "age:", string.format("%.1f", age), "limit:", CONST.TASK_FADE_TIMEOUT, "completed:", entry.completed)
         end
     end
 

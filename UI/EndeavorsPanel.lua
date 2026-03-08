@@ -71,6 +71,8 @@ local barLayoutFactor = 0  -- 0 = stacked (2 rows), 1 = inline (side-by-side)
 local barLayoutTarget = 0
 local barLayoutDriver = nil
 local taskGoneTimer = nil  -- delay before collapsing from inline back to stacked
+local tasksCollapsed = false  -- true = task section visually collapsed (data preserved for re-expansion)
+local widthAnimDriver = nil
 
 -- Cached active tasks (invalidated on each Refresh, persists across animation frames)
 local cachedActiveTasks = nil
@@ -224,8 +226,6 @@ end
 --------------------------------------------------------------------------------
 -- Width Animation
 --------------------------------------------------------------------------------
-
-local widthAnimDriver = nil
 
 local function AnimateWidth(targetWidth)
     if not frame then return end
@@ -475,9 +475,9 @@ local function OnTaskProgressActivity()
     if not isTaskExpanded then return end
 
     if taskGoneTimer then taskGoneTimer:Cancel() end
-    taskGoneTimer = C_Timer.NewTimer(CONST.TASK_GONE_LAYOUT_DELAY, function()
+    taskGoneTimer = C_Timer.NewTimer(CONST.TASK_COLLAPSE_DELAY, function()
         taskGoneTimer = nil
-        addon.EndeavorsData:ClearSessionProgress()
+        tasksCollapsed = true
         EP:Refresh()
     end)
 end
@@ -543,23 +543,17 @@ local function UpdateTaskRow(row, taskData)
     row.taskData = taskData
     row.nameText:SetText(taskData.taskName)
 
-    if taskData.completed then
-        row.progressText:SetText(taskData.current .. "/" .. taskData.max .. " [X]")
-        row.progressText:SetTextColor(unpack(COLORS.PROGRESS_COMPLETE))
-        row.nameText:SetTextColor(unpack(COLORS.PROGRESS_COMPLETE))
-    else
-        row.progressText:SetText(taskData.current .. "/" .. taskData.max)
+    row.progressText:SetText(taskData.current .. "/" .. taskData.max)
 
-        -- Fade out over last 20% of the task timeout
-        local alpha = 1.0
-        local fadeStart = CONST.TASK_FADE_TIMEOUT * 0.8
-        if taskData.age > fadeStart then
-            local fadePct = (taskData.age - fadeStart) / (CONST.TASK_FADE_TIMEOUT - fadeStart)
-            alpha = 1.0 - (fadePct * 0.5)  -- fade from 1.0 to 0.5
-        end
-        row.progressText:SetTextColor(0.65, 0.65, 0.65, alpha)
-        row.nameText:SetTextColor(0.65, 0.65, 0.65, alpha)
+    -- Fade out over last 20% of the task timeout
+    local alpha = 1.0
+    local fadeStart = CONST.TASK_FADE_TIMEOUT * 0.8
+    if taskData.age > fadeStart then
+        local fadePct = (taskData.age - fadeStart) / (CONST.TASK_FADE_TIMEOUT - fadeStart)
+        alpha = 1.0 - (fadePct * 0.5)  -- fade from 1.0 to 0.5
     end
+    row.progressText:SetTextColor(0.65, 0.65, 0.65, alpha)
+    row.nameText:SetTextColor(0.65, 0.65, 0.65, alpha)
 
     row:Show()
 end
@@ -780,7 +774,7 @@ local function CreateConfigFrame()
     closeBtn:SetScript("OnClick", function() cf:Hide() end)
 
     local db = addon.db.endeavors
-    local yOfs = -28
+    local yOfs = -38
 
     ---------- General ----------
     yOfs = CreateSectionHeader(cf, "ENDEAVORS_OPT_SECTION_GENERAL", yOfs)
@@ -795,6 +789,7 @@ local function CreateConfigFrame()
     enableCheck:SetScript("OnClick", function(self)
         db.enabled = self:GetChecked()
         if db.enabled then
+            addon.EndeavorsData:RecheckNeighborhoodZone()
             EP:TryShow()
         else
             EP:TryHide()
@@ -809,7 +804,7 @@ local function CreateConfigFrame()
     cf.enableCheck = enableCheck
 
     ---------- House XP ----------
-    yOfs = yOfs - 26
+    yOfs = yOfs - 38
     yOfs = CreateSectionHeader(cf, "ENDEAVORS_OPT_SECTION_HOUSE_XP", yOfs)
 
     local xpParent = CreateConfigCheckbox(cf, "ENDEAVORS_OPT_SHOW_HOUSE_XP", "ENDEAVORS_OPT_SHOW_HOUSE_XP_TIP", "showHouseXP", yOfs, 10)
@@ -823,7 +818,7 @@ local function CreateConfigFrame()
     WireParentCheckbox(xpParent, { xpText, xpPct })
 
     ---------- Endeavor Progress ----------
-    yOfs = yOfs - 26
+    yOfs = yOfs - 38
     yOfs = CreateSectionHeader(cf, "ENDEAVORS_OPT_SECTION_ENDEAVOR", yOfs)
 
     local endParent = CreateConfigCheckbox(cf, "ENDEAVORS_OPT_SHOW_ENDEAVOR", "ENDEAVORS_OPT_SHOW_ENDEAVOR_TIP", "showEndeavorProgress", yOfs, 10)
@@ -837,7 +832,7 @@ local function CreateConfigFrame()
     WireParentCheckbox(endParent, { endText, endPct })
 
     ---------- Panel Size ----------
-    yOfs = yOfs - 26
+    yOfs = yOfs - 38
     yOfs = CreateSectionHeader(cf, "ENDEAVORS_OPT_SECTION_SIZE", yOfs)
 
     local scaleBtns = {}
@@ -1393,7 +1388,7 @@ function EP:UpdateLayout()
     -- Task container
     local activeTasks = cachedActiveTasks
     local taskCount = math.min(#activeTasks, CONST.MAX_VISIBLE_TASKS)
-    local hasVisibleTasks = taskCount > 0
+    local hasVisibleTasks = taskCount > 0 and not tasksCollapsed
 
     if hasVisibleTasks then
         taskContainer:ClearAllPoints()
@@ -1457,10 +1452,10 @@ function EP:UpdateLayout()
         FadeFrameBackdrop(0, 0)  -- immediately hide main backdrop, content backdrop takes over
         ShowTitleBar()
         ScheduleHideTitleBar()
-        -- After 1 min of no task progress, clear the task list (triggers natural collapse)
-        taskGoneTimer = C_Timer.NewTimer(CONST.TASK_GONE_LAYOUT_DELAY, function()
+        -- After 1 min of no task progress, collapse task section visually (data preserved)
+        taskGoneTimer = C_Timer.NewTimer(CONST.TASK_COLLAPSE_DELAY, function()
             taskGoneTimer = nil
-            addon.EndeavorsData:ClearSessionProgress()
+            tasksCollapsed = true
             EP:Refresh()
         end)
     elseif not isTaskExpanded and wasTaskExpanded then
@@ -1716,6 +1711,7 @@ function EP:TryHide()
     end
 
     -- Reset bar layout to stacked
+    isTaskExpanded = false
     ResetBarLayout()
 
     -- Stop initiative progress poll
@@ -1767,8 +1763,22 @@ addon:RegisterInternalEvent("ENDEAVORS_HOUSE_LEVEL_UPDATED", function()
     end
 end)
 
--- Shared handler: panel may be hidden when initiative/task data arrives late
-local function OnProgressEvent()
+addon:RegisterInternalEvent("ENDEAVORS_INITIATIVE_UPDATED", function(hasChanges)
+    if hasChanges then tasksCollapsed = false end
+
+    if EP:ShouldShow() and (not frame or not frame:IsShown()) then
+        EP:TryShow()
+    elseif frame and frame:IsShown() then
+        EP:Refresh()
+        if hasChanges then
+            OnActivity()
+            OnTaskProgressActivity()
+        end
+    end
+end)
+
+addon:RegisterInternalEvent("ENDEAVORS_TASK_COMPLETED", function()
+    tasksCollapsed = false
     if EP:ShouldShow() and (not frame or not frame:IsShown()) then
         EP:TryShow()
     elseif frame and frame:IsShown() then
@@ -1776,10 +1786,7 @@ local function OnProgressEvent()
         OnActivity()
         OnTaskProgressActivity()
     end
-end
-
-addon:RegisterInternalEvent("ENDEAVORS_INITIATIVE_UPDATED", OnProgressEvent)
-addon:RegisterInternalEvent("ENDEAVORS_TASK_COMPLETED", OnProgressEvent)
+end)
 
 --------------------------------------------------------------------------------
 -- Settings Panel Integration: Open config from main settings

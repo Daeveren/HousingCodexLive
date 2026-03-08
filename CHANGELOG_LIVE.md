@@ -2,6 +2,19 @@
 
 All notable changes to Housing Codex.
 
+**1.8.13** (2026-08-03)
+
+**Fixed**
+- Vendor map pins now appear at the correct position when vendors are in sub-zones
+- Vendors with multiple locations now all show on the map instead of some being hidden
+- Clicking a zone aggregate vendor pin now correctly drills into that zone's map
+- Collecting items now immediately updates the grid, filters, and ownership counts
+- Removing an item from wishlist while filtering by wishlist now immediately hides it from the grid
+- Fixes for the endeavors panel timers
+- Re-enabling the Endeavors panel from the endeavor menu now shows it instantly
+- Endeavors panel layout now resets properly when re-entering your neighborhood
+- Tweaks to the Endeavors config popup spacing
+
 **1.8.12** (2026-08-03)
 
 **Changed**

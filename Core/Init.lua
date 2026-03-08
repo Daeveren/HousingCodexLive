@@ -257,7 +257,7 @@ addon.CONSTANTS = {
         CONTENT_HIDE_DELAY = 120,     -- seconds of inactivity before panel minimizes (2 min)
         WIDTH_ANIM_DURATION = 0.3,    -- seconds for width tween animation
         BAR_LAYOUT_DURATION = 0.35,   -- seconds for stacked ↔ inline bar animation
-        TASK_GONE_LAYOUT_DELAY = 60,  -- seconds to keep inline layout after tasks disappear
+        TASK_COLLAPSE_DELAY = 60,  -- seconds of no task progress before collapsing task section visually
         INITIATIVE_POLL_INTERVAL = 10, -- seconds between initiative data re-requests (progress detection)
         COMMUNITY_COUPON_CURRENCY_ID = 3363,
     },

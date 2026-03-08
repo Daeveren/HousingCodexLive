@@ -412,6 +412,9 @@ function addon:ResolveRecord(recordID)
         entrySubtype = 1,
         subtypeIdentifier = 0,
     }
+    local ct = C_ContentTracking
+    local isTrackable = ct and ct.IsTrackable and ct.IsTrackable(TRACKING_TYPE_DECOR, recordID) or false
+    local isTracking  = ct and ct.IsTracking  and ct.IsTracking(TRACKING_TYPE_DECOR, recordID)  or false
 
     record = {
         entryID = entryID,
@@ -436,8 +439,8 @@ function addon:ResolveRecord(recordID)
         modelSceneID = info.uiModelSceneID,
         itemID = info.itemID,
         sourceText = info.sourceText or "",
-        isTrackable = false,
-        isTracking = false,
+        isTrackable = isTrackable,
+        isTracking = isTracking,
     }
 
     self.fallbackRecords[recordID] = record
@@ -511,11 +514,30 @@ function addon:UpdateAllTrackingStatus()
         end
     end
 
+    -- Also update fallback records (hidden-catalog items resolved via ResolveRecord)
+    for recordID, record in pairs(self.fallbackRecords) do
+        if record then  -- Skip false sentinel (negative cache)
+            if IsTrackable then
+                record.isTrackable = IsTrackable(TRACKING_TYPE_DECOR, recordID)
+                if record.isTrackable then
+                    trackableCount = trackableCount + 1
+                end
+            end
+
+            if IsTracking then
+                record.isTracking = IsTracking(TRACKING_TYPE_DECOR, recordID)
+                if record.isTracking then
+                    trackingCount = trackingCount + 1
+                end
+            end
+        end
+    end
+
     self:Debug(string.format("Tracking status: %d trackable, %d tracking", trackableCount, trackingCount))
 end
 
 function addon:UpdateRecordTrackingStatus(recordID, isTrackedHint)
-    local record = self.decorRecords[recordID]
+    local record = self:GetRecord(recordID)
     if not record or not C_ContentTracking then return end
 
     local wasTracking = record.isTracking
@@ -692,6 +714,9 @@ addon:RegisterWoWEvent("HOUSING_STORAGE_ENTRY_UPDATED", function(entryID)
 
         -- Skip collected index patch — fallback items are excluded by design
         addon:FireEvent("RECORD_OWNERSHIP_UPDATED", recordID, collectionStateChanged, "targeted")
+        if collectionStateChanged and addon.MainFrame and addon.MainFrame:IsShown() then
+            addon:RunSearchNow("ownership changed")
+        end
         return
     end
 
@@ -715,6 +740,9 @@ addon:RegisterWoWEvent("HOUSING_STORAGE_ENTRY_UPDATED", function(entryID)
     end
 
     addon:FireEvent("RECORD_OWNERSHIP_UPDATED", recordID, collectionStateChanged, "targeted")
+    if collectionStateChanged and addon.MainFrame and addon.MainFrame:IsShown() then
+        addon:RunSearchNow("ownership changed")
+    end
 end)
 
 -- Bulk storage update (refresh record data and re-run searcher)
@@ -740,6 +768,7 @@ addon:RegisterWoWEvent("HOUSING_STORAGE_UPDATED", function()
     else
         addon:Debug("Storage updated (hidden), deferring search")
         addon.needsFullRefresh = true
+        addon.needsRecordRefresh = true
     end
 end)
 

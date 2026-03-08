@@ -145,6 +145,7 @@ function SearchBox:Clear()
     end
     self:CancelDebounce()
     self.lastSearchText = nil
+    self.pendingSearchText = nil
 end
 
 function SearchBox:GetText()
