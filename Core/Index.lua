@@ -74,7 +74,7 @@ function addon:BuildIndexes()
         end
     end
     for recordID, record in pairs(self.fallbackRecords) do
-        if record.itemID then
+        if type(record) == "table" and record.itemID then
             itemIDToRecordID[record.itemID] = recordID
         end
     end

@@ -248,7 +248,6 @@ local function SetupQuestRow(self, frame, elementData)
             recordID = recordIDs and recordIDs[1]
         end
         if recordID then
-            self.hoveringRecordID = recordID
             addon:FireEvent("RECORD_SELECTED", recordID)
         end
 
@@ -271,8 +270,6 @@ local function SetupQuestRow(self, frame, elementData)
 
         ApplyQuestRowState(f, self.selectedQuestID == f.questID and
             (not f.recordID or self.selectedRecordID == f.recordID))
-
-        self.hoveringRecordID = nil
 
         -- Restore preview to selected quest
         if self.selectedRecordID then
@@ -314,8 +311,6 @@ QuestsTab.noExpansionState = nil
 QuestsTab.selectedExpansionKey = nil
 QuestsTab.selectedQuestID = nil
 QuestsTab.selectedRecordID = nil  -- For multi-reward quests
-QuestsTab.hoveringRecordID = nil  -- For hover-to-preview
-
 -- Responsive toolbar state
 QuestsTab.toolbarLayout = nil  -- "full", "noFilter", "minimal"
 QuestsTab.filterContainer = nil  -- Reference for responsive hiding

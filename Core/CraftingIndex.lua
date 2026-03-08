@@ -52,7 +52,6 @@ function addon:BuildCraftingIndex()
                     local recipeName = craft.recipeName
                     table.insert(entries, {
                         decorId = decorId,
-                        recipeId = craft.recipeId,
                         recipeName = recipeName,
                         professionName = professionName,
                         skillLine = craft.skillLine,

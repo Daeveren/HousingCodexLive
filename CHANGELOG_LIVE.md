@@ -2,6 +2,16 @@
 
 All notable changes to Housing Codex.
 
+**1.8.12** (2026-08-03)
+
+**Changed**
+- Redesigned endeavors panel settings
+
+**Fixed**
+- Tweaks to the Achievements tab
+- Fixes for Professions tab for rare cases when the tab was ready before housing data loaded
+- Fixed a rare crash when using /hc retry
+
 **1.8.11** (2026-07-08)
 
 **Fixed**

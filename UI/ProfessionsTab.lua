@@ -65,10 +65,10 @@ local function GetSearchText(searchBox)
     return strlower(strtrim(searchBox and searchBox:GetText() or ""))
 end
 
-local function CraftMatchesSearch(craft, searchText)
+local function CraftMatchesSearch(craft, searchText, record)
     if searchText == "" then return true end
 
-    local record = ResolveCraftRecord(craft.decorId)
+    record = record or ResolveCraftRecord(craft.decorId)
     local decorName = addon:ResolveDecorName(craft.decorId, record)
     if decorName and strlower(decorName):find(searchText, 1, true) then
         return true
@@ -90,10 +90,10 @@ local function CraftMatchesSearch(craft, searchText)
     return false
 end
 
-local function CraftPassesCompletionFilter(craft, filter)
+local function CraftPassesCompletionFilter(craft, filter, record)
     if filter == "all" then return true end
 
-    local record = ResolveCraftRecord(craft.decorId)
+    record = record or ResolveCraftRecord(craft.decorId)
     local isCollected = record and record.isCollected or false
     if filter == "complete" then return isCollected end
     if filter == "incomplete" then return not isCollected end
@@ -101,7 +101,8 @@ local function CraftPassesCompletionFilter(craft, filter)
 end
 
 local function CraftMatchesActiveFilters(craft, filter, searchText)
-    return CraftPassesCompletionFilter(craft, filter) and CraftMatchesSearch(craft, searchText)
+    local record = ResolveCraftRecord(craft.decorId)
+    return CraftPassesCompletionFilter(craft, filter, record) and CraftMatchesSearch(craft, searchText, record)
 end
 
 -- Evaluate craft visibility once per refresh; two-level table avoids string allocation per entry
@@ -190,7 +191,7 @@ end
 function ProfessionsTab:Show()
     if not self.frame then return end
 
-    if not addon.craftingIndexBuilt then
+    if addon.dataLoaded and not addon.craftingIndexBuilt then
         addon:BuildCraftingIndex()
     end
 

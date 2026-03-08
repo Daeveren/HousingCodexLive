@@ -725,6 +725,7 @@ addon:RegisterWoWEvent("HOUSING_STORAGE_UPDATED", function()
     -- Wipe fallback records so ResolveRecord re-queries with fresh ownership
     -- Safe: BuildIndexes only iterates decorRecords, fallbackRecords repopulate on demand
     wipe(addon.fallbackRecords)
+    addon.craftingIndexBuilt = false
 
     -- ALWAYS: Lightweight index rebuild (needed by LDB, merchant overlay)
     addon:BuildIndexes()

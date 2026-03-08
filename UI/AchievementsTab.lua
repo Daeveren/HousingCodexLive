@@ -185,7 +185,6 @@ local function SetupAchievementRow(self, frame, elementData)
             recordID = recordIDs and recordIDs[1]
         end
         if recordID then
-            self.hoveringRecordID = recordID
             addon:FireEvent("RECORD_SELECTED", recordID)
         end
 
@@ -243,8 +242,6 @@ local function SetupAchievementRow(self, frame, elementData)
         ApplyAchievementRowState(f, self.selectedAchievementID == f.achievementID and
             (not f.recordID or self.selectedRecordID == f.recordID))
 
-        self.hoveringRecordID = nil
-
         -- Restore preview to selected achievement
         if self.selectedRecordID then
             addon:FireEvent("RECORD_SELECTED", self.selectedRecordID)
@@ -286,8 +283,6 @@ AchievementsTab.noResultsState = nil
 AchievementsTab.selectedCategory = nil
 AchievementsTab.selectedAchievementID = nil
 AchievementsTab.selectedRecordID = nil
-AchievementsTab.hoveringRecordID = nil
-
 -- Responsive toolbar state
 AchievementsTab.toolbarLayout = nil  -- "full", "noFilter", "minimal"
 AchievementsTab.filterContainer = nil  -- Reference for responsive hiding
@@ -689,6 +684,15 @@ function AchievementsTab:BuildCategoryDisplay()
             return true
         else
             self.selectedCategory = nil
+            self.selectedAchievementID = nil
+            self.selectedRecordID = nil
+            local db = GetAchievementsDB()
+            if db then
+                db.selectedCategory = nil
+                db.selectedAchievementID = nil
+                db.selectedRecordID = nil
+            end
+            addon:FireEvent("RECORD_SELECTED", nil)
             self:BuildAchievementDisplay()
             return true
         end
@@ -736,6 +740,33 @@ function AchievementsTab:BuildAchievementDisplay()
     if #elements > 0 then
         self.achievementDataProvider:InsertTable(elements)
     end
+
+    -- Reconcile selection: if selected achievement is no longer visible, auto-select first or clear
+    if self.selectedAchievementID then
+        local found = false
+        for _, elem in ipairs(elements) do
+            if elem.achievementID == self.selectedAchievementID
+                and (not self.selectedRecordID or elem.recordID == self.selectedRecordID) then
+                found = true
+                break
+            end
+        end
+        if not found then
+            if #elements > 0 then
+                self:SelectAchievement(elements[1])
+            else
+                self.selectedAchievementID = nil
+                self.selectedRecordID = nil
+                local db = GetAchievementsDB()
+                if db then
+                    db.selectedAchievementID = nil
+                    db.selectedRecordID = nil
+                end
+                addon:FireEvent("RECORD_SELECTED", nil)
+            end
+        end
+    end
+
     self:UpdateEmptyStates()
 end
 

@@ -256,9 +256,7 @@ addon:RegisterWoWEvent("ACHIEVEMENT_EARNED", function(achievementID, alreadyEarn
         -- Always update cache (even for alts completing account-wide achievements)
         addon.achievementCompletionCache[achievementID] = true
 
-        -- Only fire UI notification for newly earned (prevents login spam)
-        if not alreadyEarned then
-            addon:FireEvent("ACHIEVEMENT_COMPLETION_CHANGED", achievementID, true)
-        end
+        -- Always fire UI notification (alreadyEarned=true fires for account-wide sync on alts)
+        addon:FireEvent("ACHIEVEMENT_COMPLETION_CHANGED", achievementID, true)
     end
 end)

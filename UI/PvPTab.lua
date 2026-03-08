@@ -60,7 +60,6 @@ PvPTab.noResultsState = nil
 PvPTab.selectedCategory = nil
 PvPTab.selectedSourceName = nil
 PvPTab.selectedDecorId = nil
-PvPTab.hoveringRecordID = nil
 
 PvPTab.toolbarLayout = nil
 PvPTab.filterContainer = nil
@@ -493,7 +492,6 @@ end
 
 -- Shared OnLeave handler to restore selection state
 function PvPTab:RestoreSelectionOnLeave()
-    self.hoveringRecordID = nil
     addon:FireEvent("RECORD_SELECTED", self.selectedDecorId)
 end
 
@@ -560,7 +558,6 @@ function PvPTab:SetupSourceRow(frame, elementData)
             f.bg:SetColorTexture(0.12, 0.12, 0.14, 1)
         end
         if decorCount > 0 then
-            self.hoveringRecordID = decorIds[1]
             addon:FireEvent("RECORD_SELECTED", decorIds[1])
         end
     end)
@@ -665,7 +662,6 @@ function PvPTab:SetupDecorRows(frame, decorIds)
             if self.selectedDecorId ~= decorId or self.selectedSourceName ~= frame.sourceNameKey then
                 r.name:SetTextColor(1, 1, 1, 1)
             end
-            self.hoveringRecordID = decorId
             addon:FireEvent("RECORD_SELECTED", decorId)
 
             GameTooltip:SetOwner(UIParent, "ANCHOR_NONE")
@@ -810,6 +806,13 @@ function PvPTab:BuildCategoryDisplay(visCache)
             return true
         else
             self.selectedCategory = nil
+            self.selectedSourceName = nil
+            self.selectedDecorId = nil
+            local db = GetPvPDB()
+            if db then
+                db.selectedCategory = nil
+            end
+            addon:FireEvent("RECORD_SELECTED", nil)
             self:BuildSourceDisplay()
             return true
         end

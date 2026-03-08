@@ -641,10 +641,30 @@ end
 -- Config Sub-Panel
 --------------------------------------------------------------------------------
 
-local function CreateConfigCheckbox(parent, labelKey, tooltipKey, dbKey, yOffset)
+local function CreateSectionHeader(parent, labelKey, yOffset)
+    local header = addon:CreateFontString(parent, "OVERLAY", "GameFontNormal")
+    header:SetPoint("TOPLEFT", 12, yOffset)
+    header:SetText(L[labelKey])
+    header:SetTextColor(1, 0.82, 0)
+
+    local divider = parent:CreateTexture(nil, "ARTWORK")
+    divider:SetHeight(1)
+    divider:SetPoint("TOPLEFT", parent, "TOPLEFT", 12, yOffset - 14)
+    divider:SetPoint("TOPRIGHT", parent, "TOPRIGHT", -12, yOffset - 14)
+    divider:SetColorTexture(0.3, 0.3, 0.35, 0.6)
+
+    return yOffset - 20
+end
+
+local function SetCheckboxEnabled(checkbox, enabled)
+    checkbox:SetEnabled(enabled)
+    checkbox:SetAlpha(enabled and 1 or 0.5)
+end
+
+local function CreateConfigCheckbox(parent, labelKey, tooltipKey, dbKey, yOffset, xOffset)
     local db = addon.db.endeavors
     local check = CreateFrame("CheckButton", nil, parent, "UICheckButtonTemplate")
-    check:SetPoint("TOPLEFT", 8, yOffset)
+    check:SetPoint("TOPLEFT", xOffset or 8, yOffset)
     check.Text:SetFontObject(addon:GetFontObject("GameFontNormal"))
     addon:RegisterFontString(check.Text, "GameFontNormal")
     check.Text:SetTextColor(0.9, 0.9, 0.9)
@@ -669,11 +689,77 @@ local function CreateConfigCheckbox(parent, labelKey, tooltipKey, dbKey, yOffset
     return check
 end
 
+local function CreateScaleButton(parent, label, scaleKey, x, yOffset, allButtons)
+    local db = addon.db.endeavors
+    local btn = CreateFrame("Button", nil, parent)
+    btn:SetSize(66, 22)
+    btn:SetPoint("TOPLEFT", x, yOffset)
+
+    local bg = btn:CreateTexture(nil, "BACKGROUND")
+    bg:SetAllPoints()
+    bg:SetColorTexture(0.15, 0.15, 0.18, 0.8)
+    btn.bg = bg
+
+    local text = addon:CreateFontString(btn, "OVERLAY", "GameFontNormalSmall")
+    text:SetPoint("CENTER")
+    text:SetText(label)
+    btn.label = text
+
+    local function UpdateVisual(selected)
+        if selected then
+            bg:SetColorTexture(0.25, 0.22, 0.1, 0.9)
+            text:SetTextColor(1, 0.82, 0)
+        else
+            bg:SetColorTexture(0.15, 0.15, 0.18, 0.8)
+            text:SetTextColor(0.7, 0.7, 0.7)
+        end
+    end
+    btn.UpdateVisual = UpdateVisual
+
+    UpdateVisual(db.scale == scaleKey)
+
+    btn:SetScript("OnClick", function()
+        db.scale = scaleKey
+        ApplyScale()
+        EP:Refresh()
+        for _, b in ipairs(allButtons) do
+            b:UpdateVisual(b == btn)
+        end
+    end)
+
+    btn:SetScript("OnEnter", function(self)
+        if db.scale ~= scaleKey then
+            bg:SetColorTexture(0.2, 0.2, 0.24, 1)
+        end
+        GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
+        GameTooltip:SetText(L["ENDEAVORS_OPT_SCALE_TIP"])
+        GameTooltip:Show()
+    end)
+
+    btn:SetScript("OnLeave", function()
+        UpdateVisual(db.scale == scaleKey)
+        GameTooltip:Hide()
+    end)
+
+    return btn
+end
+
+local function WireParentCheckbox(parent, children)
+    local origOnClick = parent:GetScript("OnClick")
+    parent:SetScript("OnClick", function(self)
+        if origOnClick then origOnClick(self) end
+        local on = self:GetChecked()
+        for _, child in ipairs(children) do
+            SetCheckboxEnabled(child, on)
+        end
+    end)
+end
+
 local function CreateConfigFrame()
     if configFrame then return configFrame end
 
     local cf = CreateFrame("Frame", "HousingCodexEndeavorsConfig", UIParent, "BackdropTemplate")
-    cf:SetSize(220, 330)
+    cf:SetWidth(240)
     cf:SetFrameStrata("DIALOG")
     cf:SetBackdrop(FRAME_BACKDROP)
     cf:SetBackdropColor(0.06, 0.06, 0.08, 0.95)
@@ -693,11 +779,14 @@ local function CreateConfigFrame()
     closeBtn:SetSize(20, 20)
     closeBtn:SetScript("OnClick", function() cf:Hide() end)
 
-    -- Enable toggle (custom — show/hide panel, not just refresh)
-    local yOfs = -28
     local db = addon.db.endeavors
+    local yOfs = -28
+
+    ---------- General ----------
+    yOfs = CreateSectionHeader(cf, "ENDEAVORS_OPT_SECTION_GENERAL", yOfs)
+
     local enableCheck = CreateFrame("CheckButton", nil, cf, "UICheckButtonTemplate")
-    enableCheck:SetPoint("TOPLEFT", 8, yOfs)
+    enableCheck:SetPoint("TOPLEFT", 10, yOfs)
     enableCheck.Text:SetFontObject(addon:GetFontObject("GameFontNormal"))
     addon:RegisterFontString(enableCheck.Text, "GameFontNormal")
     enableCheck.Text:SetTextColor(0.9, 0.9, 0.9)
@@ -719,60 +808,53 @@ local function CreateConfigFrame()
     enableCheck:SetScript("OnLeave", function() GameTooltip:Hide() end)
     cf.enableCheck = enableCheck
 
-    -- Checkboxes
+    ---------- House XP ----------
     yOfs = yOfs - 26
-    CreateConfigCheckbox(cf, "ENDEAVORS_OPT_SHOW_HOUSE_XP", "ENDEAVORS_OPT_SHOW_HOUSE_XP_TIP", "showHouseXP", yOfs)
-    yOfs = yOfs - 26
-    CreateConfigCheckbox(cf, "ENDEAVORS_OPT_SHOW_ENDEAVOR", "ENDEAVORS_OPT_SHOW_ENDEAVOR_TIP", "showEndeavorProgress", yOfs)
-    yOfs = yOfs - 26
-    CreateConfigCheckbox(cf, "ENDEAVORS_OPT_SHOW_XP_TEXT", "ENDEAVORS_OPT_SHOW_XP_TEXT_TIP", "showXPText", yOfs)
-    yOfs = yOfs - 26
-    CreateConfigCheckbox(cf, "ENDEAVORS_OPT_SHOW_ENDEAVOR_TEXT", "ENDEAVORS_OPT_SHOW_ENDEAVOR_TEXT_TIP", "showEndeavorText", yOfs)
-    yOfs = yOfs - 26
-    CreateConfigCheckbox(cf, "ENDEAVORS_OPT_SHOW_XP_PCT", "ENDEAVORS_OPT_SHOW_XP_PCT_TIP", "showXPPct", yOfs)
-    yOfs = yOfs - 26
-    CreateConfigCheckbox(cf, "ENDEAVORS_OPT_SHOW_ENDEAVOR_PCT", "ENDEAVORS_OPT_SHOW_ENDEAVOR_PCT_TIP", "showEndeavorPct", yOfs)
+    yOfs = CreateSectionHeader(cf, "ENDEAVORS_OPT_SECTION_HOUSE_XP", yOfs)
 
-    -- Scale selector (Small / Normal / Big radio buttons, vertical)
-    yOfs = yOfs - 44
-    local scaleLabel = addon:CreateFontString(cf, "OVERLAY", "GameFontNormal")
-    scaleLabel:SetPoint("TOPLEFT", 10, yOfs)
-    scaleLabel:SetText(L["ENDEAVORS_OPT_SCALE"])
-    scaleLabel:SetTextColor(0.9, 0.9, 0.9)
+    local xpParent = CreateConfigCheckbox(cf, "ENDEAVORS_OPT_SHOW_HOUSE_XP", "ENDEAVORS_OPT_SHOW_HOUSE_XP_TIP", "showHouseXP", yOfs, 10)
+    yOfs = yOfs - 22
+    local xpText = CreateConfigCheckbox(cf, "ENDEAVORS_OPT_SHOW_XP_TEXT", "ENDEAVORS_OPT_SHOW_XP_TEXT_TIP", "showXPText", yOfs, 30)
+    yOfs = yOfs - 22
+    local xpPct = CreateConfigCheckbox(cf, "ENDEAVORS_OPT_SHOW_XP_PCT", "ENDEAVORS_OPT_SHOW_XP_PCT_TIP", "showXPPct", yOfs, 30)
 
-    local scaleKeys = { "small", "normal", "big" }
-    local scaleLabels = { L["ENDEAVORS_OPT_SCALE_SMALL"], L["ENDEAVORS_OPT_SCALE_NORMAL"], L["ENDEAVORS_OPT_SCALE_BIG"] }
+    SetCheckboxEnabled(xpText, db.showHouseXP)
+    SetCheckboxEnabled(xpPct, db.showHouseXP)
+    WireParentCheckbox(xpParent, { xpText, xpPct })
+
+    ---------- Endeavor Progress ----------
+    yOfs = yOfs - 26
+    yOfs = CreateSectionHeader(cf, "ENDEAVORS_OPT_SECTION_ENDEAVOR", yOfs)
+
+    local endParent = CreateConfigCheckbox(cf, "ENDEAVORS_OPT_SHOW_ENDEAVOR", "ENDEAVORS_OPT_SHOW_ENDEAVOR_TIP", "showEndeavorProgress", yOfs, 10)
+    yOfs = yOfs - 22
+    local endText = CreateConfigCheckbox(cf, "ENDEAVORS_OPT_SHOW_ENDEAVOR_TEXT", "ENDEAVORS_OPT_SHOW_ENDEAVOR_TEXT_TIP", "showEndeavorText", yOfs, 30)
+    yOfs = yOfs - 22
+    local endPct = CreateConfigCheckbox(cf, "ENDEAVORS_OPT_SHOW_ENDEAVOR_PCT", "ENDEAVORS_OPT_SHOW_ENDEAVOR_PCT_TIP", "showEndeavorPct", yOfs, 30)
+
+    SetCheckboxEnabled(endText, db.showEndeavorProgress)
+    SetCheckboxEnabled(endPct, db.showEndeavorProgress)
+    WireParentCheckbox(endParent, { endText, endPct })
+
+    ---------- Panel Size ----------
+    yOfs = yOfs - 26
+    yOfs = CreateSectionHeader(cf, "ENDEAVORS_OPT_SECTION_SIZE", yOfs)
+
     local scaleBtns = {}
+    local scaleOptions = {
+        { "small",  L["ENDEAVORS_OPT_SCALE_SMALL"]  },
+        { "normal", L["ENDEAVORS_OPT_SCALE_NORMAL"] },
+        { "big",    L["ENDEAVORS_OPT_SCALE_BIG"]    },
+    }
 
-    for idx = 1, 3 do
-        local btn = CreateFrame("CheckButton", nil, cf, "UICheckButtonTemplate")
-        btn:SetSize(22, 22)
-        if idx == 1 then
-            btn:SetPoint("TOPLEFT", scaleLabel, "BOTTOMLEFT", 20, -4)
-        else
-            btn:SetPoint("TOPLEFT", scaleBtns[idx - 1], "BOTTOMLEFT", 0, -2)
-        end
-        btn.Text:SetFontObject(addon:GetFontObject("GameFontNormalSmall"))
-        addon:RegisterFontString(btn.Text, "GameFontNormalSmall")
-        btn.Text:SetTextColor(0.9, 0.9, 0.9)
-        btn.Text:SetText(scaleLabels[idx])
-        btn:SetChecked(db.scale == scaleKeys[idx])
-        btn:SetScript("OnClick", function()
-            for j = 1, 3 do
-                scaleBtns[j]:SetChecked(j == idx)
-            end
-            db.scale = scaleKeys[idx]
-            ApplyScale()
-            EP:Refresh()
-        end)
-        btn:SetScript("OnEnter", function(self)
-            GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
-            GameTooltip:SetText(L["ENDEAVORS_OPT_SCALE_TIP"])
-            GameTooltip:Show()
-        end)
-        btn:SetScript("OnLeave", function() GameTooltip:Hide() end)
-        scaleBtns[idx] = btn
+    for idx, opt in ipairs(scaleOptions) do
+        local x = 12 + (idx - 1) * 70
+        scaleBtns[idx] = CreateScaleButton(cf, opt[2], opt[1], x, yOfs, scaleBtns)
     end
+    yOfs = yOfs - 22
+
+    ---------- Finalize ----------
+    cf:SetHeight(math.abs(yOfs) + 14)
 
     -- ESC to close
     tinsert(UISpecialFrames, "HousingCodexEndeavorsConfig")
