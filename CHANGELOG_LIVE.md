@@ -2,6 +2,19 @@
 
 All notable changes to Housing Codex.
 
+**1.9.0** (2026-09-09)
+
+**Added**
+- Localization support — quest titles, vendor zone names, and drop source names now display in your game language
+
+**Fixed**
+- Zone overlay expand/collapse preference now stays as you set it when reopening the map
+- Turning off vendor checkmarks in settings now properly clears existing checkmarks
+- Wishlist window now updates correctly when collecting items or removing items from the wishlist
+- 3D preview panel now updates owned/placed counts live when collecting items
+- Tab switching now refreshes stale ownership data
+- Removed a phantom vendor item that appeared in tooltips but doesn't exist in the game
+
 **1.8.13** (2026-08-03)
 
 **Fixed**

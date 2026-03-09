@@ -451,6 +451,9 @@ function addon.Settings:Initialize()
             if addon.db then
                 addon.db.settings.showVendorOwnedCheckmark = checked
                 if addon.MerchantOverlay then
+                    if not checked then
+                        addon.MerchantOverlay:HideAllOverlays()
+                    end
                     addon.MerchantOverlay:UpdateMerchantButtons()
                 end
             end

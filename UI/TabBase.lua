@@ -177,10 +177,11 @@ end
 -- @param refreshFn: function to call when ownership changes affect this tab
 function TabBaseMixin:RegisterOwnershipRefresh(refreshFn)
     local ownershipRefreshTimer = nil
+    self.ownershipRefreshFn = refreshFn
 
     addon:RegisterInternalEvent("RECORD_OWNERSHIP_UPDATED", function(recordID, collectionStateChanged, updateKind)
         if collectionStateChanged == false then return end
-        if not self:IsShown() then return end
+        if not self:IsShown() then self.ownershipDirty = true; return end
 
         if updateKind == "targeted" then
             if ownershipRefreshTimer then ownershipRefreshTimer:Cancel() end
@@ -209,6 +210,10 @@ end
 function TabBaseMixin:RegisterTabVisibility(tabKey)
     addon:RegisterInternalEvent("TAB_CHANGED", function(activeKey)
         if activeKey == tabKey then
+            if self.ownershipDirty and self.ownershipRefreshFn then
+                self.ownershipDirty = nil
+                self.ownershipRefreshFn()
+            end
             self:Show()
         else
             self:Hide()

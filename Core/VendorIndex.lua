@@ -72,6 +72,7 @@ addon.vendorIndexBuilt = false
 addon.vendorZoneCache = {}
 addon.vendorExpansionProgressCache = {}
 addon.vendorZoneProgressCache = {}
+addon.vendorZoneToMapId = {}  -- zoneName -> uiMapId (for localized zone name lookup)
 
 function addon:GetClassHallAnnotation(zoneName)
     return zoneName and CLASS_HALL_ZONES[zoneName]
@@ -117,6 +118,7 @@ function addon:BuildVendorIndex()
     wipe(self.vendorZoneCache)
     wipe(self.vendorExpansionProgressCache)
     wipe(self.vendorZoneProgressCache)
+    wipe(self.vendorZoneToMapId)
     self.vendorMapVendorsByMapID = nil
     self:InvalidateVendorPinCache()
 
@@ -201,6 +203,20 @@ function addon:BuildVendorIndex()
         vendorEntry.decorIdSet = nil
     end
 
+    if self.NPCLocationData then
+        for npcId, zoneInfo in pairs(self.vendorZoneCache) do
+            if zoneInfo.zoneName and not self.vendorZoneToMapId[zoneInfo.zoneName] then
+                local locData = self.NPCLocationData[npcId]
+                if locData then
+                    local entry = type(locData[1]) == "table" and locData[1] or locData
+                    if entry.uiMapId then
+                        self.vendorZoneToMapId[zoneInfo.zoneName] = entry.uiMapId
+                    end
+                end
+            end
+        end
+    end
+
     self.vendorIndexBuilt = true
 
     self:Debug(string.format("Built vendor index: %d vendors, %d decor items in %d ms",
@@ -228,6 +244,18 @@ function addon:GetSortedVendorZones(expansionKey)
     end
     table.sort(zones)
     return zones
+end
+
+function addon:GetLocalizedVendorZoneName(zoneName)
+    if not zoneName then return zoneName end
+    local mapId = self.vendorZoneToMapId[zoneName]
+    if mapId and C_Map and C_Map.GetMapInfo then
+        local mapInfo = C_Map.GetMapInfo(mapId)
+        if mapInfo and mapInfo.name then
+            return mapInfo.name
+        end
+    end
+    return zoneName
 end
 
 function addon:GetVendorsForZone(expansionKey, zoneName)

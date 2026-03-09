@@ -69,7 +69,7 @@ function addon:BuildPvPIndex()
     for achievementId, achievementData in pairs(self.AchievementSourceData) do
         if achievementData.category == "PvP" and achievementData.decorIds then
             local entry = {
-                sourceName    = achievementData.achievementName or "Unknown",
+                sourceName    = addon:GetAchievementName(achievementId),
                 sourceCategory = "achievements",
                 decorIds      = achievementData.decorIds,
                 achievementID = achievementId,

@@ -931,7 +931,21 @@ function WishlistFrame:RebuildGrid()
     self.view = nil
     self.dataProvider = nil
 
+    -- Clean up old emptyState (child of gridContainer)
+    if self.emptyState then
+        self.emptyState:Hide()
+        self.emptyState:SetParent(nil)
+        self.emptyState = nil
+    end
+    -- Clean up old grid container (detaches children including containerBg)
+    if self.gridContainer then
+        self.gridContainer:Hide()
+        self.gridContainer:SetParent(nil)
+        self.gridContainer = nil
+    end
+
     self:CreateGrid()
+    self:CreateEmptyState()
     self.selectedRecordID = savedSelection
 
     -- Refresh data
@@ -1134,6 +1148,14 @@ function WishlistFrame:Show()
     end
 
     self:RefreshData()
+
+    -- Validate selection still exists in wishlist
+    if self.selectedRecordID and not addon:IsWishlisted(self.selectedRecordID) then
+        self.selectedRecordID = nil
+        self.currentRecordID = nil
+        self:ClearPreview()
+    end
+
     self.frame:Show()
     self.frame:Raise()
 
@@ -1249,6 +1271,10 @@ addon:RegisterInternalEvent("RECORD_OWNERSHIP_UPDATED", function()
         -- Just refresh visible tiles, don't rebuild
         if WishlistFrame.scrollBox then
             WishlistFrame.scrollBox:FullUpdate(ScrollBoxConstants.UpdateImmediately)
+        end
+        -- Refresh preview details if showing an item
+        if WishlistFrame.currentRecordID then
+            WishlistFrame:ShowPreview(WishlistFrame.currentRecordID)
         end
     end
 end)

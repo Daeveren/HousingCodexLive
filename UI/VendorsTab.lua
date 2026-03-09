@@ -592,15 +592,16 @@ function VendorsTab:SetupZoneHeader(frame, elementData)
     frame.indicator:Show()
 
     -- Zone name (with class hall or housing zone annotation if applicable)
+    local localizedZoneName = addon:GetLocalizedVendorZoneName(elementData.zoneName)
     local classHall = addon:GetClassHallAnnotation(elementData.zoneName)
     local housingZone = addon:GetHousingZoneAnnotation(elementData.zoneName)
     if classHall then
         local colorCode = addon:GetClassColorCode(classHall)
-        frame.zoneLabel:SetText(elementData.zoneName .. " " .. colorCode .. "(" .. classHall .. " " .. L["VENDOR_CLASS_HALL_SUFFIX"] .. ")|r")
+        frame.zoneLabel:SetText(localizedZoneName .. " " .. colorCode .. "(" .. classHall .. " " .. L["VENDOR_CLASS_HALL_SUFFIX"] .. ")|r")
     elseif housingZone then
-        frame.zoneLabel:SetText(elementData.zoneName .. " |cff888888(" .. housingZone .. " " .. L["VENDOR_HOUSING_ZONE_SUFFIX"] .. ")|r")
+        frame.zoneLabel:SetText(localizedZoneName .. " |cff888888(" .. housingZone .. " " .. L["VENDOR_HOUSING_ZONE_SUFFIX"] .. ")|r")
     else
-        frame.zoneLabel:SetText(elementData.zoneName)
+        frame.zoneLabel:SetText(localizedZoneName)
     end
     frame.zoneLabel:SetTextColor(1, 1, 1, 1)
     addon:SetFontSize(frame.zoneLabel, 14, "")
@@ -876,16 +877,7 @@ local function GetVendorTrackingChatDetails(npcId)
     end
 
     local zoneCache = addon.vendorZoneCache and addon.vendorZoneCache[npcId]
-    local zoneName = zoneCache and zoneCache.zoneName
-    if not zoneName or zoneName == "" then
-        local locData = addon:GetNPCLocation(npcId)
-        if locData and locData.uiMapId then
-            local mapInfo = C_Map.GetMapInfo(locData.uiMapId)
-            if mapInfo and mapInfo.name then
-                zoneName = mapInfo.name
-            end
-        end
-    end
+    local zoneName = zoneCache and addon:GetLocalizedVendorZoneName(zoneCache.zoneName)
     if not zoneName or zoneName == "" then
         zoneName = L["VENDORS_UNKNOWN_ZONE"]
     end
@@ -1158,9 +1150,12 @@ local function VendorMatchesSearch(vendorData, searchText, zoneName, expansionKe
 
     local result = false
 
+    local localizedZoneName = addon:GetLocalizedVendorZoneName(zoneName)
     if vendorData.npcName and strlower(vendorData.npcName):find(searchText, 1, true) then
         result = true
     elseif strlower(zoneName):find(searchText, 1, true) then
+        result = true
+    elseif localizedZoneName ~= zoneName and strlower(localizedZoneName):find(searchText, 1, true) then
         result = true
     elseif strlower(addon.L[expansionKey] or expansionKey):find(searchText, 1, true) then
         result = true

@@ -707,7 +707,6 @@ local function InitializeOverlay()
     -- Show/hide with world map
     WorldMapFrame:HookScript("OnShow", function()
         if addon.db and addon.db.settings.showZoneOverlay then
-            addon.db.settings.zoneOverlayMinimized = true
             frame:Show()
             ScheduleMapUpdate()
         end
@@ -727,9 +726,8 @@ local function InitializeOverlay()
         end)
     end)
 
-    -- Initial state (always start collapsed)
+    -- Initial state (restore saved minimized preference)
     if WorldMapFrame:IsShown() and addon.db and addon.db.settings.showZoneOverlay then
-        addon.db.settings.zoneOverlayMinimized = true
         frame:Show()
         ScheduleMapUpdate()
     else

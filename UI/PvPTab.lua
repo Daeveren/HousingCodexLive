@@ -509,7 +509,7 @@ function PvPTab:SetupSourceRow(frame, elementData)
     frame.decorContainer:Show()
     frame.decorContainer:SetHeight(decorCount * DECOR_ROW_HEIGHT)
 
-    local displayName = elementData.sourceName or L["UNKNOWN"]
+    local displayName = addon:GetLocalizedSourceName(elementData.sourceName) or L["UNKNOWN"]
 
     if elementData.sourceCategory == "achievements" and elementData.achievementID then
         -- Show completion checkmark for achievements
@@ -519,7 +519,7 @@ function PvPTab:SetupSourceRow(frame, elementData)
         end
     elseif elementData.sourceCategory == "vendors" and elementData.zoneName then
         -- Show zone for vendors
-        displayName = displayName .. "  |cFF888888(" .. elementData.zoneName .. ")|r"
+        displayName = displayName .. "  |cFF888888(" .. addon:GetLocalizedVendorZoneName(elementData.zoneName) .. ")|r"
     end
 
     frame.sourceName:SetText(displayName)
@@ -696,9 +696,21 @@ local function SourceMatchesSearch(sourceData, searchText, category)
         return true
     end
 
-    -- Zone name for vendors
-    if sourceData.zoneName and strlower(sourceData.zoneName):find(searchText, 1, true) then
+    -- Also match localized source name
+    local localizedName = addon:GetLocalizedSourceName(sourceData.sourceName)
+    if localizedName and localizedName ~= sourceData.sourceName and strlower(localizedName):find(searchText, 1, true) then
         return true
+    end
+
+    -- Zone name for vendors (raw + localized)
+    if sourceData.zoneName then
+        if strlower(sourceData.zoneName):find(searchText, 1, true) then
+            return true
+        end
+        local localizedZone = addon:GetLocalizedVendorZoneName(sourceData.zoneName)
+        if localizedZone ~= sourceData.zoneName and strlower(localizedZone):find(searchText, 1, true) then
+            return true
+        end
     end
 
     -- Category label

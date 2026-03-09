@@ -511,7 +511,7 @@ function DropsTab:SetupSourceRow(frame, elementData)
     frame.decorContainer:Show()
     frame.decorContainer:SetHeight(decorCount * DECOR_ROW_HEIGHT)
 
-    local displayName = elementData.sourceName or L["UNKNOWN"]
+    local displayName = addon:GetLocalizedSourceName(elementData.sourceName) or L["UNKNOWN"]
     frame.sourceName:SetText(displayName)
     frame.sourceName:SetTextColor(unpack(COLORS.SOURCE_NAME_GOLD))
     addon:SetFontSize(frame.sourceName, 14, "")
@@ -682,6 +682,12 @@ local function SourceMatchesSearch(sourceData, searchText, category)
     if searchText == "" then return true end
 
     if sourceData.sourceName and strlower(sourceData.sourceName):find(searchText, 1, true) then
+        return true
+    end
+
+    -- Also match localized source name
+    local localizedName = addon:GetLocalizedSourceName(sourceData.sourceName)
+    if localizedName and localizedName ~= sourceData.sourceName and strlower(localizedName):find(searchText, 1, true) then
         return true
     end
 

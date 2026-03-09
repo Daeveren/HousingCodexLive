@@ -1055,3 +1055,11 @@ addon:RegisterInternalEvent("WISHLIST_CHANGED", function(recordID, isWishlisted)
         Preview:UpdateWishlistButton()
     end
 end)
+
+-- Update preview details when ownership changes (owned/placed counts)
+addon:RegisterInternalEvent("RECORD_OWNERSHIP_UPDATED", function(recordID)
+    if not Preview:IsShown() or not Preview.currentRecordID then return end
+    if recordID ~= nil and recordID ~= Preview.currentRecordID then return end
+    local record = addon:GetRecord(Preview.currentRecordID)
+    if record then Preview:UpdateDetails(record) end
+end)

@@ -149,6 +149,7 @@ function addon:BuildQuestIndex()
     wipe(self.questSortedRecords)
     wipe(self.questZoneFromScrape)
     wipe(self.questTitleCache)
+    self.questTitleFallback = {}
     wipe(self.pendingQuestLoads)
 
     local questCount = 0
@@ -173,8 +174,14 @@ function addon:BuildQuestIndex()
                     self.questIndex[questKey][recordID] = true
 
                     -- Cache the quest name from scraped data
+                    -- Numeric keys: store in fallback so RequestQuestTitle can fire async localization
+                    -- String keys: store in questTitleCache (can't be localized via API)
                     if questData.questName then
-                        self.questTitleCache[questKey] = questData.questName
+                        if type(questKey) == "number" then
+                            self.questTitleFallback[questKey] = questData.questName
+                        else
+                            self.questTitleCache[questKey] = questData.questName
+                        end
                     end
 
                     -- Request title loading for numeric IDs (to get localized names)
@@ -423,6 +430,10 @@ function addon:GetQuestTitle(questKey)
             return title
         end
     end
+
+    -- Fall back to scraped English name (displays while async load is pending)
+    local fallback = self.questTitleFallback and self.questTitleFallback[questKey]
+    if fallback then return fallback end
 
     -- Return placeholder
     return string.format(self.L["QUESTS_UNKNOWN_QUEST"], questKey)
