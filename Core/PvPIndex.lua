@@ -6,6 +6,7 @@
 ]]
 
 local _, addon = ...
+local L = addon.L
 
 -- PvP source category display info
 local PVP_SOURCE_CATEGORY_INFO = {
@@ -97,7 +98,7 @@ function addon:BuildPvPIndex()
                     if npcId and PVP_VENDOR_NPC_IDS[npcId] and not vendorSeen[npcId] then
                         vendorSeen[npcId] = true
                         local entry = {
-                            sourceName     = vendorData.npcName or "Unknown",
+                            sourceName     = vendorData.npcName or L["UNKNOWN"],
                             sourceCategory = "vendors",
                             decorIds       = vendorData.decorIds or {},
                             npcId          = npcId,
@@ -126,7 +127,7 @@ function addon:BuildPvPIndex()
             for _, keyword in ipairs(PVP_DROP_KEYWORDS) do
                 if name:find(keyword, 1, true) then
                     local entry = {
-                        sourceName     = name ~= "" and name or "Unknown",
+                        sourceName     = name ~= "" and name or L["UNKNOWN"],
                         sourceCategory = "drops",
                         decorIds       = sourceData.decorIds or {},
                     }
@@ -145,7 +146,7 @@ function addon:BuildPvPIndex()
     end
 
     self.pvpIndexBuilt = true
-    wipe(self.progressCache)
+    wipe(self.pvpCategoryProgressCache)
 
     self:Debug(string.format("Built PvP index: %d sources, %d decor items in %d ms",
         sourceCount, decorCount, math.floor(debugprofilestop() - startTime)))

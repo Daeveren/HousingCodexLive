@@ -2,7 +2,7 @@
 ## Title: |cffffd100Housing|r |cffff8000Codex|r
 ## Notes: Decor discovery and inspection addon for WoW Housing
 ## Author: Daev
-## Version: 1.9.0
+## Version: 1.9.1
 ## SavedVariables: HousingCodexDB
 ## IconTexture: Interface\AddOns\HousingCodex\HC
 ## AddonCompartmentFunc: HousingCodex_OnAddonCompartmentClick
@@ -26,9 +26,10 @@ Core\ContextMenu.lua
 Core\SavedVars.lua
 Core\Fonts.lua
 
-# Localization (before UI)
+# Localization (before UI — enUS base loads first, then locale overrides)
 Core\Localization.lua
 Locales\enUS.lua
+Locales\frFR.lua
 
 # Data layer
 Core\Data.lua

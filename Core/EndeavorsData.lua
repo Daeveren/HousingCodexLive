@@ -26,6 +26,8 @@ local state = {
     initiativeInfo = nil,
     taskSnapshots = {},    -- { [taskID] = { current, max } }
     sessionProgress = {},  -- { [taskID] = { taskName, current, max, lastChangedTime, delta, completed } }
+    lastNeighborhoodGUID = nil,
+    lastCycleID = nil,
 }
 EndeavorsData.state = state
 
@@ -90,7 +92,10 @@ function EndeavorsData:OnEnterNeighborhood()
     C_Housing.GetPlayerOwnedHouses()
 
     -- Request initiative data (async, fires NEIGHBORHOOD_INITIATIVE_UPDATED)
-    C_NeighborhoodInitiative.RequestNeighborhoodInitiativeInfo()
+    -- Skip if endeavor bar is disabled (no visible consumer for poll data)
+    if addon.db and addon.db.endeavors and addon.db.endeavors.showEndeavorProgress then
+        C_NeighborhoodInitiative.RequestNeighborhoodInitiativeInfo()
+    end
 
     -- Get max house level (non-async, non-secret)
     state.maxHouseLevel = C_Housing.GetMaxHouseLevel() or 0
@@ -115,6 +120,8 @@ function EndeavorsData:OnLeaveNeighborhood()
     state.isMaxLevel = false
     state.initiativeInfo = nil
     wipe(state.taskSnapshots)
+    state.lastNeighborhoodGUID = nil
+    state.lastCycleID = nil
 
     addon:FireEvent("ENDEAVORS_ZONE_CHANGED", false)
 end
@@ -231,22 +238,29 @@ local function DiffTaskProgress(info)
     for _, task in ipairs(info.tasks) do
         local taskID = task.ID  -- API field is "ID" per InitiativeTaskInfo
         if taskID then
-            local reqEntry = task.requirementsList and task.requirementsList[1]
-            local current, max = ParseTaskProgress(reqEntry and reqEntry.requirementText)
+            -- Use the first requirement entry that yields a parseable "N/M" pair
+            local current, max
+            if task.requirementsList then
+                for _, reqEntry in ipairs(task.requirementsList) do
+                    current, max = ParseTaskProgress(reqEntry.requirementText)
+                    if current and max then break end
+                end
+            end
             if current and max then
                 local oldSnapshot = state.taskSnapshots[taskID]
                 local isCompleted = task.completed  -- API field is "completed" per InitiativeTaskInfo
+                local prevProgress = state.sessionProgress[taskID]
 
                 if oldSnapshot then
                     local delta = current - oldSnapshot.current
-                    if delta > 0 or (isCompleted and not (state.sessionProgress[taskID] and state.sessionProgress[taskID].completed)) then
+                    if delta > 0 or (isCompleted and not (prevProgress and prevProgress.completed)) then
                         hasChanges = true
                         state.sessionProgress[taskID] = {
                             taskName = task.taskName or "",
                             current = current,
                             max = max,
                             lastChangedTime = GetTime(),
-                            delta = (state.sessionProgress[taskID] and state.sessionProgress[taskID].delta or 0) + math.max(delta, 0),
+                            delta = (prevProgress and prevProgress.delta or 0) + math.max(delta, 0),
                             completed = isCompleted,
                             timesCompleted = task.timesCompleted or 0,
                             rewardQuestID = task.rewardQuestID or 0,
@@ -256,14 +270,13 @@ local function DiffTaskProgress(info)
                         if isCompleted then
                             addon:FireEvent("ENDEAVORS_TASK_COMPLETED", task.taskName or "")
                         end
-                    elseif state.sessionProgress[taskID] then
+                    elseif prevProgress then
                         -- Update current/max without touching lastChangedTime
-                        local prog = state.sessionProgress[taskID]
-                        prog.current = current
-                        prog.max = max
-                        prog.timesCompleted = task.timesCompleted or 0
-                        prog.rewardQuestID = task.rewardQuestID or 0
-                        prog.taskType = task.taskType
+                        prevProgress.current = current
+                        prevProgress.max = max
+                        prevProgress.timesCompleted = task.timesCompleted or 0
+                        prevProgress.rewardQuestID = task.rewardQuestID or 0
+                        prevProgress.taskType = task.taskType
                     end
                 end
 
@@ -284,6 +297,16 @@ local function OnInitiativeUpdated()
     if not info or not info.isLoaded then return end
 
     state.initiativeInfo = info
+
+    -- Wipe task state when neighborhood or cycle changes to prevent stale data bleed
+    local scopeChanged = info.neighborhoodGUID and info.currentCycleID
+        and (state.lastNeighborhoodGUID ~= info.neighborhoodGUID or state.lastCycleID ~= info.currentCycleID)
+    if scopeChanged then
+        wipe(state.taskSnapshots)
+        wipe(state.sessionProgress)
+        state.lastNeighborhoodGUID = info.neighborhoodGUID
+        state.lastCycleID = info.currentCycleID
+    end
 
     -- Debug: log snapshot state before diff
     if addon.db and addon.db.settings and addon.db.settings.debugMode then

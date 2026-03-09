@@ -607,7 +607,7 @@ function HousingCodexVendorPinMixin:OnMouseClickAction(button)
     local normX, normY = self.vendorData.x / 100, self.vendorData.y / 100
     if normX < 0 or normX > 1 or normY < 0 or normY > 1 then return end
     local npcName = self.vendorData.npcName
-    if not addon.Waypoints:Set(mapID, normX, normY, npcName or "Vendor") then
+    if not addon.Waypoints:Set(mapID, normX, normY, npcName or L["VENDOR_FALLBACK_NAME"]) then
         return
     end
 

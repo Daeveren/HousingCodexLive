@@ -2,6 +2,17 @@
 
 All notable changes to Housing Codex.
 
+**1.9.1** (2026-09-09)
+
+**Added**
+- Full French localization — all addon text is now translated to French
+
+**Fixed**
+- Re-enabling the Endeavors panel from Settings now shows it immediately when in a neighborhood
+- Endeavors panel auto-minimize no longer gets overridden when tasks are active
+- Endeavors panel no longer shows stale task data when switching neighborhoods or entering a new endeavor cycle
+- Endeavors panel now correctly tracks tasks with multiple requirements
+
 **1.9.0** (2026-09-09)
 
 **Added**

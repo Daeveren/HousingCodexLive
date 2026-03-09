@@ -452,6 +452,7 @@ local function ScheduleInactivityMinimize()
             local db = addon.db.endeavors
             if not db.minimized then
                 db.minimized = true
+                userMinimized = true
                 -- UpdateMinimizeButton is a local defined later; inline the texture swap here
                 if minimizeBtn then
                     minimizeBtn:SetNormalTexture("Interface\\Buttons\\UI-PlusButton-UP")
@@ -1665,7 +1666,11 @@ function EP:TryShow()
     ScheduleInactivityMinimize()
 
     -- Start initiative progress poll (NEIGHBORHOOD_INITIATIVE_UPDATED is request/response only)
-    addon.EndeavorsData:StartInitiativePoll()
+    -- Skip if endeavor bar is disabled — poll feeds task diff tracking too,
+    -- but without the bar there's no visible consumer
+    if addon.db.endeavors.showEndeavorProgress then
+        addon.EndeavorsData:StartInitiativePoll()
+    end
 
     -- Start prune ticker
     if not pruneTicker then

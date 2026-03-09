@@ -1,0 +1,607 @@
+--[[
+    Housing Codex - frFR.lua
+    French localization
+]]
+
+if GetLocale() ~= "frFR" then return end
+
+local _, addon = ...
+
+local L = addon.L
+
+--------------------------------------------------------------------------------
+-- General
+--------------------------------------------------------------------------------
+L["ADDON_NAME"] = "Housing Codex"
+L["KEYBIND_HEADER"] = "|cffffd100Housing|r |cffff8000Codex|r"
+L["KEYBIND_TOGGLE"] = "|cffff8000HC|r Afficher/Masquer"
+L["LOADING"] = "Chargement..."
+L["LOADING_DATA"] = "Chargement des données de décor..."
+L["LOADED_MESSAGE"] = "|cFF88EE88%.1f%%|r des décors collectés. Tapez |cFF88BBFF/hc|r pour ouvrir."
+L["COMBAT_LOCKDOWN_MESSAGE"] = "Impossible d'ouvrir en combat"
+
+--------------------------------------------------------------------------------
+-- Tabs
+--------------------------------------------------------------------------------
+L["TAB_DECOR"] = "DÉCOR"
+L["TAB_QUESTS"] = "QUÊTES"
+L["TAB_ACHIEVEMENTS"] = "HAUTS FAITS"
+L["TAB_VENDORS"] = "MARCHANDS"
+L["TAB_DROPS"] = "BUTINS"
+L["TAB_PROFESSIONS"] = "MÉTIERS"
+L["TAB_ACHIEVEMENTS_SHORT"] = "HF..."
+L["TAB_PROFESSIONS_SHORT"] = "MÉT..."
+L["TAB_PROGRESS_SHORT"] = "PROG..."
+L["TAB_DECOR_DESC"] = "Parcourir et rechercher tous les objets de décor"
+L["TAB_QUESTS_DESC"] = "Sources de quêtes pour les objets de décor"
+L["TAB_ACHIEVEMENTS_DESC"] = "Sources de hauts faits pour les objets de décor"
+L["TAB_VENDORS_DESC"] = "Emplacements des marchands pour les objets de décor"
+L["TAB_DROPS_DESC"] = "Sources de butin pour les objets de décor"
+L["TAB_PROFESSIONS_DESC"] = "Objets de décor fabriqués"
+
+--------------------------------------------------------------------------------
+-- Search & Filters
+--------------------------------------------------------------------------------
+L["SEARCH_PLACEHOLDER"] = "Rechercher..."
+L["FILTER_ALL"] = "Tous les objets"
+L["FILTER_COLLECTED"] = "Collectés"
+L["FILTER_NOT_COLLECTED"] = "Non collectés"
+L["FILTER_TRACKABLE"] = "Suivables uniquement"
+L["FILTER_NOT_TRACKABLE"] = "Non suivables"
+L["FILTER_TRACKABLE_HEADER"] = "Suivable"
+L["FILTER_TRACKABLE_ALL"] = "Tous"
+L["FILTER_INDOORS"] = "Intérieur"
+L["FILTER_OUTDOORS"] = "Extérieur"
+L["FILTER_DYEABLE"] = "Teignable"
+L["FILTER_FIRST_ACQUISITION"] = "Bonus de première acquisition"
+L["FILTER_WISHLIST_ONLY"] = "Liste de souhaits uniquement"
+L["FILTERS"] = "Filtres"
+L["CHECK_ALL"] = "Tout cocher"
+L["UNCHECK_ALL"] = "Tout décocher"
+
+--------------------------------------------------------------------------------
+-- Toolbar
+--------------------------------------------------------------------------------
+L["SIZE_LABEL"] = "Taille :"
+L["SORT_BY_LABEL"] = "Trier"
+
+--------------------------------------------------------------------------------
+-- Sort
+--------------------------------------------------------------------------------
+L["SORT_NEWEST"] = "Récents"
+L["SORT_ALPHABETICAL"] = "A-Z"
+L["SORT_SIZE"] = "Taille"
+L["SORT_QUANTITY"] = "Qté possédée"
+L["SORT_PLACED"] = "Qté placée"
+L["SORT_NEWEST_TIP"] = "Décors ajoutés le plus récemment en premier"
+L["SORT_ALPHABETICAL_TIP"] = "Ordre alphabétique (A à Z)"
+L["SORT_SIZE_TIP"] = "Plus grands décors en premier (Énorme à Minuscule)"
+L["SORT_QUANTITY_TIP"] = "Plus de copies possédées en premier"
+L["SORT_PLACED_TIP"] = "Plus de décors placés dans votre maison en premier"
+
+--------------------------------------------------------------------------------
+-- Result Count & Empty State
+--------------------------------------------------------------------------------
+L["RESULT_COUNT_ALL"] = "%d objets affichés"
+L["RESULT_COUNT_FILTERED"] = "%d sur %d objets affichés"
+L["RESULT_COUNT_TOOLTIP_UNIQUE"] = "Uniques collectés : %d"
+L["RESULT_COUNT_TOOLTIP_OWNED"] = "Total possédé : %d"
+L["RESULT_COUNT_TOOLTIP_TOTAL"] = "Total des décors : %d"
+L["EMPTY_STATE_MESSAGE"] = "Aucun objet ne correspond à vos filtres"
+L["RESET_FILTERS"] = "Réinitialiser les filtres"
+
+--------------------------------------------------------------------------------
+-- Category Navigation
+--------------------------------------------------------------------------------
+L["CATEGORY_ALL"] = "Tous"
+L["CATEGORY_BACK"] = "Retour"
+L["CATEGORY_ALL_IN"] = "Tous les %s"
+
+--------------------------------------------------------------------------------
+-- Details Panel
+--------------------------------------------------------------------------------
+L["DETAILS_NO_SELECTION"] = "Sélectionnez un objet"
+L["DETAILS_OWNED"] = "Possédé : %d"
+L["DETAILS_PLACED"] = "Placé : %d"
+L["DETAILS_NOT_OWNED"] = "Non possédé"
+L["DETAILS_SIZE"] = "Taille :"
+L["DETAILS_PLACE"] = "Emplacement :"
+L["DETAILS_DYEABLE"] = "Teignable"
+L["DETAILS_NOT_DYEABLE"] = "Non teignable"
+L["DETAILS_SOURCE_UNKNOWN"] = "Source inconnue"
+L["UNKNOWN"] = "Inconnu"
+
+-- Size names
+L["SIZE_TINY"] = "Minuscule"
+L["SIZE_SMALL"] = "Petit"
+L["SIZE_MEDIUM"] = "Moyen"
+L["SIZE_LARGE"] = "Grand"
+L["SIZE_HUGE"] = "Énorme"
+
+-- Placement types
+L["PLACEMENT_IN"] = "Int."
+L["PLACEMENT_OUT"] = "Ext."
+
+--------------------------------------------------------------------------------
+-- Wishlist
+--------------------------------------------------------------------------------
+L["WISHLIST_ADD"] = "Ajouter à la liste de souhaits"
+L["WISHLIST_REMOVE"] = "Retirer de la liste de souhaits"
+L["WISHLIST_ADDED"] = "Ajouté à la liste de souhaits : %s"
+L["WISHLIST_REMOVED"] = "Retiré de la liste de souhaits : %s"
+L["WISHLIST_BUTTON"] = "SOUHAITS"
+L["WISHLIST_BUTTON_TOOLTIP"] = "Voir votre liste de souhaits"
+L["WISHLIST_TITLE"] = "Liste de souhaits"
+L["WISHLIST_EMPTY"] = "Votre liste de souhaits est vide"
+L["WISHLIST_EMPTY_DESC"] = "Ajoutez des objets en cliquant sur l'étoile dans les onglets Décor ou Quêtes"
+L["WISHLIST_SHIFT_CLICK"] = "Maj+Clic pour ajouter/retirer de la liste de souhaits"
+
+--------------------------------------------------------------------------------
+-- Actions
+--------------------------------------------------------------------------------
+L["ACTION_TRACK"] = "Suivre"
+L["ACTION_UNTRACK"] = "Ne plus suivre"
+L["ACTION_LINK"] = "Lien"
+L["ACTION_TRACK_TOOLTIP"] = "Suivre cet objet dans le suivi d'objectifs"
+L["ACTION_UNTRACK_TOOLTIP"] = "Arrêter de suivre cet objet"
+L["ACTION_TRACK_DISABLED_TOOLTIP"] = "Cet objet ne peut pas être suivi"
+L["ACTION_LINK_TOOLTIP"] = "Insérer le lien de l'objet dans le chat"
+L["ACTION_LINK_TOOLTIP_RIGHTCLICK"] = "Clic droit : Copier l'URL Wowhead"
+L["TRACKING_ERROR_MAX"] = "Impossible de suivre : nombre maximum d'objets suivis atteint"
+L["TRACKING_ERROR_UNTRACKABLE"] = "Cet objet ne peut pas être suivi"
+L["TRACKING_STARTED"] = "Suivi activé : %s"
+L["TRACKING_STOPPED"] = "Suivi arrêté : %s"
+L["TOOLTIP_SHIFT_CLICK_TRACK"] = "Maj-clic pour suivre"
+L["TOOLTIP_SHIFT_CLICK_UNTRACK"] = "Maj-clic pour ne plus suivre"
+L["TRACKING_ERROR_GENERIC"] = "Échec du suivi"
+L["LINK_ERROR"] = "Impossible de créer le lien de l'objet"
+L["LINK_INSERTED"] = "Lien inséré dans le chat"
+
+--------------------------------------------------------------------------------
+-- Preview
+--------------------------------------------------------------------------------
+L["PREVIEW_NO_MODEL"] = "Aucun modèle 3D disponible"
+L["PREVIEW_NO_SELECTION"] = "Sélectionnez un objet pour le prévisualiser"
+L["PREVIEW_ERROR"] = "Erreur de chargement du modèle"
+L["PREVIEW_NOT_IN_CATALOG"] = "Pas encore dans le catalogue de logement"
+
+--------------------------------------------------------------------------------
+-- Settings (WoW Native Settings UI)
+--------------------------------------------------------------------------------
+L["OPTIONS_SECTION_DISPLAY"] = "Affichage"
+L["OPTIONS_SECTION_MAP_NAV"]  = "Carte et navigation"
+L["OPTIONS_SECTION_MERCHANT"] = "Marchand"
+L["OPTIONS_SHOW_COLLECTED"] = "Afficher la quantité possédée sur les tuiles"
+L["OPTIONS_SHOW_COLLECTED_TOOLTIP"] = "Afficher le nombre possédé sur les tuiles de la grille pour les objets collectés"
+L["OPTIONS_SHOW_MINIMAP"] = "Afficher le bouton de la minicarte"
+L["OPTIONS_SHOW_MINIMAP_TOOLTIP"] = "Afficher le bouton Housing Codex sur la minicarte"
+L["OPTIONS_VENDOR_INDICATORS"] = "Marquer les décors chez les marchands"
+L["OPTIONS_VENDOR_INDICATORS_TOOLTIP"] = "Afficher l'icône Housing Codex sur les objets de décor chez les marchands"
+L["OPTIONS_VENDOR_OWNED_CHECKMARK"] = "Afficher une coche pour les décors possédés"
+L["OPTIONS_VENDOR_OWNED_CHECKMARK_TOOLTIP"] = "Afficher une coche verte sur les décors de marchand que vous possédez déjà"
+L["OPTIONS_SECTION_CONTAINERS"] = "Sacs et banque"
+L["OPTIONS_CONTAINER_INDICATORS"] = "Marquer les décors dans les sacs et la banque"
+L["OPTIONS_CONTAINER_INDICATORS_TOOLTIP"] = "Afficher l'icône Housing Codex sur les objets de décor dans vos sacs et votre banque"
+L["OPTIONS_CONTAINER_OWNED_CHECKMARK"] = "Afficher une coche pour les décors possédés"
+L["OPTIONS_CONTAINER_OWNED_CHECKMARK_TOOLTIP"] = "Afficher une coche verte sur les décors dans les sacs et la banque que vous possédez déjà"
+L["OPTIONS_VENDOR_MAP_PINS"] = "Afficher les repères de marchands sur la carte"
+L["OPTIONS_VENDOR_MAP_PINS_TOOLTIP"] = "Afficher les repères de marchands sur la carte du monde avec la progression de collection"
+L["OPTIONS_TREASURE_HUNT_WAYPOINTS"] = "Point de passage auto pour les chasses au trésor"
+L["OPTIONS_TREASURE_HUNT_WAYPOINTS_TOOLTIP"] = "Placer automatiquement un point de passage sur la carte lors de l'acceptation d'une quête de chasse au trésor de décor dans les zones de logement"
+L["OPTIONS_USE_TOMTOM"] = "Utiliser TomTom pour les points de passage"
+L["OPTIONS_USE_TOMTOM_TOOLTIP"] = "Utiliser les points de passage TomTom au lieu du repère natif quand TomTom est installé"
+L["OPTIONS_USE_TOMTOM_NOT_INSTALLED"] = "Utiliser TomTom pour les points de passage (Non installé)"
+L["OPTIONS_AUTO_ROTATE_PREVIEW"] = "Rotation auto de l'aperçu 3D"
+L["OPTIONS_AUTO_ROTATE_PREVIEW_TOOLTIP"] = "Faire tourner lentement le modèle 3D dans le panneau d'aperçu et la liste de souhaits"
+L["OPTIONS_RESET_POSITION"] = "Réinitialiser la position de la fenêtre"
+L["OPTIONS_RESET_POSITION_TOOLTIP"] = "Réinitialiser la fenêtre au centre de l'écran"
+L["OPTIONS_RESET_SIZE"] = "Réinitialiser la taille de la fenêtre"
+L["OPTIONS_RESET_SIZE_TOOLTIP"] = "Réinitialiser la fenêtre à sa taille par défaut"
+L["OPTIONS_SHOW_WELCOME"] = "Écran d'accueil"
+L["OPTIONS_SHOW_WELCOME_TOOLTIP_DISABLED"] = "Utilisez /hc welcome pour afficher l'écran d'accueil"
+L["SIZE_RESET"] = "Taille de la fenêtre réinitialisée."
+
+L["OPTIONS_SECTION_KEYBIND"] = "Raccourci"
+L["OPTIONS_SECTION_TROUBLESHOOTING"] = "Dépannage"
+L["OPTIONS_TOGGLE_KEYBIND"] = "Afficher/Masquer :"
+L["OPTIONS_NOT_BOUND"] = "Non assigné"
+L["OPTIONS_PRESS_KEY"] = "Appuyez sur une touche..."
+L["OPTIONS_UNBIND_TOOLTIP"] = "Clic droit pour désassigner"
+L["OPTIONS_KEYBIND_HINT"] = "Cliquez pour définir le raccourci. Clic droit pour effacer. Échap pour annuler."
+L["OPTIONS_KEYBIND_CONFLICT"] = "\"%s\" est déjà assigné à \"%s\".\n\nVoulez-vous le réassigner à Housing Codex ?"
+
+--------------------------------------------------------------------------------
+-- Slash Command Help
+--------------------------------------------------------------------------------
+L["HELP_TITLE"] = "Commandes Housing Codex :"
+L["HELP_TOGGLE"] = "/hc - Afficher/masquer la fenêtre"
+L["HELP_SETTINGS"] = "/hc settings - Ouvrir les options"
+L["HELP_RESET"] = "/hc reset - Réinitialiser la position"
+L["HELP_RETRY"] = "/hc retry - Réessayer le chargement"
+L["HELP_HELP"] = "/hc help - Afficher cette aide"
+L["HELP_DEBUG"] = "/hc debug - Activer/désactiver le mode débogage"
+L["HELP_STATS"] = "/hc stats - Afficher les compteurs de débogage"
+
+--------------------------------------------------------------------------------
+-- Slash Commands
+--------------------------------------------------------------------------------
+L["SETTINGS_NOT_AVAILABLE"] = "Options pas encore disponibles"
+L["RETRYING_DATA_LOAD"] = "Nouvelle tentative de chargement..."
+L["DEBUG_MODE_STATUS"] = "Mode débogage : %s"
+L["FONT_MODE_STATUS"] = "Police personnalisée : %s"
+L["DEBUG_ON"] = "ACTIVÉ"
+L["DEBUG_OFF"] = "DÉSACTIVÉ"
+L["DATA_NOT_LOADED"] = "Données pas encore chargées"
+L["INSPECT_FOUND"] = "Trouvé : %s (ID : %d)"
+L["INSPECT_NOT_FOUND"] = "Aucun objet trouvé correspondant à : %s"
+L["MAIN_WINDOW_NOT_AVAILABLE"] = "Fenêtre principale pas encore disponible"
+L["POSITION_RESET"] = "Position de la fenêtre réinitialisée au centre"
+
+--------------------------------------------------------------------------------
+-- Errors
+--------------------------------------------------------------------------------
+L["ERROR_API_UNAVAILABLE"] = "API de logement non disponibles"
+L["ERROR_LOAD_FAILED"] = "Échec du chargement des données après plusieurs tentatives. Utilisez /hc retry pour réessayer."
+L["ERROR_LOAD_FAILED_SHORT"] = "Échec du chargement. Utilisez /hc retry"
+
+--------------------------------------------------------------------------------
+-- LDB (LibDataBroker)
+--------------------------------------------------------------------------------
+L["LDB_TOOLTIP_LEFT"] = "|cffffffffClic gauche|r pour afficher/masquer la fenêtre"
+L["LDB_TOOLTIP_RIGHT"] = "|cffffffffClic droit|r pour ouvrir les options"
+L["LDB_TOOLTIP_ALT"] = "|cffffffffAlt-clic|r pour configurer l'affichage du broker"
+L["LDB_OPTIONS_PLACEHOLDER"] = "Panneau d'options pas encore disponible"
+L["LDB_POPUP_TITLE"] = "Affichage du broker"
+L["LDB_POPUP_UNIQUE"] = "Uniques collectés"
+L["LDB_POPUP_TOTAL_OWNED"] = "Total possédé"
+L["LDB_POPUP_TOTAL_ITEMS"] = "Total des objets"
+
+--------------------------------------------------------------------------------
+-- Quests Tab
+--------------------------------------------------------------------------------
+L["QUESTS_SEARCH_PLACEHOLDER"] = "Rechercher des quêtes, zones ou récompenses..."
+L["QUESTS_FILTER_ALL"] = "Toutes"
+L["QUESTS_FILTER_INCOMPLETE"] = "Incomplètes"
+L["QUESTS_FILTER_COMPLETE"] = "Complètes"
+L["QUESTS_EMPTY_NO_SOURCES"] = "Aucune source de quête trouvée"
+L["QUESTS_EMPTY_NO_SOURCES_DESC"] = "Les données de quête peuvent ne pas être exposées par l'API WoW"
+L["QUESTS_SELECT_EXPANSION"] = "Sélectionnez une extension"
+L["QUESTS_EMPTY_NO_RESULTS"] = "Aucune quête ne correspond à votre recherche"
+L["QUESTS_UNKNOWN_QUEST"] = "Quête #%d"
+L["QUESTS_UNKNOWN_ZONE"] = "Zone inconnue"
+L["QUESTS_UNKNOWN_EXPANSION"] = "Autre"
+
+-- Quest tracking messages
+L["QUESTS_TRACKING_STARTED"] = "Suivi de l'objet activé"
+L["QUESTS_TRACKING_STOPPED"] = "Suivi de l'objet arrêté"
+L["QUESTS_TRACKING_MAX_REACHED"] = "Impossible de suivre - maximum atteint (15)"
+L["QUESTS_TRACKING_ALREADY"] = "Cet objet est déjà suivi"
+L["QUESTS_TRACKING_FAILED"] = "Impossible de suivre cet objet"
+
+-- Expansion names
+L["EXPANSION_CLASSIC"] = "Classic"
+L["EXPANSION_TBC"] = "The Burning Crusade"
+L["EXPANSION_WRATH"] = "Wrath of the Lich King"
+L["EXPANSION_CATA"] = "Cataclysm"
+L["EXPANSION_MOP"] = "Mists of Pandaria"
+L["EXPANSION_WOD"] = "Warlords of Draenor"
+L["EXPANSION_LEGION"] = "Legion"
+L["EXPANSION_BFA"] = "Battle for Azeroth"
+L["EXPANSION_SL"] = "Shadowlands"
+L["EXPANSION_DF"] = "Dragonflight"
+L["EXPANSION_TWW"] = "The War Within"
+L["EXPANSION_MIDNIGHT"] = "Midnight"
+
+--------------------------------------------------------------------------------
+-- Achievements Tab
+--------------------------------------------------------------------------------
+L["ACHIEVEMENTS_SEARCH_PLACEHOLDER"] = "Rechercher des hauts faits, récompenses ou catégories..."
+L["ACHIEVEMENTS_FILTER_ALL"] = "Tous"
+L["ACHIEVEMENTS_FILTER_INCOMPLETE"] = "Incomplets"
+L["ACHIEVEMENTS_FILTER_COMPLETE"] = "Complétés"
+L["ACHIEVEMENTS_EMPTY_NO_SOURCES"] = "Aucune source de haut fait trouvée"
+L["ACHIEVEMENTS_EMPTY_NO_SOURCES_DESC"] = "Les données de hauts faits peuvent ne pas être disponibles"
+L["ACHIEVEMENTS_SELECT_CATEGORY"] = "Sélectionnez une catégorie"
+L["ACHIEVEMENTS_EMPTY_NO_RESULTS"] = "Aucun haut fait ne correspond à votre recherche"
+L["ACHIEVEMENTS_UNKNOWN"] = "Haut fait #%d"
+
+-- Achievement tracking messages
+L["ACHIEVEMENTS_TRACKING_STARTED"] = "Suivi de l'objet activé"
+L["ACHIEVEMENTS_TRACKING_STARTED_ACHIEVEMENT"] = "Suivi du haut fait activé"
+L["ACHIEVEMENTS_TRACKING_STOPPED"] = "Suivi du haut fait arrêté"
+L["ACHIEVEMENTS_TRACKING_MAX_REACHED"] = "Impossible de suivre - maximum atteint (15)"
+L["ACHIEVEMENTS_TRACKING_ALREADY"] = "Cet objet est déjà suivi"
+L["ACHIEVEMENTS_TRACKING_FAILED"] = "Impossible de suivre ce haut fait"
+
+--------------------------------------------------------------------------------
+-- Context Menu
+--------------------------------------------------------------------------------
+L["CONTEXT_MENU_LINK_TO_CHAT"] = "Lier dans le chat"
+L["CONTEXT_MENU_COPY_WOWHEAD"] = "Copier le lien Wowhead"
+
+--------------------------------------------------------------------------------
+-- Vendors Tab
+--------------------------------------------------------------------------------
+L["VENDORS_SEARCH_PLACEHOLDER"] = "Rechercher des marchands, zones ou objets..."
+L["VENDORS_FILTER_ALL"] = "Tous"
+L["VENDORS_FILTER_INCOMPLETE"] = "Incomplets"
+L["VENDORS_FILTER_COMPLETE"] = "Complétés"
+L["VENDORS_EMPTY_NO_SOURCES"] = "Aucune source de marchand trouvée"
+L["VENDORS_EMPTY_NO_SOURCES_DESC"] = "Les données de marchands peuvent ne pas être disponibles"
+L["VENDORS_SELECT_EXPANSION"] = "Sélectionnez une extension"
+L["VENDORS_UNKNOWN_EXPANSION"] = "Autre"
+L["VENDORS_UNKNOWN_ZONE"] = "Zone inconnue"
+
+-- Vendor waypoint messages
+L["VENDOR_SET_WAYPOINT"] = "Placer un repère"
+L["VENDOR_NO_LOCATION"] = "Emplacement inconnu"
+L["VENDOR_WAYPOINT_SET"] = "Repère placé pour %s"
+L["VENDOR_MAP_RESTRICTED"] = "Impossible de placer un repère sur cette carte"
+
+-- Vendor fallback names
+L["VENDOR_UNKNOWN"] = "Marchand inconnu"
+L["VENDOR_FALLBACK_NAME"] = "marchand"
+
+-- Vendor world map pins
+L["VENDOR_PIN_COLLECTED"] = "Collectés : %d/%d"
+L["VENDOR_PIN_UNCOLLECTED_HEADER"] = "Décors non collectés :"
+L["VENDOR_PIN_ITEM_LOCKED"] = "verrouillé"
+L["VENDOR_PIN_MORE"] = "+%d autres"
+L["VENDOR_PIN_CLICK_WAYPOINT"] = "Cliquez pour placer un repère"
+L["VENDOR_PIN_FACTION_ALLIANCE"] = "Alliance uniquement"
+L["VENDOR_PIN_FACTION_HORDE"] = "Horde uniquement"
+L["VENDOR_PIN_VENDOR_COUNT"] = "%dx Marchands"
+L["VENDOR_PIN_VENDOR_LIST_HEADER"] = "Liste des marchands :"
+L["VENDOR_PIN_VENDOR_ENTRY"] = "%s (%d/%d)"
+L["VENDOR_PIN_VENDORS_MORE"] = "+%d marchands supplémentaires"
+
+-- Vendor tracking messages
+L["VENDORS_TRACKING_STARTED"] = "Repère ajouté pour %s dans %s"
+L["VENDORS_TRACKING_STOPPED"] = "Repère retiré pour %s dans %s"
+L["VENDORS_ACTION_TRACK"] = "Repère"
+L["VENDORS_ACTION_UNTRACK"] = "Retirer le repère"
+L["VENDORS_ACTION_TRACK_TOOLTIP"] = "Placer un repère sur la carte vers ce marchand"
+L["VENDORS_ACTION_UNTRACK_TOOLTIP"] = "Retirer le repère du marchand"
+L["VENDORS_ACTION_TRACK_DISABLED_TOOLTIP"] = "Ce marchand n'a pas d'emplacement valide"
+
+-- Vendor cost display
+L["CURRENCY_GOLD"] = "or"
+L["VENDOR_COST_CURRENCY"] = "%s %s"
+
+-- Vendor decor fallback
+L["VENDORS_DECOR_ID"] = "Décor #%d"
+
+-- Vendor zone annotations
+L["VENDOR_CLASS_HALL_SUFFIX"] = "fief de classe"
+L["VENDOR_HOUSING_ZONE_SUFFIX"] = "zone de logement"
+L["VENDOR_CLASS_ONLY_SUFFIX"] = "%s uniquement"
+
+-- Vendor tooltip overlay
+L["VENDOR_TOOLTIP_HEADER"] = "Housing Codex"
+L["OPTIONS_VENDOR_TOOLTIPS"] = "Afficher les décors dans les infobulles des marchands"
+L["OPTIONS_VENDOR_TOOLTIPS_TOOLTIP"] = "Afficher la progression de collection Housing Codex au survol des PNJ marchands de décor"
+
+--------------------------------------------------------------------------------
+-- Drops Tab
+--------------------------------------------------------------------------------
+L["DROPS_SEARCH_PLACEHOLDER"] = "Rechercher des sources ou objets..."
+L["DROPS_FILTER_ALL"] = "Tous"
+L["DROPS_FILTER_INCOMPLETE"] = "Incomplets"
+L["DROPS_FILTER_COMPLETE"] = "Complétés"
+L["DROPS_EMPTY_NO_SOURCES"] = "Aucune source de butin trouvée"
+L["DROPS_EMPTY_NO_SOURCES_DESC"] = "Les données de butin peuvent ne pas être disponibles"
+L["DROPS_SELECT_CATEGORY"] = "Sélectionnez une catégorie"
+
+-- Drop source category labels
+L["DROPS_CATEGORY_DROP"] = "Butins"
+L["DROPS_CATEGORY_ENCOUNTER"] = "Boss"
+L["DROPS_CATEGORY_TREASURE"] = "Trésors"
+
+-- Drop source display
+L["DROPS_DECOR_ID"] = "Décor #%d"
+
+-- Drop tracking messages
+L["DROPS_TRACKING_STARTED"] = "Suivi de l'objet activé"
+L["DROPS_TRACKING_STOPPED"] = "Suivi de l'objet arrêté"
+L["DROPS_TRACKING_MAX_REACHED"] = "Impossible de suivre - maximum atteint (15)"
+L["DROPS_TRACKING_ALREADY"] = "Cet objet est déjà suivi"
+L["DROPS_TRACKING_FAILED"] = "Impossible de suivre cet objet"
+
+--------------------------------------------------------------------------------
+-- Professions Tab
+--------------------------------------------------------------------------------
+L["PROFESSIONS_SEARCH_PLACEHOLDER"] = "Rechercher des métiers ou objets..."
+L["PROFESSIONS_FILTER_ALL"] = "Tous"
+L["PROFESSIONS_FILTER_INCOMPLETE"] = "Incomplets"
+L["PROFESSIONS_FILTER_COMPLETE"] = "Complétés"
+L["PROFESSIONS_EMPTY_NO_SOURCES"] = "Aucune source d'artisanat"
+L["PROFESSIONS_EMPTY_NO_SOURCES_DESC"] = "Les données d'artisanat ne sont pas encore disponibles."
+L["PROFESSIONS_SELECT_PROFESSION"] = "Sélectionnez un métier"
+L["PROFESSIONS_EMPTY_NO_RESULTS"] = "Aucun résultat"
+
+--------------------------------------------------------------------------------
+-- Treasure Hunt Waypoints
+--------------------------------------------------------------------------------
+L["TREASURE_HUNT_WAYPOINT_SET"] = "Trésor marqué à"
+
+--------------------------------------------------------------------------------
+-- Progress Tab
+--------------------------------------------------------------------------------
+L["TAB_PROGRESS"] = "PROGRESSION"
+L["TAB_PROGRESS_DESC"] = "Aperçu de la progression de collection"
+L["PROGRESS_COLLECTED"] = "Collectés"
+L["PROGRESS_TOTAL"] = "Total"
+L["PROGRESS_REMAINING"] = "Restants"
+L["PROGRESS_BY_SOURCE"] = "Par source"
+L["PROGRESS_VENDOR_EXPANSIONS"] = "Marchands par extension"
+L["PROGRESS_QUEST_EXPANSIONS"] = "Quêtes par extension"
+L["PROGRESS_PROFESSIONS"] = "Métiers"
+L["PROGRESS_ALMOST_THERE"] = "Les plus avancés"
+L["PROGRESS_OVERVIEW"] = "APERÇU DE LA PROGRESSION"
+L["PROGRESS_ALL_DECOR_COLLECTED"] = "Tous les décors collectés"
+L["PROGRESS_SOURCE_ALL"] = "Tous les décors"
+L["PROGRESS_SOURCE_VENDORS"] = "Marchands"
+L["PROGRESS_SOURCE_QUESTS"] = "Quêtes"
+L["PROGRESS_SOURCE_ACHIEVEMENTS"] = "Hauts faits"
+L["PROGRESS_SOURCE_PROFESSIONS"] = "Métiers"
+L["PROGRESS_SOURCE_PVP"] = "JcJ"
+L["PROGRESS_LOADING"] = "Chargement des données de progression..."
+
+--------------------------------------------------------------------------------
+-- Zone Overlay (World Map)
+--------------------------------------------------------------------------------
+L["ZONE_OVERLAY_VENDORS"] = "Marchands"
+L["ZONE_OVERLAY_QUESTS"] = "Quêtes"
+L["ZONE_OVERLAY_TREASURE"] = "Chasses au trésor"
+L["ZONE_OVERLAY_COUNT"] = "%d décors dans cette zone"
+L["ZONE_OVERLAY_BUTTON_TOOLTIP"] = "Housing Codex"
+L["ZONE_OVERLAY_SHOW"] = "Afficher la superposition de zone"
+L["ZONE_OVERLAY_PINS"] = "Afficher les repères de marchands"
+L["ZONE_OVERLAY_POSITION"] = "Position du panneau"
+L["ZONE_OVERLAY_POS_TOPLEFT"] = "Haut-gauche"
+L["ZONE_OVERLAY_POS_BOTTOMRIGHT"] = "Bas-droite"
+L["ZONE_OVERLAY_TRANSPARENCY"] = "Transparence"
+L["ZONE_OVERLAY_INCLUDE_COLLECTED_VENDORS"] = "Inclure les décors déjà débloqués"
+L["ZONE_OVERLAY_SOURCE_VENDOR"] = "(Marchand)"
+L["ZONE_OVERLAY_SOURCE_VENDOR_CITY"] = "(Marchand à |cFFFF8C00%s|r)"
+L["ZONE_OVERLAY_CLICK_WAYPOINT"] = "Clic gauche pour placer un repère"
+L["ZONE_OVERLAY_CLICK_OPEN_HC"] = "Clic droit pour ouvrir dans Housing Codex"
+L["ZONE_OVERLAY_PREVIEW_SIZE"] = "Taille de l'aperçu"
+L["ZONE_OVERLAY_SECTION_HEADER"] = "Superposition de zone"
+L["VENDOR_PINS_SECTION_HEADER"] = "Repères de marchands"
+L["VENDOR_PINS_TRANSPARENCY"] = "Transparence des repères"
+L["VENDOR_PINS_SCALE"] = "Taille des repères"
+L["VENDOR_PINS_MINIMAL"] = "Icône seule (sans fond)"
+L["VENDOR_PINS_LAYER"] = "Couche des repères sur la carte"
+L["VENDOR_PINS_LAYER_BELOW"] = "Sous les autres icônes"
+L["VENDOR_PINS_LAYER_ABOVE"] = "Au-dessus des autres icônes"
+L["OPTIONS_ZONE_OVERLAY"] = "Afficher la superposition de zone sur la carte du monde"
+L["OPTIONS_ZONE_OVERLAY_TOOLTIP"] = "Afficher un panneau sur la carte du monde montrant les décors disponibles dans la zone actuelle"
+
+--------------------------------------------------------------------------------
+-- What's New Popup
+--------------------------------------------------------------------------------
+L["WHATSNEW_TITLE"] = "Nouveautés de Housing Codex"
+L["WHATSNEW_DONT_SHOW"] = "Ne plus afficher pour la v%s"
+L["WHATSNEW_EXPLORE"] = "Explorer Housing Codex"
+L["WHATS_NEW_NO_IMAGE"] = "Capture d'écran"
+
+--------------------------------------------------------------------------------
+-- Welcome Popup
+--------------------------------------------------------------------------------
+L["WELCOME_TITLE"] = "Bienvenue dans Housing Codex"
+L["WELCOME_SUBTITLE"] = "Votre compagnon pour la découverte de décors et tout ce qui touche au logement"
+L["WELCOME_START"] = "Commencer l'exploration"
+L["WELCOME_QUICK_SETUP"] = "Bon à savoir"
+L["WELCOME_OPEN_WITH"] = "Vous pouvez ouvrir l'addon à tout moment via"
+L["WELCOME_SET_KEYBIND"] = "ou en définissant votre propre raccourci dans"
+L["WELCOME_KEYBIND_LABEL"] = "Options"
+
+--------------------------------------------------------------------------------
+-- What's New: v1.5.0 feature highlights
+--------------------------------------------------------------------------------
+L["WHATSNEW_V150_F1_TITLE"] = "Tableau de bord de collection"
+L["WHATSNEW_V150_F1_DESC"] = "Consultez votre progression de collection en un coup d'œil -- statistiques globales, par type de source, et catégories les plus avancées."
+L["WHATSNEW_V150_F2_TITLE"] = "Suivi des métiers"
+L["WHATSNEW_V150_F2_DESC"] = "Suivez la progression d'artisanat pour chaque métier avec des barres de progression dédiées."
+L["WHATSNEW_V150_F3_TITLE"] = "Navigation intelligente"
+L["WHATSNEW_V150_F3_DESC"] = "Cliquez sur une ligne de progression pour accéder directement à l'onglet source correspondant."
+L["WHATSNEW_V150_F4_TITLE"] = "Liens de liste de souhaits"
+L["WHATSNEW_V150_F4_DESC"] = "Partagez les objets de votre liste de souhaits dans le chat sous forme de liens cliquables."
+
+--------------------------------------------------------------------------------
+-- Welcome feature highlights
+--------------------------------------------------------------------------------
+L["WELCOME_F1_TITLE"] = "Aperçu 3D interactif"
+L["WELCOME_F1_DESC"] = "Prévisualisez n'importe quel décor en 3D : rotation, zoom, et redimensionnement."
+L["WELCOME_F2_TITLE"] = "Catalogue et grille de décors"
+L["WELCOME_F2_DESC"] = "Parcourez le catalogue complet dans une grille personnalisable avec recherche rapide et filtres."
+L["WELCOME_F3_TITLE"] = "Sources et découverte"
+L["WELCOME_F3_DESC"] = "Découvrez où obtenir les décors manquants : quêtes, hauts faits, marchands, butins, métiers."
+L["WELCOME_F4_TITLE"] = "Indicateurs de marchands"
+L["WELCOME_F4_DESC"] = "L'interface marchand affiche les icônes de décor pour repérer les objets à collectionner."
+L["WELCOME_F5_TITLE"] = "Intégration de la carte"
+L["WELCOME_F5_DESC"] = "Des repères sur la carte montrent l'emplacement des marchands de décor, et une superposition indique les décors manquants."
+L["WELCOME_F6_TITLE"] = "Progression de collection"
+L["WELCOME_F6_DESC"] = "Des barres de progression montrent votre avancement par catégorie en un coup d'œil."
+
+--------------------------------------------------------------------------------
+-- Endeavors Panel
+--------------------------------------------------------------------------------
+L["ENDEAVORS_TITLE"] = "Entreprises"
+L["ENDEAVORS_OPTIONS"] = "Options des entreprises"
+L["ENDEAVORS_OPTIONS_TOOLTIP"] = "Configurer le panneau des entreprises"
+L["ENDEAVORS_MAX_LEVEL"] = "MAX"
+L["ENDEAVORS_PROGRESS_FORMAT"] = "Progression : %d / %d"
+L["ENDEAVORS_YOUR_CONTRIBUTION"] = "Votre contribution : %d"
+L["ENDEAVORS_MILESTONES"] = "Jalons"
+L["ENDEAVORS_OPT_SECTION_GENERAL"]  = "Général"
+L["ENDEAVORS_OPT_SECTION_HOUSE_XP"] = "XP de maison"
+L["ENDEAVORS_OPT_SECTION_ENDEAVOR"] = "Progression des entreprises"
+L["ENDEAVORS_OPT_SECTION_SIZE"]     = "Taille du panneau"
+L["ENDEAVORS_OPT_SHOW_HOUSE_XP"] = "Afficher la barre d'XP de maison"
+L["ENDEAVORS_OPT_SHOW_HOUSE_XP_TIP"] = "Afficher le niveau de maison et la barre de progression d'XP"
+L["ENDEAVORS_OPT_SHOW_ENDEAVOR"] = "Afficher la barre des entreprises"
+L["ENDEAVORS_OPT_SHOW_ENDEAVOR_TIP"] = "Afficher la barre de progression des entreprises du voisinage"
+L["ENDEAVORS_OPT_SHOW_XP_TEXT"] = "Afficher le texte de la barre d'XP"
+L["ENDEAVORS_OPT_SHOW_XP_TEXT_TIP"] = "Afficher les valeurs numériques sur la barre d'XP de maison"
+L["ENDEAVORS_OPT_SHOW_ENDEAVOR_TEXT"] = "Afficher le texte de la barre des entreprises"
+L["ENDEAVORS_OPT_SHOW_ENDEAVOR_TEXT_TIP"] = "Afficher les valeurs numériques sur la barre de progression des entreprises"
+L["ENDEAVORS_OPT_SHOW_XP_PCT"] = "Afficher le pourcentage d'XP"
+L["ENDEAVORS_OPT_SHOW_XP_PCT_TIP"] = "Afficher le pourcentage sur la barre d'XP de maison"
+L["ENDEAVORS_OPT_SHOW_ENDEAVOR_PCT"] = "Afficher le pourcentage des entreprises"
+L["ENDEAVORS_OPT_SHOW_ENDEAVOR_PCT_TIP"] = "Afficher le pourcentage sur la barre de progression des entreprises"
+L["ENDEAVORS_XP_TOOLTIP_TITLE"] = "Progression du niveau de maison"
+L["ENDEAVORS_XP_TOOLTIP_LEVEL"] = "Niveau de maison : %d"
+L["ENDEAVORS_XP_TOOLTIP_LEVEL_MAX"] = "Niveau de maison : %d (Max)"
+L["ENDEAVORS_XP_TOOLTIP_PROGRESS"] = "XP : %s / %s (%d%%)"
+L["ENDEAVORS_XP_TOOLTIP_CLICK"] = "Cliquez pour ouvrir le tableau de bord de logement"
+L["ENDEAVORS_TOOLTIP_CLICK"] = "Cliquez pour ouvrir les entreprises"
+L["ENDEAVORS_PCT_DONE"] = "TERMINÉ"
+L["ENDEAVORS_TASK_HEADER"] = "3 dernières entreprises progressées"
+L["OPTIONS_SECTION_ENDEAVORS"] = "Entreprises"
+L["OPTIONS_ENDEAVORS_ENABLED"] = "Activer le panneau des entreprises"
+L["OPTIONS_ENDEAVORS_ENABLED_TOOLTIP"] = "Afficher le mini-panneau des entreprises dans un voisinage avec une maison"
+L["ENDEAVORS_OPT_ENABLED"] = "Activer le panneau des entreprises"
+L["ENDEAVORS_OPT_ENABLED_TIP"] = "Afficher le panneau des entreprises dans un voisinage avec une maison"
+L["ENDEAVORS_COMPLETED_TIMES"] = "Complété %d |4fois:fois;"
+L["ENDEAVORS_TIME_DAYS_LEFT"] = "%d |4jour:jours; restant"
+L["ENDEAVORS_TIME_HOURS_LEFT"] = "%d |4heure:heures; restant"
+L["ENDEAVORS_COUPONS_EARNED"] = "%d/%d %s gagnés cette entreprise"
+L["ENDEAVORS_OPT_SCALE"] = "Taille du panneau"
+L["ENDEAVORS_OPT_SCALE_TIP"] = "Modifier la taille du panneau des entreprises"
+L["ENDEAVORS_OPT_SCALE_SMALL"] = "Petit"
+L["ENDEAVORS_OPT_SCALE_NORMAL"] = "Normal"
+L["ENDEAVORS_OPT_SCALE_BIG"] = "Grand"
+
+--------------------------------------------------------------------------------
+-- PvP Tab
+--------------------------------------------------------------------------------
+L["TAB_PVP"] = "JCJ"
+L["TAB_PVP_DESC"] = "Sources JcJ pour les objets de décor"
+L["PVP_SEARCH_PLACEHOLDER"] = "Rechercher des sources JcJ ou objets..."
+L["PVP_FILTER_ALL"] = "Tous"
+L["PVP_FILTER_INCOMPLETE"] = "Incomplets"
+L["PVP_FILTER_COMPLETE"] = "Complétés"
+L["PVP_CATEGORY_ACHIEVEMENTS"] = "Hauts faits"
+L["PVP_CATEGORY_VENDORS"] = "Marchands"
+L["PVP_CATEGORY_DROPS"] = "Butins"
+L["PVP_EMPTY_NO_SOURCES"] = "Aucune source JcJ trouvée"
+L["PVP_EMPTY_NO_SOURCES_DESC"] = "Les données JcJ peuvent ne pas être disponibles"
+L["PVP_SELECT_CATEGORY"] = "Sélectionnez une catégorie"
+L["PVP_EMPTY_NO_RESULTS"] = "Aucune source JcJ ne correspond à votre recherche"
+L["PVP_TRACKING_STARTED"] = "Suivi de l'objet activé"
+L["PVP_TRACKING_STOPPED"] = "Suivi de l'objet arrêté"
+L["PVP_TRACKING_MAX_REACHED"] = "Impossible de suivre - maximum atteint (15)"
+L["PVP_TRACKING_ALREADY"] = "Cet objet est déjà suivi"
+L["PVP_TRACKING_FAILED"] = "Impossible de suivre cet objet"
+
+-- Game entity names (bosses, dungeons, zones, treasures) are NOT overridden here.
+-- These names come from WoW's own localization on French clients.
+-- The enUS.lua identity mappings serve as fallback; a future runtime lookup
+-- via EJ_GetEncounterInfo / EJ_GetInstanceInfo / C_Map.GetMapInfo can resolve
+-- the correct French names from the game data itself.
+
+-- Keybinding globals (must be set per-locale since enUS sets them before frFR overrides L values)
+BINDING_HEADER_HCODEX = L["KEYBIND_HEADER"]
+BINDING_NAME_HOUSINGCODEX_TOGGLE = L["KEYBIND_TOGGLE"]

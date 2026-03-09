@@ -552,9 +552,10 @@ function addon.Settings:Initialize()
         function(checked)
             if addon.db and addon.db.endeavors then
                 addon.db.endeavors.enabled = checked
-                if addon.EndeavorsPanel then
+                if addon.EndeavorsPanel and addon.EndeavorsData then
                     if checked then
                         addon.EndeavorsData:RecheckNeighborhoodZone()
+                        addon.EndeavorsPanel:TryShow()
                     else
                         addon.EndeavorsPanel:TryHide()
                     end

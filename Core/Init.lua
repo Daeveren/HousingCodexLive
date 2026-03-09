@@ -3,10 +3,6 @@
     Addon namespace initialization, event systems, and core setup
 ]]
 
--- Keybinding localization strings (must be global for WoW keybinding UI)
-BINDING_HEADER_HCODEX = "|cffffd100Housing|r |cffff8000Codex|r"
-BINDING_NAME_HOUSINGCODEX_TOGGLE = "|cffff8000HC|r Toggle Window"
-
 local ADDON_NAME, addon = ...
 
 -- Export addon table globally for other files and debugging
