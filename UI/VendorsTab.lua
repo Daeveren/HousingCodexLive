@@ -57,7 +57,6 @@ VendorsTab.noExpansionState = nil
 VendorsTab.selectedExpansionKey = nil
 VendorsTab.selectedVendorNpcId = nil
 VendorsTab.selectedDecorId = nil
-VendorsTab.hoveringRecordID = nil
 VendorsTab.activeTrackedNpcId = nil
 VendorsTab.activeTrackedDecorId = nil
 VendorsTab.waypointListenerRegistered = false
@@ -568,7 +567,6 @@ end
 
 -- Shared OnLeave handler to restore selection state
 function VendorsTab:RestoreSelectionOnLeave()
-    self.hoveringRecordID = nil
     addon:FireEvent("RECORD_SELECTED", self.selectedDecorId)
 end
 
@@ -656,7 +654,7 @@ function VendorsTab:SetupVendorRow(frame, elementData)
     frame.decorContainer:Show()
     frame.decorContainer:SetHeight(decorCount * DECOR_ROW_HEIGHT)
 
-    local vendorDisplayName = elementData.npcName or L["VENDOR_UNKNOWN"]
+    local vendorDisplayName = addon:GetLocalizedNPCName(elementData.npcId, elementData.npcName) or L["VENDOR_UNKNOWN"]
     local zoneCache = addon.vendorZoneCache and addon.vendorZoneCache[elementData.npcId]
     local classHall = zoneCache and addon:GetClassHallAnnotation(zoneCache.zoneName)
     if classHall then
@@ -712,7 +710,6 @@ function VendorsTab:SetupVendorRow(frame, elementData)
             f.bg:SetColorTexture(0.12, 0.12, 0.14, 1)
         end
         if decorCount > 0 then
-            self.hoveringRecordID = decorIds[1]
             addon:FireEvent("RECORD_SELECTED", decorIds[1])
         end
     end)
@@ -818,7 +815,6 @@ function VendorsTab:SetupDecorRows(frame, decorIds)
             if not (self.selectedVendorNpcId == frame.npcId and self.selectedDecorId == decorId) then
                 r.name:SetTextColor(1, 1, 1, 1)
             end
-            self.hoveringRecordID = decorId
             addon:FireEvent("RECORD_SELECTED", decorId)
 
             GameTooltip:SetOwner(UIParent, "ANCHOR_NONE")
@@ -871,7 +867,7 @@ local function GetVendorTrackingChatDetails(npcId)
     local L = addon.L
 
     local vendorEntry = addon.vendorIndex and addon.vendorIndex[npcId]
-    local vendorName = vendorEntry and vendorEntry.npcName
+    local vendorName = vendorEntry and addon:GetLocalizedNPCName(npcId, vendorEntry.npcName)
     if not vendorName or vendorName == "" then
         vendorName = L["VENDOR_FALLBACK_NAME"]
     end
@@ -1042,7 +1038,7 @@ function VendorsTab:ToggleVendorDecorTracking(npcId, decorId)
     end
 
     local vendorEntry = addon.vendorIndex and addon.vendorIndex[npcId]
-    local vendorName = vendorEntry and vendorEntry.npcName or L["VENDOR_FALLBACK_NAME"]
+    local vendorName = vendorEntry and addon:GetLocalizedNPCName(npcId, vendorEntry.npcName) or L["VENDOR_FALLBACK_NAME"]
     if not addon.Waypoints:Set(locData.uiMapId, locData.x / 100, locData.y / 100, vendorName) then
         return
     end
@@ -1056,6 +1052,7 @@ end
 
 function VendorsTab:SetWaypoint(npcId, npcName)
     local L = addon.L
+    npcName = addon:GetLocalizedNPCName(npcId, npcName)
     local point, locData, errorKey = self:GetVendorTrackPoint(npcId)
     if not point then
         addon:Print(L[errorKey] or L["VENDOR_MAP_RESTRICTED"])
@@ -1148,10 +1145,13 @@ local function VendorMatchesSearch(vendorData, searchText, zoneName, expansionKe
     local cacheKey = vendorData.npcId .. ":" .. zoneName .. ":" .. expansionKey
     if searchCache and searchCache[cacheKey] ~= nil then return searchCache[cacheKey] end
 
+    local localizedZoneName = addon:GetLocalizedVendorZoneName(zoneName)
+    local localizedNpcName = addon:GetLocalizedNPCName(vendorData.npcId, vendorData.npcName)
     local result = false
 
-    local localizedZoneName = addon:GetLocalizedVendorZoneName(zoneName)
     if vendorData.npcName and strlower(vendorData.npcName):find(searchText, 1, true) then
+        result = true
+    elseif localizedNpcName and localizedNpcName ~= vendorData.npcName and strlower(localizedNpcName):find(searchText, 1, true) then
         result = true
     elseif strlower(zoneName):find(searchText, 1, true) then
         result = true

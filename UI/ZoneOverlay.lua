@@ -61,6 +61,7 @@ end
 -- Helper: place a map pin for a vendor NPC
 local function PlaceVendorWaypoint(npcId, npcName)
     local L = addon.L
+    npcName = addon:GetLocalizedNPCName(npcId, npcName)
     local point, locData, errorKey = addon.VendorsTab:GetVendorTrackPoint(npcId)
     if not point then
         addon:Print(L[errorKey or "VENDOR_NO_LOCATION"])
@@ -363,7 +364,7 @@ local function CreateOverlayFrame()
                     local locationLine = self.cityName
                         and string.format(L["ZONE_OVERLAY_SOURCE_VENDOR_CITY"], self.cityName)
                         or L["ZONE_OVERLAY_SOURCE_VENDOR"]
-                    GameTooltip:SetText(self.sourceName, 0, 0.8, 0)
+                    GameTooltip:SetText(addon:GetLocalizedNPCName(self.sourceId, self.sourceName), 0, 0.8, 0)
                     GameTooltip:AddLine(locationLine, 0.67, 0.67, 0.67)
                     GameTooltip:AddLine(" ")
                     GameTooltip:AddLine(L["ZONE_OVERLAY_CLICK_WAYPOINT"], 0.7, 0.7, 0.7)

@@ -270,7 +270,6 @@ L["QUESTS_UNKNOWN_EXPANSION"] = "Other"
 
 -- Quest tracking messages
 L["QUESTS_TRACKING_STARTED"] = "Now tracking item"
-L["QUESTS_TRACKING_STOPPED"] = "Stopped tracking item"
 L["QUESTS_TRACKING_MAX_REACHED"] = "Cannot track - maximum items reached (15)"
 L["QUESTS_TRACKING_ALREADY"] = "Already tracking this item"
 L["QUESTS_TRACKING_FAILED"] = "Cannot track this item"
@@ -366,8 +365,6 @@ L["VENDORS_ACTION_TRACK_DISABLED_TOOLTIP"] = "This vendor has no valid waypoint 
 
 -- Vendor cost display
 L["CURRENCY_GOLD"] = "gold"
-L["VENDOR_COST_CURRENCY"] = "%s %s"
-
 -- Vendor decor fallback
 L["VENDORS_DECOR_ID"] = "Decor #%d"
 
@@ -377,7 +374,6 @@ L["VENDOR_HOUSING_ZONE_SUFFIX"] = "housing zone"
 L["VENDOR_CLASS_ONLY_SUFFIX"] = "%s Only"
 
 -- Vendor tooltip overlay
-L["VENDOR_TOOLTIP_HEADER"] = "Housing Codex"
 L["OPTIONS_VENDOR_TOOLTIPS"] = "Show vendor decor in tooltips"
 L["OPTIONS_VENDOR_TOOLTIPS_TOOLTIP"] = "Display Housing Codex collection progress when mousing over decor vendor NPCs"
 
@@ -399,13 +395,6 @@ L["DROPS_CATEGORY_TREASURE"] = "Treasure"
 
 -- Drop source display
 L["DROPS_DECOR_ID"] = "Decor #%d"
-
--- Drop tracking messages
-L["DROPS_TRACKING_STARTED"] = "Now tracking item"
-L["DROPS_TRACKING_STOPPED"] = "Stopped tracking item"
-L["DROPS_TRACKING_MAX_REACHED"] = "Cannot track - maximum items reached (15)"
-L["DROPS_TRACKING_ALREADY"] = "Already tracking this item"
-L["DROPS_TRACKING_FAILED"] = "Cannot track this item"
 
 --------------------------------------------------------------------------------
 -- Professions Tab
@@ -558,7 +547,6 @@ L["ENDEAVORS_XP_TOOLTIP_PROGRESS"] = "XP: %s / %s (%d%%)"
 L["ENDEAVORS_XP_TOOLTIP_CLICK"] = "Click to open Housing Dashboard"
 L["ENDEAVORS_TOOLTIP_CLICK"] = "Click to open Endeavors"
 L["ENDEAVORS_PCT_DONE"] = "DONE"
-L["ENDEAVORS_TASK_HEADER"] = "last 3 endeavors progressed"
 L["OPTIONS_SECTION_ENDEAVORS"] = "Endeavors"
 L["OPTIONS_ENDEAVORS_ENABLED"] = "Enable Endeavors Panel"
 L["OPTIONS_ENDEAVORS_ENABLED_TOOLTIP"] = "Show the Endeavors mini-panel when in a neighborhood with a house"
@@ -590,12 +578,6 @@ L["PVP_EMPTY_NO_SOURCES"] = "No PvP sources found"
 L["PVP_EMPTY_NO_SOURCES_DESC"] = "PvP data may not be available"
 L["PVP_SELECT_CATEGORY"] = "Select a category"
 L["PVP_EMPTY_NO_RESULTS"] = "No PvP sources match your search"
-L["PVP_TRACKING_STARTED"] = "Now tracking item"
-L["PVP_TRACKING_STOPPED"] = "Stopped tracking item"
-L["PVP_TRACKING_MAX_REACHED"] = "Cannot track - maximum items reached (15)"
-L["PVP_TRACKING_ALREADY"] = "Already tracking this item"
-L["PVP_TRACKING_FAILED"] = "Cannot track this item"
-
 --------------------------------------------------------------------------------
 -- Game Entity Names (drop sources, encounter names, treasure locations)
 -- Translators: copy this block to your locale file, change the values.

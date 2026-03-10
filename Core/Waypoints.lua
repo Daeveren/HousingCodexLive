@@ -12,6 +12,7 @@ addon.Waypoints = Waypoints
 local tomtomAvailable = false
 local activeTomTomUid = nil
 local activeWaypoint = nil  -- { mapID, x, y, title }
+local ownsNativeWaypoint = false  -- true when this addon placed the native waypoint
 
 function Waypoints:IsTomTomAvailable()
     return tomtomAvailable
@@ -25,9 +26,9 @@ function Waypoints:IsTomTomActive()
 end
 
 function Waypoints:Set(mapID, normX, normY, title)
-    self:Clear()
-
     if self:IsTomTomActive() then
+        -- Clear previous addon waypoint first, then attempt TomTom
+        self:Clear()
         local ok, uid = pcall(TomTom.AddWaypoint, TomTom, mapID, normX, normY, {
             title = title,
             persistent = false,
@@ -44,14 +45,17 @@ function Waypoints:Set(mapID, normX, normY, title)
         addon:Debug("Waypoints: TomTom AddWaypoint failed, falling back to native")
     end
 
-    -- Native path
+    -- Native path: validate BEFORE clearing old waypoint
     if not C_Map.CanSetUserWaypointOnMap(mapID) then
         return false
     end
 
+    -- Validation passed — safe to clear previous addon waypoint and place new one
+    self:Clear()
     local point = UiMapPoint.CreateFromCoordinates(mapID, normX, normY)
     C_Map.SetUserWaypoint(point)
     C_SuperTrack.SetSuperTrackedUserWaypoint(true)
+    ownsNativeWaypoint = true
     activeWaypoint = { mapID = mapID, x = normX, y = normY, title = title }
     return true
 end
@@ -62,11 +66,12 @@ function Waypoints:Clear()
         activeTomTomUid = nil
     end
 
-    -- Always clear native too for safety (e.g. toggling setting mid-session)
-    if C_Map.HasUserWaypoint() then
+    -- Only clear native waypoint if this addon placed it
+    if ownsNativeWaypoint and C_Map.HasUserWaypoint() then
         C_Map.ClearUserWaypoint()
         C_SuperTrack.SetSuperTrackedUserWaypoint(false)
     end
+    ownsNativeWaypoint = false
 
     activeWaypoint = nil
 end
@@ -83,13 +88,8 @@ function Waypoints:GetActive()
 end
 
 function Waypoints:GetHyperlink()
-    if self:IsTomTomActive() then
-        return nil
-    end
-    if C_Map.HasUserWaypoint() then
-        return C_Map.GetUserWaypointHyperlink()
-    end
-    return nil
+    if self:IsTomTomActive() then return nil end
+    return C_Map.HasUserWaypoint() and C_Map.GetUserWaypointHyperlink() or nil
 end
 
 -- Detection at DATA_LOADED

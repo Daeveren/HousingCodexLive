@@ -758,6 +758,7 @@ SlashCmdList["HOUSINGCODEX"] = function(msg)
         addon.dropIndexBuilt = false
         addon.craftingIndexBuilt = false
         addon.pvpIndexBuilt = false
+        addon:ResetLoadState()
         addon:LoadData()
     elseif cmd == "reset" then
         if addon.MainFrame then

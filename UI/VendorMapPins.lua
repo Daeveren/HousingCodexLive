@@ -513,7 +513,7 @@ function HousingCodexVendorPinMixin:OnMouseEnter()
         local shown = math.min(aggregateCount, vendorLimit)
         for i = 1, shown do
             local vendor = aggregateVendors[i]
-            local vendorEntry = string.format(L["VENDOR_PIN_VENDOR_ENTRY"], vendor.npcName or L["VENDOR_UNKNOWN"], vendor.owned, vendor.total)
+            local vendorEntry = string.format(L["VENDOR_PIN_VENDOR_ENTRY"], addon:GetLocalizedNPCName(vendor.npcId, vendor.npcName) or L["VENDOR_UNKNOWN"], vendor.owned, vendor.total)
             AddBulletedTooltipLine(vendorEntry)
         end
 
@@ -526,7 +526,7 @@ function HousingCodexVendorPinMixin:OnMouseEnter()
         return
     end
 
-    local vendorName = self.vendorData.npcName or L["VENDOR_UNKNOWN"]
+    local vendorName = addon:GetLocalizedNPCName(self.vendorData.npcId, self.vendorData.npcName) or L["VENDOR_UNKNOWN"]
     local owned, total, missingNames = addon:GetVendorPinProgress(self.vendorData.npcId)
 
     GameTooltip:AddLine(vendorName, 1, 0.82, 0)
@@ -606,8 +606,7 @@ function HousingCodexVendorPinMixin:OnMouseClickAction(button)
 
     local normX, normY = self.vendorData.x / 100, self.vendorData.y / 100
     if normX < 0 or normX > 1 or normY < 0 or normY > 1 then return end
-    local npcName = self.vendorData.npcName
-    if not addon.Waypoints:Set(mapID, normX, normY, npcName or L["VENDOR_FALLBACK_NAME"]) then
+    if not addon.Waypoints:Set(mapID, normX, normY, addon:GetLocalizedNPCName(self.vendorData.npcId, self.vendorData.npcName) or L["VENDOR_FALLBACK_NAME"]) then
         return
     end
 

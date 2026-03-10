@@ -246,16 +246,10 @@ function addon:GetSortedVendorZones(expansionKey)
     return zones
 end
 
+-- GetLocalizedVendorZoneName: use addon:GetLocalizedZoneName() in Localization.lua
+-- Kept as a thin wrapper for backwards compatibility
 function addon:GetLocalizedVendorZoneName(zoneName)
-    if not zoneName then return zoneName end
-    local mapId = self.vendorZoneToMapId[zoneName]
-    if mapId and C_Map and C_Map.GetMapInfo then
-        local mapInfo = C_Map.GetMapInfo(mapId)
-        if mapInfo and mapInfo.name then
-            return mapInfo.name
-        end
-    end
-    return zoneName
+    return self:GetLocalizedZoneName(zoneName)
 end
 
 function addon:GetVendorsForZone(expansionKey, zoneName)

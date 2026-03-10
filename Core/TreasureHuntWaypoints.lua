@@ -60,6 +60,23 @@ local function ClearWaypoint()
     end
 end
 
+-- Reconcile waypoint state after login/reload or setting toggle
+local function Reconcile()
+    if not addon.db or not addon.db.settings.treasureHuntWaypoints then return end
+    if not IsInHousingZone() then return end
+
+    -- Scan known treasure hunt quests to see if any are active
+    for questId in pairs(addon.TreasureHuntLocations) do
+        if C_QuestLog.IsOnQuest(questId) then
+            if questId ~= activeQuestId then SetWaypoint(questId) end
+            return
+        end
+    end
+
+    -- No matching quest active — clear stale waypoint if present
+    ClearWaypoint()
+end
+
 function addon.TreasureHuntWaypoints.UpdateListenerState()
     if not addon.db or not addon.db.settings then
         return
@@ -69,18 +86,19 @@ function addon.TreasureHuntWaypoints.UpdateListenerState()
     -- If disabled mid-session, clear only the waypoint managed by this module.
     if not addon.db.settings.treasureHuntWaypoints then
         ClearWaypoint()
+        return
     end
+
+    -- Setting just enabled — reconcile in case a quest is already active
+    Reconcile()
 end
 
 --------------------------------------------------------------------------------
 -- Quest Event Handlers
 --------------------------------------------------------------------------------
-local function OnQuestAccepted(arg1, arg2)
+local function OnQuestAccepted(questId)
     if not IsInHousingZone() then return end
     if not addon.db or not addon.db.settings.treasureHuntWaypoints then return end
-
-    -- Handle both (questLogIndex, questId) and (questId) event signatures
-    local questId = arg2 or arg1
     if not questId or not addon.TreasureHuntLocations[questId] then return end
 
     addon:Debug("Treasure hunt quest accepted: " .. questId)
@@ -107,6 +125,15 @@ local function Initialize()
     addon:RegisterWoWEvent("QUEST_ACCEPTED", OnQuestAccepted)
     addon:RegisterWoWEvent("QUEST_TURNED_IN", OnQuestEnded)
     addon:RegisterWoWEvent("QUEST_REMOVED", OnQuestEnded)
+
+    -- Reconcile on subsequent loading screens (instance transitions, teleports)
+    addon:RegisterWoWEvent("PLAYER_ENTERING_WORLD", function()
+        C_Timer.After(0, Reconcile)
+    end)
+
+    -- Reconcile now for login/reload (PEW already fired before DATA_LOADED)
+    C_Timer.After(0, Reconcile)
+
     addon:Debug("TreasureHunt: Ready")
 end
 

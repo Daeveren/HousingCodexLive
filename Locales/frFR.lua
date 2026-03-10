@@ -273,12 +273,11 @@ L["QUESTS_UNKNOWN_EXPANSION"] = "Autre"
 
 -- Quest tracking messages
 L["QUESTS_TRACKING_STARTED"] = "Suivi de l'objet activé"
-L["QUESTS_TRACKING_STOPPED"] = "Suivi de l'objet arrêté"
 L["QUESTS_TRACKING_MAX_REACHED"] = "Impossible de suivre - maximum atteint (15)"
 L["QUESTS_TRACKING_ALREADY"] = "Cet objet est déjà suivi"
 L["QUESTS_TRACKING_FAILED"] = "Impossible de suivre cet objet"
 
--- Expansion names
+-- Expansion names (official French names from Blizzard)
 L["EXPANSION_CLASSIC"] = "Classic"
 L["EXPANSION_TBC"] = "The Burning Crusade"
 L["EXPANSION_WRATH"] = "Wrath of the Lich King"
@@ -291,6 +290,7 @@ L["EXPANSION_SL"] = "Shadowlands"
 L["EXPANSION_DF"] = "Dragonflight"
 L["EXPANSION_TWW"] = "The War Within"
 L["EXPANSION_MIDNIGHT"] = "Midnight"
+-- Note: Blizzard keeps expansion names in English for all locales (no French equivalents)
 
 --------------------------------------------------------------------------------
 -- Achievements Tab
@@ -366,8 +366,6 @@ L["VENDORS_ACTION_TRACK_DISABLED_TOOLTIP"] = "Ce marchand n'a pas d'emplacement 
 
 -- Vendor cost display
 L["CURRENCY_GOLD"] = "or"
-L["VENDOR_COST_CURRENCY"] = "%s %s"
-
 -- Vendor decor fallback
 L["VENDORS_DECOR_ID"] = "Décor #%d"
 
@@ -377,7 +375,6 @@ L["VENDOR_HOUSING_ZONE_SUFFIX"] = "zone de logement"
 L["VENDOR_CLASS_ONLY_SUFFIX"] = "%s uniquement"
 
 -- Vendor tooltip overlay
-L["VENDOR_TOOLTIP_HEADER"] = "Housing Codex"
 L["OPTIONS_VENDOR_TOOLTIPS"] = "Afficher les décors dans les infobulles des marchands"
 L["OPTIONS_VENDOR_TOOLTIPS_TOOLTIP"] = "Afficher la progression de collection Housing Codex au survol des PNJ marchands de décor"
 
@@ -399,13 +396,6 @@ L["DROPS_CATEGORY_TREASURE"] = "Trésors"
 
 -- Drop source display
 L["DROPS_DECOR_ID"] = "Décor #%d"
-
--- Drop tracking messages
-L["DROPS_TRACKING_STARTED"] = "Suivi de l'objet activé"
-L["DROPS_TRACKING_STOPPED"] = "Suivi de l'objet arrêté"
-L["DROPS_TRACKING_MAX_REACHED"] = "Impossible de suivre - maximum atteint (15)"
-L["DROPS_TRACKING_ALREADY"] = "Cet objet est déjà suivi"
-L["DROPS_TRACKING_FAILED"] = "Impossible de suivre cet objet"
 
 --------------------------------------------------------------------------------
 -- Professions Tab
@@ -558,7 +548,6 @@ L["ENDEAVORS_XP_TOOLTIP_PROGRESS"] = "XP : %s / %s (%d%%)"
 L["ENDEAVORS_XP_TOOLTIP_CLICK"] = "Cliquez pour ouvrir le tableau de bord de logement"
 L["ENDEAVORS_TOOLTIP_CLICK"] = "Cliquez pour ouvrir les entreprises"
 L["ENDEAVORS_PCT_DONE"] = "TERMINÉ"
-L["ENDEAVORS_TASK_HEADER"] = "3 dernières entreprises progressées"
 L["OPTIONS_SECTION_ENDEAVORS"] = "Entreprises"
 L["OPTIONS_ENDEAVORS_ENABLED"] = "Activer le panneau des entreprises"
 L["OPTIONS_ENDEAVORS_ENABLED_TOOLTIP"] = "Afficher le mini-panneau des entreprises dans un voisinage avec une maison"
@@ -590,17 +579,12 @@ L["PVP_EMPTY_NO_SOURCES"] = "Aucune source JcJ trouvée"
 L["PVP_EMPTY_NO_SOURCES_DESC"] = "Les données JcJ peuvent ne pas être disponibles"
 L["PVP_SELECT_CATEGORY"] = "Sélectionnez une catégorie"
 L["PVP_EMPTY_NO_RESULTS"] = "Aucune source JcJ ne correspond à votre recherche"
-L["PVP_TRACKING_STARTED"] = "Suivi de l'objet activé"
-L["PVP_TRACKING_STOPPED"] = "Suivi de l'objet arrêté"
-L["PVP_TRACKING_MAX_REACHED"] = "Impossible de suivre - maximum atteint (15)"
-L["PVP_TRACKING_ALREADY"] = "Cet objet est déjà suivi"
-L["PVP_TRACKING_FAILED"] = "Impossible de suivre cet objet"
-
--- Game entity names (bosses, dungeons, zones, treasures) are NOT overridden here.
--- These names come from WoW's own localization on French clients.
--- The enUS.lua identity mappings serve as fallback; a future runtime lookup
--- via EJ_GetEncounterInfo / EJ_GetInstanceInfo / C_Map.GetMapInfo can resolve
--- the correct French names from the game data itself.
+-- Game entity names (bosses, dungeons, treasures) are NOT overridden here.
+-- Zone names: auto-localized at runtime via C_Map.GetMapInfo (see Localization.lua).
+-- Profession names: auto-localized via C_TradeSkillUI.GetTradeSkillDisplayName.
+-- Vendor NPC names: auto-localized via C_TooltipInfo.GetHyperlink with synthetic GUID.
+-- Drop source names (bosses, treasures): still English - would need EJ encounter IDs
+-- or manual translation.
 
 -- Keybinding globals (must be set per-locale since enUS sets them before frFR overrides L values)
 BINDING_HEADER_HCODEX = L["KEYBIND_HEADER"]

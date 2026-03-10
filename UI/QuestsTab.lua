@@ -136,8 +136,8 @@ local function SetupZoneHeader(self, frame, elementData)
     frame.indicator:SetPoint("LEFT", 8, 0)
     frame.indicator:Show()
 
-    -- Zone name (pure white)
-    frame.label:SetText(elementData.zoneName)
+    -- Zone name (pure white) - localize via C_Map when possible
+    frame.label:SetText(addon:GetLocalizedZoneName(elementData.zoneName))
     frame.label:SetTextColor(1, 1, 1, 1)
     addon:SetFontSize(frame.label, 14, "")
     frame.label:SetPoint("LEFT", 28, 0)
@@ -662,8 +662,10 @@ local function QuestMatchesSearch(questKey, searchText, zoneName, expansionKey)
     local title = strlower(addon:GetQuestTitle(questKey) or "")
     if title:find(searchText, 1, true) then return true end
 
-    -- Check zone name
+    -- Check zone name (English and localized)
     if strlower(zoneName):find(searchText, 1, true) then return true end
+    local localizedZone = addon:GetLocalizedZoneName(zoneName)
+    if localizedZone ~= zoneName and strlower(localizedZone):find(searchText, 1, true) then return true end
 
     -- Check expansion name
     local expName = strlower(addon.L[expansionKey] or expansionKey)

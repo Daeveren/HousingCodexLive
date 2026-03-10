@@ -386,7 +386,7 @@ function addon:ResolveRecord(recordID)
 
     -- Check fallback cache (false = negative cache, item confirmed unresolvable)
     local cached = self.fallbackRecords[recordID]
-    if cached then return cached ~= false and cached or nil end
+    if cached ~= nil then return cached ~= false and cached or nil end
 
     -- Try direct API lookup (bypasses catalog search filter)
     if not C_HousingCatalog or not C_HousingCatalog.GetCatalogEntryInfoByRecordID then
@@ -755,6 +755,14 @@ addon:RegisterWoWEvent("HOUSING_STORAGE_UPDATED", function()
     wipe(addon.fallbackRecords)
     addon.craftingIndexBuilt = false
 
+    -- Refresh ownership fields BEFORE rebuilding indexes so collected counts are accurate
+    for _, record in pairs(addon.decorRecords) do
+        local info = C_HousingCatalog.GetCatalogEntryInfo(record.entryID)
+        if info then
+            RefreshRecordOwnership(record, info)
+        end
+    end
+
     -- ALWAYS: Lightweight index rebuild (needed by LDB, merchant overlay)
     addon:BuildIndexes()
 
@@ -771,6 +779,18 @@ addon:RegisterWoWEvent("HOUSING_STORAGE_UPDATED", function()
         addon.needsRecordRefresh = true
     end
 end)
+
+-- Reset load state for /hc retry recovery (clears stuck guards and stale refs)
+function addon:ResetLoadState()
+    if self.searchTimeoutTimer then
+        self.searchTimeoutTimer:Cancel()
+        self.searchTimeoutTimer = nil
+    end
+    self.loadingInProgress = false
+    self.catalogSearcher = nil
+    wipe(self.fallbackRecords)
+    self:Debug("Load state reset for retry")
+end
 
 -- Cache invalidation for categories (fired by Init.lua from WoW events)
 addon:RegisterInternalEvent("CATEGORY_CACHE_INVALIDATED", function(categoryID)

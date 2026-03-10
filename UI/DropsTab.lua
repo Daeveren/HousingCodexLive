@@ -57,8 +57,6 @@ DropsTab.noCategoryState = nil
 DropsTab.selectedCategory = nil
 DropsTab.selectedSourceName = nil
 DropsTab.selectedDecorId = nil
-DropsTab.hoveringRecordID = nil
-
 DropsTab.toolbarLayout = nil
 DropsTab.filterContainer = nil
 
@@ -493,7 +491,6 @@ end
 
 -- Shared OnLeave handler to restore selection state
 function DropsTab:RestoreSelectionOnLeave()
-    self.hoveringRecordID = nil
     addon:FireEvent("RECORD_SELECTED", self.selectedDecorId)
 end
 
@@ -545,7 +542,6 @@ function DropsTab:SetupSourceRow(frame, elementData)
             f.bg:SetColorTexture(0.12, 0.12, 0.14, 1)
         end
         if decorCount > 0 then
-            self.hoveringRecordID = decorIds[1]
             addon:FireEvent("RECORD_SELECTED", decorIds[1])
         end
     end)
@@ -650,7 +646,6 @@ function DropsTab:SetupDecorRows(frame, decorIds)
             if not (self.selectedSourceName == frame.sourceNameKey and self.selectedDecorId == decorId) then
                 r.name:SetTextColor(1, 1, 1, 1)
             end
-            self.hoveringRecordID = decorId
             addon:FireEvent("RECORD_SELECTED", decorId)
 
             GameTooltip:SetOwner(UIParent, "ANCHOR_NONE")

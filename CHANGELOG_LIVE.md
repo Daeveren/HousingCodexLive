@@ -2,6 +2,16 @@
 
 All notable changes to Housing Codex.
 
+**1.9.2** (2026-10-03)
+
+**Changed**
+- Zone names, profession names, and vendor NPC names now display in your game language instead of English
+
+**Fixed**
+- Treasure hunt waypoints now restore correctly after login or reload
+- Setting a vendor waypoint no longer silently removes your existing waypoint if the new one can't be placed
+- Clearing a vendor waypoint no longer removes waypoints you set yourself
+
 **1.9.1** (2026-09-09)
 
 **Added**

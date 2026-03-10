@@ -54,7 +54,7 @@ local function BuildSkillText(craft)
         end
         return line
     end
-    return craft.professionName or addon.L["UNKNOWN"]
+    return addon:GetLocalizedProfessionName(craft.professionName) or addon.L["UNKNOWN"]
 end
 
 local function ResolveCraftRecord(decorId)
@@ -78,8 +78,14 @@ local function CraftMatchesSearch(craft, searchText, record)
         return true
     end
 
-    if craft.professionName and strlower(craft.professionName):find(searchText, 1, true) then
-        return true
+    if craft.professionName then
+        if strlower(craft.professionName):find(searchText, 1, true) then
+            return true
+        end
+        local localizedName = addon:GetLocalizedProfessionName(craft.professionName)
+        if localizedName ~= craft.professionName and strlower(localizedName):find(searchText, 1, true) then
+            return true
+        end
     end
 
     local skillText = BuildSkillText(craft)
@@ -163,7 +169,6 @@ ProfessionsTab.noResultsState = nil
 
 ProfessionsTab.selectedProfession = nil
 ProfessionsTab.selectedDecorId = nil
-ProfessionsTab.hoveringRecordID = nil
 
 ProfessionsTab.toolbarLayout = nil
 ProfessionsTab.filterContainer = nil
@@ -341,7 +346,7 @@ function ProfessionsTab:SetupProfessionButton(frame, elementData)
     local isSelected = self.selectedProfession == elementData.professionName
     self:ApplySelectionButtonState(frame, isSelected)
 
-    frame.label:SetText(elementData.professionName)
+    frame.label:SetText(addon:GetLocalizedProfessionName(elementData.professionName))
     addon:SetFontSize(frame.label, 13, "")
 
     local owned, total = addon:GetCraftingProgress(elementData.professionName)
@@ -560,7 +565,6 @@ function ProfessionsTab:SetupCraftRow(frame, craft)
             f.name:SetTextColor(1, 1, 1, 1)
         end
 
-        self.hoveringRecordID = craft.decorId
         addon:FireEvent("RECORD_SELECTED", craft.decorId)
 
         GameTooltip:SetOwner(UIParent, "ANCHOR_NONE")
@@ -579,7 +583,6 @@ function ProfessionsTab:SetupCraftRow(frame, craft)
             f.name:SetTextColor(f.textBrightness, f.textBrightness, f.textBrightness, 1)
         end
         GameTooltip:Hide()
-        self.hoveringRecordID = nil
         addon:FireEvent("RECORD_SELECTED", self.selectedDecorId)
     end)
 end
