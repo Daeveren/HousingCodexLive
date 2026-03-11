@@ -30,26 +30,29 @@ addon.achievementIndex = {}           -- achievementId -> { [recordID] = true, .
 addon.achievementSortedRecords = {}   -- achievementId -> sorted { recordID, ... } (cached at build time)
 addon.achievementHierarchy = {}       -- categoryId -> { achievements[] }
 addon.achievementCompletionCache = {} -- achievementId -> boolean
-addon.achievementIndexBuilt = false
+addon.achievementIndexBuilt = false   -- true only after BuildAchievementHierarchy completes
+local achievementIndexDataBuilt = false -- guards BuildAchievementIndex against double-run
 
 -- Build achievement index from scraped AchievementSourceData
 function addon:BuildAchievementIndex()
-    if self.achievementIndexBuilt then return end  -- Prevent double initialization
+    if achievementIndexDataBuilt then return end
     if not self.dataLoaded then
         self:Debug("Cannot build achievement index: data not loaded")
         return
     end
+    achievementIndexDataBuilt = true
 
     local startTime = debugprofilestop()
 
     -- Clear existing data
     wipe(self.achievementIndex)
     wipe(self.achievementSortedRecords)
+    self.DecorToAchievementLookup = {}
 
     local achievementCount = 0
     local decorCount = 0
 
-    -- Parse AchievementSourceData
+    -- Parse AchievementSourceData and build reverse lookup
     if self.AchievementSourceData then
         for achievementId, achievementData in pairs(self.AchievementSourceData) do
             local validDecors = {}
@@ -61,6 +64,8 @@ function addon:BuildAchievementIndex()
                         validDecors[decorId] = true
                         decorCount = decorCount + 1
                     end
+                    -- Build reverse lookup (decorId -> achievementId) for all entries
+                    self.DecorToAchievementLookup[decorId] = achievementId
                 end
             end
 

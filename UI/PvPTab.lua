@@ -11,11 +11,9 @@ local CONSTS = addon.CONSTANTS
 local COLORS = CONSTS.COLORS
 local ICON_CROP_COORDS = CONSTS.ICON_CROP_COORDS
 
-local TOOLBAR_HEIGHT = CONSTS.HEADER_HEIGHT
 local CATEGORY_PANEL_WIDTH = CONSTS.HIERARCHY_PANEL_WIDTH
 local HIERARCHY_PADDING = CONSTS.HIERARCHY_PADDING
 local HEADER_HEIGHT = CONSTS.HIERARCHY_HEADER_HEIGHT
-local GRID_OUTER_PAD = CONSTS.GRID_OUTER_PAD
 
 local SOURCE_ROW_BASE_HEIGHT = 32
 local DECOR_ROW_HEIGHT = 24
@@ -118,57 +116,10 @@ end
 --------------------------------------------------------------------------------
 
 function PvPTab:CreateToolbar(parent)
-    local L = addon.L
-
-    local toolbar = CreateFrame("Frame", nil, parent)
-    toolbar:SetPoint("TOPLEFT", parent, "TOPLEFT", 0, 0)
-    toolbar:SetPoint("TOPRIGHT", parent, "TOPRIGHT", 0, 0)
-    toolbar:SetHeight(TOOLBAR_HEIGHT)
-    self.toolbar = toolbar
-
-    local bg = toolbar:CreateTexture(nil, "BACKGROUND")
-    bg:SetAllPoints()
-    bg:SetColorTexture(0.05, 0.05, 0.07, 0.9)
-
-    local searchBox = CreateFrame("EditBox", nil, toolbar, "SearchBoxTemplate")
-    searchBox:SetPoint("LEFT", toolbar, "LEFT", GRID_OUTER_PAD + 40, 0)
-    searchBox:SetSize(250, 20)
-    searchBox:SetAutoFocus(false)
-    searchBox.Instructions:SetText(L["PVP_SEARCH_PLACEHOLDER"])
-    searchBox.Instructions:SetWordWrap(false)
-    self.searchBox = searchBox
-
-    self:WireSearchBox(searchBox)
-
-    -- Completion filter container
-    local filterContainer = CreateFrame("Frame", nil, toolbar)
-    filterContainer:SetPoint("LEFT", searchBox, "RIGHT", 16, 0)
-    filterContainer:SetHeight(22)
-    self.filterContainer = filterContainer
-
-    local completionFilters = {
-        { key = "all", label = L["PVP_FILTER_ALL"] },
-        { key = "incomplete", label = L["PVP_FILTER_INCOMPLETE"] },
-        { key = "complete", label = L["PVP_FILTER_COMPLETE"] },
-    }
-
-    local xOffset = 0
-    for _, filterInfo in ipairs(completionFilters) do
-        local btn = addon:CreateActionButton(filterContainer, filterInfo.label, function()
-            self:SetCompletionFilter(filterInfo.key)
-        end)
-        btn:SetPoint("LEFT", filterContainer, "LEFT", xOffset, 0)
-        btn.filterKey = filterInfo.key
-        self.filterButtons[filterInfo.key] = btn
-        xOffset = xOffset + btn:GetWidth() + 4
-    end
-
-    filterContainer:SetWidth(xOffset - 4)
-    self:SetCompletionFilter("incomplete")
-
-    toolbar:SetScript("OnSizeChanged", function(_, width)
-        self:UpdateToolbarLayout(width)
-    end)
+    self:CreateStandardToolbar(parent, {
+        searchPlaceholderKey = "PVP_SEARCH_PLACEHOLDER",
+        filterPrefix = "PVP",
+    })
 end
 
 function PvPTab:SetCompletionFilter(filterKey)
@@ -206,6 +157,93 @@ function PvPTab:CreateCategoryPanel(parent)
     })
 end
 
+-- Named handlers for category buttons (bound once, read data from frame fields)
+local function PvPCategoryButtonOnClick(frame)
+    PvPTab:SelectCategory(frame.category)
+end
+
+local function PvPCategoryButtonOnEnter(frame)
+    if PvPTab.selectedCategory ~= frame.category then
+        frame.bg:SetColorTexture(unpack(COLORS.PANEL_HOVER))
+    end
+end
+
+local function PvPCategoryButtonOnLeave(frame)
+    PvPTab:ApplySelectionButtonState(frame, PvPTab.selectedCategory == frame.category)
+end
+
+-- Named handlers for source rows (bound once, read data from frame fields)
+local function PvPSourceRowOnClick(frame, button)
+    if button == "RightButton" then return end
+    local decorIds = frame.decorIds
+    if not decorIds or #decorIds == 0 then return end
+    PvPTab:HandleItemSelection({
+        decorId = decorIds[1],
+        sourceNameKey = frame.sourceNameKey,
+        isSourceRow = true,
+        sourceFrame = frame,
+    })
+end
+
+local function PvPSourceRowOnEnter(frame)
+    if PvPTab.selectedSourceName ~= frame.sourceNameKey then
+        frame.bg:SetColorTexture(0.12, 0.12, 0.14, 1)
+    end
+    local decorIds = frame.decorIds
+    if decorIds and #decorIds > 0 then
+        addon:FireEvent("RECORD_SELECTED", decorIds[1])
+    end
+end
+
+local function PvPSourceRowOnLeave(frame)
+    if PvPTab.selectedSourceName ~= frame.sourceNameKey then
+        frame.bg:SetColorTexture(unpack(COLORS.ROW_BG))
+    end
+    PvPTab:RestoreSelectionOnLeave()
+end
+
+-- Named handlers for decor rows (bound once, read data from row fields)
+local function PvPDecorRowOnClick(row)
+    local decorId = row.decorId
+    if IsShiftKeyDown() then
+        addon:ToggleTracking(decorId)
+        return
+    end
+    PvPTab:HandleItemSelection({
+        decorId = decorId,
+        sourceNameKey = row.sourceNameKey,
+        isSourceRow = false,
+        decorRow = row,
+    })
+end
+
+local function PvPDecorRowOnEnter(row)
+    local decorId = row.decorId
+    if not (PvPTab.selectedSourceName == row.sourceNameKey and PvPTab.selectedDecorId == decorId) then
+        row.name:SetTextColor(1, 1, 1, 1)
+    end
+    addon:FireEvent("RECORD_SELECTED", decorId)
+
+    GameTooltip:SetOwner(UIParent, "ANCHOR_NONE")
+    local x, y = GetCursorPosition()
+    local scale = UIParent:GetEffectiveScale()
+    GameTooltip:SetPoint("BOTTOMLEFT", UIParent, "BOTTOMLEFT", (x / scale) + 15, (y / scale) + 15)
+    GameTooltip:SetText(addon:ResolveDecorName(decorId, row.record), 1, 1, 1)
+    if row.isCollected then
+        GameTooltip:AddLine(addon.L["FILTER_COLLECTED"], 0.4, 0.9, 0.4)
+    end
+    GameTooltip:Show()
+end
+
+local function PvPDecorRowOnLeave(row)
+    local decorId = row.decorId
+    if not (PvPTab.selectedSourceName == row.sourceNameKey and PvPTab.selectedDecorId == decorId) then
+        row.name:SetTextColor(row.textBrightness, row.textBrightness, row.textBrightness, 1)
+    end
+    GameTooltip:Hide()
+    PvPTab:RestoreSelectionOnLeave()
+end
+
 function PvPTab:SetupCategoryButton(frame, elementData)
     local L = addon.L
 
@@ -240,6 +278,9 @@ function PvPTab:SetupCategoryButton(frame, elementData)
         frame.label = label
 
         frame:EnableMouse(true)
+        frame:SetScript("OnClick", PvPCategoryButtonOnClick)
+        frame:SetScript("OnEnter", PvPCategoryButtonOnEnter)
+        frame:SetScript("OnLeave", PvPCategoryButtonOnLeave)
     end
 
     frame.category = elementData.category
@@ -263,20 +304,6 @@ function PvPTab:SetupCategoryButton(frame, elementData)
     frame.percentLabel:SetText(string.format("%.0f%%", pctValue))
     frame.percentLabel:SetTextColor(addon:GetCompletionProgressColor(pctValue))
     addon:SetFontSize(frame.percentLabel, 11, "")
-
-    frame:SetScript("OnClick", function()
-        self:SelectCategory(elementData.category)
-    end)
-
-    frame:SetScript("OnEnter", function(f)
-        if self.selectedCategory ~= f.category then
-            f.bg:SetColorTexture(unpack(COLORS.PANEL_HOVER))
-        end
-    end)
-
-    frame:SetScript("OnLeave", function(f)
-        self:ApplySelectionButtonState(f, self.selectedCategory == f.category)
-    end)
 end
 
 function PvPTab:SelectCategory(category)
@@ -399,6 +426,9 @@ function PvPTab:InitializeSourceFrame(frame)
 
     frame.decorRows = {}
     frame:EnableMouse(true)
+    frame:SetScript("OnClick", PvPSourceRowOnClick)
+    frame:SetScript("OnEnter", PvPSourceRowOnEnter)
+    frame:SetScript("OnLeave", PvPSourceRowOnLeave)
 end
 
 function PvPTab:ResetSourceFrame(frame)
@@ -406,6 +436,7 @@ function PvPTab:ResetSourceFrame(frame)
     frame.sourceContainer:Hide()
     frame.decorContainer:Hide()
     frame.sourceNameKey = nil
+    frame.decorIds = nil
 
     -- Hide all decor rows
     for _, row in ipairs(frame.decorRows) do
@@ -501,6 +532,7 @@ function PvPTab:SetupSourceRow(frame, elementData)
     local decorCount = #decorIds
     frame:SetHeight(SOURCE_ROW_BASE_HEIGHT + (decorCount * DECOR_ROW_HEIGHT))
     frame.sourceNameKey = elementData.sourceName
+    frame.decorIds = decorIds
 
     addon:ResetBackgroundTexture(frame.bg)
     frame.bg:SetColorTexture(unpack(COLORS.ROW_BG))
@@ -541,38 +573,9 @@ function PvPTab:SetupSourceRow(frame, elementData)
     -- Check if this source is currently selected
     local isSourceSelected = self.selectedSourceName == elementData.sourceName
     self:UpdateSourceSelectionVisual(frame, isSourceSelected)
-
-    frame:SetScript("OnClick", function(_, button)
-        if button == "RightButton" then return end
-        if decorCount == 0 then return end
-        self:HandleItemSelection({
-            decorId = decorIds[1],
-            sourceNameKey = elementData.sourceName,
-            isSourceRow = true,
-            sourceFrame = frame,  -- live ref for immediate visual update only
-        })
-    end)
-
-    frame:SetScript("OnEnter", function(f)
-        if self.selectedSourceName ~= elementData.sourceName then
-            f.bg:SetColorTexture(0.12, 0.12, 0.14, 1)
-        end
-        if decorCount > 0 then
-            addon:FireEvent("RECORD_SELECTED", decorIds[1])
-        end
-    end)
-
-    frame:SetScript("OnLeave", function(f)
-        if self.selectedSourceName ~= elementData.sourceName then
-            f.bg:SetColorTexture(unpack(COLORS.ROW_BG))
-        end
-        self:RestoreSelectionOnLeave()
-    end)
 end
 
 function PvPTab:SetupDecorRows(frame, decorIds)
-    local L = addon.L
-
     for i, decorId in ipairs(decorIds) do
         local row = frame.decorRows[i]
         if not row then
@@ -609,6 +612,9 @@ function PvPTab:SetupDecorRows(frame, decorIds)
             row.selectionHighlight = selHighlight
 
             row:EnableMouse(true)
+            row:SetScript("OnClick", PvPDecorRowOnClick)
+            row:SetScript("OnEnter", PvPDecorRowOnEnter)
+            row:SetScript("OnLeave", PvPDecorRowOnLeave)
             frame.decorRows[i] = row
         end
 
@@ -619,7 +625,12 @@ function PvPTab:SetupDecorRows(frame, decorIds)
 
         -- ResolveRecord tries direct API lookup for items hidden from catalog search
         local record = addon:ResolveRecord(decorId)
+
+        -- Store per-row data for named handlers
         row.decorId = decorId
+        row.record = record
+        row.isCollected = record and record.isCollected
+        row.sourceNameKey = frame.sourceNameKey
 
         if record then
             if record.iconType == "atlas" then
@@ -631,10 +642,9 @@ function PvPTab:SetupDecorRows(frame, decorIds)
             row.icon:SetTexture(addon:ResolveDecorIcon(decorId))
         end
 
-        local isCollected = record and record.isCollected
-        row.checkIcon:SetShown(isCollected)
+        row.checkIcon:SetShown(row.isCollected)
 
-        local textBrightness = isCollected and 0.4 or 0.7
+        local textBrightness = row.isCollected and 0.4 or 0.7
         row.textBrightness = textBrightness
         local displayName = addon:ResolveDecorName(decorId, record)
         row.name:SetText(displayName)
@@ -643,45 +653,6 @@ function PvPTab:SetupDecorRows(frame, decorIds)
         -- Check if this item is currently selected
         local isItemSelected = self.selectedDecorId == decorId and self.selectedSourceName == frame.sourceNameKey
         self:UpdateDecorSelectionVisual(row, isItemSelected, textBrightness)
-
-        row:SetScript("OnClick", function()
-            if IsShiftKeyDown() then
-                addon:ToggleTracking(decorId)
-                return
-            end
-
-            self:HandleItemSelection({
-                decorId = decorId,
-                sourceNameKey = frame.sourceNameKey,
-                isSourceRow = false,
-                decorRow = row,  -- live ref for immediate visual update only
-            })
-        end)
-
-        row:SetScript("OnEnter", function(r)
-            if self.selectedDecorId ~= decorId or self.selectedSourceName ~= frame.sourceNameKey then
-                r.name:SetTextColor(1, 1, 1, 1)
-            end
-            addon:FireEvent("RECORD_SELECTED", decorId)
-
-            GameTooltip:SetOwner(UIParent, "ANCHOR_NONE")
-            local x, y = GetCursorPosition()
-            local scale = UIParent:GetEffectiveScale()
-            GameTooltip:SetPoint("BOTTOMLEFT", UIParent, "BOTTOMLEFT", (x / scale) + 15, (y / scale) + 15)
-            GameTooltip:SetText(addon:ResolveDecorName(decorId, record), 1, 1, 1)
-            if isCollected then
-                GameTooltip:AddLine(L["FILTER_COLLECTED"], 0.4, 0.9, 0.4)
-            end
-            GameTooltip:Show()
-        end)
-
-        row:SetScript("OnLeave", function(r)
-            if self.selectedDecorId ~= decorId or self.selectedSourceName ~= frame.sourceNameKey then
-                r.name:SetTextColor(r.textBrightness, r.textBrightness, r.textBrightness, 1)
-            end
-            GameTooltip:Hide()
-            self:RestoreSelectionOnLeave()
-        end)
     end
 end
 

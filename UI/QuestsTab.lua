@@ -9,12 +9,10 @@ local CONSTS = addon.CONSTANTS
 local COLORS = CONSTS.COLORS
 
 -- Layout constants (using centralized values where available)
-local TOOLBAR_HEIGHT = CONSTS.HEADER_HEIGHT
 local EXPANSION_PANEL_WIDTH = CONSTS.HIERARCHY_PANEL_WIDTH
 local HIERARCHY_PADDING = CONSTS.HIERARCHY_PADDING
 local HEADER_HEIGHT = CONSTS.HIERARCHY_HEADER_HEIGHT
 local ROW_HEIGHT = CONSTS.HIERARCHY_ROW_HEIGHT
-local GRID_OUTER_PAD = CONSTS.GRID_OUTER_PAD
 local WISHLIST_STAR_SIZE = CONSTS.WISHLIST_STAR_SIZE_HIERARCHY
 
 -- Helper to apply quest row visual state
@@ -114,6 +112,10 @@ local function ResetZoneQuestFrameState(frame)
     frame.expansionKey = nil
     frame.zoneName = nil
     frame.isZone = nil
+    frame:SetScript("OnClick", nil)
+    frame:SetScript("OnMouseDown", nil)
+    frame:SetScript("OnEnter", nil)
+    frame:SetScript("OnLeave", nil)
 end
 
 local function SetupZoneHeader(self, frame, elementData)
@@ -228,8 +230,10 @@ local function SetupQuestRow(self, frame, elementData)
             addon:ToggleTracking(recordID)
         elseif IsControlKeyDown() and elementData.recordID then
             -- Ctrl+Click: Start tracking decor (kept for compatibility)
-            local err = C_ContentTracking.StartTracking(Enum.ContentTrackingType.Decor, elementData.recordID)
-            addon:PrintTrackingResult(err, "QUESTS_TRACKING_STARTED", "QUESTS_TRACKING_FAILED", "QUESTS_TRACKING_MAX_REACHED", "QUESTS_TRACKING_ALREADY")
+            if C_ContentTracking then
+                local err = C_ContentTracking.StartTracking(Enum.ContentTrackingType.Decor, elementData.recordID)
+                addon:PrintTrackingResult(err, "QUESTS_TRACKING_STARTED", "QUESTS_TRACKING_FAILED", "QUESTS_TRACKING_MAX_REACHED", "QUESTS_TRACKING_ALREADY")
+            end
         else
             self:SelectQuest(elementData)
         end
@@ -381,62 +385,10 @@ end
 --------------------------------------------------------------------------------
 
 function QuestsTab:CreateToolbar(parent)
-    local toolbar = CreateFrame("Frame", nil, parent)
-    toolbar:SetPoint("TOPLEFT", parent, "TOPLEFT", 0, 0)
-    toolbar:SetPoint("TOPRIGHT", parent, "TOPRIGHT", 0, 0)
-    toolbar:SetHeight(TOOLBAR_HEIGHT)
-    self.toolbar = toolbar
-
-    -- Background
-    local bg = toolbar:CreateTexture(nil, "BACKGROUND")
-    bg:SetAllPoints()
-    bg:SetColorTexture(0.05, 0.05, 0.07, 0.9)
-
-    local L = addon.L
-
-    -- Search box (left side)
-    local searchBox = CreateFrame("EditBox", nil, toolbar, "SearchBoxTemplate")
-    searchBox:SetPoint("LEFT", toolbar, "LEFT", GRID_OUTER_PAD + 40, 0)
-    searchBox:SetSize(250, 20)
-    searchBox:SetAutoFocus(false)
-    searchBox.Instructions:SetText(L["QUESTS_SEARCH_PLACEHOLDER"])
-    searchBox.Instructions:SetWordWrap(false)
-    self.searchBox = searchBox
-
-    self:WireSearchBox(searchBox)
-
-    -- Completion filter buttons (center-left)
-    local filterContainer = CreateFrame("Frame", nil, toolbar)
-    filterContainer:SetPoint("LEFT", searchBox, "RIGHT", 16, 0)
-    filterContainer:SetHeight(22)
-    self.filterContainer = filterContainer
-
-    local filters = {
-        { key = "all", label = L["QUESTS_FILTER_ALL"] },
-        { key = "incomplete", label = L["QUESTS_FILTER_INCOMPLETE"] },
-        { key = "complete", label = L["QUESTS_FILTER_COMPLETE"] },
-    }
-
-    local xOffset = 0
-    for _, filterInfo in ipairs(filters) do
-        local btn = addon:CreateActionButton(filterContainer, filterInfo.label, function()
-            self:SetCompletionFilter(filterInfo.key)
-        end)
-        btn:SetPoint("LEFT", filterContainer, "LEFT", xOffset, 0)
-        btn.filterKey = filterInfo.key
-        self.filterButtons[filterInfo.key] = btn
-        xOffset = xOffset + btn:GetWidth() + 4
-    end
-
-    filterContainer:SetWidth(xOffset - 4)
-
-    -- Set default filter
-    self:SetCompletionFilter("incomplete")
-
-    -- Setup responsive toolbar updates
-    toolbar:SetScript("OnSizeChanged", function(_, width)
-        self:UpdateToolbarLayout(width)
-    end)
+    self:CreateStandardToolbar(parent, {
+        searchPlaceholderKey = "QUESTS_SEARCH_PLACEHOLDER",
+        filterPrefix = "QUESTS",
+    })
 end
 
 -- Note: UpdateToolbarLayout is provided by TabBaseMixin

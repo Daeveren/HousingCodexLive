@@ -9,11 +9,9 @@ local CONSTS = addon.CONSTANTS
 local COLORS = CONSTS.COLORS
 local ICON_CROP_COORDS = CONSTS.ICON_CROP_COORDS
 
-local TOOLBAR_HEIGHT = CONSTS.HEADER_HEIGHT
 local PROFESSION_PANEL_WIDTH = CONSTS.HIERARCHY_PANEL_WIDTH
 local HIERARCHY_PADDING = CONSTS.HIERARCHY_PADDING
 local HEADER_HEIGHT = CONSTS.HIERARCHY_HEADER_HEIGHT
-local GRID_OUTER_PAD = CONSTS.GRID_OUTER_PAD
 
 local DECOR_ROW_HEIGHT = 24
 local DECOR_ICON_SIZE = 22
@@ -71,10 +69,6 @@ local function CraftMatchesSearch(craft, searchText, record)
     record = record or ResolveCraftRecord(craft.decorId)
     local decorName = addon:ResolveDecorName(craft.decorId, record)
     if decorName and strlower(decorName):find(searchText, 1, true) then
-        return true
-    end
-
-    if craft.recipeName and strlower(craft.recipeName):find(searchText, 1, true) then
         return true
     end
 
@@ -226,56 +220,10 @@ end
 --------------------------------------------------------------------------------
 
 function ProfessionsTab:CreateToolbar(parent)
-    local L = addon.L
-
-    local toolbar = CreateFrame("Frame", nil, parent)
-    toolbar:SetPoint("TOPLEFT", parent, "TOPLEFT", 0, 0)
-    toolbar:SetPoint("TOPRIGHT", parent, "TOPRIGHT", 0, 0)
-    toolbar:SetHeight(TOOLBAR_HEIGHT)
-    self.toolbar = toolbar
-
-    local bg = toolbar:CreateTexture(nil, "BACKGROUND")
-    bg:SetAllPoints()
-    bg:SetColorTexture(0.05, 0.05, 0.07, 0.9)
-
-    local searchBox = CreateFrame("EditBox", nil, toolbar, "SearchBoxTemplate")
-    searchBox:SetPoint("LEFT", toolbar, "LEFT", GRID_OUTER_PAD + 40, 0)
-    searchBox:SetSize(250, 20)
-    searchBox:SetAutoFocus(false)
-    searchBox.Instructions:SetText(L["PROFESSIONS_SEARCH_PLACEHOLDER"])
-    searchBox.Instructions:SetWordWrap(false)
-    self.searchBox = searchBox
-
-    self:WireSearchBox(searchBox)
-
-    local filterContainer = CreateFrame("Frame", nil, toolbar)
-    filterContainer:SetPoint("LEFT", searchBox, "RIGHT", 16, 0)
-    filterContainer:SetHeight(22)
-    self.filterContainer = filterContainer
-
-    local filters = {
-        { key = "all", label = L["PROFESSIONS_FILTER_ALL"] },
-        { key = "incomplete", label = L["PROFESSIONS_FILTER_INCOMPLETE"] },
-        { key = "complete", label = L["PROFESSIONS_FILTER_COMPLETE"] },
-    }
-
-    local xOffset = 0
-    for _, filterInfo in ipairs(filters) do
-        local btn = addon:CreateActionButton(filterContainer, filterInfo.label, function()
-            self:SetCompletionFilter(filterInfo.key)
-        end)
-        btn:SetPoint("LEFT", filterContainer, "LEFT", xOffset, 0)
-        btn.filterKey = filterInfo.key
-        self.filterButtons[filterInfo.key] = btn
-        xOffset = xOffset + btn:GetWidth() + 4
-    end
-
-    filterContainer:SetWidth(xOffset - 4)
-    self:SetCompletionFilter("incomplete")
-
-    toolbar:SetScript("OnSizeChanged", function(_, width)
-        self:UpdateToolbarLayout(width)
-    end)
+    self:CreateStandardToolbar(parent, {
+        searchPlaceholderKey = "PROFESSIONS_SEARCH_PLACEHOLDER",
+        filterPrefix = "PROFESSIONS",
+    })
 end
 
 function ProfessionsTab:SetCompletionFilter(filterKey)

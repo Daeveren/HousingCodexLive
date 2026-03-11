@@ -218,10 +218,18 @@ function addon:BuildQuestIndex()
         end
     end
 
+    -- Build set of already-indexed records to prevent sourceText fallback duplicates
+    local indexedRecords = {}
+    for _, records in pairs(self.questIndex) do
+        for recordID in pairs(records) do
+            indexedRecords[recordID] = true
+        end
+    end
+
     -- Secondary source: Parse sourceText from records (fallback for any missed)
     local parsedCount = 0
     for recordID, record in pairs(self.decorRecords) do
-        if record.sourceText and record.sourceText ~= "" then
+        if not indexedRecords[recordID] and record.sourceText and record.sourceText ~= "" then
             local questID = ParseQuestID(record.sourceText)
             if questID then
                 if not self.questIndex[questID] then

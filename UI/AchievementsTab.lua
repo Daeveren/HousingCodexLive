@@ -9,11 +9,9 @@ local CONSTS = addon.CONSTANTS
 local COLORS = CONSTS.COLORS
 
 -- Layout constants (using centralized values where available)
-local TOOLBAR_HEIGHT = CONSTS.HEADER_HEIGHT
 local CATEGORY_PANEL_WIDTH = CONSTS.HIERARCHY_PANEL_WIDTH
 local HIERARCHY_PADDING = CONSTS.HIERARCHY_PADDING
 local ROW_HEIGHT = CONSTS.HIERARCHY_ROW_HEIGHT
-local GRID_OUTER_PAD = CONSTS.GRID_OUTER_PAD
 local WISHLIST_STAR_SIZE = CONSTS.WISHLIST_STAR_SIZE_HIERARCHY
 local CATEGORY_BUTTON_HEIGHT = CONSTS.HIERARCHY_HEADER_HEIGHT
 
@@ -154,19 +152,22 @@ local function SetupAchievementRow(self, frame, elementData)
 
         if IsShiftKeyDown() and elementData.achievementID then
             -- Shift+Click: Toggle tracking the achievement
-            local trackingType = Enum.ContentTrackingType.Achievement
-            local achievementID = elementData.achievementID
-            if C_ContentTracking.IsTracking(trackingType, achievementID) then
-                C_ContentTracking.StopTracking(trackingType, achievementID, Enum.ContentTrackingStopType.Manual)
-                addon:Print(L["ACHIEVEMENTS_TRACKING_STOPPED"])
-            else
-                local err = C_ContentTracking.StartTracking(trackingType, achievementID)
-                addon:PrintTrackingResult(err, "ACHIEVEMENTS_TRACKING_STARTED_ACHIEVEMENT", "ACHIEVEMENTS_TRACKING_FAILED", "ACHIEVEMENTS_TRACKING_MAX_REACHED", "ACHIEVEMENTS_TRACKING_ALREADY")
+            if C_ContentTracking then
+                local achievementID = elementData.achievementID
+                if C_ContentTracking.IsTracking(Enum.ContentTrackingType.Achievement, achievementID) then
+                    C_ContentTracking.StopTracking(Enum.ContentTrackingType.Achievement, achievementID, Enum.ContentTrackingStopType.Manual)
+                    addon:Print(L["ACHIEVEMENTS_TRACKING_STOPPED"])
+                else
+                    local err = C_ContentTracking.StartTracking(Enum.ContentTrackingType.Achievement, achievementID)
+                    addon:PrintTrackingResult(err, "ACHIEVEMENTS_TRACKING_STARTED_ACHIEVEMENT", "ACHIEVEMENTS_TRACKING_FAILED", "ACHIEVEMENTS_TRACKING_MAX_REACHED", "ACHIEVEMENTS_TRACKING_ALREADY")
+                end
             end
         elseif IsControlKeyDown() and elementData.recordID then
             -- Ctrl+Click: Start tracking the decor reward
-            local err = C_ContentTracking.StartTracking(Enum.ContentTrackingType.Decor, elementData.recordID)
-            addon:PrintTrackingResult(err, "ACHIEVEMENTS_TRACKING_STARTED", "ACHIEVEMENTS_TRACKING_FAILED", "ACHIEVEMENTS_TRACKING_MAX_REACHED", "ACHIEVEMENTS_TRACKING_ALREADY")
+            if C_ContentTracking then
+                local err = C_ContentTracking.StartTracking(Enum.ContentTrackingType.Decor, elementData.recordID)
+                addon:PrintTrackingResult(err, "ACHIEVEMENTS_TRACKING_STARTED", "ACHIEVEMENTS_TRACKING_FAILED", "ACHIEVEMENTS_TRACKING_MAX_REACHED", "ACHIEVEMENTS_TRACKING_ALREADY")
+            end
         else
             self:SelectAchievement(elementData)
         end
@@ -352,65 +353,11 @@ end
 --------------------------------------------------------------------------------
 
 function AchievementsTab:CreateToolbar(parent)
-    local toolbar = CreateFrame("Frame", nil, parent)
-    toolbar:SetPoint("TOPLEFT", parent, "TOPLEFT", 0, 0)
-    toolbar:SetPoint("TOPRIGHT", parent, "TOPRIGHT", 0, 0)
-    toolbar:SetHeight(TOOLBAR_HEIGHT)
-    self.toolbar = toolbar
-
-    -- Background
-    local bg = toolbar:CreateTexture(nil, "BACKGROUND")
-    bg:SetAllPoints()
-    bg:SetColorTexture(0.05, 0.05, 0.07, 0.9)
-
-    local L = addon.L
-
-    -- Search box (left side)
-    local searchBox = CreateFrame("EditBox", nil, toolbar, "SearchBoxTemplate")
-    searchBox:SetPoint("LEFT", toolbar, "LEFT", GRID_OUTER_PAD + 40, 0)
-    searchBox:SetSize(250, 20)
-    searchBox:SetAutoFocus(false)
-    searchBox.Instructions:SetText(L["ACHIEVEMENTS_SEARCH_PLACEHOLDER"])
-    searchBox.Instructions:SetWordWrap(false)
-    self.searchBox = searchBox
-
-    self:WireSearchBox(searchBox)
-
-    -- Completion filter buttons (center-left)
-    local filterContainer = CreateFrame("Frame", nil, toolbar)
-    filterContainer:SetPoint("LEFT", searchBox, "RIGHT", 16, 0)
-    filterContainer:SetHeight(22)
-    self.filterContainer = filterContainer
-
-    local filters = {
-        { key = "all", label = L["ACHIEVEMENTS_FILTER_ALL"] },
-        { key = "incomplete", label = L["ACHIEVEMENTS_FILTER_INCOMPLETE"] },
-        { key = "complete", label = L["ACHIEVEMENTS_FILTER_COMPLETE"] },
-    }
-
-    local xOffset = 0
-    for _, filterInfo in ipairs(filters) do
-        local btn = addon:CreateActionButton(filterContainer, filterInfo.label, function()
-            self:SetCompletionFilter(filterInfo.key)
-        end)
-        btn:SetPoint("LEFT", filterContainer, "LEFT", xOffset, 0)
-        btn.filterKey = filterInfo.key
-        self.filterButtons[filterInfo.key] = btn
-        xOffset = xOffset + btn:GetWidth() + 4
-    end
-
-    filterContainer:SetWidth(xOffset - 4)
-
-    -- Set default filter
-    self:SetCompletionFilter("incomplete")
-
-    -- Setup responsive toolbar updates
-    toolbar:SetScript("OnSizeChanged", function(_, width)
-        self:UpdateToolbarLayout(width)
-    end)
+    self:CreateStandardToolbar(parent, {
+        searchPlaceholderKey = "ACHIEVEMENTS_SEARCH_PLACEHOLDER",
+        filterPrefix = "ACHIEVEMENTS",
+    })
 end
-
--- Note: UpdateToolbarLayout is provided by TabBaseMixin
 
 -- Rebuild the category list and, if needed, the achievement list.
 -- BuildCategoryDisplay returns true when it already triggered BuildAchievementDisplay
@@ -863,8 +810,9 @@ end
 AchievementsTab:RegisterTabVisibility("ACHIEVEMENTS")
 
 addon:RegisterInternalEvent("DATA_LOADED", function()
-    if AchievementsTab:IsShown() and not addon.achievementIndexBuilt then
-        addon:BuildAchievementIndex()
+    -- Always build index on DATA_LOADED (DecorToAchievementLookup needed by VendorMapIndex)
+    addon:BuildAchievementIndex()
+    if AchievementsTab:IsShown() then
         addon:BuildAchievementHierarchy()
         AchievementsTab:RefreshDisplay()
     end

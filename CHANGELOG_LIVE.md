@@ -2,6 +2,12 @@
 
 All notable changes to Housing Codex.
 
+**1.9.3** (2026-03-11)
+
+**Fixed**
+- Duplicate quest entries no longer appear under the "Other" category
+- Codebase improvements in order to make the addon run more smooth
+
 **1.9.2** (2026-10-03)
 
 **Changed**

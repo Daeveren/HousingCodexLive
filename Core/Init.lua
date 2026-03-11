@@ -656,6 +656,7 @@ function addon:SetupTileDisplay(tile, record, cameraModType)
         -- Lazy create ModelScene on first use
         if not tile.modelScene then
             local modelScene = CreateFrame("ModelScene", nil, tile, "NonInteractableModelSceneMixinTemplate")
+            modelScene:EnableMouse(false)
             modelScene:SetPoint("TOPLEFT", 6, -6)
             modelScene:SetPoint("BOTTOMRIGHT", -6, 20)
             tile.modelScene = modelScene
@@ -1001,6 +1002,26 @@ function addon:ShowActionLinkTooltip(btn)
     GameTooltip:Show()
 end
 
+-- Shared overlay helpers (used by MerchantOverlay and ContainerOverlay)
+addon.SHADOW_COLOR = { 0, 0, 0, 0.7 }
+
+function addon.CreateIconWithShadow(button, size, shadowOffset)
+    local shadow = button:CreateTexture(nil, "OVERLAY", nil, 6)
+    shadow:SetSize(size + shadowOffset, size + shadowOffset)
+    shadow:SetVertexColor(unpack(addon.SHADOW_COLOR))
+
+    local icon = button:CreateTexture(nil, "OVERLAY", nil, 7)
+    icon:SetSize(size, size)
+
+    return icon, shadow
+end
+
+function addon.IsDecorOwned(catalogInfo)
+    if type(catalogInfo) ~= "table" then return false end
+    local total = (catalogInfo.quantity or 0) + (catalogInfo.remainingRedeemable or 0) + (catalogInfo.numPlaced or 0)
+    return total > 0 or ((catalogInfo.entryID and catalogInfo.entryID.entrySubtype) or 0) > 1
+end
+
 -- Helper: set texture icon (handles atlas vs texture path)
 function addon:SetIcon(texture, icon, iconType)
     if not icon then return end
@@ -1012,17 +1033,14 @@ function addon:SetIcon(texture, icon, iconType)
 end
 
 -- Addon Initialization
-addon:RegisterWoWEvent("ADDON_LOADED", function(loadedAddon)
+local function OnAddonLoaded(loadedAddon)
     if loadedAddon ~= ADDON_NAME then return end
 
     -- Initialize SavedVariables (done by SavedVars.lua if loaded, fallback here)
     if addon.InitializeDB then
         addon:InitializeDB()
     else
-        -- Fallback initialization
-        if not HousingCodexDB then
-            HousingCodexDB = {}
-        end
+        if not HousingCodexDB then HousingCodexDB = {} end
         addon.db = HousingCodexDB
     end
 
@@ -1031,7 +1049,9 @@ addon:RegisterWoWEvent("ADDON_LOADED", function(loadedAddon)
     if addon.Settings then addon.Settings:Initialize() end
 
     addon:Debug("Addon loaded")
-end)
+    addon:UnregisterWoWEvent("ADDON_LOADED", OnAddonLoaded)
+end
+addon:RegisterWoWEvent("ADDON_LOADED", OnAddonLoaded)
 
 addon:RegisterWoWEvent("PLAYER_ENTERING_WORLD", function()
     C_Timer.After(0.5, function()

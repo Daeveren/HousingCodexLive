@@ -13,8 +13,6 @@ local MERCHANT_ITEMS_PER_PAGE = 10
 local HC_ICON_SIZE = 18
 local CHECKMARK_SIZE = 16
 local HC_ICON_PATH = "Interface\\AddOns\\HousingCodex\\HC64"
-local SHADOW_COLOR = { 0, 0, 0, 0.7 }
-
 -- Storage for button overlays
 local buttonOverlays = {}
 
@@ -29,18 +27,6 @@ local function ClearSessionCache()
     wipe(sessionCache)
 end
 
--- Create icon with shadow (shadow is slightly larger and offset)
-local function CreateIconWithShadow(button, size, shadowOffset)
-    local shadow = button:CreateTexture(nil, "OVERLAY", nil, 6)
-    shadow:SetSize(size + shadowOffset, size + shadowOffset)
-    shadow:SetVertexColor(unpack(SHADOW_COLOR))
-
-    local icon = button:CreateTexture(nil, "OVERLAY", nil, 7)
-    icon:SetSize(size, size)
-
-    return icon, shadow
-end
-
 -- Get or create overlay textures for button
 function MerchantOverlay:GetOverlay(button, index)
     if buttonOverlays[index] then
@@ -48,14 +34,14 @@ function MerchantOverlay:GetOverlay(button, index)
     end
 
     -- HC icon with shadow
-    local hcIcon, hcShadow = CreateIconWithShadow(button, HC_ICON_SIZE, 8)
+    local hcIcon, hcShadow = addon.CreateIconWithShadow(button, HC_ICON_SIZE, 8)
     hcShadow:SetPoint("TOPLEFT", button, "TOPLEFT", -11, 11)
     hcShadow:SetTexture(HC_ICON_PATH)
     hcIcon:SetPoint("TOPLEFT", button, "TOPLEFT", -7, 7)
     hcIcon:SetTexture(HC_ICON_PATH)
 
     -- Checkmark with shadow
-    local checkmark, checkShadow = CreateIconWithShadow(button, CHECKMARK_SIZE, 6)
+    local checkmark, checkShadow = addon.CreateIconWithShadow(button, CHECKMARK_SIZE, 6)
     checkShadow:SetPoint("TOP", hcIcon, "BOTTOM", 0, 5)
     checkShadow:SetAtlas("common-icon-checkmark")
     checkmark:SetPoint("TOP", hcIcon, "BOTTOM", 0, 2)
@@ -71,13 +57,6 @@ function MerchantOverlay:GetOverlay(button, index)
     return buttonOverlays[index]
 end
 
--- Check if decor is owned (stored + placed + entrySubtype for showQuantity=false items)
-local function IsDecorOwned(catalogInfo)
-    if type(catalogInfo) ~= "table" then return false end
-    local total = (catalogInfo.quantity or 0) + (catalogInfo.remainingRedeemable or 0) + (catalogInfo.numPlaced or 0)
-    if total > 0 then return true end
-    return ((catalogInfo.entryID and catalogInfo.entryID.entrySubtype) or 0) > 1
-end
 
 -- Update merchant buttons with decor indicators
 function MerchantOverlay:UpdateMerchantButtons()
@@ -114,7 +93,7 @@ function MerchantOverlay:UpdateMerchantButtons()
             end
 
             local isDecor = catalogInfo ~= nil
-            local isOwned = catalogInfo and IsDecorOwned(catalogInfo)
+            local isOwned = catalogInfo and addon.IsDecorOwned(catalogInfo)
 
             overlay.hcShadow:SetShown(isDecor and showDecorIcon)
             overlay.hcIcon:SetShown(isDecor and showDecorIcon)

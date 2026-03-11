@@ -8,11 +8,9 @@ local _, addon = ...
 local CONSTS = addon.CONSTANTS
 local COLORS = CONSTS.COLORS
 
-local TOOLBAR_HEIGHT = CONSTS.HEADER_HEIGHT
 local EXPANSION_PANEL_WIDTH = CONSTS.HIERARCHY_PANEL_WIDTH
 local HIERARCHY_PADDING = CONSTS.HIERARCHY_PADDING
 local HEADER_HEIGHT = CONSTS.HIERARCHY_HEADER_HEIGHT
-local GRID_OUTER_PAD = CONSTS.GRID_OUTER_PAD
 
 local VENDOR_ROW_BASE_HEIGHT = 32
 local DECOR_ROW_HEIGHT = 24
@@ -125,56 +123,10 @@ end
 --------------------------------------------------------------------------------
 
 function VendorsTab:CreateToolbar(parent)
-    local L = addon.L
-
-    local toolbar = CreateFrame("Frame", nil, parent)
-    toolbar:SetPoint("TOPLEFT", parent, "TOPLEFT", 0, 0)
-    toolbar:SetPoint("TOPRIGHT", parent, "TOPRIGHT", 0, 0)
-    toolbar:SetHeight(TOOLBAR_HEIGHT)
-    self.toolbar = toolbar
-
-    local bg = toolbar:CreateTexture(nil, "BACKGROUND")
-    bg:SetAllPoints()
-    bg:SetColorTexture(0.05, 0.05, 0.07, 0.9)
-
-    local searchBox = CreateFrame("EditBox", nil, toolbar, "SearchBoxTemplate")
-    searchBox:SetPoint("LEFT", toolbar, "LEFT", GRID_OUTER_PAD + 40, 0)
-    searchBox:SetSize(250, 20)
-    searchBox:SetAutoFocus(false)
-    searchBox.Instructions:SetText(L["VENDORS_SEARCH_PLACEHOLDER"])
-    searchBox.Instructions:SetWordWrap(false)
-    self.searchBox = searchBox
-
-    self:WireSearchBox(searchBox)
-
-    local filterContainer = CreateFrame("Frame", nil, toolbar)
-    filterContainer:SetPoint("LEFT", searchBox, "RIGHT", 16, 0)
-    filterContainer:SetHeight(22)
-    self.filterContainer = filterContainer
-
-    local filters = {
-        { key = "all", label = L["VENDORS_FILTER_ALL"] },
-        { key = "incomplete", label = L["VENDORS_FILTER_INCOMPLETE"] },
-        { key = "complete", label = L["VENDORS_FILTER_COMPLETE"] },
-    }
-
-    local xOffset = 0
-    for _, filterInfo in ipairs(filters) do
-        local btn = addon:CreateActionButton(filterContainer, filterInfo.label, function()
-            self:SetCompletionFilter(filterInfo.key)
-        end)
-        btn:SetPoint("LEFT", filterContainer, "LEFT", xOffset, 0)
-        btn.filterKey = filterInfo.key
-        self.filterButtons[filterInfo.key] = btn
-        xOffset = xOffset + btn:GetWidth() + 4
-    end
-
-    filterContainer:SetWidth(xOffset - 4)
-    self:SetCompletionFilter("incomplete")
-
-    toolbar:SetScript("OnSizeChanged", function(_, width)
-        self:UpdateToolbarLayout(width)
-    end)
+    self:CreateStandardToolbar(parent, {
+        searchPlaceholderKey = "VENDORS_SEARCH_PLACEHOLDER",
+        filterPrefix = "VENDORS",
+    })
 end
 
 -- Rebuild the expansion list and, if needed, the vendor list.
@@ -228,6 +180,122 @@ function VendorsTab:CreateExpansionPanel(parent)
     })
 end
 
+-- Named handlers for expansion buttons (bound once, read data from frame fields)
+local function VendorExpansionButtonOnClick(frame)
+    VendorsTab:SelectExpansion(frame.expansionKey)
+end
+
+local function VendorExpansionButtonOnEnter(frame)
+    if VendorsTab.selectedExpansionKey ~= frame.expansionKey then
+        frame.bg:SetColorTexture(unpack(COLORS.PANEL_HOVER))
+    end
+end
+
+local function VendorExpansionButtonOnLeave(frame)
+    VendorsTab:ApplySelectionButtonState(frame, VendorsTab.selectedExpansionKey == frame.expansionKey)
+end
+
+-- Named handlers for zone header rows (bound once, read data from frame fields)
+local function VendorZoneHeaderOnClick(frame)
+    VendorsTab:ToggleZone(frame.expansionKey, frame.zoneName)
+end
+
+local function VendorZoneHeaderOnEnter(frame)
+    frame.bg:SetColorTexture(unpack(COLORS.PANEL_HOVER_ALT))
+end
+
+local function VendorZoneHeaderOnLeave(frame)
+    frame.bg:SetColorTexture(unpack(COLORS.PANEL_NORMAL_ALT))
+end
+
+-- Named handlers for vendor rows (bound once, read data from frame fields)
+local function VendorRowOnClick(frame, button)
+    if button == "RightButton" then return end
+    local decorIds = frame.decorIds
+    if not decorIds or #decorIds == 0 then return end
+    VendorsTab:HandleItemSelection({
+        decorId = decorIds[1],
+        npcId = frame.npcId,
+        isVendorRow = true,
+        vendorFrame = frame,
+    })
+end
+
+local function VendorRowOnEnter(frame)
+    if VendorsTab.selectedVendorNpcId ~= frame.npcId then
+        frame.bg:SetColorTexture(0.12, 0.12, 0.14, 1)
+    end
+    local decorIds = frame.decorIds
+    if decorIds and #decorIds > 0 then
+        addon:FireEvent("RECORD_SELECTED", decorIds[1])
+    end
+end
+
+local function VendorRowOnLeave(frame)
+    if VendorsTab.selectedVendorNpcId ~= frame.npcId then
+        frame.bg:SetColorTexture(unpack(COLORS.ROW_BG))
+    end
+    VendorsTab:RestoreSelectionOnLeave()
+end
+
+local function VendorWaypointBtnOnClick(btn)
+    VendorsTab:SetWaypoint(btn.npcId, nil)
+end
+
+-- Named handlers for decor rows (bound once, read data from row fields)
+local function VendorDecorRowOnClick(row)
+    local decorId = row.decorId
+    if IsShiftKeyDown() then
+        VendorsTab:ToggleVendorDecorTracking(row.npcId, decorId)
+        return
+    end
+    VendorsTab:HandleItemSelection({
+        decorId = decorId,
+        npcId = row.npcId,
+        isVendorRow = false,
+        decorRow = row,
+    })
+end
+
+local function VendorDecorRowOnEnter(row)
+    local decorId = row.decorId
+    if not (VendorsTab.selectedVendorNpcId == row.npcId and VendorsTab.selectedDecorId == decorId) then
+        row.name:SetTextColor(1, 1, 1, 1)
+    end
+    addon:FireEvent("RECORD_SELECTED", decorId)
+
+    local L = addon.L
+    GameTooltip:SetOwner(UIParent, "ANCHOR_NONE")
+    local x, y = GetCursorPosition()
+    local scale = UIParent:GetEffectiveScale()
+    GameTooltip:SetPoint("BOTTOMLEFT", UIParent, "BOTTOMLEFT", (x / scale) + 15, (y / scale) + 15)
+    local record = row.record
+    local fallback = row.fallback
+    if record then
+        GameTooltip:SetText(record.name, 1, 1, 1)
+        if row.isCollected then
+            GameTooltip:AddLine(L["FILTER_COLLECTED"], 0.4, 0.9, 0.4)
+        end
+    elseif fallback and fallback[1] then
+        GameTooltip:SetText(fallback[1], 1, 1, 1)
+        if fallback[2] then
+            GameTooltip:AddLine(addon.VendorItemFallbackCategories[fallback[2]], 0.7, 0.7, 0.7)
+        end
+    else
+        GameTooltip:SetText(string.format(L["VENDORS_DECOR_ID"], decorId), 1, 1, 1)
+    end
+    GameTooltip:Show()
+end
+
+local function VendorDecorRowOnLeave(row)
+    local decorId = row.decorId
+    if not (VendorsTab.selectedVendorNpcId == row.npcId and VendorsTab.selectedDecorId == decorId) then
+        row.name:SetTextColor(row.textBrightness, row.textBrightness, row.textBrightness, 1)
+    end
+    GameTooltip:Hide()
+    VendorsTab:RestoreSelectionOnLeave()
+end
+
 function VendorsTab:SetupExpansionButton(frame, elementData)
     local L = addon.L
 
@@ -257,6 +325,9 @@ function VendorsTab:SetupExpansionButton(frame, elementData)
         frame.label = label
 
         frame:EnableMouse(true)
+        frame:SetScript("OnClick", VendorExpansionButtonOnClick)
+        frame:SetScript("OnEnter", VendorExpansionButtonOnEnter)
+        frame:SetScript("OnLeave", VendorExpansionButtonOnLeave)
     end
 
     frame.expansionKey = elementData.expansionKey
@@ -272,20 +343,6 @@ function VendorsTab:SetupExpansionButton(frame, elementData)
     frame.percentLabel:SetText(string.format("%.0f%%", pctValue))
     frame.percentLabel:SetTextColor(addon:GetCompletionProgressColor(pctValue))
     addon:SetFontSize(frame.percentLabel, 11, "")
-
-    frame:SetScript("OnClick", function()
-        self:SelectExpansion(elementData.expansionKey)
-    end)
-
-    frame:SetScript("OnEnter", function(f)
-        if self.selectedExpansionKey ~= f.expansionKey then
-            f.bg:SetColorTexture(unpack(COLORS.PANEL_HOVER))
-        end
-    end)
-
-    frame:SetScript("OnLeave", function(f)
-        self:ApplySelectionButtonState(f, self.selectedExpansionKey == f.expansionKey)
-    end)
 end
 
 function VendorsTab:SelectExpansion(expansionKey)
@@ -457,6 +514,7 @@ function VendorsTab:InitializeVendorFrame(frame)
         btn.icon:SetAlpha(0.7)
         GameTooltip:Hide()
     end)
+    waypointBtn:SetScript("OnClick", VendorWaypointBtnOnClick)
     frame.waypointBtn = waypointBtn
 
     local decorContainer = CreateFrame("Frame", nil, frame)
@@ -478,9 +536,11 @@ function VendorsTab:ResetVendorFrame(frame)
     frame.waypointBtn:Hide()
     frame.factionIcon:Hide()
     frame.npcId = nil
+    frame.decorIds = nil
     frame.zoneName = nil
     frame.expansionKey = nil
     frame.isZoneHeader = nil
+    frame.waypointBtn.npcId = nil
 
     -- Hide all decor rows
     for _, row in ipairs(frame.decorRows) do
@@ -612,17 +672,9 @@ function VendorsTab:SetupZoneHeader(frame, elementData)
     frame.zoneProgress:SetTextColor(unpack(addon.TabBaseMixin:GetProgressColor(percent, true)))
     frame.zoneProgress:Show()
 
-    frame:SetScript("OnClick", function()
-        self:ToggleZone(elementData.expansionKey, elementData.zoneName)
-    end)
-
-    frame:SetScript("OnEnter", function(f)
-        f.bg:SetColorTexture(unpack(COLORS.PANEL_HOVER_ALT))
-    end)
-
-    frame:SetScript("OnLeave", function(f)
-        f.bg:SetColorTexture(unpack(COLORS.PANEL_NORMAL_ALT))
-    end)
+    frame:SetScript("OnClick", VendorZoneHeaderOnClick)
+    frame:SetScript("OnEnter", VendorZoneHeaderOnEnter)
+    frame:SetScript("OnLeave", VendorZoneHeaderOnLeave)
 end
 
 -- Check if a decorId can be resolved by any game API
@@ -646,6 +698,7 @@ function VendorsTab:SetupVendorRow(frame, elementData)
     local decorCount = #decorIds
     frame:SetHeight(VENDOR_ROW_BASE_HEIGHT + (decorCount * DECOR_ROW_HEIGHT))
     frame.npcId = elementData.npcId
+    frame.decorIds = decorIds
 
     addon:ResetBackgroundTexture(frame.bg)
     frame.bg:SetColorTexture(unpack(COLORS.ROW_BG))
@@ -682,44 +735,19 @@ function VendorsTab:SetupVendorRow(frame, elementData)
     addon:SetFontSize(frame.vendorProgress, 11, "")
 
     if addon:GetNPCLocation(elementData.npcId) then
+        frame.waypointBtn.npcId = elementData.npcId
         frame.waypointBtn:Show()
-        frame.waypointBtn:SetScript("OnClick", function()
-            self:SetWaypoint(elementData.npcId, elementData.npcName)
-        end)
     end
 
     self:SetupDecorRows(frame, decorIds)
 
+    frame:SetScript("OnClick", VendorRowOnClick)
+    frame:SetScript("OnEnter", VendorRowOnEnter)
+    frame:SetScript("OnLeave", VendorRowOnLeave)
+
     -- Check if this vendor is currently selected
     local isVendorSelected = self.selectedVendorNpcId == elementData.npcId
     self:UpdateVendorSelectionVisual(frame, isVendorSelected)
-
-    frame:SetScript("OnClick", function(_, button)
-        if button == "RightButton" then return end
-        if decorCount == 0 then return end
-        self:HandleItemSelection({
-            decorId = decorIds[1],
-            npcId = elementData.npcId,
-            isVendorRow = true,
-            vendorFrame = frame,  -- live ref for immediate visual update only
-        })
-    end)
-
-    frame:SetScript("OnEnter", function(f)
-        if self.selectedVendorNpcId ~= elementData.npcId then
-            f.bg:SetColorTexture(0.12, 0.12, 0.14, 1)
-        end
-        if decorCount > 0 then
-            addon:FireEvent("RECORD_SELECTED", decorIds[1])
-        end
-    end)
-
-    frame:SetScript("OnLeave", function(f)
-        if self.selectedVendorNpcId ~= elementData.npcId then
-            f.bg:SetColorTexture(unpack(COLORS.ROW_BG))
-        end
-        self:RestoreSelectionOnLeave()
-    end)
 end
 
 function VendorsTab:SetupDecorRows(frame, decorIds)
@@ -761,6 +789,9 @@ function VendorsTab:SetupDecorRows(frame, decorIds)
             row.selectionHighlight = selHighlight
 
             row:EnableMouse(true)
+            row:SetScript("OnClick", VendorDecorRowOnClick)
+            row:SetScript("OnEnter", VendorDecorRowOnEnter)
+            row:SetScript("OnLeave", VendorDecorRowOnLeave)
             frame.decorRows[i] = row
         end
 
@@ -771,7 +802,13 @@ function VendorsTab:SetupDecorRows(frame, decorIds)
 
         local record = addon:ResolveRecord(decorId)
         local fallback = not record and addon.VendorItemFallback and addon.VendorItemFallback[decorId]
+
+        -- Store per-row data for named handlers
         row.decorId = decorId
+        row.record = record
+        row.fallback = fallback
+        row.isCollected = record and record.isCollected
+        row.npcId = frame.npcId
 
         if record then
             if record.iconType == "atlas" then
@@ -784,66 +821,17 @@ function VendorsTab:SetupDecorRows(frame, decorIds)
             row.icon:SetTexture(decorIcon or "Interface\\Icons\\INV_Misc_QuestionMark")
         end
 
-        local isCollected = record and record.isCollected
-        row.checkIcon:SetShown(isCollected)
+        row.checkIcon:SetShown(row.isCollected)
 
-        local textBrightness = isCollected and 0.4 or 0.7
-        row.textBrightness = textBrightness  -- Store for use in handlers
-        local displayName = (record and record.name) or (fallback and fallback.name) or string.format(L["VENDORS_DECOR_ID"], decorId)
+        local textBrightness = row.isCollected and 0.4 or 0.7
+        row.textBrightness = textBrightness
+        local displayName = (record and record.name) or (fallback and fallback[1]) or string.format(L["VENDORS_DECOR_ID"], decorId)
         row.name:SetText(displayName)
         addon:SetFontSize(row.name, 13, "")
 
         -- Check if this item is currently selected (composite key: vendor + decor)
         local isItemSelected = self.selectedVendorNpcId == frame.npcId and self.selectedDecorId == decorId
         self:UpdateDecorSelectionVisual(row, isItemSelected, textBrightness)
-
-        row:SetScript("OnClick", function()
-            if IsShiftKeyDown() then
-                self:ToggleVendorDecorTracking(frame.npcId, decorId)
-                return
-            end
-
-            self:HandleItemSelection({
-                decorId = decorId,
-                npcId = frame.npcId,
-                isVendorRow = false,
-                decorRow = row,  -- live ref for immediate visual update only
-            })
-        end)
-
-        row:SetScript("OnEnter", function(r)
-            if not (self.selectedVendorNpcId == frame.npcId and self.selectedDecorId == decorId) then
-                r.name:SetTextColor(1, 1, 1, 1)
-            end
-            addon:FireEvent("RECORD_SELECTED", decorId)
-
-            GameTooltip:SetOwner(UIParent, "ANCHOR_NONE")
-            local x, y = GetCursorPosition()
-            local scale = UIParent:GetEffectiveScale()
-            GameTooltip:SetPoint("BOTTOMLEFT", UIParent, "BOTTOMLEFT", (x / scale) + 15, (y / scale) + 15)
-            if record then
-                GameTooltip:SetText(record.name, 1, 1, 1)
-                if isCollected then
-                    GameTooltip:AddLine(L["FILTER_COLLECTED"], 0.4, 0.9, 0.4)
-                end
-            elseif fallback and fallback.name then
-                GameTooltip:SetText(fallback.name, 1, 1, 1)
-                if fallback.category then
-                    GameTooltip:AddLine(fallback.category, 0.7, 0.7, 0.7)
-                end
-            else
-                GameTooltip:SetText(string.format(L["VENDORS_DECOR_ID"], decorId), 1, 1, 1)
-            end
-            GameTooltip:Show()
-        end)
-
-        row:SetScript("OnLeave", function(r)
-            if not (self.selectedVendorNpcId == frame.npcId and self.selectedDecorId == decorId) then
-                r.name:SetTextColor(r.textBrightness, r.textBrightness, r.textBrightness, 1)
-            end
-            GameTooltip:Hide()
-            self:RestoreSelectionOnLeave()
-        end)
     end
 end
 
@@ -1169,7 +1157,7 @@ local function VendorMatchesSearch(vendorData, searchText, zoneName, expansionKe
                 break
             end
             local fallback = addon.VendorItemFallback and addon.VendorItemFallback[decorId]
-            if fallback and fallback.name and strlower(fallback.name):find(searchText, 1, true) then
+            if fallback and fallback[1] and strlower(fallback[1]):find(searchText, 1, true) then
                 result = true
                 break
             end

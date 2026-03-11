@@ -145,9 +145,11 @@ local function ShowPreview(itemRow, recordID)
                 addon.CONSTANTS.CAMERA.TRANSITION_IMMEDIATE,
                 addon.CONSTANTS.CAMERA.MODIFICATION_MAINTAIN, true)
 
-            -- Auto-rotate model in tooltip
-            previewModelScene:SetScript("OnUpdate", function(self, elapsed)
-                local actor = self:GetActorByTag(MODEL_ACTOR_TAG)
+            -- Auto-rotate via child driver frame (avoids taint on ModelScene OnUpdate)
+            local rotationDriver = CreateFrame("Frame", nil, previewModelScene)
+            previewModelScene.rotationDriver = rotationDriver
+            rotationDriver:SetScript("OnUpdate", function(self, elapsed)
+                local actor = self.actor
                 if actor then
                     local yaw = actor:GetYaw() or 0
                     actor:SetYaw(yaw + elapsed * ROTATION_SPEED)
@@ -165,6 +167,7 @@ local function ShowPreview(itemRow, recordID)
         end
 
         if actor then
+            previewModelScene.rotationDriver.actor = actor
             local success = actor:SetModelByFileID(record.modelAsset)
             if success then
                 actor:SetYaw(0)

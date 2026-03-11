@@ -1041,10 +1041,8 @@ addon:RegisterInternalEvent("TAB_CHANGED", function()
     end
 end)
 
--- Listen for WoW's tracking update event (catches changes from other UI)
--- Event payload: trackingType (ContentTrackingType), id (number), isTracked (bool)
 addon:RegisterWoWEvent("CONTENT_TRACKING_UPDATE", function(trackingType, id, isTracked)
-    if trackingType == Enum.ContentTrackingType.Decor then
+    if trackingType == Enum.ContentTrackingType.Decor and Preview.currentRecordID == id then
         RefreshCurrentActionButtons()
     end
 end)

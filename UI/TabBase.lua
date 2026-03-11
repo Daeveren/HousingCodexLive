@@ -121,6 +121,69 @@ function TabBaseMixin:ApplySelectionButtonState(frame, isSelected)
 end
 
 --------------------------------------------------------------------------------
+-- Standard Toolbar Factory
+--------------------------------------------------------------------------------
+
+-- Create a standard toolbar with search box and completion filter buttons.
+-- All 6 hierarchy tabs use identical toolbar layout; only L-key prefixes differ.
+-- @param parent: Parent frame
+-- @param config: { searchPlaceholderKey, filterPrefix, defaultFilter }
+--   filterPrefix: e.g. "VENDORS" → uses L["VENDORS_FILTER_ALL"], L["VENDORS_FILTER_INCOMPLETE"], L["VENDORS_FILTER_COMPLETE"]
+function TabBaseMixin:CreateStandardToolbar(parent, config)
+    local L = addon.L
+
+    local toolbar = CreateFrame("Frame", nil, parent)
+    toolbar:SetPoint("TOPLEFT", parent, "TOPLEFT", 0, 0)
+    toolbar:SetPoint("TOPRIGHT", parent, "TOPRIGHT", 0, 0)
+    toolbar:SetHeight(CONSTS.HEADER_HEIGHT)
+    self.toolbar = toolbar
+
+    local bg = toolbar:CreateTexture(nil, "BACKGROUND")
+    bg:SetAllPoints()
+    bg:SetColorTexture(0.05, 0.05, 0.07, 0.9)
+
+    local searchBox = CreateFrame("EditBox", nil, toolbar, "SearchBoxTemplate")
+    searchBox:SetPoint("LEFT", toolbar, "LEFT", CONSTS.GRID_OUTER_PAD + 40, 0)
+    searchBox:SetSize(250, 20)
+    searchBox:SetAutoFocus(false)
+    searchBox.Instructions:SetText(L[config.searchPlaceholderKey])
+    searchBox.Instructions:SetWordWrap(false)
+    self.searchBox = searchBox
+
+    self:WireSearchBox(searchBox)
+
+    local filterContainer = CreateFrame("Frame", nil, toolbar)
+    filterContainer:SetPoint("LEFT", searchBox, "RIGHT", 16, 0)
+    filterContainer:SetHeight(22)
+    self.filterContainer = filterContainer
+
+    local prefix = config.filterPrefix
+    local filters = {
+        { key = "all", label = L[prefix .. "_FILTER_ALL"] },
+        { key = "incomplete", label = L[prefix .. "_FILTER_INCOMPLETE"] },
+        { key = "complete", label = L[prefix .. "_FILTER_COMPLETE"] },
+    }
+
+    local xOffset = 0
+    for _, filterInfo in ipairs(filters) do
+        local btn = addon:CreateActionButton(filterContainer, filterInfo.label, function()
+            self:SetCompletionFilter(filterInfo.key)
+        end)
+        btn:SetPoint("LEFT", filterContainer, "LEFT", xOffset, 0)
+        btn.filterKey = filterInfo.key
+        self.filterButtons[filterInfo.key] = btn
+        xOffset = xOffset + btn:GetWidth() + 4
+    end
+
+    filterContainer:SetWidth(xOffset - 4)
+    self:SetCompletionFilter(config.defaultFilter or "incomplete")
+
+    toolbar:SetScript("OnSizeChanged", function(_, width)
+        self:UpdateToolbarLayout(width)
+    end)
+end
+
+--------------------------------------------------------------------------------
 -- Responsive Toolbar Layout
 --------------------------------------------------------------------------------
 

@@ -12,8 +12,6 @@ addon.ContainerOverlay = ContainerOverlay
 local HC_ICON_SIZE = 14
 local CHECKMARK_SIZE = 12
 local HC_ICON_PATH = "Interface\\AddOns\\HousingCodex\\HC64"
-local SHADOW_COLOR = { 0, 0, 0, 0.7 }
-
 -- Cache for catalog lookups: table = decor info, false = not decor, nil = not yet queried
 local itemDecorCache = {}
 
@@ -23,26 +21,6 @@ local trackedButtons = {}  -- buttons we've added overlays to (for HideAllOverla
 
 local function ClearCache()
     wipe(itemDecorCache)
-end
-
--- Create icon with shadow (shadow is slightly larger and offset)
-local function CreateIconWithShadow(button, size, shadowOffset)
-    local shadow = button:CreateTexture(nil, "OVERLAY", nil, 6)
-    shadow:SetSize(size + shadowOffset, size + shadowOffset)
-    shadow:SetVertexColor(unpack(SHADOW_COLOR))
-
-    local icon = button:CreateTexture(nil, "OVERLAY", nil, 7)
-    icon:SetSize(size, size)
-
-    return icon, shadow
-end
-
--- Check if decor is owned (stored + placed + entrySubtype for showQuantity=false items)
-local function IsDecorOwned(catalogInfo)
-    if type(catalogInfo) ~= "table" then return false end
-    local total = (catalogInfo.quantity or 0) + (catalogInfo.remainingRedeemable or 0) + (catalogInfo.numPlaced or 0)
-    if total > 0 then return true end
-    return ((catalogInfo.entryID and catalogInfo.entryID.entrySubtype) or 0) > 1
 end
 
 -- Look up decor info for an itemID (with caching)
@@ -68,14 +46,14 @@ function ContainerOverlay:GetOrCreateOverlay(button)
     end
 
     -- HC icon with shadow (smaller offsets for bag-sized buttons)
-    local hcIcon, hcShadow = CreateIconWithShadow(button, HC_ICON_SIZE, 6)
+    local hcIcon, hcShadow = addon.CreateIconWithShadow(button, HC_ICON_SIZE, 6)
     hcShadow:SetPoint("TOPLEFT", button, "TOPLEFT", -8, 8)
     hcShadow:SetTexture(HC_ICON_PATH)
     hcIcon:SetPoint("TOPLEFT", button, "TOPLEFT", -5, 5)
     hcIcon:SetTexture(HC_ICON_PATH)
 
     -- Checkmark with shadow
-    local checkmark, checkShadow = CreateIconWithShadow(button, CHECKMARK_SIZE, 4)
+    local checkmark, checkShadow = addon.CreateIconWithShadow(button, CHECKMARK_SIZE, 4)
     checkShadow:SetPoint("TOP", hcIcon, "BOTTOM", 0, 4)
     checkShadow:SetAtlas("common-icon-checkmark")
     checkmark:SetPoint("TOP", hcIcon, "BOTTOM", 0, 2)
@@ -124,7 +102,7 @@ function ContainerOverlay:UpdateButton(button, itemID)
         return
     end
 
-    local isOwned = IsDecorOwned(catalogInfo)
+    local isOwned = addon.IsDecorOwned(catalogInfo)
 
     local overlay = self:GetOrCreateOverlay(button)
     overlay.hcShadow:SetShown(showDecorIcon)

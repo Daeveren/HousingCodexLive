@@ -59,7 +59,7 @@ local function RefreshRecordOwnership(record, info)
     record.isCollected = record.totalOwned > 0
 end
 
-local function GetEntryIcon(entryID, info)
+local function GetEntryIcon(info)
     -- Priority 1: iconTexture (FileAsset - number fileID or string path)
     -- Must validate because invalid values render as bright green tiles
     local iconTex = info.iconTexture
@@ -80,57 +80,58 @@ local function GetEntryIcon(entryID, info)
     return FALLBACK_ICON, "texture", true  -- third return = isModelOnly
 end
 
-local function BuildRecord(entryID, info)
-    if not info then return nil end
-
-    local recordID = entryID.recordID
-    local icon, iconType, isModelOnly = GetEntryIcon(entryID, info)
+-- Shared record constructor used by both BuildRecord and ResolveRecord
+-- options.resolveTracking: query C_ContentTracking for live tracking state
+-- options.useEntrySubtype: include entrySubtype > 1 as ownership signal
+local function BuildRecordFields(entryID, info, options)
+    local icon, iconType, isModelOnly = GetEntryIcon(info)
     local totalOwned = CalculateTotalOwned(info)
 
-    -- Build record
-    local record = {
-        -- Identity
-        entryID = entryID,
-        recordID = recordID,
-        name = info.name or "",
+    local isCollected = totalOwned > 0
+    if options and options.useEntrySubtype then
+        local entrySubtype = (info.entryID and info.entryID.entrySubtype) or 1
+        isCollected = isCollected or entrySubtype > 1
+    end
 
-        -- Display
+    local isTrackable, isTracking = false, false
+    if options and options.resolveTracking then
+        local ct = C_ContentTracking
+        local recordID = entryID.recordID
+        isTrackable = ct and ct.IsTrackable and ct.IsTrackable(TRACKING_TYPE_DECOR, recordID) or false
+        isTracking  = ct and ct.IsTracking  and ct.IsTracking(TRACKING_TYPE_DECOR, recordID)  or false
+    end
+
+    return {
+        entryID = entryID,
+        recordID = entryID.recordID,
+        name = info.name or "",
         icon = icon,
         iconType = iconType,
-        isModelOnly = isModelOnly or false,  -- true if no 2D icon available
-
-        -- Collection state (total = placed + storage + redeemable)
+        isModelOnly = isModelOnly or false,
         quantity = info.quantity or 0,
         numPlaced = info.numPlaced or 0,
         remainingRedeemable = info.remainingRedeemable or 0,
         totalOwned = totalOwned,
-        isCollected = totalOwned > 0,
-
-        -- Categories (used by PreviewFrame for breadcrumb display)
+        isCollected = isCollected,
         categoryIDs = info.categoryIDs or {},
         subcategoryIDs = info.subcategoryIDs or {},
-
-        -- Attributes
         size = info.size or 0,
-        sizeKey = GetSizeKey(info.size),  -- Localization key (nil for None/unknown)
+        sizeKey = GetSizeKey(info.size),
         isIndoors = info.isAllowedIndoors or false,
         isOutdoors = info.isAllowedOutdoors or false,
         canCustomize = info.canCustomize or false,
-
-        -- Preview
         modelAsset = info.asset,
         modelSceneID = info.uiModelSceneID,
-
-        -- Source/Acquisition
-        itemID = info.itemID,  -- For merchant overlay reverse index
+        itemID = info.itemID,
         sourceText = info.sourceText or "",
-
-        -- Tracking (populated later)
-        isTrackable = false,
-        isTracking = false,
+        isTrackable = isTrackable,
+        isTracking = isTracking,
     }
+end
 
-    return record
+local function BuildRecord(entryID, info)
+    if not info then return nil end
+    return BuildRecordFields(entryID, info)
 end
 
 function addon:ScheduleRetry(reason)
@@ -276,6 +277,7 @@ function addon:ProcessSearchResults()
     end
 
     self.decorRecords = records
+    self.cachedAllRecordIDs = nil
 
     -- Update tracking status for all records
     self:UpdateAllTrackingStatus()
@@ -400,48 +402,15 @@ function addon:ResolveRecord(recordID)
         return nil
     end
 
-    -- Reuse shared icon resolution (same priority chain as BuildRecord)
-    local icon, iconType, isModelOnly = GetEntryIcon(nil, info)
-    local totalOwned = CalculateTotalOwned(info)
-    -- For showQuantity=false items, quantity fields are always 0 — entrySubtype is the ownership signal
-    -- entrySubtype: 1=Unowned, 2=OwnedModifiedStack, 3=OwnedUnmodifiedStack
-    local entrySubtype = (info.entryID and info.entryID.entrySubtype) or 1
+    -- Synthetic entryID fallback for items missing entryID in API response
     local entryID = info.entryID or {
         recordID = recordID,
         entryType = Enum.HousingCatalogEntryType.Decor,
         entrySubtype = 1,
         subtypeIdentifier = 0,
     }
-    local ct = C_ContentTracking
-    local isTrackable = ct and ct.IsTrackable and ct.IsTrackable(TRACKING_TYPE_DECOR, recordID) or false
-    local isTracking  = ct and ct.IsTracking  and ct.IsTracking(TRACKING_TYPE_DECOR, recordID)  or false
 
-    record = {
-        entryID = entryID,
-        recordID = recordID,
-        name = info.name or "",
-        icon = icon,
-        iconType = iconType,
-        isModelOnly = isModelOnly or false,
-        quantity = info.quantity or 0,
-        numPlaced = info.numPlaced or 0,
-        remainingRedeemable = info.remainingRedeemable or 0,
-        totalOwned = totalOwned,
-        isCollected = totalOwned > 0 or entrySubtype > 1,
-        categoryIDs = info.categoryIDs or {},
-        subcategoryIDs = info.subcategoryIDs or {},
-        size = info.size or 0,
-        sizeKey = GetSizeKey(info.size),
-        isIndoors = info.isAllowedIndoors or false,
-        isOutdoors = info.isAllowedOutdoors or false,
-        canCustomize = info.canCustomize or false,
-        modelAsset = info.asset,
-        modelSceneID = info.uiModelSceneID,
-        itemID = info.itemID,
-        sourceText = info.sourceText or "",
-        isTrackable = isTrackable,
-        isTracking = isTracking,
-    }
+    record = BuildRecordFields(entryID, info, { resolveTracking = true, useEntrySubtype = true })
 
     self.fallbackRecords[recordID] = record
     if record.itemID and self.itemIDToRecordID then
@@ -481,10 +450,12 @@ function addon:GetTotalOwnedCount()
 end
 
 function addon:GetAllRecordIDs()
+    if self.cachedAllRecordIDs then return self.cachedAllRecordIDs end
     local ids = {}
     for recordID in pairs(self.decorRecords) do
-        table.insert(ids, recordID)
+        ids[#ids + 1] = recordID
     end
+    self.cachedAllRecordIDs = ids
     return ids
 end
 

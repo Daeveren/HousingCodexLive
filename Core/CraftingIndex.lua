@@ -11,12 +11,12 @@ addon.craftingProgressCache = {}
 addon.craftingIndexBuilt = false
 addon.craftingTotalCount = 0
 
-local function BuildSortName(record, recipeName, decorId)
+local function BuildSortName(record, professionName, decorId)
     if record and record.name and record.name ~= "" then
         return strlower(record.name)
     end
-    if recipeName and recipeName ~= "" then
-        return strlower(recipeName)
+    if professionName and professionName ~= "" then
+        return strlower(professionName)
     end
     return tostring(decorId or 0)
 end
@@ -38,6 +38,18 @@ function addon:BuildCraftingIndex()
     wipe(self.craftingProgressCache)
     self.craftingTotalCount = 0
 
+    -- Intern shared strings to reduce memory (skillLine has ~103 unique across ~300 entries)
+    local internedStrings = {}
+    for _, crafts in pairs(self.CraftingSourceData) do
+        for _, craft in ipairs(crafts) do
+            local sl = craft.skillLine
+            if sl then
+                internedStrings[sl] = internedStrings[sl] or sl
+                craft.skillLine = internedStrings[sl]
+            end
+        end
+    end
+
     local professionCount = 0
     local skippedMissingRecord = 0
 
@@ -49,14 +61,12 @@ function addon:BuildCraftingIndex()
             if decorId then
                 local record = ResolveCraftRecord(self, decorId)
                 if record then
-                    local recipeName = craft.recipeName
                     table.insert(entries, {
                         decorId = decorId,
-                        recipeName = recipeName,
                         professionName = professionName,
                         skillLine = craft.skillLine,
                         skillNeeded = craft.skillNeeded,
-                        sortName = BuildSortName(record, recipeName, decorId),
+                        sortName = BuildSortName(record, professionName, decorId),
                     })
                     self.craftingTotalCount = self.craftingTotalCount + 1
                 else
