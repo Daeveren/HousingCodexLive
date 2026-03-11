@@ -31,16 +31,14 @@ addon.achievementSortedRecords = {}   -- achievementId -> sorted { recordID, ...
 addon.achievementHierarchy = {}       -- categoryId -> { achievements[] }
 addon.achievementCompletionCache = {} -- achievementId -> boolean
 addon.achievementIndexBuilt = false   -- true only after BuildAchievementHierarchy completes
-local achievementIndexDataBuilt = false -- guards BuildAchievementIndex against double-run
 
 -- Build achievement index from scraped AchievementSourceData
 function addon:BuildAchievementIndex()
-    if achievementIndexDataBuilt then return end
+    if self.achievementIndexBuilt then return end
     if not self.dataLoaded then
         self:Debug("Cannot build achievement index: data not loaded")
         return
     end
-    achievementIndexDataBuilt = true
 
     local startTime = debugprofilestop()
 

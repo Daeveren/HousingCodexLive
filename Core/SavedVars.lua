@@ -90,7 +90,6 @@ local defaults = {
     },
     endeavors = {
         enabled = true,
-        shown = true,
         minimized = false,
         showHouseXP = true,
         showEndeavorProgress = true,

@@ -12,6 +12,10 @@ setmetatable(addon.L, { __index = function(_, key) return key end })
 -- Populated by locale files (e.g., frFR.lua). English fallback is the original name.
 addon.sourceNameLocale = {}
 
+-- Manual quest title overrides for quests without quest IDs (cannot use C_QuestLog API)
+-- Populated by locale files. English fallback is the original name.
+addon.questTitleLocale = {}
+
 function addon:GetLocalizedSourceName(name)
     if not name then return name end
     return self.sourceNameLocale[name] or name
@@ -132,4 +136,51 @@ function addon:GetLocalizedNPCName(npcID, fallbackName)
 
     npcNameCache[npcID] = name
     return name
+end
+
+--------------------------------------------------------------------------------
+-- Skill-line label localization
+-- Expansion-prefixed skill lines (e.g., "Classic Alchemy", "Midnight Cooking")
+-- come from scraped English data. We split the prefix and profession, localize
+-- each separately, then recombine.
+--------------------------------------------------------------------------------
+local SKILL_LINE_EXPANSION_PREFIXES = {
+    ["Classic"]            = "EXPANSION_CLASSIC",
+    ["Outland"]            = "EXPANSION_TBC",
+    ["Northrend"]          = "EXPANSION_WRATH",
+    ["Cataclysm"]          = "EXPANSION_CATA",
+    ["Pandaria"]           = "EXPANSION_MOP",
+    ["Draenor"]            = "EXPANSION_WOD",
+    ["Legion"]             = "EXPANSION_LEGION",
+    ["Battle for Azeroth"] = "EXPANSION_BFA",
+    ["Shadowlands"]        = "EXPANSION_SL",
+    ["Dragon Isles"]       = "EXPANSION_DF",
+    ["Khaz Algar"]         = "EXPANSION_TWW",
+    ["Midnight"]           = "EXPANSION_MIDNIGHT",
+}
+
+local skillLineCache = {}
+
+function addon:GetLocalizedSkillLine(englishSkillLine)
+    if not englishSkillLine then return englishSkillLine end
+
+    local cached = skillLineCache[englishSkillLine]
+    if cached then return cached end
+
+    for prefix, locKey in pairs(SKILL_LINE_EXPANSION_PREFIXES) do
+        if englishSkillLine:sub(1, #prefix) == prefix then
+            local professionPart = englishSkillLine:sub(#prefix + 2)  -- skip prefix + space
+            if professionPart ~= "" then
+                local localizedExpansion = self.L[locKey]
+                local localizedProfession = self:GetLocalizedProfessionName(professionPart)
+                if localizedExpansion and localizedProfession then
+                    local result = localizedExpansion .. " " .. localizedProfession
+                    skillLineCache[englishSkillLine] = result
+                    return result
+                end
+            end
+        end
+    end
+
+    return englishSkillLine
 end

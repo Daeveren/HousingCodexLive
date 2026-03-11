@@ -2,6 +2,24 @@
 
 All notable changes to Housing Codex.
 
+**1.9.5** (2026-03-12)
+
+**Added**
+- Full Simplified Chinese localization — all addon text is now translated to Chinese (thanks to XingDvD)
+
+**Changed**
+- Zone names, class names, profession names, and vendor names now display more accurately in French and Chinese
+- Redesigned map tooltips
+- Updated item database with refreshed vendor, quest, achievement, and drop data
+
+**Fixed**
+- Endeavors panel no longer shows stale tasks from a previous neighborhood when teleporting between neighborhoods
+- Toggling the Endeavors panel on while in a neighborhood now immediately starts tracking
+- Endeavors config popup now always shows current settings when reopened
+- Improvements to vendor items when using fallback data
+- Clicking the Endeavors progress bar during combat no longer causes a "blocked action" error
+- Codebase improvements in order to make the addon run smoother
+
 **1.9.4** (2026-03-11)
 
 **Fixed**

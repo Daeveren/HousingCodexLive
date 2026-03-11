@@ -47,10 +47,11 @@ end
 local function BuildSkillText(craft)
     local line = NormalizeSkillLine(craft.skillLine)
     if line then
+        local localized = addon:GetLocalizedSkillLine(line)
         if type(craft.skillNeeded) == "number" then
-            return string.format("%s (%d)", line, craft.skillNeeded)
+            return string.format("%s (%d)", localized, craft.skillNeeded)
         end
-        return line
+        return localized
     end
     return addon:GetLocalizedProfessionName(craft.professionName) or addon.L["UNKNOWN"]
 end

@@ -178,7 +178,7 @@ function addon:GetVendorPinProgress(npcId)
             local name = addon:ResolveDecorName(decorId, record)
             local fallbackInfo = addon.VendorItemFallback and addon.VendorItemFallback[decorId]
             local achId = addon.DecorToAchievementLookup and addon.DecorToAchievementLookup[decorId]
-            if (fallbackInfo and fallbackInfo[3]) or (achId and not addon:IsAchievementCompleted(achId)) then
+            if (fallbackInfo and fallbackInfo.sourceCategory) or (achId and not addon:IsAchievementCompleted(achId)) then
                 name = name .. " |cff888888(" .. L["VENDOR_PIN_ITEM_LOCKED"] .. ")|r"
             end
             missingNames[#missingNames + 1] = name

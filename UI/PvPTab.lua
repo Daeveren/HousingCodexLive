@@ -541,7 +541,12 @@ function PvPTab:SetupSourceRow(frame, elementData)
     frame.decorContainer:Show()
     frame.decorContainer:SetHeight(decorCount * DECOR_ROW_HEIGHT)
 
-    local displayName = addon:GetLocalizedSourceName(elementData.sourceName) or L["UNKNOWN"]
+    local displayName
+    if elementData.sourceCategory == "vendors" and elementData.npcId then
+        displayName = addon:GetLocalizedNPCName(elementData.npcId, elementData.sourceName) or L["UNKNOWN"]
+    else
+        displayName = addon:GetLocalizedSourceName(elementData.sourceName) or L["UNKNOWN"]
+    end
 
     if elementData.sourceCategory == "achievements" and elementData.achievementID then
         -- Show completion checkmark for achievements
@@ -668,7 +673,12 @@ local function SourceMatchesSearch(sourceData, searchText, category)
     end
 
     -- Also match localized source name
-    local localizedName = addon:GetLocalizedSourceName(sourceData.sourceName)
+    local localizedName
+    if sourceData.sourceCategory == "vendors" and sourceData.npcId then
+        localizedName = addon:GetLocalizedNPCName(sourceData.npcId, sourceData.sourceName)
+    else
+        localizedName = addon:GetLocalizedSourceName(sourceData.sourceName)
+    end
     if localizedName and localizedName ~= sourceData.sourceName and strlower(localizedName):find(searchText, 1, true) then
         return true
     end

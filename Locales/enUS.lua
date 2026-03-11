@@ -561,6 +561,7 @@ L["ENDEAVORS_OPT_SCALE_TIP"] = "Change the size of the Endeavors panel"
 L["ENDEAVORS_OPT_SCALE_SMALL"] = "Small"
 L["ENDEAVORS_OPT_SCALE_NORMAL"] = "Normal"
 L["ENDEAVORS_OPT_SCALE_BIG"] = "Big"
+L["ENDEAVORS_MILESTONE_COMPLETED"] = "completed"
 
 --------------------------------------------------------------------------------
 -- PvP Tab
@@ -578,6 +579,8 @@ L["PVP_EMPTY_NO_SOURCES"] = "No PvP sources found"
 L["PVP_EMPTY_NO_SOURCES_DESC"] = "PvP data may not be available"
 L["PVP_SELECT_CATEGORY"] = "Select a category"
 L["PVP_EMPTY_NO_RESULTS"] = "No PvP sources match your search"
+L["SETTINGS_CATEGORY_NAME"] = "Housing |cffFB7104Codex|r"
+
 --------------------------------------------------------------------------------
 -- Game Entity Names (drop sources, encounter names, treasure locations)
 -- Translators: copy this block to your locale file, change the values.
@@ -595,7 +598,9 @@ SN["Shadowmoon Valley (Draenor) Missives"] = "Shadowmoon Valley (Draenor) Missiv
 SN["Strange Recycling Requisition (Mechagon)"] = "Strange Recycling Requisition (Mechagon)"
 SN["Theater Troupe event chest (Isle of Dorn)"] = "Theater Troupe event chest (Isle of Dorn)"
 SN["Twitch Drop"] = "Twitch Drop"
+SN["Twitch drop (Feb 26 to Mar 24)"] = "Twitch drop (Feb 26 to Mar 24)"
 SN["Undermine Jobs"] = "Undermine Jobs"
+SN["Zillow & Warcraft collab"] = "Zillow & Warcraft collab"
 SN["Zillow for Warcraft Promotion"] = "Zillow for Warcraft Promotion"
 
 -- Encounters (bosses)

@@ -17,6 +17,9 @@ local CATEGORY_BUTTON_HEIGHT = CONSTS.HIERARCHY_HEADER_HEIGHT
 
 -- Category IDs are used for logic, GetCategoryInfo(id) gets localized names for display
 
+-- Forward declarations for named handlers (defined after AchievementsTab singleton)
+local AchievementRowOnMouseDown, AchievementRowOnEnter, AchievementRowOnLeave
+
 -- Helper to apply achievement row visual state
 local function ApplyAchievementRowState(frame, isSelected)
     addon:ResetBackgroundTexture(frame.bg)
@@ -101,11 +104,10 @@ local function ResetAchievementRowState(frame)
     frame.wishlistStar:Hide()
     frame.achievementID = nil
     frame.recordID = nil
+    frame.elementData = nil
 end
 
 local function SetupAchievementRow(self, frame, elementData)
-    local L = addon.L
-
     frame.achievementID = elementData.achievementID
     frame.recordID = elementData.recordID
 
@@ -144,115 +146,10 @@ local function SetupAchievementRow(self, frame, elementData)
     local progressComplete = owned == total and total > 0
     frame.progress:SetTextColor(unpack(progressComplete and COLORS.PROGRESS_COMPLETE or COLORS.TEXT_TERTIARY))
 
-    frame:SetScript("OnMouseDown", function(f, button)
-        if button == "RightButton" then
-            addon.ContextMenu:ShowForAchievement(f, elementData.achievementID, elementData.recordID)
-            return
-        end
-
-        if IsShiftKeyDown() and elementData.achievementID then
-            -- Shift+Click: Toggle tracking the achievement
-            if C_ContentTracking then
-                local achievementID = elementData.achievementID
-                if C_ContentTracking.IsTracking(Enum.ContentTrackingType.Achievement, achievementID) then
-                    C_ContentTracking.StopTracking(Enum.ContentTrackingType.Achievement, achievementID, Enum.ContentTrackingStopType.Manual)
-                    addon:Print(L["ACHIEVEMENTS_TRACKING_STOPPED"])
-                else
-                    local err = C_ContentTracking.StartTracking(Enum.ContentTrackingType.Achievement, achievementID)
-                    addon:PrintTrackingResult(err, "ACHIEVEMENTS_TRACKING_STARTED_ACHIEVEMENT", "ACHIEVEMENTS_TRACKING_FAILED", "ACHIEVEMENTS_TRACKING_MAX_REACHED", "ACHIEVEMENTS_TRACKING_ALREADY")
-                end
-            end
-        elseif IsControlKeyDown() and elementData.recordID then
-            -- Ctrl+Click: Start tracking the decor reward
-            if C_ContentTracking then
-                local err = C_ContentTracking.StartTracking(Enum.ContentTrackingType.Decor, elementData.recordID)
-                addon:PrintTrackingResult(err, "ACHIEVEMENTS_TRACKING_STARTED", "ACHIEVEMENTS_TRACKING_FAILED", "ACHIEVEMENTS_TRACKING_MAX_REACHED", "ACHIEVEMENTS_TRACKING_ALREADY")
-            end
-        else
-            self:SelectAchievement(elementData)
-        end
-    end)
-
-    frame:SetScript("OnEnter", function(f)
-        -- Visual feedback
-        if self.selectedAchievementID ~= f.achievementID or self.selectedRecordID ~= f.recordID then
-            f.bg:SetColorTexture(unpack(COLORS.ROW_BG_SOLID))
-        end
-
-        -- Fire preview event for hover
-        local recordID = f.recordID
-        if not recordID then
-            local recordIDs = addon:GetRecordsForAchievement(f.achievementID)
-            recordID = recordIDs and recordIDs[1]
-        end
-        if recordID then
-            addon:FireEvent("RECORD_SELECTED", recordID)
-        end
-
-        -- Show achievement tooltip at cursor with live criteria progress
-        GameTooltip:SetOwner(UIParent, "ANCHOR_NONE")
-        local x, y = GetCursorPosition()
-        local scale = UIParent:GetEffectiveScale()
-        GameTooltip:SetPoint("BOTTOMLEFT", UIParent, "BOTTOMLEFT", (x / scale) + 15, (y / scale) + 15)
-
-        local achievementID = f.achievementID
-        local _, name, _, completed, month, day, year, description = GetAchievementInfo(achievementID)
-
-        -- Achievement name (gold if completed, white otherwise)
-        local r, g, b = 1, 1, 1
-        if completed then r, g, b = 1, 0.82, 0 end
-        GameTooltip:AddLine(name, r, g, b)
-
-        -- Description
-        if description then
-            GameTooltip:AddLine(description, 1, 1, 1, true)
-        end
-
-        -- Criteria progress
-        local numCriteria = GetAchievementNumCriteria(achievementID)
-        if numCriteria and numCriteria > 0 then
-            GameTooltip:AddLine(" ")
-            for i = 1, numCriteria do
-                local criteriaString, _, criteriaCompleted, quantity, reqQuantity, _, _, _, quantityString
-                    = GetAchievementCriteriaInfo(achievementID, i)
-                if criteriaString then
-                    if criteriaCompleted then
-                        GameTooltip:AddLine("  |cff00ff00" .. criteriaString .. "|r")
-                    elseif reqQuantity and reqQuantity > 1 then
-                        local progressText = quantityString or (quantity .. "/" .. reqQuantity)
-                        GameTooltip:AddLine("  |cff808080- " .. criteriaString .. " (" .. progressText .. ")|r")
-                    else
-                        GameTooltip:AddLine("  |cff808080- " .. criteriaString .. "|r")
-                    end
-                end
-            end
-        end
-
-        -- Completion date
-        if completed and month and day and year then
-            GameTooltip:AddLine(" ")
-            GameTooltip:AddLine(string.format(ACHIEVEMENT_TOOLTIP_COMPLETE, day, month, year), 0.6, 0.6, 0.6)
-        end
-
-        GameTooltip:Show()
-    end)
-
-    frame:SetScript("OnLeave", function(f)
-        GameTooltip:Hide()
-
-        ApplyAchievementRowState(f, self.selectedAchievementID == f.achievementID and
-            (not f.recordID or self.selectedRecordID == f.recordID))
-
-        -- Restore preview to selected achievement
-        if self.selectedRecordID then
-            addon:FireEvent("RECORD_SELECTED", self.selectedRecordID)
-        elseif self.selectedAchievementID then
-            local recordIDs = addon:GetRecordsForAchievement(self.selectedAchievementID)
-            if recordIDs and recordIDs[1] then
-                addon:FireEvent("RECORD_SELECTED", recordIDs[1])
-            end
-        end
-    end)
+    frame.elementData = elementData
+    frame:SetScript("OnMouseDown", AchievementRowOnMouseDown)
+    frame:SetScript("OnEnter", AchievementRowOnEnter)
+    frame:SetScript("OnLeave", AchievementRowOnLeave)
 end
 addon.AchievementsTab = {}
 local AchievementsTab = addon.AchievementsTab
@@ -260,6 +157,103 @@ local AchievementsTab = addon.AchievementsTab
 -- Apply shared mixin for common tab functionality
 Mixin(AchievementsTab, addon.TabBaseMixin)
 AchievementsTab.tabName = "AchievementsTab"
+
+-- Named handlers for achievement rows (bound once, read data from frame fields)
+AchievementRowOnMouseDown = function(frame, button)
+    local elementData = frame.elementData
+    if button == "RightButton" then
+        addon.ContextMenu:ShowForAchievement(frame, elementData.achievementID, elementData.recordID)
+        return
+    end
+
+    if C_ContentTracking and IsShiftKeyDown() and elementData.achievementID then
+        local achievementID = elementData.achievementID
+        if C_ContentTracking.IsTracking(Enum.ContentTrackingType.Achievement, achievementID) then
+            C_ContentTracking.StopTracking(Enum.ContentTrackingType.Achievement, achievementID, Enum.ContentTrackingStopType.Manual)
+            addon:Print(addon.L["ACHIEVEMENTS_TRACKING_STOPPED"])
+        else
+            local err = C_ContentTracking.StartTracking(Enum.ContentTrackingType.Achievement, achievementID)
+            addon:PrintTrackingResult(err, "ACHIEVEMENTS_TRACKING_STARTED_ACHIEVEMENT", "ACHIEVEMENTS_TRACKING_FAILED", "ACHIEVEMENTS_TRACKING_MAX_REACHED", "ACHIEVEMENTS_TRACKING_ALREADY")
+        end
+    elseif C_ContentTracking and IsControlKeyDown() and elementData.recordID then
+        local err = C_ContentTracking.StartTracking(Enum.ContentTrackingType.Decor, elementData.recordID)
+        addon:PrintTrackingResult(err, "ACHIEVEMENTS_TRACKING_STARTED", "ACHIEVEMENTS_TRACKING_FAILED", "ACHIEVEMENTS_TRACKING_MAX_REACHED", "ACHIEVEMENTS_TRACKING_ALREADY")
+    else
+        AchievementsTab:SelectAchievement(elementData)
+    end
+end
+
+AchievementRowOnEnter = function(frame)
+    if AchievementsTab.selectedAchievementID ~= frame.achievementID or AchievementsTab.selectedRecordID ~= frame.recordID then
+        frame.bg:SetColorTexture(unpack(COLORS.ROW_BG_SOLID))
+    end
+
+    local recordID = frame.recordID
+    if not recordID then
+        local recordIDs = addon:GetRecordsForAchievement(frame.achievementID)
+        recordID = recordIDs and recordIDs[1]
+    end
+    if recordID then
+        addon:FireEvent("RECORD_SELECTED", recordID)
+    end
+
+    GameTooltip:SetOwner(UIParent, "ANCHOR_NONE")
+    local x, y = GetCursorPosition()
+    local scale = UIParent:GetEffectiveScale()
+    GameTooltip:SetPoint("BOTTOMLEFT", UIParent, "BOTTOMLEFT", (x / scale) + 15, (y / scale) + 15)
+
+    local _, name, _, completed, month, day, year, description = GetAchievementInfo(frame.achievementID)
+
+    local r, g, b = 1, 1, 1
+    if completed then r, g, b = 1, 0.82, 0 end
+    GameTooltip:AddLine(name, r, g, b)
+
+    if description then
+        GameTooltip:AddLine(description, 1, 1, 1, true)
+    end
+
+    local numCriteria = GetAchievementNumCriteria(frame.achievementID)
+    if numCriteria and numCriteria > 0 then
+        GameTooltip:AddLine(" ")
+        for i = 1, numCriteria do
+            local criteriaString, _, criteriaCompleted, quantity, reqQuantity, _, _, _, quantityString
+                = GetAchievementCriteriaInfo(frame.achievementID, i)
+            if criteriaString then
+                if criteriaCompleted then
+                    GameTooltip:AddLine("  |cff00ff00" .. criteriaString .. "|r")
+                elseif reqQuantity and reqQuantity > 1 then
+                    local progressText = quantityString or (quantity .. "/" .. reqQuantity)
+                    GameTooltip:AddLine("  |cff808080- " .. criteriaString .. " (" .. progressText .. ")|r")
+                else
+                    GameTooltip:AddLine("  |cff808080- " .. criteriaString .. "|r")
+                end
+            end
+        end
+    end
+
+    if completed and month and day and year then
+        GameTooltip:AddLine(" ")
+        GameTooltip:AddLine(string.format(ACHIEVEMENT_TOOLTIP_COMPLETE, day, month, year), 0.6, 0.6, 0.6)
+    end
+
+    GameTooltip:Show()
+end
+
+AchievementRowOnLeave = function(frame)
+    GameTooltip:Hide()
+
+    ApplyAchievementRowState(frame, AchievementsTab.selectedAchievementID == frame.achievementID and
+        (not frame.recordID or AchievementsTab.selectedRecordID == frame.recordID))
+
+    if AchievementsTab.selectedRecordID then
+        addon:FireEvent("RECORD_SELECTED", AchievementsTab.selectedRecordID)
+    elseif AchievementsTab.selectedAchievementID then
+        local recordIDs = addon:GetRecordsForAchievement(AchievementsTab.selectedAchievementID)
+        if recordIDs and recordIDs[1] then
+            addon:FireEvent("RECORD_SELECTED", recordIDs[1])
+        end
+    end
+end
 
 -- Helper to get achievements db state
 local function GetAchievementsDB()
@@ -564,7 +558,7 @@ local function AchievementMatchesSearch(achievementID, searchText, categoryId)
 
     -- Check decor reward names
     local records = addon:GetRecordsForAchievement(achievementID)
-    for _, recordID in ipairs(records) do
+    for _, recordID in ipairs(records or {}) do
         local record = addon:GetRecord(recordID)
         if record and record.name and strlower(record.name):find(searchText, 1, true) then
             return true

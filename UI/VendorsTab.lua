@@ -276,10 +276,10 @@ local function VendorDecorRowOnEnter(row)
         if row.isCollected then
             GameTooltip:AddLine(L["FILTER_COLLECTED"], 0.4, 0.9, 0.4)
         end
-    elseif fallback and fallback[1] then
-        GameTooltip:SetText(fallback[1], 1, 1, 1)
-        if fallback[2] then
-            GameTooltip:AddLine(addon.VendorItemFallbackCategories[fallback[2]], 0.7, 0.7, 0.7)
+    elseif fallback and fallback.name then
+        GameTooltip:SetText(fallback.name, 1, 1, 1)
+        if fallback.category then
+            GameTooltip:AddLine(fallback.category, 0.7, 0.7, 0.7)
         end
     else
         GameTooltip:SetText(string.format(L["VENDORS_DECOR_ID"], decorId), 1, 1, 1)
@@ -655,9 +655,11 @@ function VendorsTab:SetupZoneHeader(frame, elementData)
     local housingZone = addon:GetHousingZoneAnnotation(elementData.zoneName)
     if classHall then
         local colorCode = addon:GetClassColorCode(classHall)
-        frame.zoneLabel:SetText(localizedZoneName .. " " .. colorCode .. "(" .. classHall .. " " .. L["VENDOR_CLASS_HALL_SUFFIX"] .. ")|r")
+        local localizedClass = addon:GetLocalizedClassName(classHall)
+        frame.zoneLabel:SetText(localizedZoneName .. " " .. colorCode .. "(" .. localizedClass .. " " .. L["VENDOR_CLASS_HALL_SUFFIX"] .. ")|r")
     elseif housingZone then
-        frame.zoneLabel:SetText(localizedZoneName .. " |cff888888(" .. housingZone .. " " .. L["VENDOR_HOUSING_ZONE_SUFFIX"] .. ")|r")
+        local localizedFaction = addon:GetLocalizedFactionName(housingZone)
+        frame.zoneLabel:SetText(localizedZoneName .. " |cff888888(" .. localizedFaction .. " " .. L["VENDOR_HOUSING_ZONE_SUFFIX"] .. ")|r")
     else
         frame.zoneLabel:SetText(localizedZoneName)
     end
@@ -712,7 +714,8 @@ function VendorsTab:SetupVendorRow(frame, elementData)
     local classHall = zoneCache and addon:GetClassHallAnnotation(zoneCache.zoneName)
     if classHall then
         local colorCode = addon:GetClassColorCode(classHall)
-        vendorDisplayName = vendorDisplayName .. " " .. colorCode .. "(" .. string.format(L["VENDOR_CLASS_ONLY_SUFFIX"], classHall) .. ")|r"
+        local localizedClass = addon:GetLocalizedClassName(classHall)
+        vendorDisplayName = vendorDisplayName .. " " .. colorCode .. "(" .. string.format(L["VENDOR_CLASS_ONLY_SUFFIX"], localizedClass) .. ")|r"
     end
     frame.vendorName:SetText(vendorDisplayName)
     addon:SetFontSize(frame.vendorName, 14, "")
@@ -825,7 +828,7 @@ function VendorsTab:SetupDecorRows(frame, decorIds)
 
         local textBrightness = row.isCollected and 0.4 or 0.7
         row.textBrightness = textBrightness
-        local displayName = (record and record.name) or (fallback and fallback[1]) or string.format(L["VENDORS_DECOR_ID"], decorId)
+        local displayName = (record and record.name) or (fallback and fallback.name) or string.format(L["VENDORS_DECOR_ID"], decorId)
         row.name:SetText(displayName)
         addon:SetFontSize(row.name, 13, "")
 
@@ -1157,7 +1160,7 @@ local function VendorMatchesSearch(vendorData, searchText, zoneName, expansionKe
                 break
             end
             local fallback = addon.VendorItemFallback and addon.VendorItemFallback[decorId]
-            if fallback and fallback[1] and strlower(fallback[1]):find(searchText, 1, true) then
+            if fallback and fallback.name and strlower(fallback.name):find(searchText, 1, true) then
                 result = true
                 break
             end

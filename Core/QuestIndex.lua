@@ -206,12 +206,22 @@ function addon:BuildQuestIndex()
                     or questInfo.questName
                 if questKey and self.questIndex[questKey] then
                     local existing = self.questZoneFromScrape[questKey]
-                    local isDornogalPriority = existing and existing.zoneName == "Dornogal" and zoneName ~= "Dornogal"
-                    if not isDornogalPriority then
+                    if not existing then
                         self.questZoneFromScrape[questKey] = {
                             zoneName = zoneName,
                             expansionKey = expansionKey,
                         }
+                    elseif existing.zoneName ~= zoneName then
+                        -- Deterministic tiebreaker for duplicate quest IDs across zones:
+                        -- Dornogal always wins; otherwise keep alphabetically-first zone name
+                        local keepExisting = existing.zoneName == "Dornogal"
+                            or (zoneName ~= "Dornogal" and existing.zoneName < zoneName)
+                        if not keepExisting then
+                            self.questZoneFromScrape[questKey] = {
+                                zoneName = zoneName,
+                                expansionKey = expansionKey,
+                            }
+                        end
                     end
                 end
             end
@@ -424,10 +434,11 @@ function addon:GetQuestTitle(questKey)
     local cached = self.questTitleCache[questKey]
     if cached then return cached end
 
-    -- For string keys, the key itself is the quest name
+    -- For string keys (quests without IDs), check locale table first, then use English name
     if type(questKey) == "string" then
-        self.questTitleCache[questKey] = questKey
-        return questKey
+        local title = self.questTitleLocale[questKey] or questKey
+        self.questTitleCache[questKey] = title
+        return title
     end
 
     -- Try to get title from WoW API for numeric IDs

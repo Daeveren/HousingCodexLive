@@ -14,6 +14,10 @@ local function GetMapTooltip()
     return HousingCodexMapTooltip
 end
 
+-- Tooltip color objects
+local COLOR_VENDOR_NAME = CreateColor(0, 0.8, 0, 1)
+local COLOR_DIM = CreateColor(0.67, 0.67, 0.67, 1)
+
 -- Layout constants
 local PANEL_WIDTH = 240
 local PANEL_WIDTH_MINIMIZED = 170
@@ -31,7 +35,6 @@ local BACKDROP_ALPHA_FACTOR = 0.95  -- Reduce backdrop alpha slightly vs user se
 
 -- Model scene constants (same as tile display)
 local MODEL_SCENE_ID = addon.CONSTANTS.MODEL_SCENE_ID
-local MODEL_ACTOR_TAG = "decor"
 
 -- Auto-rotation speed (centralized in CONSTANTS.CAMERA)
 local ROTATION_SPEED = addon.CONSTANTS.CAMERA.ROTATION_SPEED
@@ -161,12 +164,11 @@ local function ShowPreview(itemRow, recordID)
             end)
         end
 
-        local actor = previewModelScene:GetActorByTag(MODEL_ACTOR_TAG)
+        local actor = previewModelScene.decorActor
         if not actor then
             actor = previewModelScene:AcquireActor()
             if actor then
-                previewModelScene.tagToActor = previewModelScene.tagToActor or {}
-                previewModelScene.tagToActor[MODEL_ACTOR_TAG] = actor
+                previewModelScene.decorActor = actor
             end
         end
 
@@ -367,18 +369,20 @@ local function CreateOverlayFrame()
                 local tooltip = GetMapTooltip()
                 tooltip:SetOwner(self, "ANCHOR_NONE")
                 tooltip:SetPoint("TOPLEFT", self, "BOTTOMLEFT", 0, -2)
+                tooltip:SetScale(addon.CONSTANTS.VENDOR_PIN.TOOLTIP_SCALE)
+                addon:StyleMapTooltip(tooltip)
                 local L = addon.L
                 if self.categoryKey == "vendors" and self.sourceName then
                     local locationLine = self.cityName
                         and string.format(L["ZONE_OVERLAY_SOURCE_VENDOR_CITY"], self.cityName)
                         or L["ZONE_OVERLAY_SOURCE_VENDOR"]
-                    tooltip:SetText(addon:GetLocalizedNPCName(self.sourceId, self.sourceName), 0, 0.8, 0)
-                    tooltip:AddLine(locationLine, 0.67, 0.67, 0.67)
-                    tooltip:AddLine(" ")
-                    tooltip:AddLine(L["ZONE_OVERLAY_CLICK_WAYPOINT"], 0.7, 0.7, 0.7)
-                    tooltip:AddLine(L["ZONE_OVERLAY_CLICK_OPEN_HC"], 0.7, 0.7, 0.7)
+                    GameTooltip_SetTitle(tooltip, addon:GetLocalizedNPCName(self.sourceId, self.sourceName), COLOR_VENDOR_NAME)
+                    GameTooltip_AddColoredLine(tooltip, locationLine, COLOR_DIM)
+                    GameTooltip_AddBlankLineToTooltip(tooltip)
+                    GameTooltip_AddInstructionLine(tooltip, L["ZONE_OVERLAY_CLICK_WAYPOINT"])
+                    GameTooltip_AddInstructionLine(tooltip, L["ZONE_OVERLAY_CLICK_OPEN_HC"])
                 elseif self.sourceName then
-                    tooltip:SetText("|cFFaaaaaa" .. self.sourceName .. "|r")
+                    GameTooltip_SetTitle(tooltip, self.sourceName, COLOR_DIM)
                 end
                 tooltip:Show()
             end)
@@ -388,6 +392,7 @@ local function CreateOverlayFrame()
                 HidePreview()
                 local tooltip = GetMapTooltip()
                 if tooltip:GetOwner() == self then
+                    tooltip:SetScale(1)
                     tooltip:Hide()
                 end
             end)

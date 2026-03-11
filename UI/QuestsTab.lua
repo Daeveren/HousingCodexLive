@@ -15,6 +15,10 @@ local HEADER_HEIGHT = CONSTS.HIERARCHY_HEADER_HEIGHT
 local ROW_HEIGHT = CONSTS.HIERARCHY_ROW_HEIGHT
 local WISHLIST_STAR_SIZE = CONSTS.WISHLIST_STAR_SIZE_HIERARCHY
 
+-- Forward declarations for named handlers (defined after QuestsTab singleton)
+local QuestZoneHeaderOnClick, QuestZoneHeaderOnEnter, QuestZoneHeaderOnLeave
+local QuestRowOnMouseDown, QuestRowOnEnter, QuestRowOnLeave
+
 -- Helper to apply quest row visual state
 local function ApplyQuestRowState(frame, isSelected)
     addon:ResetBackgroundTexture(frame.bg)
@@ -112,6 +116,7 @@ local function ResetZoneQuestFrameState(frame)
     frame.expansionKey = nil
     frame.zoneName = nil
     frame.isZone = nil
+    frame.elementData = nil
     frame:SetScript("OnClick", nil)
     frame:SetScript("OnMouseDown", nil)
     frame:SetScript("OnEnter", nil)
@@ -150,17 +155,9 @@ local function SetupZoneHeader(self, frame, elementData)
     frame.progress:SetText(string.format("%d/%d (%d%%)", owned, total, percent))
     frame.progress:SetTextColor(unpack(addon.TabBaseMixin:GetProgressColor(percent, true)))
 
-    frame:SetScript("OnClick", function()
-        self:ToggleZone(elementData.expansionKey, elementData.zoneName)
-    end)
-
-    frame:SetScript("OnEnter", function(f)
-        f.bg:SetColorTexture(unpack(COLORS.PANEL_HOVER_ALT))
-    end)
-
-    frame:SetScript("OnLeave", function(f)
-        f.bg:SetColorTexture(unpack(COLORS.PANEL_NORMAL_ALT))
-    end)
+    frame:SetScript("OnClick", QuestZoneHeaderOnClick)
+    frame:SetScript("OnEnter", QuestZoneHeaderOnEnter)
+    frame:SetScript("OnLeave", QuestZoneHeaderOnLeave)
 end
 
 local function SetupQuestRow(self, frame, elementData)
@@ -214,77 +211,10 @@ local function SetupQuestRow(self, frame, elementData)
     local progressComplete = owned == total and total > 0
     frame.progress:SetTextColor(unpack(progressComplete and COLORS.PROGRESS_COMPLETE or COLORS.TEXT_TERTIARY))
 
-    frame:SetScript("OnMouseDown", function(f, button)
-        if button == "RightButton" then
-            addon.ContextMenu:ShowForQuest(f, elementData.questID, elementData.recordID)
-            return
-        end
-
-        if IsShiftKeyDown() then
-            -- Shift+Click: Toggle tracking the decor reward
-            local recordID = elementData.recordID or (addon:GetRecordsForQuest(elementData.questID) or {})[1]
-            if not recordID then
-                addon:Print(addon.L["QUESTS_TRACKING_FAILED"])
-                return
-            end
-            addon:ToggleTracking(recordID)
-        elseif IsControlKeyDown() and elementData.recordID then
-            -- Ctrl+Click: Start tracking decor (kept for compatibility)
-            if C_ContentTracking then
-                local err = C_ContentTracking.StartTracking(Enum.ContentTrackingType.Decor, elementData.recordID)
-                addon:PrintTrackingResult(err, "QUESTS_TRACKING_STARTED", "QUESTS_TRACKING_FAILED", "QUESTS_TRACKING_MAX_REACHED", "QUESTS_TRACKING_ALREADY")
-            end
-        else
-            self:SelectQuest(elementData)
-        end
-    end)
-
-    frame:SetScript("OnEnter", function(f)
-        -- Visual feedback
-        if self.selectedQuestID ~= f.questID or self.selectedRecordID ~= f.recordID then
-            f.bg:SetColorTexture(unpack(COLORS.ROW_BG_SOLID))
-        end
-
-        -- Fire preview event for hover
-        local recordID = f.recordID
-        if not recordID then
-            local recordIDs = addon:GetRecordsForQuest(f.questID)
-            recordID = recordIDs and recordIDs[1]
-        end
-        if recordID then
-            addon:FireEvent("RECORD_SELECTED", recordID)
-        end
-
-        -- Show quest tooltip at cursor
-        GameTooltip:SetOwner(UIParent, "ANCHOR_NONE")
-        local x, y = GetCursorPosition()
-        local scale = UIParent:GetEffectiveScale()
-        GameTooltip:SetPoint("BOTTOMLEFT", UIParent, "BOTTOMLEFT", (x / scale) + 15, (y / scale) + 15)
-        if type(f.questID) == "number" then
-            GameTooltip:SetHyperlink("quest:" .. f.questID)
-        else
-            local questTitle = addon:GetQuestTitle(f.questID) or f.questID
-            GameTooltip:SetText(questTitle, 1, 1, 1)
-        end
-        GameTooltip:Show()
-    end)
-
-    frame:SetScript("OnLeave", function(f)
-        GameTooltip:Hide()
-
-        ApplyQuestRowState(f, self.selectedQuestID == f.questID and
-            (not f.recordID or self.selectedRecordID == f.recordID))
-
-        -- Restore preview to selected quest
-        if self.selectedRecordID then
-            addon:FireEvent("RECORD_SELECTED", self.selectedRecordID)
-        elseif self.selectedQuestID then
-            local recordIDs = addon:GetRecordsForQuest(self.selectedQuestID)
-            if recordIDs and recordIDs[1] then
-                addon:FireEvent("RECORD_SELECTED", recordIDs[1])
-            end
-        end
-    end)
+    frame.elementData = elementData
+    frame:SetScript("OnMouseDown", QuestRowOnMouseDown)
+    frame:SetScript("OnEnter", QuestRowOnEnter)
+    frame:SetScript("OnLeave", QuestRowOnLeave)
 end
 addon.QuestsTab = {}
 local QuestsTab = addon.QuestsTab
@@ -292,6 +222,91 @@ local QuestsTab = addon.QuestsTab
 -- Apply shared mixin for common tab functionality
 Mixin(QuestsTab, addon.TabBaseMixin)
 QuestsTab.tabName = "QuestsTab"
+
+-- Named handlers for zone headers (bound once, read data from frame fields)
+QuestZoneHeaderOnClick = function(frame)
+    QuestsTab:ToggleZone(frame.expansionKey, frame.zoneName)
+end
+
+QuestZoneHeaderOnEnter = function(frame)
+    frame.bg:SetColorTexture(unpack(COLORS.PANEL_HOVER_ALT))
+end
+
+QuestZoneHeaderOnLeave = function(frame)
+    frame.bg:SetColorTexture(unpack(COLORS.PANEL_NORMAL_ALT))
+end
+
+-- Named handlers for quest rows (bound once, read data from frame fields)
+QuestRowOnMouseDown = function(frame, button)
+    local elementData = frame.elementData
+    if button == "RightButton" then
+        addon.ContextMenu:ShowForQuest(frame, elementData.questID, elementData.recordID)
+        return
+    end
+
+    if IsShiftKeyDown() then
+        local recordID = elementData.recordID
+        if not recordID then
+            local recordIDs = addon:GetRecordsForQuest(elementData.questID)
+            recordID = recordIDs and recordIDs[1]
+        end
+        if not recordID then
+            addon:Print(addon.L["QUESTS_TRACKING_FAILED"])
+            return
+        end
+        addon:ToggleTracking(recordID)
+    elseif IsControlKeyDown() and elementData.recordID then
+        if C_ContentTracking then
+            local err = C_ContentTracking.StartTracking(Enum.ContentTrackingType.Decor, elementData.recordID)
+            addon:PrintTrackingResult(err, "QUESTS_TRACKING_STARTED", "QUESTS_TRACKING_FAILED", "QUESTS_TRACKING_MAX_REACHED", "QUESTS_TRACKING_ALREADY")
+        end
+    else
+        QuestsTab:SelectQuest(elementData)
+    end
+end
+
+QuestRowOnEnter = function(frame)
+    if QuestsTab.selectedQuestID ~= frame.questID or QuestsTab.selectedRecordID ~= frame.recordID then
+        frame.bg:SetColorTexture(unpack(COLORS.ROW_BG_SOLID))
+    end
+
+    local recordID = frame.recordID
+    if not recordID then
+        local recordIDs = addon:GetRecordsForQuest(frame.questID)
+        recordID = recordIDs and recordIDs[1]
+    end
+    if recordID then
+        addon:FireEvent("RECORD_SELECTED", recordID)
+    end
+
+    GameTooltip:SetOwner(UIParent, "ANCHOR_NONE")
+    local x, y = GetCursorPosition()
+    local scale = UIParent:GetEffectiveScale()
+    GameTooltip:SetPoint("BOTTOMLEFT", UIParent, "BOTTOMLEFT", (x / scale) + 15, (y / scale) + 15)
+    if type(frame.questID) == "number" then
+        GameTooltip:SetHyperlink("quest:" .. frame.questID)
+    else
+        local questTitle = addon:GetQuestTitle(frame.questID) or frame.questID
+        GameTooltip:SetText(questTitle, 1, 1, 1)
+    end
+    GameTooltip:Show()
+end
+
+QuestRowOnLeave = function(frame)
+    GameTooltip:Hide()
+
+    ApplyQuestRowState(frame, QuestsTab.selectedQuestID == frame.questID and
+        (not frame.recordID or QuestsTab.selectedRecordID == frame.recordID))
+
+    if QuestsTab.selectedRecordID then
+        addon:FireEvent("RECORD_SELECTED", QuestsTab.selectedRecordID)
+    elseif QuestsTab.selectedQuestID then
+        local recordIDs = addon:GetRecordsForQuest(QuestsTab.selectedQuestID)
+        if recordIDs and recordIDs[1] then
+            addon:FireEvent("RECORD_SELECTED", recordIDs[1])
+        end
+    end
+end
 
 -- Helper to get quests db state (avoids repeated nil checks)
 local function GetQuestsDB()
@@ -625,7 +640,7 @@ local function QuestMatchesSearch(questKey, searchText, zoneName, expansionKey)
 
     -- Check reward names
     local records = addon:GetRecordsForQuest(questKey)
-    for _, recordID in ipairs(records) do
+    for _, recordID in ipairs(records or {}) do
         local record = addon:GetRecord(recordID)
         if record and record.name and strlower(record.name):find(searchText, 1, true) then
             return true

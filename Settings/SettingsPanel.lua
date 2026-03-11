@@ -610,7 +610,7 @@ function addon.Settings:Initialize()
     --------------------------------------------------------------------------------
     -- Register with WoW Settings system
     --------------------------------------------------------------------------------
-    local category = Settings.RegisterCanvasLayoutCategory(panel, "Housing |cffFB7104Codex|r")
+    local category = Settings.RegisterCanvasLayoutCategory(panel, L["SETTINGS_CATEGORY_NAME"])
     Settings.RegisterAddOnCategory(category)
     self.category = category
 

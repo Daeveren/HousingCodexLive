@@ -1041,12 +1041,6 @@ addon:RegisterInternalEvent("TAB_CHANGED", function()
     end
 end)
 
-addon:RegisterWoWEvent("CONTENT_TRACKING_UPDATE", function(trackingType, id, isTracked)
-    if trackingType == Enum.ContentTrackingType.Decor and Preview.currentRecordID == id then
-        RefreshCurrentActionButtons()
-    end
-end)
-
 -- Update wishlist button when wishlist changes (could be toggled from grid)
 addon:RegisterInternalEvent("WISHLIST_CHANGED", function(recordID, isWishlisted)
     if Preview.currentRecordID == recordID then

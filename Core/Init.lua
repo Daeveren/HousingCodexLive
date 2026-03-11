@@ -266,6 +266,7 @@ addon.CONSTANTS = {
         SCALE_MAX = 1.3,
         TOOLTIP_ITEM_LIMIT = 10,
         REFRESH_DEBOUNCE = 0.1,
+        TOOLTIP_SCALE = 0.75,
     },
 }
 

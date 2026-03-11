@@ -105,6 +105,23 @@ function addon:GetClassColorRGB(className)
     return 0.6, 0.6, 0.6
 end
 
+-- Returns the localized class display name for a given English class name
+function addon:GetLocalizedClassName(englishClassName)
+    local token = englishClassName and CLASS_FILE_TOKENS[englishClassName]
+    if not token then return englishClassName end
+    return LOCALIZED_CLASS_NAMES_MALE and LOCALIZED_CLASS_NAMES_MALE[token] or englishClassName
+end
+
+-- Returns the localized faction name for a given English faction name
+function addon:GetLocalizedFactionName(englishFaction)
+    if englishFaction == "Alliance" then
+        return FACTION_ALLIANCE or englishFaction
+    elseif englishFaction == "Horde" then
+        return FACTION_HORDE or englishFaction
+    end
+    return englishFaction
+end
+
 function addon:BuildVendorIndex()
     if not self.VendorSourceData then
         self:Debug("Cannot build vendor index: VendorSourceData not loaded")

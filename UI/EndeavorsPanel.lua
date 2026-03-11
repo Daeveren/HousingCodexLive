@@ -105,6 +105,7 @@ local FRAME_BACKDROP = {
 -- Open the Housing Dashboard and navigate to a specific content tab.
 -- tabID: the tab ID key on the HouseInfoContent frame (e.g. "houseUpgradeTabID", "endeavorTabID")
 local function OpenHousingDashboard(tabID)
+    if InCombatLockdown() then return end
     if not HousingDashboardFrame then
         pcall(C_AddOns.LoadAddOn, "Blizzard_HousingDashboard")
     end
@@ -622,7 +623,7 @@ local function ShowEndeavorTooltip(self)
             local label = (rewardTitle and rewardTitle ~= "") and rewardTitle or tostring(milestone.requiredContributionAmount)
             if isReached then
                 -- Gray text with green "completed" marker
-                GameTooltip:AddLine(label .. " |cFF22BB22completed|r", 0.7, 0.7, 0.7)
+                GameTooltip:AddLine(label .. " |cFF22BB22" .. L["ENDEAVORS_MILESTONE_COMPLETED"] .. "|r", 0.7, 0.7, 0.7)
             else
                 GameTooltip:AddLine("[-] " .. label, 0.5, 0.5, 0.5)
             end
@@ -710,6 +711,7 @@ local function CreateScaleButton(parent, label, scaleKey, x, yOffset, allButtons
         end
     end
     btn.UpdateVisual = UpdateVisual
+    btn.scaleKey = scaleKey
 
     UpdateVisual(db.scale == scaleKey)
 
@@ -832,6 +834,22 @@ local function CreateConfigFrame()
     SetCheckboxEnabled(endPct, db.showEndeavorProgress)
     WireParentCheckbox(endParent, { endText, endPct })
 
+    -- Dedicated handler: wire showEndeavorProgress toggle to data lifecycle
+    local prevEndOnClick = endParent:GetScript("OnClick")
+    endParent:SetScript("OnClick", function(self)
+        if prevEndOnClick then prevEndOnClick(self) end
+        if db.showEndeavorProgress then
+            -- Start fetching + polling if we're in a neighborhood with the panel visible
+            if addon.EndeavorsData:IsInNeighborhood() and frame and frame:IsShown() then
+                C_NeighborhoodInitiative.RequestNeighborhoodInitiativeInfo()
+                addon.EndeavorsData:StartInitiativePoll()
+            end
+        else
+            -- Stop background polling; Refresh() already clears cached tasks
+            addon.EndeavorsData:StopInitiativePoll()
+        end
+    end)
+
     ---------- Panel Size ----------
     yOfs = yOfs - 38
     yOfs = CreateSectionHeader(cf, "ENDEAVORS_OPT_SECTION_SIZE", yOfs)
@@ -851,6 +869,29 @@ local function CreateConfigFrame()
 
     ---------- Finalize ----------
     cf:SetHeight(math.abs(yOfs) + 14)
+
+    -- Sync checkbox/button states from DB each time the popup opens
+    cf:SetScript("OnShow", function()
+        local curDB = addon.db.endeavors
+        -- Enable checkbox
+        enableCheck:SetChecked(curDB.enabled)
+        -- House XP checkboxes
+        xpParent:SetChecked(curDB.showHouseXP)
+        xpText:SetChecked(curDB.showXPText)
+        xpPct:SetChecked(curDB.showXPPct)
+        SetCheckboxEnabled(xpText, curDB.showHouseXP)
+        SetCheckboxEnabled(xpPct, curDB.showHouseXP)
+        -- Endeavor Progress checkboxes
+        endParent:SetChecked(curDB.showEndeavorProgress)
+        endText:SetChecked(curDB.showEndeavorText)
+        endPct:SetChecked(curDB.showEndeavorPct)
+        SetCheckboxEnabled(endText, curDB.showEndeavorProgress)
+        SetCheckboxEnabled(endPct, curDB.showEndeavorProgress)
+        -- Scale buttons
+        for _, btn in ipairs(scaleBtns) do
+            btn:UpdateVisual(curDB.scale == btn.scaleKey)
+        end
+    end)
 
     -- ESC to close
     tinsert(UISpecialFrames, "HousingCodexEndeavorsConfig")
@@ -1627,7 +1668,6 @@ function EP:ShouldShow()
     if not addon.db or not addon.db.endeavors then return false end
     local db = addon.db.endeavors
     if not db.enabled then return false end
-    if not db.shown then return false end
     if not addon.EndeavorsData:IsInNeighborhood() then return false end
     -- Need at least one content source: house XP or initiative
     if not (addon.EndeavorsData:HasHouse() or addon.EndeavorsData:IsInitiativeEnabled()) then return false end

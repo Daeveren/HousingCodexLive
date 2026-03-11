@@ -28,6 +28,7 @@ local state = {
     sessionProgress = {},  -- { [taskID] = { taskName, current, max, lastChangedTime, delta, completed } }
     lastNeighborhoodGUID = nil,
     lastCycleID = nil,
+    initiativeDataFresh = false,
 }
 EndeavorsData.state = state
 
@@ -119,6 +120,7 @@ function EndeavorsData:OnLeaveNeighborhood()
     state.houseFavorTotalNeeded = 0
     state.isMaxLevel = false
     state.initiativeInfo = nil
+    state.initiativeDataFresh = false
     wipe(state.taskSnapshots)
     state.lastNeighborhoodGUID = nil
     state.lastCycleID = nil
@@ -308,6 +310,8 @@ local function OnInitiativeUpdated()
         state.lastCycleID = info.currentCycleID
     end
 
+    state.initiativeDataFresh = true
+
     -- Debug: log snapshot state before diff
     if addon.db and addon.db.settings and addon.db.settings.debugMode then
         local snapshotCount = 0
@@ -383,6 +387,9 @@ end
 -- Returns active session tasks sorted by most recent change
 -- Active = delta > 0, not completed, age < TASK_FADE_TIMEOUT
 function EndeavorsData:GetActiveTasks()
+    -- Don't return stale tasks from a previous neighborhood
+    if not state.initiativeDataFresh then return {} end
+
     local now = GetTime()
     local result = {}
 
@@ -417,11 +424,6 @@ function EndeavorsData:GetActiveTasks()
     end
 
     return result
-end
-
--- Clear all session progress (called after 1 min inactivity)
-function EndeavorsData:ClearSessionProgress()
-    wipe(state.sessionProgress)
 end
 
 -- Remove expired tasks (called from UI ticker)
