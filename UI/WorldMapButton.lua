@@ -11,6 +11,10 @@ local _, addon = ...
 --------------------------------------------------------------------------------
 HousingCodexWorldMapButtonMixin = {}
 
+local function GetMapTooltip()
+    return HousingCodexMapTooltip
+end
+
 function HousingCodexWorldMapButtonMixin:OnLoad()
     -- Initial setup happens in Refresh (called by Krowi lib after positioning)
 end
@@ -177,9 +181,17 @@ function HousingCodexWorldMapButtonMixin:OnMouseUp()
 end
 
 function HousingCodexWorldMapButtonMixin:OnEnter()
-    GameTooltip:SetOwner(self, "ANCHOR_LEFT")
-    GameTooltip:SetText(addon.L["ZONE_OVERLAY_BUTTON_TOOLTIP"])
-    GameTooltip:Show()
+    local tooltip = GetMapTooltip()
+    tooltip:SetOwner(self, "ANCHOR_LEFT")
+    tooltip:SetText(addon.L["ZONE_OVERLAY_BUTTON_TOOLTIP"])
+    tooltip:Show()
+end
+
+function HousingCodexWorldMapButtonMixin:OnLeave()
+    local tooltip = GetMapTooltip()
+    if tooltip:GetOwner() == self then
+        tooltip:Hide()
+    end
 end
 
 --------------------------------------------------------------------------------

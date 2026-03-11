@@ -2,6 +2,11 @@
 
 All notable changes to Housing Codex.
 
+**1.9.4** (2026-03-11)
+
+**Fixed**
+- Resolved a taint issue on the world map - fixes #5
+
 **1.9.3** (2026-03-11)
 
 **Fixed**

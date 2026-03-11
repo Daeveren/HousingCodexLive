@@ -2,6 +2,9 @@
     xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
     xsi:schemaLocation="http://www.blizzard.com/wow/ui/ ..\FrameXML\UI.xsd">
 
+    <GameTooltip name="HousingCodexMapTooltip" inherits="GameTooltipTemplate"
+                 clampedToScreen="true" frameStrata="TOOLTIP" hidden="true"/>
+
     <Button name="HousingCodexVendorPinTemplate"
             inherits="POIButtonTemplate"
             virtual="true"

@@ -12,6 +12,10 @@ local TEMPLATE_NAME = "HousingCodexVendorPinTemplate"
 local WORLD_MAP_ADDON_NAME = "Blizzard_WorldMap"
 local VENDOR_PIN_TEXTURE = "Interface\\AddOns\\HousingCodex\\HC64"
 
+local function GetMapTooltip()
+    return HousingCodexMapTooltip
+end
+
 local CUSTOM_LEVEL_LOW = "PIN_FRAME_LEVEL_HC_VENDOR_LOW"
 local CUSTOM_LEVEL_HIGH = "PIN_FRAME_LEVEL_HC_VENDOR_HIGH"
 local customLevelsRegistered = false
@@ -257,8 +261,8 @@ local function IsAggregateVendorPin(pin)
     return pin.isAggregate and pin.aggregateVendors and #pin.aggregateVendors > 1
 end
 
-local function AddBulletedTooltipLine(text)
-    GameTooltip:AddLine(TOOLTIP_LIST_INDENT .. TOOLTIP_LIST_BULLET .. text, TOOLTIP_LIST_R, TOOLTIP_LIST_G, TOOLTIP_LIST_B)
+local function AddBulletedTooltipLine(tooltip, text)
+    tooltip:AddLine(TOOLTIP_LIST_INDENT .. TOOLTIP_LIST_BULLET .. text, TOOLTIP_LIST_R, TOOLTIP_LIST_G, TOOLTIP_LIST_B)
 end
 
 local function ScheduleRefresh(provider)
@@ -483,12 +487,12 @@ function HousingCodexVendorPinMixin:OnReleased()
 end
 
 function HousingCodexVendorPinMixin:OnEnter()
-    POIButtonMixin.OnEnter(self)
+    self.HighlightTexture:Show()
     self:OnMouseEnter()
 end
 
 function HousingCodexVendorPinMixin:OnLeave()
-    POIButtonMixin.OnLeave(self)
+    self.HighlightTexture:Hide()
     self:OnMouseLeave()
 end
 
@@ -501,72 +505,75 @@ function HousingCodexVendorPinMixin:OnMouseEnter()
         return
     end
 
-    GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
+    local tooltip = GetMapTooltip()
+    tooltip:SetOwner(self, "ANCHOR_RIGHT")
 
     if IsAggregateVendorPin(self) then
-        local aggregateVendors = self.aggregateVendors
-        local aggregateCount = #aggregateVendors
-        GameTooltip:AddLine(string.format(L["VENDOR_PIN_VENDOR_COUNT"], aggregateCount), 1, 0.82, 0)
-        GameTooltip:AddLine(L["VENDOR_PIN_VENDOR_LIST_HEADER"], 0.85, 0.85, 0.85)
+        local vendors = self.aggregateVendors
+        local count = #vendors
+        tooltip:AddLine(string.format(L["VENDOR_PIN_VENDOR_COUNT"], count), 1, 0.82, 0)
+        tooltip:AddLine(L["VENDOR_PIN_VENDOR_LIST_HEADER"], 0.85, 0.85, 0.85)
 
-        local vendorLimit = C.TOOLTIP_ITEM_LIMIT
-        local shown = math.min(aggregateCount, vendorLimit)
+        local shown = math.min(count, C.TOOLTIP_ITEM_LIMIT)
         for i = 1, shown do
-            local vendor = aggregateVendors[i]
+            local vendor = vendors[i]
             local vendorEntry = string.format(L["VENDOR_PIN_VENDOR_ENTRY"], addon:GetLocalizedNPCName(vendor.npcId, vendor.npcName) or L["VENDOR_UNKNOWN"], vendor.owned, vendor.total)
-            AddBulletedTooltipLine(vendorEntry)
+            AddBulletedTooltipLine(tooltip, vendorEntry)
         end
 
-        local overflow = aggregateCount - shown
+        local overflow = count - shown
         if overflow > 0 then
-            GameTooltip:AddLine(string.format(L["VENDOR_PIN_VENDORS_MORE"], overflow), 0.7, 0.7, 0.7)
+            tooltip:AddLine(string.format(L["VENDOR_PIN_VENDORS_MORE"], overflow), 0.7, 0.7, 0.7)
         end
 
-        GameTooltip:Show()
+        tooltip:Show()
         return
     end
 
     local vendorName = addon:GetLocalizedNPCName(self.vendorData.npcId, self.vendorData.npcName) or L["VENDOR_UNKNOWN"]
     local owned, total, missingNames = addon:GetVendorPinProgress(self.vendorData.npcId)
 
-    GameTooltip:AddLine(vendorName, 1, 0.82, 0)
+    tooltip:AddLine(vendorName, 1, 0.82, 0)
 
     local zoneCache = addon.vendorZoneCache and addon.vendorZoneCache[self.vendorData.npcId]
     local classHall = zoneCache and addon:GetClassHallAnnotation(zoneCache.zoneName)
     if classHall then
         local cr, cg, cb = addon:GetClassColorRGB(classHall)
-        GameTooltip:AddLine(string.format(L["VENDOR_CLASS_ONLY_SUFFIX"], classHall), cr, cg, cb)
+        tooltip:AddLine(string.format(L["VENDOR_CLASS_ONLY_SUFFIX"], classHall), cr, cg, cb)
     end
 
     local r, g, b = GetProgressColor(owned, total)
-    GameTooltip:AddLine(string.format(L["VENDOR_PIN_COLLECTED"], owned, total), r, g, b)
-    GameTooltip:AddLine(" ")
+    tooltip:AddLine(string.format(L["VENDOR_PIN_COLLECTED"], owned, total), r, g, b)
+    tooltip:AddLine(" ")
 
     if owned < total and #missingNames > 0 then
-        GameTooltip:AddLine(L["VENDOR_PIN_UNCOLLECTED_HEADER"], 0.85, 0.85, 0.85)
+        tooltip:AddLine(L["VENDOR_PIN_UNCOLLECTED_HEADER"], 0.85, 0.85, 0.85)
         for _, name in ipairs(missingNames) do
-            AddBulletedTooltipLine(name)
+            AddBulletedTooltipLine(tooltip, name)
         end
 
         local overflow = (total - owned) - #missingNames
         if overflow > 0 then
-            GameTooltip:AddLine(string.format(L["VENDOR_PIN_MORE"], overflow), 0.7, 0.7, 0.7)
+            tooltip:AddLine(string.format(L["VENDOR_PIN_MORE"], overflow), 0.7, 0.7, 0.7)
         end
     end
 
     if self.vendorData.faction == "Alliance" then
-        GameTooltip:AddLine(L["VENDOR_PIN_FACTION_ALLIANCE"], 0.35, 0.6, 1)
+        tooltip:AddLine(L["VENDOR_PIN_FACTION_ALLIANCE"], 0.35, 0.6, 1)
     elseif self.vendorData.faction == "Horde" then
-        GameTooltip:AddLine(L["VENDOR_PIN_FACTION_HORDE"], 1, 0.3, 0.3)
+        tooltip:AddLine(L["VENDOR_PIN_FACTION_HORDE"], 1, 0.3, 0.3)
     end
 
-    GameTooltip:AddLine(" ")
-    GameTooltip:AddLine(L["VENDOR_PIN_CLICK_WAYPOINT"], 0.6, 0.6, 0.6)
-    GameTooltip:Show()
+    tooltip:AddLine(" ")
+    tooltip:AddLine(L["VENDOR_PIN_CLICK_WAYPOINT"], 0.6, 0.6, 0.6)
+    tooltip:Show()
 end
 
 function HousingCodexVendorPinMixin:OnMouseLeave()
-    GameTooltip:Hide()
+    local tooltip = GetMapTooltip()
+    if tooltip:GetOwner() == self then
+        tooltip:Hide()
+    end
 end
 
 function HousingCodexVendorPinMixin:OnMouseClickAction(button)

@@ -10,6 +10,10 @@ addon.ZoneOverlay = {}
 
 local ZoneOverlay = addon.ZoneOverlay
 
+local function GetMapTooltip()
+    return HousingCodexMapTooltip
+end
+
 -- Layout constants
 local PANEL_WIDTH = 240
 local PANEL_WIDTH_MINIMIZED = 170
@@ -360,28 +364,32 @@ local function CreateOverlayFrame()
             row:SetScript("OnEnter", function(self)
                 if self.isHeader or not self.recordID then return end
                 ShowPreview(self, self.recordID)
-                GameTooltip:SetOwner(self, "ANCHOR_NONE")
-                GameTooltip:SetPoint("TOPLEFT", self, "BOTTOMLEFT", 0, -2)
+                local tooltip = GetMapTooltip()
+                tooltip:SetOwner(self, "ANCHOR_NONE")
+                tooltip:SetPoint("TOPLEFT", self, "BOTTOMLEFT", 0, -2)
                 local L = addon.L
                 if self.categoryKey == "vendors" and self.sourceName then
                     local locationLine = self.cityName
                         and string.format(L["ZONE_OVERLAY_SOURCE_VENDOR_CITY"], self.cityName)
                         or L["ZONE_OVERLAY_SOURCE_VENDOR"]
-                    GameTooltip:SetText(addon:GetLocalizedNPCName(self.sourceId, self.sourceName), 0, 0.8, 0)
-                    GameTooltip:AddLine(locationLine, 0.67, 0.67, 0.67)
-                    GameTooltip:AddLine(" ")
-                    GameTooltip:AddLine(L["ZONE_OVERLAY_CLICK_WAYPOINT"], 0.7, 0.7, 0.7)
-                    GameTooltip:AddLine(L["ZONE_OVERLAY_CLICK_OPEN_HC"], 0.7, 0.7, 0.7)
+                    tooltip:SetText(addon:GetLocalizedNPCName(self.sourceId, self.sourceName), 0, 0.8, 0)
+                    tooltip:AddLine(locationLine, 0.67, 0.67, 0.67)
+                    tooltip:AddLine(" ")
+                    tooltip:AddLine(L["ZONE_OVERLAY_CLICK_WAYPOINT"], 0.7, 0.7, 0.7)
+                    tooltip:AddLine(L["ZONE_OVERLAY_CLICK_OPEN_HC"], 0.7, 0.7, 0.7)
                 elseif self.sourceName then
-                    GameTooltip:SetText("|cFFaaaaaa" .. self.sourceName .. "|r")
+                    tooltip:SetText("|cFFaaaaaa" .. self.sourceName .. "|r")
                 end
-                GameTooltip:Show()
+                tooltip:Show()
             end)
 
             row:SetScript("OnLeave", function(self)
                 if self.isHeader then return end
                 HidePreview()
-                GameTooltip:Hide()
+                local tooltip = GetMapTooltip()
+                if tooltip:GetOwner() == self then
+                    tooltip:Hide()
+                end
             end)
         end
 
