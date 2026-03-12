@@ -2,6 +2,11 @@
 
 All notable changes to Housing Codex.
 
+**1.9.6** (2026-03-12)
+
+**Fixed**
+- Fixed a taint error on the world map that could occur after previewing items in the zone overlay
+
 **1.9.5** (2026-03-12)
 
 **Added**

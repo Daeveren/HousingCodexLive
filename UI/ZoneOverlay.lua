@@ -1,7 +1,7 @@
 --[[
     Housing Codex - ZoneOverlay.lua
     World map overlay panel showing uncollected decor items for the current zone
-    Parented to WorldMapFrame.ScrollContainer (no taint per Blizzard pattern)
+    Parented to WorldMapFrame.ScrollContainer; preview popout reparented to UIParent to prevent ModelScene taint propagation
 ]]
 
 local _, addon = ...
@@ -97,7 +97,7 @@ local function CreatePreviewFrame()
     if previewFrame then return end
 
     local size = GetPreviewSize()
-    previewFrame = CreateFrame("Frame", nil, frame, "BackdropTemplate")
+    previewFrame = CreateFrame("Frame", nil, UIParent, "BackdropTemplate")
     previewFrame:SetSize(size + 8, size + 8)
     previewFrame:SetFrameStrata("TOOLTIP")
     previewFrame:SetBackdrop({
@@ -449,6 +449,9 @@ local function CreateOverlayFrame()
     local dp = CreateDataProvider()
     scrollBox:SetDataProvider(dp)
     frame.dataProvider = dp
+
+    -- Hide preview when overlay frame hides (previewFrame is parented to UIParent, not frame)
+    frame:SetScript("OnHide", HidePreview)
 
     ZoneOverlay:UpdatePosition()
     ZoneOverlay:UpdateAlpha()
