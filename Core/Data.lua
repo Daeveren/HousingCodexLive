@@ -196,8 +196,9 @@ function addon:LoadData()
     searcher:SetUncollected(true)
     searcher:SetAutoUpdateOnParamChanges(false)
 
-    -- Filter to BasicDecor mode (excludes rooms/layout items)
-    searcher:SetEditorModeContext(Enum.HouseEditorMode.BasicDecor)
+    -- Nil context returns ALL catalog entries; BasicDecor mode silently
+    -- excludes Expert-only items, breaking quest/vendor/drop lookups for them
+    searcher:SetEditorModeContext(nil)
 
     -- Set up callback for when search results are ready (Blizzard pattern)
     searcher:SetResultsUpdatedCallback(function()

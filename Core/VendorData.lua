@@ -260,7 +260,7 @@ addon.VendorSourceData = {
         ["Searing Gorge"] = {
             { npcId = 14624, npcName = "Master Smith Burninate", cost = 700, decorIds = {1315, 2226} },
         },
-        ["Shadowmoon Valley (Draenor"] = {
+        ["Shadowmoon Valley (Draenor)"] = {
             { npcId = 81133, npcName = "Artificer Kallaes", cost = 200, currencyName = "Garrison Resources", decorIds = {11451} },
         },
         ["Sholazar Basin"] = {

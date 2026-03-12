@@ -2,6 +2,13 @@
 
 All notable changes to Housing Codex.
 
+**1.9.7** (2026-03-12)
+
+**Fixed**
+- Fixed many quests showing under "Unknown Zone" instead of their correct expansion and zone
+- Fixed two vendors (Fiona, Artificer Kallaes) appearing under the wrong expansion category
+- Fixed some catalog items not appearing in quest, vendor, and drop lookups
+
 **1.9.6** (2026-03-12)
 
 **Fixed**

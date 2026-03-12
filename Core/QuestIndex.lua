@@ -136,6 +136,10 @@ function addon:BuildQuestIndex()
         return
     end
 
+    -- Guard: prevent QUEST_DATA_LOAD_RESULT from calling BuildQuestHierarchy
+    -- while we're still building the index (step 2 hasn't populated zones yet)
+    self.buildingQuestIndex = true
+
     -- Intern strings before building index (first run only)
     if not self.questStringsInterned then
         InternQuestStrings()
@@ -148,6 +152,7 @@ function addon:BuildQuestIndex()
     wipe(self.questIndex)
     wipe(self.questSortedRecords)
     wipe(self.questZoneFromScrape)
+    wipe(self.questZoneCache)
     wipe(self.questTitleCache)
     self.questTitleFallback = {}
     wipe(self.pendingQuestLoads)
@@ -156,7 +161,7 @@ function addon:BuildQuestIndex()
     local scrapedCount = 0
 
     -- Primary source: Use scraped DecorToQuestLookup
-    -- decorId from WowDB scraper = recordID from WoW Housing API
+    -- WowDB decorId = WoW API's HousingCatalogEntryID.recordID (decorID)
     if self.DecorToQuestLookup then
         for decorId, questData in pairs(self.DecorToQuestLookup) do
             local recordID = decorId
@@ -264,6 +269,8 @@ function addon:BuildQuestIndex()
         table.sort(sorted)
         self.questSortedRecords[questKey] = sorted
     end
+
+    self.buildingQuestIndex = false
 
     local elapsedMs = math.floor(debugprofilestop() - startTime)
     self:Debug(string.format("Built quest index: %d quests (%d scraped, %d parsed) in %d ms",
@@ -510,7 +517,10 @@ addon:RegisterWoWEvent("QUEST_DATA_LOAD_RESULT", function(questID, success)
     end
 
     -- Signal when all pending title loads are resolved
-    if not next(addon.pendingQuestLoads) then
+    -- Guard: don't rebuild hierarchy if BuildQuestIndex is still running
+    -- (RequestQuestTitle can fire synchronous QUEST_DATA_LOAD_RESULT during step 1,
+    -- before step 2 has populated questZoneFromScrape)
+    if not next(addon.pendingQuestLoads) and not addon.buildingQuestIndex then
         addon:BuildQuestHierarchy()
         addon:FireEvent("QUEST_ALL_TITLES_LOADED")
     end

@@ -415,10 +415,14 @@ addon.QuestSourceData = {
         { questId = 85780, questName = "Right Where We Want Him", decorIds = {827} },
         { questId = 85711, questName = "Unsolicited Feedback", decorIds = {1266} },
     },
-    ["Unknown"] = {
+    ["Azj-Kahet"] = {
         { questId = 82141, questName = "To Kill a Queen", decorIds = {14360} },
-        { questId = 86820, questName = "Manaforge Omega: Dimensius Looms", decorIds = {14359} },
+    },
+    ["Blasted Lands"] = {
         { questId = 25720, questName = "The Downfall of Marl Wormthorn", decorIds = {1481} },
+    },
+    ["Manaforge Omega"] = {
+        { questId = 86820, questName = "Manaforge Omega: Dimensius Looms", decorIds = {14359} },
     },
     ["Val'sharah"] = {
         { questId = 39117, questName = "Shriek No More", decorIds = {1801} },
