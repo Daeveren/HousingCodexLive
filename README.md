@@ -12,7 +12,7 @@ A World of Warcraft addon that gives you a better way to browse, track, and coll
 - **3D Preview** - Docked preview panel with auto-rotating model, source info, size, and dye options
 - **Filters** - Filter by collected/uncollected, indoor/outdoor, dyeable, size, expansion, theme
 - **Wishlist** - Star items to track, view them in a dedicated window, or filter the catalog to show only wishlisted items
-- **Quick Access** - Right-click for Wowhead links, left-click to link in chat, shift-click to track on the map
+- **Quick Access** - Left-click to select and preview, shift-click to track on the map, right-click for context menu (chat link, Wowhead, track)
 
 ### Source Tabs
 

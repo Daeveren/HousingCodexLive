@@ -501,6 +501,7 @@ function Grid:DestroyScrollBox()
     end
 
     if self.scrollBox then
+        addon:UnregisterFontStrings(self.scrollBox)
         self.scrollBox:Hide()
         self.scrollBox:SetParent(nil)
         self.scrollBox = nil
@@ -511,6 +512,7 @@ function Grid:DestroyScrollBox()
         self.scrollBar = nil
     end
     if self.container then
+        addon:UnregisterFontStrings(self.container)
         self.container:Hide()
         self.container:SetParent(nil)
         self.container = nil
@@ -645,6 +647,7 @@ function Grid:Rebuild()
 
     -- Recreate empty state (depends on container)
     if self.emptyState then
+        addon:UnregisterFontStrings(self.emptyState)
         self.emptyState:SetParent(nil)
         self.emptyState = nil
     end

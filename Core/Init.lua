@@ -744,6 +744,10 @@ SlashCmdList["HOUSINGCODEX"] = function(msg)
         addon:Print("  " .. L["HELP_DEBUG"])
         addon:Print("  " .. L["HELP_STATS"])
     elseif cmd == "settings" or cmd == "options" then
+        if InCombatLockdown() then
+            addon:Print(L["COMBAT_LOCKDOWN_MESSAGE"])
+            return
+        end
         if addon.Settings then
             addon.Settings:Open()
         else

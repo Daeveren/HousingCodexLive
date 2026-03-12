@@ -919,6 +919,7 @@ function WishlistFrame:RebuildGrid()
 
     -- Destroy and recreate grid
     if self.scrollBox then
+        addon:UnregisterFontStrings(self.scrollBox)
         self.scrollBox:Hide()
         self.scrollBox:SetParent(nil)
         self.scrollBox = nil
@@ -933,12 +934,14 @@ function WishlistFrame:RebuildGrid()
 
     -- Clean up old emptyState (child of gridContainer)
     if self.emptyState then
+        addon:UnregisterFontStrings(self.emptyState)
         self.emptyState:Hide()
         self.emptyState:SetParent(nil)
         self.emptyState = nil
     end
     -- Clean up old grid container (detaches children including containerBg)
     if self.gridContainer then
+        addon:UnregisterFontStrings(self.gridContainer)
         self.gridContainer:Hide()
         self.gridContainer:SetParent(nil)
         self.gridContainer = nil

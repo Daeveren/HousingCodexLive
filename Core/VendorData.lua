@@ -47,7 +47,7 @@ addon.VendorSourceData = {
         ["Silvermoon City"] = {
             { npcId = 242399, npcName = "Telemancer Astrandis", cost = 10, currencyName = "Voidlight Marl", decorIds = {15399, 15400, 15401, 15412, 15413, 15455, 15460} },
             { npcId = 252916, npcName = "Hesta Forlath", cost = 1500, decorIds = {1446, 9483, 9486, 9487, 9488, 9489, 9490, 9628, 9629} },
-            { npcId = 256828, npcName = "Dennia Silvertongue", cost = 500, decorIds = {1458, 1894, 2231, 4843, 9149, 9150, 9151, 9152, 11287, 14467, 15148, 15149, 15151, 15668} },
+            { npcId = 256828, npcName = "Dennia Silvertongue", cost = 500, decorIds = {1458, 1894, 2231, 4843, 9149, 9150, 9151, 9152, 11287, 14467, 15148, 15149, 15151, 15668, 15669} },
             { npcId = 258181, npcName = "Construct Ali'a", cost = 800, currencyName = "Remnant of Anguish", decorIds = {17439, 17440, 17441, 17442, 17443, 17444, 17446, 17447, 17449, 17450, 17452, 17453, 17454, 17455, 17456, 17457, 17458, 17459, 17460, 17462, 17464, 17465, 17467, 17469, 17472, 17474, 17518, 17519, 17520, 17521, 17522, 17523} },
         },
         ["The Bazaar, Silvermoon City"] = {
@@ -228,7 +228,7 @@ addon.VendorSourceData = {
         },
         ["Orgrimmar"] = {
             { npcId = 254606, npcName = "Joruh", cost = 5, decorIds = {3867, 3880, 3881, 3885, 3887, 3890, 3893, 3896, 3897, 3898, 3899, 3900, 3902, 3903, 3905, 3906, 3907, 9244, 11296} },
-            { npcId = 261262, npcName = "Gabbi", cost = 5000000, decorIds = {11287, 14467, 15148, 15151, 15668} },
+            { npcId = 261262, npcName = "Gabbi", cost = 5000000, decorIds = {11287, 14467, 15148, 15149, 15151, 15668, 15669} },
             { npcId = 256119, npcName = "Lonalo", cost = 2000, decorIds = {766, 768, 2511, 2513, 2514, 2526} },
         },
         ["Port of Zandalar, Dazar'alor"] = {
@@ -310,7 +310,7 @@ addon.VendorSourceData = {
         ["Stormwind City"] = {
             { npcId = 254603, npcName = "Riica", cost = 600, currencyName = "Honor", decorIds = {3880, 3881, 3884, 3886, 3890, 3893, 3894, 3895, 3898, 3899, 3900, 3902, 3903, 3905, 3906, 3907, 9244, 11296} },
             { npcId = 49877, npcName = "Captain Lancy Revshon", cost = 47, decorIds = {4402, 4405, 4443, 4444, 4445, 4446, 4447, 4487, 4490, 4811, 4812, 4814, 4815, 4819, 5115, 5116, 11274} },
-            { npcId = 261231, npcName = "Tuuran", cost = 5000000, decorIds = {11287, 14467, 15148, 15149, 15151, 15668} },
+            { npcId = 261231, npcName = "Tuuran", cost = 5000000, decorIds = {11287, 14467, 15148, 15149, 15151, 15668, 15669} },
             { npcId = 256071, npcName = "Solelo", cost = 2000, decorIds = {766, 768, 2511, 2513, 2514, 2526} },
         },
         ["Stranglethorn Vale"] = {

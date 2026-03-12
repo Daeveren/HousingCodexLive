@@ -2,6 +2,16 @@
 
 All notable changes to Housing Codex.
 
+**1.9.8** (2026-03-13)
+
+**Changed**
+- Updated decor items at promotional vendors (Dennia, Gabbi, Tuuran)
+
+**Fixed**
+- Opening Housing Codex settings during combat no longer causes a "blocked action" error
+- Treasure hunt waypoints no longer move your map pin during combat — placement waits until combat ends
+- Fixed a memory leak when resizing the browse grid or changing tile size
+
 **1.9.7** (2026-03-12)
 
 **Fixed**

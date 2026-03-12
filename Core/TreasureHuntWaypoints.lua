@@ -13,6 +13,8 @@ addon.TreasureHuntWaypoints = {}
 -- State
 local activeQuestId = nil
 local eventsRegistered = false
+local pendingCombatQuestId = nil
+local combatRegenCallback = nil
 
 -- Housing zone map IDs
 local HOUSING_ZONES = {
@@ -34,6 +36,27 @@ local function SetWaypoint(questId)
         addon:Debug("Treasure Hunt: No location data for quest " .. tostring(questId))
         return
     end
+
+    -- UX courtesy: don't silently move waypoint during combat
+    if UnitAffectingCombat("player") then
+        pendingCombatQuestId = questId
+        if not combatRegenCallback then
+            combatRegenCallback = function()
+                addon:UnregisterWoWEvent("PLAYER_REGEN_ENABLED", combatRegenCallback)
+                combatRegenCallback = nil
+                local qid = pendingCombatQuestId
+                pendingCombatQuestId = nil
+                if qid and C_QuestLog.IsOnQuest(qid) then
+                    SetWaypoint(qid)
+                end
+            end
+            addon:RegisterWoWEvent("PLAYER_REGEN_ENABLED", combatRegenCallback)
+        end
+        addon:Debug("Treasure Hunt: Deferring waypoint until combat ends (quest " .. tostring(questId) .. ")")
+        return
+    end
+
+    pendingCombatQuestId = nil
 
     if not addon.Waypoints:Set(loc.mapID, loc.x, loc.y, "Decor Treasure") then
         addon:Debug(string.format("Treasure Hunt: Cannot set waypoint on map %d", loc.mapID))

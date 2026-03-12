@@ -148,7 +148,8 @@ function addon:ScheduleRetry(reason)
     local delay = RETRY_DELAYS[self.loadRetryCount] or 8
     self:Debug(string.format("Retry %d/%d in %.1fs: %s", self.loadRetryCount, MAX_RETRIES, delay, reason or "unknown"))
 
-    C_Timer.After(delay, function()
+    self.retryTimer = C_Timer.NewTimer(delay, function()
+        self.retryTimer = nil
         self:LoadData()
     end)
 end
@@ -757,6 +758,10 @@ function addon:ResetLoadState()
     if self.searchTimeoutTimer then
         self.searchTimeoutTimer:Cancel()
         self.searchTimeoutTimer = nil
+    end
+    if self.retryTimer then
+        self.retryTimer:Cancel()
+        self.retryTimer = nil
     end
     self.loadingInProgress = false
     self.catalogSearcher = nil
