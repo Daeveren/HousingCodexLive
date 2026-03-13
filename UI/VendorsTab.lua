@@ -1078,7 +1078,12 @@ function VendorsTab:ToggleZone(expansionKey, zoneName)
         local key = expansionKey .. ":" .. zoneName
         db.expandedZones[key] = not db.expandedZones[key]
     end
+    local scrollBox = self.vendorScrollBox
+    local scrollOffset = scrollBox and scrollBox:GetDerivedScrollOffset() or 0
     self:BuildVendorDisplay()
+    if scrollOffset > 0 then
+        scrollBox:ScrollToOffset(scrollOffset, ScrollBoxConstants.NoScrollInterpolation)
+    end
 end
 
 function VendorsTab:NavigateToVendor(npcId)

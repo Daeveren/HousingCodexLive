@@ -164,24 +164,16 @@ local function ShowPreview(itemRow, recordID)
             end)
         end
 
-        local actor = previewModelScene.decorActor
-        if not actor then
-            actor = previewModelScene:AcquireActor()
-            if actor then
-                previewModelScene.decorActor = actor
-            end
-        end
-
+        local actor = previewModelScene:GetActorByTag("decor") or previewModelScene:GetActorByTag("item")
         if actor then
             previewModelScene.rotationDriver.actor = actor
-            local success = actor:SetModelByFileID(record.modelAsset)
-            if success then
-                actor:SetYaw(0)
-                previewModelScene:Show()
-                previewFrame.icon:Hide()
-                previewFrame:Show()
-                return
-            end
+            actor:SetPreferModelCollisionBounds(true)
+            actor:SetModelByFileID(record.modelAsset)
+            actor:SetYaw(0)
+            previewModelScene:Show()
+            previewFrame.icon:Hide()
+            previewFrame:Show()
+            return
         end
     end
 

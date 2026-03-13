@@ -2,6 +2,12 @@
 
 All notable changes to Housing Codex.
 
+**1.9.9** (2026-03-13)
+
+**Fixed**
+- Expanding or collapsing a zone in the Vendors tab no longer jumps the scroll to the top of the list
+- Zone overlay 3D preview on the world map no longer shows blank or invisible models when hovering items
+
 **1.9.8** (2026-03-13)
 
 **Changed**
