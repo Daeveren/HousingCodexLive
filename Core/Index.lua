@@ -11,6 +11,7 @@ addon.indexes = {
 }
 
 addon.indexesBuilt = false
+addon.byWordIndexBuilt = false
 
 local function AddToIndex(index, key, recordID)
     index[key] = index[key] or {}
@@ -26,7 +27,7 @@ local function StripSourceMarkup(text)
     return text:gsub("|c%x%x%x%x%x%x%x%x", ""):gsub("|r", ""):gsub("|T.-|t", ""):gsub("|n", " ")
 end
 
-function addon:BuildIndexes()
+function addon:BuildCollectedIndex()
     if not self.dataLoaded then
         self:Debug("Cannot build indexes: data not loaded")
         return
@@ -34,17 +35,31 @@ function addon:BuildIndexes()
 
     local startTime = debugprofilestop()
 
-    -- Clear existing indexes
     wipe(self.indexes.collected)
-    wipe(self.indexes.byWord)
+    self.byWordIndexBuilt = false
 
-    -- Build indexes from records
+    -- Build collected index from records
     for recordID, record in pairs(self.decorRecords) do
-        -- Collection state
         if record.isCollected then
             self.indexes.collected[recordID] = true
         end
+    end
 
+    self.indexesBuilt = true
+
+    local elapsedMs = math.floor(debugprofilestop() - startTime)
+    self:Debug(string.format("Built collected index in %d ms", elapsedMs))
+end
+
+function addon:BuildWordIndex()
+    if not self.dataLoaded then return end
+    if self.byWordIndexBuilt then return end
+
+    local startTime = debugprofilestop()
+
+    wipe(self.indexes.byWord)
+
+    for recordID, record in pairs(self.decorRecords) do
         -- Word index for name search
         if record.name then
             local nameLower = string.lower(record.name)
@@ -66,24 +81,10 @@ function addon:BuildIndexes()
         end
     end
 
-    -- itemID -> recordID reverse index (merchant overlay instant lookup)
-    local itemIDToRecordID = {}
-    for recordID, record in pairs(self.decorRecords) do
-        if record.itemID then
-            itemIDToRecordID[record.itemID] = recordID
-        end
-    end
-    for recordID, record in pairs(self.fallbackRecords) do
-        if type(record) == "table" and record.itemID then
-            itemIDToRecordID[record.itemID] = recordID
-        end
-    end
-    self.itemIDToRecordID = itemIDToRecordID
-
-    self.indexesBuilt = true
+    self.byWordIndexBuilt = true
 
     local elapsedMs = math.floor(debugprofilestop() - startTime)
-    self:Debug(string.format("Built indexes in %d ms", elapsedMs))
+    self:Debug(string.format("Built word index in %d ms", elapsedMs))
 end
 
 function addon:SearchByText(searchText)
@@ -174,5 +175,8 @@ end
 
 -- Event Handlers
 addon:RegisterInternalEvent("DATA_LOADED", function()
-    addon:BuildIndexes()
+    addon:BuildCollectedIndex()
+    C_Timer.After(0, function()
+        addon:BuildWordIndex()
+    end)
 end)

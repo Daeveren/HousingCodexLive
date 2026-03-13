@@ -2,6 +2,20 @@
 
 All notable changes to Housing Codex.
 
+**1.9.11** (2026-03-14)
+
+**Added**
+- Smooth animations for the zone overlay expanding and collapsing on the world map
+
+**Changed**
+- Faster addon startup
+
+**Fixed**
+- Improvements to the zone overlay code
+- Fixed a crash when pressing ESC to close the world map while the zone overlay was visible
+- Quest tab no longer shows a stale preview when the selected quest is hidden by search or filters
+- Quest and vendor zone lists now sort correctly in non-English languages
+
 **1.9.10** (2026-03-13)
 
 **Added**

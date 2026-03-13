@@ -18,7 +18,6 @@ addon.L = {}
 -- Data state
 addon.dataLoaded = false
 addon.decorRecords = {}
-addon.itemIDToRecordID = {}  -- Reverse index: itemID -> recordID (merchant overlay instant lookup)
 
 -- Constants
 addon.CONSTANTS = {
@@ -758,6 +757,7 @@ SlashCmdList["HOUSINGCODEX"] = function(msg)
         addon.loadRetryCount = 0
         addon.dataLoaded = false
         addon.indexesBuilt = false
+        addon.byWordIndexBuilt = false
         addon.achievementIndexBuilt = false
         addon.questIndexBuilt = false
         addon.vendorIndexBuilt = false

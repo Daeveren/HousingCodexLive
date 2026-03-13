@@ -259,7 +259,9 @@ function addon:GetSortedVendorZones(expansionKey)
     for zoneName in pairs(expData.zones) do
         table.insert(zones, zoneName)
     end
-    table.sort(zones)
+    table.sort(zones, function(a, b)
+        return self:GetLocalizedZoneName(a) < self:GetLocalizedZoneName(b)
+    end)
     return zones
 end
 

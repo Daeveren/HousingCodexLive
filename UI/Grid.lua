@@ -895,6 +895,9 @@ addon:RegisterInternalEvent("SEARCH_RESULTS_UPDATED", function(recordIDs)
     local searchText = addon.SearchBox and addon.SearchBox:GetText() or ""
     searchText = strtrim(searchText)
     if #searchText >= 3 and addon.indexesBuilt and addon.Filters:AreAdvancedFiltersAtDefault() then
+        if not addon.byWordIndexBuilt then
+            addon:BuildWordIndex()
+        end
         local clientIDs = addon:SearchByText(searchText)
         local filteredClientIDs = addon.Filters:FilterBySearcherRules(clientIDs)
         recordIDs = Grid:MergeResults(recordIDs, filteredClientIDs)

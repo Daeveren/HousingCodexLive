@@ -59,6 +59,25 @@ local previewModelScene = nil
 local expandedCategories = {}   -- categoryKey -> true/false
 local lastCategoryMapID = nil   -- reset on zone change
 
+-- Animation constants
+local ANIM_EXPAND_DURATION = 0.25
+local ANIM_COLLAPSE_DURATION = 0.20
+
+-- Animation state (all tracked locally — never read from frame, secret value risk)
+local animDriver = nil
+local animating = false
+local animTargetW, animTargetH, animTargetTBH, animTargetCA, animTargetAA = 0, 0, 0, 0, 0
+-- Current tracked values (written forward to frame, never read back)
+local curWidth = PANEL_WIDTH_MINIMIZED
+local curHeight = COLLAPSED_HEIGHT
+local curTitleBarHeight = COLLAPSED_HEIGHT
+local curContentAlpha = 0
+local curArrowAngle = ARROW_COLLAPSED
+-- Minimize state tracking (nil = first render, true/false = last known state)
+local lastMinimizedState = nil
+local pendingShowScrollBar = false
+local CancelAnimation  -- forward declaration (called in OnHide, defined in Animation section)
+
 -- Helper: get preview size based on scale setting
 local function GetPreviewSize()
     local scale = addon.db and addon.db.settings.zoneOverlayPreviewScale or 1.0
@@ -199,6 +218,8 @@ local function CreateOverlayFrame()
     frame = CreateFrame("Frame", "HousingCodexZoneOverlayFrame", WorldMapFrame.ScrollContainer, "BackdropTemplate")
     frame:SetFrameStrata("HIGH")
     frame:SetClampedToScreen(true)
+    frame:SetClipsChildren(true)
+    frame:EnableMouse(false)  -- let clicks pass through to the map; titleBar and rows handle their own mouse
     frame:SetBackdrop({
         bgFile = "Interface\\Buttons\\WHITE8x8",
         edgeFile = "Interface\\Tooltips\\UI-Tooltip-Border",
@@ -443,10 +464,105 @@ local function CreateOverlayFrame()
     frame.dataProvider = dp
 
     -- Hide preview when overlay frame hides (previewFrame is parented to UIParent, not frame)
-    frame:SetScript("OnHide", HidePreview)
+    frame:SetScript("OnHide", function()
+        HidePreview()
+        CancelAnimation()
+    end)
 
     ZoneOverlay:UpdatePosition()
     ZoneOverlay:UpdateAlpha()
+end
+
+--------------------------------------------------------------------------------
+-- Animation helpers
+--------------------------------------------------------------------------------
+local function EaseOutQuad(t)
+    return 1 - (1 - t) * (1 - t)
+end
+
+local function Lerp(a, b, t)
+    return a + (b - a) * t
+end
+
+-- Write all animated properties forward (never reads from frame)
+local function ApplyLayout(w, h, tbh, ca, aa)
+    curWidth, curHeight, curTitleBarHeight, curContentAlpha, curArrowAngle = w, h, tbh, ca, aa
+    frame:SetSize(math.floor(w), math.floor(h))
+    frame.titleBar:SetHeight(math.floor(tbh))
+    frame.toggleArrow:SetRotation(aa)
+    contentFrame:SetAlpha(ca)
+end
+
+-- Cancel animation without snapping (used on frame hide)
+CancelAnimation = function()
+    if not animating then return end
+    animating = false
+    if animDriver then animDriver:SetScript("OnUpdate", nil) end
+end
+
+-- Stop animation and snap to target (used when data refresh during animation)
+local function StopAnimation()
+    if not animating then return end
+    CancelAnimation()
+    ApplyLayout(animTargetW, animTargetH, animTargetTBH, animTargetCA, animTargetAA)
+    if animTargetCA == 0 then
+        contentFrame:Hide()
+    end
+    if pendingShowScrollBar then
+        frame.scrollBar:Show()
+    end
+end
+
+local function StartAnimation(targetW, targetH, targetTBH, targetCA, targetAA, expanding)
+    -- Capture current tracked values as start (NOT from frame — secret value risk)
+    local startW, startH, startTBH = curWidth, curHeight, curTitleBarHeight
+    local startCA, startAA = curContentAlpha, curArrowAngle
+    animTargetW, animTargetH, animTargetTBH = targetW, targetH, targetTBH
+    animTargetCA, animTargetAA = targetCA, targetAA
+    local duration = expanding and ANIM_EXPAND_DURATION or ANIM_COLLAPSE_DURATION
+    local elapsed = 0
+    animating = true
+
+    -- Expand: show content at alpha 0 so it fades in
+    if expanding then
+        contentFrame:SetAlpha(0)
+        contentFrame:Show()
+    end
+
+    -- Hide scrollbar during animation (prevents layout fights with changing dimensions)
+    frame.scrollBar:Hide()
+
+    -- Lazy-create driver frame (same pattern as EndeavorsPanel)
+    if not animDriver then
+        animDriver = CreateFrame("Frame", nil, frame)
+    end
+
+    animDriver:SetScript("OnUpdate", function(self, dt)
+        elapsed = elapsed + dt
+        local t = math.min(elapsed / duration, 1)
+        local e = EaseOutQuad(t)
+
+        ApplyLayout(
+            Lerp(startW, animTargetW, e),
+            Lerp(startH, animTargetH, e),
+            Lerp(startTBH, animTargetTBH, e),
+            Lerp(startCA, animTargetCA, e),
+            Lerp(startAA, animTargetAA, e)
+        )
+
+        if t >= 1 then
+            self:SetScript("OnUpdate", nil)
+            animating = false
+            -- Collapse complete: hide content
+            if animTargetCA == 0 then
+                contentFrame:Hide()
+            end
+            -- Restore scrollbar if needed
+            if pendingShowScrollBar then
+                frame.scrollBar:Show()
+            end
+        end
+    end)
 end
 
 --------------------------------------------------------------------------------
@@ -466,6 +582,12 @@ function ZoneOverlay:RefreshLayout()
 
     -- Update position (may change per zone due to floor dropdowns)
     self:UpdatePosition()
+
+    -- If animating and minimize state hasn't changed, stop animation and snap
+    -- (data refresh from ownership/cache update — let the instant layout proceed cleanly)
+    if animating and isMinimized == lastMinimizedState then
+        StopAnimation()
+    end
 
     -- Get data for current zone
     local items = currentMapID and addon:GetZoneDecorItems(currentMapID)
@@ -500,24 +622,23 @@ function ZoneOverlay:RefreshLayout()
     -- Update title
     frame.titleText:SetText(string.format(L["ZONE_OVERLAY_COUNT"], displayCount))
 
-    -- Toggle arrow direction (flipped for bottom-right: up when collapsed, down when expanded)
     local isBottomRight = db.settings.zoneOverlayPosition == "bottomRight"
-    if isBottomRight then
-        frame.toggleArrow:SetRotation(isMinimized and ARROW_EXPANDED or ARROW_COLLAPSED)
-    else
-        frame.toggleArrow:SetRotation(isMinimized and ARROW_COLLAPSED or ARROW_EXPANDED)
-    end
 
     -- Minimized state: compact title bar
     if isMinimized then
-        contentFrame:Hide()
-        frame.titleBar:SetHeight(COLLAPSED_HEIGHT)
-        frame:SetSize(PANEL_WIDTH_MINIMIZED, COLLAPSED_HEIGHT)
+        local targetArrow = isBottomRight and ARROW_EXPANDED or ARROW_COLLAPSED
+        pendingShowScrollBar = false
+        if lastMinimizedState == false and frame:IsShown() then
+            -- Transition from expanded → minimized: animate
+            StartAnimation(PANEL_WIDTH_MINIMIZED, COLLAPSED_HEIGHT, COLLAPSED_HEIGHT, 0, targetArrow, false)
+        else
+            -- First render, frame hidden, or already minimized: instant
+            contentFrame:Hide()
+            ApplyLayout(PANEL_WIDTH_MINIMIZED, COLLAPSED_HEIGHT, COLLAPSED_HEIGHT, 0, targetArrow)
+        end
+        lastMinimizedState = true
         return
     end
-
-    -- Restore title bar height for expanded state
-    frame.titleBar:SetHeight(TITLE_BAR_HEIGHT)
 
     -- Reset category state on zone change
     if currentMapID ~= lastCategoryMapID then
@@ -526,7 +647,6 @@ function ZoneOverlay:RefreshLayout()
     end
 
     -- Expanded state: build flat data list with category expand/collapse
-    contentFrame:Show()
 
     -- Prepare sections: collect items per category
     local sections = {}
@@ -612,19 +732,27 @@ function ZoneOverlay:RefreshLayout()
         visibleHeight = visibleHeight + (entry.isHeader and HEADER_HEIGHT or ITEM_ROW_HEIGHT)
     end
 
-    contentFrame:SetHeight(math.max(visibleHeight + 8, 1))
-    frame:SetSize(PANEL_WIDTH, TITLE_BAR_HEIGHT + visibleHeight + 8)
+    local targetH = TITLE_BAR_HEIGHT + visibleHeight + PADDING
+    local showScrollBar = #flatData > MAX_VISIBLE_ENTRIES
+    pendingShowScrollBar = showScrollBar
 
-    -- Hide scrollbar when all entries fit without scrolling
-    if #flatData <= MAX_VISIBLE_ENTRIES then
-        frame.scrollBar:Hide()
-    else
-        frame.scrollBar:Show()
-    end
-
-    -- Update data provider (triggers scroll box refresh)
+    -- Set content height and populate data before animation
+    -- (content renders at target size, clipped by parent during expand)
+    contentFrame:SetHeight(math.max(visibleHeight + PADDING, 1))
     frame.dataProvider:Flush()
     frame.dataProvider:InsertTable(flatData)
+
+    local targetArrow = isBottomRight and ARROW_COLLAPSED or ARROW_EXPANDED
+    if lastMinimizedState == true and frame:IsShown() then
+        -- Transition from minimized → expanded: animate
+        StartAnimation(PANEL_WIDTH, targetH, TITLE_BAR_HEIGHT, 1, targetArrow, true)
+    else
+        -- First render, content refresh, or category toggle: instant
+        contentFrame:Show()
+        ApplyLayout(PANEL_WIDTH, targetH, TITLE_BAR_HEIGHT, 1, targetArrow)
+        if showScrollBar then frame.scrollBar:Show() else frame.scrollBar:Hide() end
+    end
+    lastMinimizedState = false
 end
 
 --------------------------------------------------------------------------------

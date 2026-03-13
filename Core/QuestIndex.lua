@@ -330,8 +330,8 @@ function addon:BuildQuestHierarchy()
                 local levelB = levelCache[b] or 0
                 if levelA ~= levelB then return levelA < levelB end
 
-                local titleA = addon.questTitleCache[a] or tostring(a)
-                local titleB = addon.questTitleCache[b] or tostring(b)
+                local titleA = addon:GetQuestTitle(a)
+                local titleB = addon:GetQuestTitle(b)
                 return titleA < titleB
             end)
         end
@@ -369,7 +369,9 @@ function addon:GetSortedZones(expansionKey)
         table.insert(zones, zoneName)
     end
 
-    table.sort(zones)  -- Alphabetical
+    table.sort(zones, function(a, b)
+        return self:GetLocalizedZoneName(a) < self:GetLocalizedZoneName(b)
+    end)
     return zones
 end
 

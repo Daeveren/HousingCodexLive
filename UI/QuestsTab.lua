@@ -768,6 +768,40 @@ function QuestsTab:BuildZoneQuestDisplay()
     if #elements > 0 then
         self.zoneQuestDataProvider:InsertTable(elements)
     end
+
+    -- Reconcile selection: if selected quest is no longer visible, auto-select first or clear
+    if self.selectedQuestID then
+        local found = false
+        for _, elem in ipairs(elements) do
+            if not elem.isZone and elem.questID == self.selectedQuestID
+                and (not self.selectedRecordID or elem.recordID == self.selectedRecordID) then
+                found = true
+                break
+            end
+        end
+        if not found then
+            local firstQuest
+            for _, elem in ipairs(elements) do
+                if not elem.isZone then
+                    firstQuest = elem
+                    break
+                end
+            end
+            if firstQuest then
+                self:SelectQuest(firstQuest)
+            else
+                self.selectedQuestID = nil
+                self.selectedRecordID = nil
+                local db = GetQuestsDB()
+                if db then
+                    db.selectedQuestID = nil
+                    db.selectedRecordID = nil
+                end
+                addon:FireEvent("RECORD_SELECTED", nil)
+            end
+        end
+    end
+
     self:UpdateEmptyStates()
 end
 

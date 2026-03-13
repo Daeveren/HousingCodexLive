@@ -415,9 +415,6 @@ function addon:ResolveRecord(recordID)
     record = BuildRecordFields(entryID, info, { resolveTracking = true, useEntrySubtype = true })
 
     self.fallbackRecords[recordID] = record
-    if record.itemID and self.itemIDToRecordID then
-        self.itemIDToRecordID[record.itemID] = recordID
-    end
     self:Debug("Resolved hidden catalog item: " .. (info.name or recordID))
     return record
 end
@@ -703,7 +700,7 @@ addon:RegisterWoWEvent("HOUSING_STORAGE_ENTRY_UPDATED", function(entryID)
     RefreshRecordOwnership(record, info)
     local collectionStateChanged = (record.isCollected ~= wasCollected)
 
-    -- O(1) index patch for the single updated record (avoids full BuildIndexes rebuild)
+    -- O(1) index patch for the single updated record (avoids full BuildCollectedIndex rebuild)
     if addon.indexesBuilt and addon.indexes and addon.indexes.collected and collectionStateChanged then
         if record.isCollected then
             addon.indexes.collected[recordID] = true
@@ -724,7 +721,7 @@ addon:RegisterWoWEvent("HOUSING_STORAGE_UPDATED", function()
     addon:CountDebug("ownership", "bulk")
 
     -- Wipe fallback records so ResolveRecord re-queries with fresh ownership
-    -- Safe: BuildIndexes only iterates decorRecords, fallbackRecords repopulate on demand
+    -- Safe: BuildCollectedIndex only iterates decorRecords, fallbackRecords repopulate on demand
     wipe(addon.fallbackRecords)
     addon.craftingIndexBuilt = false
 
@@ -736,8 +733,8 @@ addon:RegisterWoWEvent("HOUSING_STORAGE_UPDATED", function()
         end
     end
 
-    -- ALWAYS: Lightweight index rebuild (needed by LDB, merchant overlay)
-    addon:BuildIndexes()
+    -- ALWAYS: Lightweight collected index rebuild (needed by LDB, merchant overlay)
+    addon:BuildCollectedIndex()
 
     -- ALWAYS: Fire ownership event (needed by LDB, WishlistFrame, QuestsTab, AchievementsTab)
     addon:FireEvent("RECORD_OWNERSHIP_UPDATED", nil, true, "bulk")
