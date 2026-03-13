@@ -2,6 +2,11 @@
 
 All notable changes to Housing Codex.
 
+**1.9.10** (2026-03-13)
+
+**Added**
+- Full German localization — all addon text is now translated to German
+
 **1.9.9** (2026-03-13)
 
 **Fixed**
