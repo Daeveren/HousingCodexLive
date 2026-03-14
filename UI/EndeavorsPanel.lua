@@ -1,7 +1,7 @@
 --[[
     Housing Codex - EndeavorsPanel.lua
     UI layer for the Endeavors mini-panel: XP bar, endeavor bar, task list,
-    title bar auto-hide, minimize, movability, cogwheel config popup.
+    title bar auto-hide, movability, cogwheel config popup.
 ]]
 
 local _, addon = ...
@@ -38,7 +38,7 @@ local titleBar, titleBarBg, titleText, xpContainer, endeavorContainer, taskConta
 local xpBarBg, xpBarFill, xpLevelText, xpValueText, xpPctText
 local endeavorBarBg, endeavorBarFill, endeavorLabel, endeavorValueText, endeavorPctText
 local taskRows = {}
-local cogwheelBtn, minimizeBtn
+local cogwheelBtn
 local configFrame = nil
 local hcIcon = nil
 local contentBackdrop = nil
@@ -48,16 +48,11 @@ local titleHideTimer = nil
 local titleBarVisible = true
 local isFirstShow = true   -- true until first auto-hide completes (login grace period)
 
--- Inactivity timer (auto-minimize after idle)
-local inactivityTimer = nil
-
 -- Task prune ticker
 local pruneTicker = nil
 
 -- Task expansion state (tasks visible → backdrop stays on, title bar still auto-hides)
 local isTaskExpanded = false
-local userMinimized = false  -- set when user manually minimizes; cleared when tasks disappear
-
 -- Frame backdrop alpha tracking
 local frameBackdropAlpha = 1
 
@@ -170,9 +165,6 @@ local function ApplyScale()
     cogwheelBtn:SetSize(ST(16), ST(16))
     cogwheelBtn:ClearAllPoints()
     cogwheelBtn:SetPoint("RIGHT", -ST(2), 0)
-    minimizeBtn:SetSize(ST(16), ST(16))
-    minimizeBtn:ClearAllPoints()
-    minimizeBtn:SetPoint("RIGHT", cogwheelBtn, "LEFT", -ST(2), 0)
 
     -- Icon
     if frame.iconFrame then
@@ -439,36 +431,6 @@ local function ScheduleHideTitleBar(forceDelay)
             end
         end
     end)
-end
-
---------------------------------------------------------------------------------
--- Inactivity Auto-Minimize (minimizes after 2 min idle)
---------------------------------------------------------------------------------
-
-local function ScheduleInactivityMinimize()
-    if inactivityTimer then inactivityTimer:Cancel() end
-    inactivityTimer = C_Timer.NewTimer(CONST.CONTENT_HIDE_DELAY, function()
-        inactivityTimer = nil
-        if frame and frame:IsShown() and not frame:IsMouseOver() then
-            local db = addon.db.endeavors
-            if not db.minimized then
-                db.minimized = true
-                userMinimized = true
-                -- UpdateMinimizeButton is a local defined later; inline the texture swap here
-                if minimizeBtn then
-                    minimizeBtn:SetNormalTexture("Interface\\Buttons\\UI-PlusButton-UP")
-                    minimizeBtn:SetPushedTexture("Interface\\Buttons\\UI-PlusButton-DOWN")
-                end
-                EP:Refresh()
-            end
-        end
-    end)
-end
-
--- Called on any activity: mouseover, task update, initiative update
-local function OnActivity()
-    if not frame or not frame:IsShown() then return end
-    ScheduleInactivityMinimize()
 end
 
 -- Called on task progress — resets the timer that clears the task list on expiry
@@ -917,35 +879,6 @@ function EP:ToggleConfig(anchorFrame)
 end
 
 --------------------------------------------------------------------------------
--- Minimize / Expand
---------------------------------------------------------------------------------
-
-local function UpdateMinimizeButton()
-    if not minimizeBtn then return end
-    local db = addon.db.endeavors
-    if db.minimized then
-        minimizeBtn:SetNormalTexture("Interface\\Buttons\\UI-PlusButton-UP")
-        minimizeBtn:SetPushedTexture("Interface\\Buttons\\UI-PlusButton-DOWN")
-    else
-        minimizeBtn:SetNormalTexture("Interface\\Buttons\\UI-MinusButton-UP")
-        minimizeBtn:SetPushedTexture("Interface\\Buttons\\UI-MinusButton-DOWN")
-    end
-end
-
-local function ToggleMinimize()
-    local db = addon.db.endeavors
-    db.minimized = not db.minimized
-    if db.minimized then
-        userMinimized = true
-    end
-    UpdateMinimizeButton()
-    EP:Refresh()
-    OnActivity()  -- reset inactivity timer
-
-    ScheduleHideTitleBar()
-end
-
---------------------------------------------------------------------------------
 -- Frame Creation
 --------------------------------------------------------------------------------
 
@@ -967,11 +900,10 @@ local function CreateEndeavorsFrame()
 
     -- Persistent ambient panel — do NOT add to UISpecialFrames (ESC would hide it)
 
-    -- Mouse enter/leave for title bar auto-hide + activity tracking
+    -- Mouse enter/leave for title bar auto-hide
     frame:EnableMouse(true)
     frame:SetScript("OnEnter", function()
         ShowTitleBar()
-        OnActivity()
     end)
     frame:SetScript("OnLeave", ScheduleHideTitleBar)
 
@@ -1005,10 +937,9 @@ local function CreateEndeavorsFrame()
     end)
     frame:SetMovable(true)
 
-    -- Title bar mouse events for auto-hide + activity tracking
+    -- Title bar mouse events for auto-hide
     titleBar:SetScript("OnEnter", function()
         ShowTitleBar()
-        OnActivity()
     end)
     titleBar:SetScript("OnLeave", ScheduleHideTitleBar)
 
@@ -1057,31 +988,12 @@ local function CreateEndeavorsFrame()
     end)
     cogwheelBtn:SetScript("OnEnter", function(self)
         ShowTitleBar()
-        OnActivity()
         GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
         GameTooltip:SetText(L["ENDEAVORS_OPTIONS_TOOLTIP"])
         GameTooltip:Show()
     end)
     cogwheelBtn:SetScript("OnLeave", function()
         GameTooltip:Hide()
-        ScheduleHideTitleBar()
-    end)
-
-    -- Minimize button (left of cogwheel)
-    minimizeBtn = CreateFrame("Button", nil, titleBar)
-    minimizeBtn:SetSize(ST(16), ST(16))
-    minimizeBtn:SetPoint("RIGHT", cogwheelBtn, "LEFT", -ST(2), 0)
-    minimizeBtn:SetHighlightTexture("Interface\\Buttons\\UI-PlusButton-Hilight")
-    minimizeBtn:GetHighlightTexture():SetAlpha(0.3)
-    UpdateMinimizeButton()
-    minimizeBtn:SetScript("OnClick", function()
-        ToggleMinimize()
-    end)
-    minimizeBtn:SetScript("OnEnter", function(self)
-        ShowTitleBar()
-        OnActivity()
-    end)
-    minimizeBtn:SetScript("OnLeave", function()
         ScheduleHideTitleBar()
     end)
 
@@ -1148,7 +1060,6 @@ local function CreateEndeavorsFrame()
     xpContainer:EnableMouse(true)
     xpContainer:SetScript("OnEnter", function(self)
         ShowTitleBar()
-        OnActivity()
         if not db.showXPText and xpValueText.storedText then
             xpValueText:SetText(xpValueText.storedText)
             xpValueText:Show()
@@ -1239,7 +1150,6 @@ local function CreateEndeavorsFrame()
     endeavorContainer:EnableMouse(true)
     endeavorContainer:SetScript("OnEnter", function(self)
         ShowTitleBar()
-        OnActivity()
         ShowEndeavorTooltip(self)
         -- Add click hint at end of tooltip
         GameTooltip:AddLine(" ")
@@ -1303,47 +1213,7 @@ function EP:UpdateLayout()
 
     local db = addon.db.endeavors
 
-    -- When minimized: only show title bar — auto-expand for new tasks unless user manually minimized
     if not cachedActiveTasks then cachedActiveTasks = addon.EndeavorsData:GetActiveTasks() end
-    if db.minimized then
-        local activeTasks = cachedActiveTasks
-        if #activeTasks > 0 and not userMinimized then
-            -- New tasks arrived while minimized: auto-expand
-            db.minimized = false
-            UpdateMinimizeButton()
-            -- Fall through to normal layout
-        else
-            if #activeTasks == 0 then
-                userMinimized = false  -- reset so next task batch can auto-expand
-            end
-
-            xpContainer:Hide()
-            endeavorContainer:Hide()
-            taskContainer:Hide()
-            if contentBackdrop then contentBackdrop:Hide() end
-            for i = 1, CONST.MAX_VISIBLE_TASKS do
-                taskRows[i]:Hide()
-            end
-
-            isTaskExpanded = false
-            ResetBarLayout()
-
-            -- Keep icon visible when minimized, at its normal below-title-bar position
-            if frame.iconFrame then
-                frame.iconFrame:ClearAllPoints()
-                frame.iconFrame:SetPoint("TOPLEFT", frame, "TOPLEFT", S(6), -(ST(CONST.TITLE_BAR_HEIGHT) + S(6)))
-                frame.iconFrame:Show()
-                if frame.iconBg then frame.iconBg:Show() end
-            end
-
-            -- Title bar + icon height (icon sits below title bar)
-            local iconH = frame.iconFrame and frame.iconFrame:GetHeight() or 0
-            local minimizedHeight = ST(CONST.TITLE_BAR_HEIGHT) + S(6) + iconH + S(6)
-            frame:SetHeight(minimizedHeight)
-            AnimateWidth(S(CONST.PANEL_WIDTH))
-            return
-        end
-    end
 
     local yOffset = -(ST(CONST.TITLE_BAR_HEIGHT) + S(4))  -- Below title bar + padding
     local showXP = db.showHouseXP and addon.EndeavorsData:HasHouse()
@@ -1462,7 +1332,7 @@ function EP:UpdateLayout()
         end
     end
 
-    -- If nothing is visible, collapse to title-bar-only (like minimized)
+    -- If nothing is visible, collapse to title-bar-only
     -- instead of hiding the frame entirely — hiding breaks re-show logic
     if not showXP and not showEndeavor and not hasVisibleTasks then
         isTaskExpanded = false
@@ -1480,7 +1350,7 @@ function EP:UpdateLayout()
     isTaskExpanded = hasVisibleTasks
 
     if isTaskExpanded and not wasTaskExpanded then
-        -- Tasks just appeared: animate to inline + start 1-min inactivity timer
+        -- Tasks just appeared: animate to inline layout
         if taskGoneTimer then taskGoneTimer:Cancel(); taskGoneTimer = nil end
         if showXP and showEndeavor then
             AnimateBarLayout(1)
@@ -1501,7 +1371,6 @@ function EP:UpdateLayout()
             EP:Refresh()
         end)
     elseif not isTaskExpanded and wasTaskExpanded then
-        userMinimized = false  -- reset so next task batch can auto-expand
         -- Tasks gone — collapse to stacked + mini width
         if taskGoneTimer then taskGoneTimer:Cancel(); taskGoneTimer = nil end
         AnimateBarLayout(0)
@@ -1684,11 +1553,6 @@ function EP:TryShow()
         return
     end
 
-    -- Reset minimize on show — unless user explicitly minimized this session
-    if not userMinimized then
-        addon.db.endeavors.minimized = false
-    end
-
     if not frame then
         CreateEndeavorsFrame()
     end
@@ -1701,9 +1565,6 @@ function EP:TryShow()
     -- Auto-hide title bar: 6s grace period on first show (login), 2s after mouseover thereafter
     local delay = isFirstShow and CONST.TITLE_HIDE_DELAY_LOGIN or nil
     ScheduleHideTitleBar(delay)
-
-    -- Start inactivity auto-minimize timer
-    ScheduleInactivityMinimize()
 
     -- Start initiative progress poll (NEIGHBORHOOD_INITIATIVE_UPDATED is request/response only)
     -- Skip if endeavor bar is disabled — poll feeds task diff tracking too,
@@ -1743,12 +1604,6 @@ function EP:TryHide()
         combatDeferFrame:UnregisterEvent("PLAYER_REGEN_ENABLED")
     end
 
-    -- Stop inactivity timer
-    if inactivityTimer then
-        inactivityTimer:Cancel()
-        inactivityTimer = nil
-    end
-
     -- Stop title bar fade timer
     if titleHideTimer then
         titleHideTimer:Cancel()
@@ -1757,6 +1612,7 @@ function EP:TryHide()
 
     -- Reset bar layout to stacked
     isTaskExpanded = false
+    tasksCollapsed = false
     ResetBarLayout()
 
     -- Stop initiative progress poll
@@ -1816,7 +1672,6 @@ addon:RegisterInternalEvent("ENDEAVORS_INITIATIVE_UPDATED", function(hasChanges)
     elseif frame and frame:IsShown() then
         EP:Refresh()
         if hasChanges then
-            OnActivity()
             OnTaskProgressActivity()
         end
     end
@@ -1828,7 +1683,6 @@ addon:RegisterInternalEvent("ENDEAVORS_TASK_COMPLETED", function()
         EP:TryShow()
     elseif frame and frame:IsShown() then
         EP:Refresh()
-        OnActivity()
         OnTaskProgressActivity()
     end
 end)

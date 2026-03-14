@@ -249,7 +249,6 @@ addon.CONSTANTS = {
         TITLE_HIDE_DELAY_LOGIN = 6,   -- seconds before first auto-hide at login
         TITLE_FADE_IN = 0.15,         -- seconds for fade-in animation
         TITLE_FADE_OUT = 0.3,         -- seconds for fade-out animation
-        CONTENT_HIDE_DELAY = 120,     -- seconds of inactivity before panel minimizes (2 min)
         WIDTH_ANIM_DURATION = 0.3,    -- seconds for width tween animation
         BAR_LAYOUT_DURATION = 0.35,   -- seconds for stacked ↔ inline bar animation
         TASK_COLLAPSE_DELAY = 60,  -- seconds of no task progress before collapsing task section visually

@@ -2,6 +2,14 @@
 
 All notable changes to Housing Codex.
 
+**1.9.12** (2026-03-14)
+
+**Changed**
+- Endeavors panel no longer auto-minimizes after being idle — it stays visible while you're in your neighborhood
+
+**Fixed**
+- Fixed a potential crash with the minimap button when entering certain protected UI states
+
 **1.9.11** (2026-03-14)
 
 **Added**
