@@ -72,8 +72,6 @@ local function OnTooltipUnit(tooltip)
             tooltip:AddLine(string.format(L["VENDOR_PIN_MORE"], overflow), 0.6, 0.6, 0.6)
         end
     end
-
-    tooltip:Show()
 end
 
 function VendorTooltipOverlay:Initialize()

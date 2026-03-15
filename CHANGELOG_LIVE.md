@@ -2,6 +2,17 @@
 
 All notable changes to Housing Codex.
 
+**1.9.13** (2026-03-15)
+
+**Fixed**
+- Fixes for Endeavors config
+- Fixed map tooltips losing their dark styling when hovering vendor pins, zone overlay items, and the world map button
+- Fixed a tooltip error that could occur when hovering certain map icons after viewing zone overlay items
+- Zone overlay scrollbar thumb now appears immediately when the list is long enough to scroll
+- Hovering the collapsed zone overlay now shows a tooltip hint
+- Removed a phantom item that showed with a ? icon and no preview in some vendor and zone overlay lists
+- Fixed a brief visual flash when switching categories in the Achievements and Quests tabs
+
 **1.9.12** (2026-03-14)
 
 **Changed**

@@ -19,8 +19,8 @@ end
 function addon:StyleMapTooltip(tooltip)
     local nine = tooltip.NineSlice
     if not nine then return end
-    nine:SetCenterColor(0.08, 0.08, 0.1, 0.95)
-    nine:SetBorderColor(0.45, 0.45, 0.45, 0.9)
+    nine:SetCenterColor(0.08, 0.08, 0.1, 1)
+    nine:SetBorderColor(0.45, 0.45, 0.45, 1)
 end
 
 local CUSTOM_LEVEL_LOW = "PIN_FRAME_LEVEL_HC_VENDOR_LOW"
@@ -523,7 +523,6 @@ function HousingCodexVendorPinMixin:OnMouseEnter()
     local tooltip = GetMapTooltip()
     tooltip:SetOwner(self, "ANCHOR_RIGHT")
     tooltip:SetScale(C.TOOLTIP_SCALE)
-    addon:StyleMapTooltip(tooltip)
 
     if IsAggregateVendorPin(self) then
         local vendors = self.aggregateVendors
@@ -544,6 +543,7 @@ function HousingCodexVendorPinMixin:OnMouseEnter()
         end
 
         tooltip:Show()
+        addon:StyleMapTooltip(tooltip)
         return
     end
 
@@ -585,6 +585,7 @@ function HousingCodexVendorPinMixin:OnMouseEnter()
     GameTooltip_AddBlankLineToTooltip(tooltip)
     GameTooltip_AddInstructionLine(tooltip, L["VENDOR_PIN_CLICK_WAYPOINT"])
     tooltip:Show()
+    addon:StyleMapTooltip(tooltip)
 end
 
 function HousingCodexVendorPinMixin:OnMouseLeave()

@@ -540,10 +540,7 @@ function QuestsTab:SelectExpansion(expansionKey)
         end)
     end
 
-    -- Rebuild zone/quest panel
-    self:BuildZoneQuestDisplay()
-
-    -- Clear quest selection and preview when switching expansions
+    -- Clear quest selection and preview when switching expansions (before build so auto-select targets new expansion)
     if prevSelected ~= expansionKey then
         self.selectedQuestID = nil
         self.selectedRecordID = nil
@@ -553,6 +550,9 @@ function QuestsTab:SelectExpansion(expansionKey)
         end
         addon:FireEvent("RECORD_SELECTED", nil)
     end
+
+    -- Rebuild zone/quest panel
+    self:BuildZoneQuestDisplay()
 end
 
 --------------------------------------------------------------------------------

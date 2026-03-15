@@ -7,7 +7,6 @@
 local _, addon = ...
 
 local DEBOUNCE_DELAY = 0.2  -- Intentionally higher than CONSTS.TIMER.INPUT_DEBOUNCE (heavier API call)
-local MIN_CHARACTER_SEARCH = 3  -- Blizzard pattern: minimum chars before search triggers
 
 addon.SearchBox = {}
 local SearchBox = addon.SearchBox
@@ -17,12 +16,12 @@ SearchBox.debounceTimer = nil
 SearchBox.lastSearchText = nil
 SearchBox.pendingSearchText = nil  -- Stores search text typed before catalogSearcher is ready
 
--- Normalize search text: trim whitespace, enforce minimum length, convert empty to nil
+-- Normalize search text: trim whitespace, convert empty to nil
 local function NormalizeSearchText(text)
     if not text then return nil end
 
     local trimmed = strtrim(text)
-    if trimmed == "" or #trimmed < MIN_CHARACTER_SEARCH then
+    if trimmed == "" then
         return nil
     end
 

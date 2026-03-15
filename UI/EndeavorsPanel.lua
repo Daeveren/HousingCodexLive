@@ -682,7 +682,7 @@ local function CreateScaleButton(parent, label, scaleKey, x, yOffset, allButtons
         ApplyScale()
         EP:Refresh()
         for _, b in ipairs(allButtons) do
-            b:UpdateVisual(b == btn)
+            b.UpdateVisual(b == btn)
         end
     end)
 
@@ -851,7 +851,7 @@ local function CreateConfigFrame()
         SetCheckboxEnabled(endPct, curDB.showEndeavorProgress)
         -- Scale buttons
         for _, btn in ipairs(scaleBtns) do
-            btn:UpdateVisual(curDB.scale == btn.scaleKey)
+            btn.UpdateVisual(curDB.scale == btn.scaleKey)
         end
     end)
 

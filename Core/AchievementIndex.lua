@@ -7,7 +7,7 @@
 local _, addon = ...
 
 -- WoW achievement root category IDs (stable across locales)
--- Source: ACHIEVEMENTUI_SUMMARYCATEGORIES in Blizzard_AchievementUI.lua
+-- Intentional ordering (diverges from Blizzard's ACHIEVEMENTUI_SUMMARYCATEGORIES; 81 not in Blizzard list)
 local CATEGORY_ORDER = {
     [92] = 1,      -- General
     [96] = 2,      -- Quests

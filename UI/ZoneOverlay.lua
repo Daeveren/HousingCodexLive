@@ -17,6 +17,7 @@ end
 -- Tooltip color objects
 local COLOR_VENDOR_NAME = CreateColor(0, 0.8, 0, 1)
 local COLOR_DIM = CreateColor(0.67, 0.67, 0.67, 1)
+local COLOR_GOLD = CreateColor(1, 0.82, 0, 1)
 
 -- Layout constants
 local PANEL_WIDTH = 240
@@ -45,6 +46,17 @@ local ARROW_EXPANDED = 3 * math.pi / 2    -- Points up
 
 -- Fallback icon for missing textures
 local FALLBACK_ICON = "Interface\\Icons\\INV_Misc_QuestionMark"
+
+local function SetupCursorTooltip(owner, tooltip)
+    local scale = tooltip:GetEffectiveScale()
+    local function UpdatePosition()
+        local cx, cy = GetCursorPosition()
+        tooltip:ClearAllPoints()
+        tooltip:SetPoint("TOPLEFT", UIParent, "BOTTOMLEFT", cx / scale + 25, cy / scale - 25)
+    end
+    UpdatePosition()
+    owner:SetScript("OnUpdate", UpdatePosition)
+end
 
 -- Debounce timer handles
 local updateTimer = nil
@@ -243,6 +255,29 @@ local function CreateOverlayFrame()
         end
     end)
 
+    titleBar:SetScript("OnEnter", function(self)
+        if not addon.db or not addon.db.settings.zoneOverlayMinimized then return end
+        local tooltip = GetMapTooltip()
+        tooltip:SetOwner(self, "ANCHOR_NONE")
+        tooltip:SetFrameStrata("TOOLTIP")
+        tooltip:SetFrameLevel(200)
+        tooltip:SetScale(addon.CONSTANTS.VENDOR_PIN.TOOLTIP_SCALE)
+        GameTooltip_SetTitle(tooltip, "Housing Codex", COLOR_GOLD)
+        GameTooltip_AddNormalLine(tooltip, addon.L["ZONE_OVERLAY_COLLAPSED_TOOLTIP"])
+        tooltip:Show()
+        addon:StyleMapTooltip(tooltip)
+        SetupCursorTooltip(self, tooltip)
+    end)
+
+    titleBar:SetScript("OnLeave", function(self)
+        self:SetScript("OnUpdate", nil)
+        local tooltip = GetMapTooltip()
+        if tooltip:GetOwner() == self then
+            tooltip:SetScale(1)
+            tooltip:Hide()
+        end
+    end)
+
     -- HC icon in title bar
     local titleIcon = titleBar:CreateTexture(nil, "ARTWORK")
     titleIcon:SetSize(16, 16)
@@ -381,9 +416,9 @@ local function CreateOverlayFrame()
                 ShowPreview(self, self.recordID)
                 local tooltip = GetMapTooltip()
                 tooltip:SetOwner(self, "ANCHOR_NONE")
-                tooltip:SetPoint("TOPLEFT", self, "BOTTOMLEFT", 0, -2)
+                tooltip:SetFrameStrata("TOOLTIP")
+                tooltip:SetFrameLevel(200)
                 tooltip:SetScale(addon.CONSTANTS.VENDOR_PIN.TOOLTIP_SCALE)
-                addon:StyleMapTooltip(tooltip)
                 local L = addon.L
                 if self.categoryKey == "vendors" and self.sourceName then
                     local locationLine = self.cityName
@@ -398,10 +433,13 @@ local function CreateOverlayFrame()
                     GameTooltip_SetTitle(tooltip, self.sourceName, COLOR_DIM)
                 end
                 tooltip:Show()
+                addon:StyleMapTooltip(tooltip)
+                SetupCursorTooltip(self, tooltip)
             end)
 
             row:SetScript("OnLeave", function(self)
                 if self.isHeader then return end
+                self:SetScript("OnUpdate", nil)
                 HidePreview()
                 local tooltip = GetMapTooltip()
                 if tooltip:GetOwner() == self then
@@ -511,6 +549,7 @@ local function StopAnimation()
     if pendingShowScrollBar then
         frame.scrollBar:Show()
     end
+    frame.scrollBox:FullUpdate(ScrollBoxConstants.UpdateQueued)
 end
 
 local function StartAnimation(targetW, targetH, targetTBH, targetCA, targetAA, expanding)
@@ -561,6 +600,7 @@ local function StartAnimation(targetW, targetH, targetTBH, targetCA, targetAA, e
             if pendingShowScrollBar then
                 frame.scrollBar:Show()
             end
+            frame.scrollBox:FullUpdate(ScrollBoxConstants.UpdateQueued)
         end
     end)
 end
@@ -751,6 +791,7 @@ function ZoneOverlay:RefreshLayout()
         contentFrame:Show()
         ApplyLayout(PANEL_WIDTH, targetH, TITLE_BAR_HEIGHT, 1, targetArrow)
         if showScrollBar then frame.scrollBar:Show() else frame.scrollBar:Hide() end
+        frame.scrollBox:FullUpdate(ScrollBoxConstants.UpdateQueued)
     end
     lastMinimizedState = false
 end

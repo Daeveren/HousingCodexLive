@@ -477,10 +477,7 @@ function AchievementsTab:SelectCategory(categoryId)
         end)
     end
 
-    -- Rebuild achievement panel
-    self:BuildAchievementDisplay()
-
-    -- Clear selection and preview when switching categories
+    -- Clear selection and preview when switching categories (before build so auto-select targets new category)
     if prevSelected ~= categoryId then
         self.selectedAchievementID = nil
         self.selectedRecordID = nil
@@ -490,6 +487,9 @@ function AchievementsTab:SelectCategory(categoryId)
         end
         addon:FireEvent("RECORD_SELECTED", nil)
     end
+
+    -- Rebuild achievement panel
+    self:BuildAchievementDisplay()
 end
 
 --------------------------------------------------------------------------------
