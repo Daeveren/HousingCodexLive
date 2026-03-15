@@ -14,7 +14,7 @@ local L = addon.L
 --------------------------------------------------------------------------------
 L["ADDON_NAME"] = "Housing Codex"
 L["KEYBIND_HEADER"] = "|cffffd100Housing|r |cffff8000Codex|r"
-L["KEYBIND_TOGGLE"] = "|cffff8000HC|r Afficher/Masquer"
+L["KEYBIND_TOGGLE"] = "|cffff8000Housing Codex|r Afficher/Masquer"
 L["LOADING"] = "Chargement..."
 L["LOADING_DATA"] = "Chargement des données de décor..."
 L["LOADED_MESSAGE"] = "|cFF88EE88%.1f%%|r des décors collectés. Tapez |cFF88BBFF/hc|r pour ouvrir."

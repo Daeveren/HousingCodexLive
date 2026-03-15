@@ -169,11 +169,23 @@ function addon:BuildVendorIndex()
                             npcName = vendorData.npcName,
                             cost = vendorData.cost,
                             currencyName = vendorData.currencyName,
+                            itemCosts = vendorData.itemCosts,
                             decorIds = {},
                             decorIdSet = {},
                         }
                         self.vendorIndex[npcId] = vendorEntry
                         vendorCount = vendorCount + 1
+                    end
+
+                    -- Merge itemCosts from subsequent zone entries for same vendor
+                    if vendorData.itemCosts and not vendorEntry.itemCosts then
+                        vendorEntry.itemCosts = vendorData.itemCosts
+                    elseif vendorData.itemCosts and vendorEntry.itemCosts then
+                        for did, c in pairs(vendorData.itemCosts) do
+                            if not vendorEntry.itemCosts[did] then
+                                vendorEntry.itemCosts[did] = c
+                            end
+                        end
                     end
 
                     -- Merge decor IDs using set for deduplication
@@ -199,6 +211,7 @@ function addon:BuildVendorIndex()
                         npcName = vendorData.npcName,
                         cost = vendorData.cost,
                         currencyName = vendorData.currencyName,
+                        itemCosts = vendorData.itemCosts,
                         decorIds = vendorData.decorIds or {},
                     })
                 end

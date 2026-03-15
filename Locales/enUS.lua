@@ -12,7 +12,7 @@ local L = addon.L
 --------------------------------------------------------------------------------
 L["ADDON_NAME"] = "Housing Codex"
 L["KEYBIND_HEADER"] = "|cffffd100Housing|r |cffff8000Codex|r"
-L["KEYBIND_TOGGLE"] = "|cffff8000HC|r Toggle Window"
+L["KEYBIND_TOGGLE"] = "|cffff8000Housing Codex|r Toggle Window"
 L["LOADING"] = "Loading..."
 L["LOADING_DATA"] = "Loading decor data..."
 L["LOADED_MESSAGE"] = "|cFF88EE88%.1f%%|r decor collected. Type |cFF88BBFF/hc|r to open."

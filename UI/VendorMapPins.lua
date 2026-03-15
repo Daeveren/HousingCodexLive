@@ -522,7 +522,6 @@ function HousingCodexVendorPinMixin:OnMouseEnter()
 
     local tooltip = GetMapTooltip()
     tooltip:SetOwner(self, "ANCHOR_RIGHT")
-    tooltip:SetScale(C.TOOLTIP_SCALE)
 
     if IsAggregateVendorPin(self) then
         local vendors = self.aggregateVendors
@@ -591,7 +590,6 @@ end
 function HousingCodexVendorPinMixin:OnMouseLeave()
     local tooltip = GetMapTooltip()
     if tooltip:GetOwner() == self then
-        tooltip:SetScale(1)
         tooltip:Hide()
     end
 end

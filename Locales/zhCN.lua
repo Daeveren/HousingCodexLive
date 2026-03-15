@@ -13,7 +13,7 @@ local L = addon.L
 --------------------------------------------------------------------------------
 L["ADDON_NAME"] = "Housing Codex"
 L["KEYBIND_HEADER"] = "|cffffd100Housing|r |cffff8000Codex|r"
-L["KEYBIND_TOGGLE"] = "|cffff8000HC|r 切换窗口"
+L["KEYBIND_TOGGLE"] = "|cffff8000Housing Codex|r 切换窗口"
 L["LOADING"] = "加载中..."
 L["LOADING_DATA"] = "正在加载装饰数据..."
 L["LOADED_MESSAGE"] = "已收集 |cFF88EE88%.1f%%|r 装饰物品。输入 |cFF88BBFF/hc|r 打开。"

@@ -699,13 +699,15 @@ function VendorsTab:SetupZoneHeader(frame, elementData)
     frame:SetScript("OnLeave", VendorZoneHeaderOnLeave)
 end
 
--- Check if a decorId can be resolved by any game API
+-- Check if a decorId can be resolved by any game API or fallback data
 local function IsDecorResolvable(decorId)
     if addon:ResolveRecord(decorId) then return true end
     if C_HousingDecor and C_HousingDecor.GetDecorIcon then
         local icon = C_HousingDecor.GetDecorIcon(decorId)
         if icon then return true end
     end
+    local fallback = addon.VendorItemFallback and addon.VendorItemFallback[decorId]
+    if fallback and fallback.name then return true end
     return false
 end
 
@@ -1229,7 +1231,7 @@ local function VendorMatchesSearch(vendorData, searchText, zoneName, expansionKe
                 result = true
                 break
             end
-            local fallback = addon.VendorItemFallback and addon.VendorItemFallback[decorId]
+            local fallback = not record and addon.VendorItemFallback and addon.VendorItemFallback[decorId]
             if fallback and fallback.name and strlower(fallback.name):find(searchText, 1, true) then
                 result = true
                 break

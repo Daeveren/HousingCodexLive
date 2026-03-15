@@ -2,6 +2,15 @@
 
 All notable changes to Housing Codex.
 
+**1.9.15** (2026-03-16)
+
+**Changed**
+- Improved keybinding text for clarity in the Options keybindings UI
+
+**Fixed**
+- Fixed map tooltips causing errors when hovering vendor pins, zone overlay items, and the world map button in certain UI states
+- Fixed some decor items shown as "?" in the map overlay list
+
 **1.9.14** (2026-03-15)
 
 **Added**

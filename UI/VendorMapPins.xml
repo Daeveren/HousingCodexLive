@@ -3,7 +3,7 @@
     xsi:schemaLocation="http://www.blizzard.com/wow/ui/ ..\FrameXML\UI.xsd">
 
     <GameTooltip name="HousingCodexMapTooltip" inherits="GameTooltipTemplate"
-                 clampedToScreen="true" frameStrata="TOOLTIP" hidden="true"/>
+                 clampedToScreen="true" frameStrata="TOOLTIP" hidden="true" scale="0.75"/>
 
     <Button name="HousingCodexVendorPinTemplate"
             inherits="POIButtonTemplate"

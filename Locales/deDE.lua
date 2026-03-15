@@ -14,7 +14,7 @@ local L = addon.L
 --------------------------------------------------------------------------------
 L["ADDON_NAME"] = "Housing Codex"
 L["KEYBIND_HEADER"] = "|cffffd100Housing|r |cffff8000Codex|r"
-L["KEYBIND_TOGGLE"] = "|cffff8000HC|r Fenster umschalten"
+L["KEYBIND_TOGGLE"] = "|cffff8000Housing Codex|r Fenster umschalten"
 L["LOADING"] = "Laden..."
 L["LOADING_DATA"] = "Dekordaten werden geladen..."
 L["LOADED_MESSAGE"] = "|cFF88EE88%.1f%%|r Dekor gesammelt. Tippe |cFF88BBFF/hc|r zum Öffnen."

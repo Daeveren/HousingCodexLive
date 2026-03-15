@@ -183,7 +183,6 @@ end
 function HousingCodexWorldMapButtonMixin:OnEnter()
     local tooltip = GetMapTooltip()
     tooltip:SetOwner(self, "ANCHOR_LEFT")
-    tooltip:SetScale(addon.CONSTANTS.VENDOR_PIN.TOOLTIP_SCALE)
     GameTooltip_SetTitle(tooltip, addon.L["ZONE_OVERLAY_BUTTON_TOOLTIP"])
     tooltip:Show()
     addon:StyleMapTooltip(tooltip)
@@ -192,7 +191,6 @@ end
 function HousingCodexWorldMapButtonMixin:OnLeave()
     local tooltip = GetMapTooltip()
     if tooltip:GetOwner() == self then
-        tooltip:SetScale(1)
         tooltip:Hide()
     end
 end

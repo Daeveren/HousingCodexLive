@@ -47,17 +47,6 @@ local ARROW_EXPANDED = 3 * math.pi / 2    -- Points up
 -- Fallback icon for missing textures
 local FALLBACK_ICON = "Interface\\Icons\\INV_Misc_QuestionMark"
 
-local function SetupCursorTooltip(owner, tooltip)
-    local scale = tooltip:GetEffectiveScale()
-    local function UpdatePosition()
-        local cx, cy = GetCursorPosition()
-        tooltip:ClearAllPoints()
-        tooltip:SetPoint("TOPLEFT", UIParent, "BOTTOMLEFT", cx / scale + 25, cy / scale - 25)
-    end
-    UpdatePosition()
-    owner:SetScript("OnUpdate", UpdatePosition)
-end
-
 -- Debounce timer handles
 local updateTimer = nil
 local ownershipTimer = nil
@@ -258,22 +247,18 @@ local function CreateOverlayFrame()
     titleBar:SetScript("OnEnter", function(self)
         if not addon.db or not addon.db.settings.zoneOverlayMinimized then return end
         local tooltip = GetMapTooltip()
-        tooltip:SetOwner(self, "ANCHOR_NONE")
+        tooltip:SetOwner(self, "ANCHOR_CURSOR_RIGHT")
         tooltip:SetFrameStrata("TOOLTIP")
         tooltip:SetFrameLevel(200)
-        tooltip:SetScale(addon.CONSTANTS.VENDOR_PIN.TOOLTIP_SCALE)
         GameTooltip_SetTitle(tooltip, "Housing Codex", COLOR_GOLD)
         GameTooltip_AddNormalLine(tooltip, addon.L["ZONE_OVERLAY_COLLAPSED_TOOLTIP"])
         tooltip:Show()
         addon:StyleMapTooltip(tooltip)
-        SetupCursorTooltip(self, tooltip)
     end)
 
-    titleBar:SetScript("OnLeave", function(self)
-        self:SetScript("OnUpdate", nil)
+    titleBar:SetScript("OnLeave", function()
         local tooltip = GetMapTooltip()
-        if tooltip:GetOwner() == self then
-            tooltip:SetScale(1)
+        if tooltip:GetOwner() == titleBar then
             tooltip:Hide()
         end
     end)
@@ -415,10 +400,9 @@ local function CreateOverlayFrame()
                 if self.isHeader or not self.recordID then return end
                 ShowPreview(self, self.recordID)
                 local tooltip = GetMapTooltip()
-                tooltip:SetOwner(self, "ANCHOR_NONE")
+                tooltip:SetOwner(self, "ANCHOR_CURSOR_RIGHT")
                 tooltip:SetFrameStrata("TOOLTIP")
                 tooltip:SetFrameLevel(200)
-                tooltip:SetScale(addon.CONSTANTS.VENDOR_PIN.TOOLTIP_SCALE)
                 local L = addon.L
                 if self.categoryKey == "vendors" and self.sourceName then
                     local locationLine = self.cityName
@@ -434,16 +418,13 @@ local function CreateOverlayFrame()
                 end
                 tooltip:Show()
                 addon:StyleMapTooltip(tooltip)
-                SetupCursorTooltip(self, tooltip)
             end)
 
             row:SetScript("OnLeave", function(self)
                 if self.isHeader then return end
-                self:SetScript("OnUpdate", nil)
                 HidePreview()
                 local tooltip = GetMapTooltip()
                 if tooltip:GetOwner() == self then
-                    tooltip:SetScale(1)
                     tooltip:Hide()
                 end
             end)

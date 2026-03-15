@@ -360,13 +360,15 @@ function addon:GetRecord(recordID)
 end
 
 -- Resolve display name for a decorId with fallback chain:
--- 1. Record name (catalog or resolved)  2. C_HousingDecor API  3. Scraped DropDecorNames  4. "Decor #XXXX"
+-- 1. Record name (catalog or resolved)  2. C_HousingDecor API  3. VendorItemFallback  4. Scraped DropDecorNames  5. "Decor #XXXX"
 function addon:ResolveDecorName(decorId, record)
     if record and record.name and record.name ~= "" then return record.name end
     if C_HousingDecor and C_HousingDecor.GetDecorName then
         local name = C_HousingDecor.GetDecorName(decorId)
         if name then return name end
     end
+    local vendorFallback = self.VendorItemFallback and self.VendorItemFallback[decorId]
+    if vendorFallback and vendorFallback.name then return vendorFallback.name end
     local scraped = self.DropDecorNames and self.DropDecorNames[decorId]
     return scraped or string.format(self.L["DROPS_DECOR_ID"], decorId)
 end
