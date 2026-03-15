@@ -62,6 +62,9 @@ VendorsTab.onUserWaypointUpdated = nil
 
 VendorsTab.toolbarLayout = nil
 VendorsTab.filterContainer = nil
+VendorsTab.currentZoneOnly = false
+VendorsTab.currentZoneCheckbox = nil
+VendorsTab.playerZoneRootMapID = nil
 
 --------------------------------------------------------------------------------
 -- Main Frame
@@ -127,6 +130,20 @@ function VendorsTab:CreateToolbar(parent)
         searchPlaceholderKey = "VENDORS_SEARCH_PLACEHOLDER",
         filterPrefix = "VENDORS",
     })
+
+    local check = CreateFrame("CheckButton", nil, self.toolbar, "UICheckButtonTemplate")
+    check:SetPoint("LEFT", self.filterContainer, "RIGHT", 12, 0)
+    check:SetSize(22, 22)
+    check.Text:SetFontObject(addon:GetFontObject("GameFontNormalSmall"))
+    addon:RegisterFontString(check.Text, "GameFontNormalSmall")
+    check.Text:SetText(addon.L["VENDORS_CURRENT_ZONE"])
+    check.Text:SetTextColor(1, 0.82, 0)
+    check:SetChecked(false)
+    check:SetScript("OnClick", function(cb)
+        self.currentZoneOnly = cb:GetChecked()
+        self:RefreshDisplay()
+    end)
+    self.currentZoneCheckbox = check
 end
 
 -- Rebuild the expansion list and, if needed, the vendor list.
@@ -137,6 +154,9 @@ local searchCache, filterCache
 -- when that didn't happen.
 function VendorsTab:RefreshDisplay()
     addon:CountDebug("rebuild", "VendorsTab")
+    if self.currentZoneOnly then
+        self:UpdatePlayerZone()
+    end
     searchCache = {}
     filterCache = {}
     if not self:BuildExpansionDisplay() then
@@ -1132,6 +1152,51 @@ function VendorsTab:NavigateToVendor(npcId)
 end
 
 --------------------------------------------------------------------------------
+-- Current Zone Filter
+--------------------------------------------------------------------------------
+
+function VendorsTab:UpdatePlayerZone()
+    local mapID = C_Map.GetBestMapForUnit("player")
+    if not mapID then
+        self.playerZoneRootMapID = nil
+        return
+    end
+    self.playerZoneRootMapID = addon:GetZoneRootMapID(mapID)
+end
+
+local function VendorZoneMatchesPlayerZone(zoneName)
+    local playerRoot = VendorsTab.playerZoneRootMapID
+    if not playerRoot then return false end
+
+    local vendorMapID = addon.vendorZoneToMapId and addon.vendorZoneToMapId[zoneName]
+    if not vendorMapID then return false end
+
+    local vendorRoot = addon:GetZoneRootMapID(vendorMapID)
+    if not vendorRoot then return false end
+
+    -- Direct match
+    if vendorRoot == playerRoot then return true end
+
+    -- Player is in a city that belongs to the vendor's zone
+    local cityChildren = addon:GetCityChildMapIDs(vendorRoot)
+    if cityChildren then
+        for _, cityMapID in ipairs(cityChildren) do
+            if cityMapID == playerRoot then return true end
+        end
+    end
+
+    -- Player is in a zone that has the vendor's city as a child
+    local playerCityChildren = addon:GetCityChildMapIDs(playerRoot)
+    if playerCityChildren then
+        for _, cityMapID in ipairs(playerCityChildren) do
+            if cityMapID == vendorRoot then return true end
+        end
+    end
+
+    return false
+end
+
+--------------------------------------------------------------------------------
 -- Search/Filter Logic (with per-refresh memoization)
 --------------------------------------------------------------------------------
 
@@ -1231,14 +1296,18 @@ function VendorsTab:BuildExpansionDisplay()
     local filter = self:GetCompletionFilter()
     local searchText = strlower(strtrim(self.searchBox and self.searchBox:GetText() or ""))
 
+    local zoneFilterActive = self.currentZoneOnly
+
     for _, expansionKey in ipairs(addon:GetSortedVendorExpansions()) do
         local hasVisibleContent = false
         for _, zoneName in ipairs(addon:GetSortedVendorZones(expansionKey)) do
-            for _, vendorData in ipairs(addon:GetVendorsForZone(expansionKey, zoneName)) do
-                if VendorPassesCompletionFilter(vendorData, filter, zoneName, expansionKey)
-                    and VendorMatchesSearch(vendorData, searchText, zoneName, expansionKey) then
-                    hasVisibleContent = true
-                    break
+            if not zoneFilterActive or VendorZoneMatchesPlayerZone(zoneName) then
+                for _, vendorData in ipairs(addon:GetVendorsForZone(expansionKey, zoneName)) do
+                    if VendorPassesCompletionFilter(vendorData, filter, zoneName, expansionKey)
+                        and VendorMatchesSearch(vendorData, searchText, zoneName, expansionKey) then
+                        hasVisibleContent = true
+                        break
+                    end
                 end
             end
             if hasVisibleContent then break end
@@ -1279,21 +1348,24 @@ function VendorsTab:BuildVendorDisplay()
     if expansionKey then
         local filter = self:GetCompletionFilter()
         local searchText = strlower(strtrim(self.searchBox and self.searchBox:GetText() or ""))
+        local zoneFilterActive = self.currentZoneOnly
 
         for _, zoneName in ipairs(addon:GetSortedVendorZones(expansionKey)) do
-            local zoneVendors = {}
-            for _, vendorData in ipairs(addon:GetVendorsForZone(expansionKey, zoneName)) do
-                if VendorPassesCompletionFilter(vendorData, filter, zoneName, expansionKey)
-                    and VendorMatchesSearch(vendorData, searchText, zoneName, expansionKey) then
-                    table.insert(zoneVendors, vendorData)
+            if not zoneFilterActive or VendorZoneMatchesPlayerZone(zoneName) then
+                local zoneVendors = {}
+                for _, vendorData in ipairs(addon:GetVendorsForZone(expansionKey, zoneName)) do
+                    if VendorPassesCompletionFilter(vendorData, filter, zoneName, expansionKey)
+                        and VendorMatchesSearch(vendorData, searchText, zoneName, expansionKey) then
+                        table.insert(zoneVendors, vendorData)
+                    end
                 end
-            end
 
-            if #zoneVendors > 0 then
-                table.insert(elements, { isZoneHeader = true, expansionKey = expansionKey, zoneName = zoneName })
-                if self:IsZoneExpanded(expansionKey, zoneName) then
-                    for _, vendor in ipairs(zoneVendors) do
-                        table.insert(elements, vendor)
+                if #zoneVendors > 0 then
+                    table.insert(elements, { isZoneHeader = true, expansionKey = expansionKey, zoneName = zoneName })
+                    if zoneFilterActive or self:IsZoneExpanded(expansionKey, zoneName) then
+                        for _, vendor in ipairs(zoneVendors) do
+                            table.insert(elements, vendor)
+                        end
                     end
                 end
             end
@@ -1349,8 +1421,19 @@ VendorsTab:RegisterOwnershipRefresh(function() VendorsTab:RefreshDisplay() end)
 
 -- Reconcile vendor tracking after loading screens/teleports/reloads
 addon:RegisterWoWEvent("PLAYER_ENTERING_WORLD", function()
-    if not VendorsTab.activeTrackedNpcId then return end
-    VendorsTab:ReconcileVendorTrackingWithWaypoint()
+    if VendorsTab.activeTrackedNpcId then
+        VendorsTab:ReconcileVendorTrackingWithWaypoint()
+    end
+    if VendorsTab.currentZoneOnly and VendorsTab:IsShown() then
+        VendorsTab:RefreshDisplay()
+    end
+end)
+
+-- Refresh vendor list when player changes zones while current-zone filter is active
+addon:RegisterWoWEvent("ZONE_CHANGED_NEW_AREA", function()
+    if VendorsTab.currentZoneOnly and VendorsTab:IsShown() then
+        VendorsTab:RefreshDisplay()
+    end
 end)
 
 addon.MainFrame:RegisterContentAreaInitializer("VendorsTab", function(contentArea)

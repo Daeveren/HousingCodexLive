@@ -2,6 +2,14 @@
 
 All notable changes to Housing Codex.
 
+**1.9.14** (2026-03-15)
+
+**Added**
+- New "Current Zone" checkbox in the Vendors tab — check it to see only vendors in the zone you're currently in
+
+**Changed**
+- Adjusted the community coupons text in the Endeavors bar tooltip
+
 **1.9.13** (2026-03-15)
 
 **Fixed**

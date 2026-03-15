@@ -569,7 +569,7 @@ local function ShowEndeavorTooltip(self)
         local earned = currInfo.useTotalEarnedForMaxQty and currInfo.totalEarned or currInfo.quantity
         local cap = currInfo.maxQuantity
         if cap and cap > 0 then
-            GameTooltip:AddLine(string.format(L["ENDEAVORS_COUPONS_EARNED"], earned, cap, currInfo.name), 0.7, 0.7, 0.7)
+            GameTooltip:AddLine(string.format(L["ENDEAVORS_COUPONS_EARNED"], currInfo.name, earned, cap), 0.7, 0.7, 0.7)
         end
     end
 
