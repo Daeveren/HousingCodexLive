@@ -19,6 +19,7 @@ local TAB_CONFIG = {
     { key = "VENDORS", labelKey = "TAB_VENDORS", descKey = "TAB_VENDORS_DESC", icon = "Interface\\Icons\\INV_Misc_Coin_02", enabled = true },
     { key = "DROPS", labelKey = "TAB_DROPS", descKey = "TAB_DROPS_DESC", icon = "Interface\\Icons\\INV_Misc_Bag_10_Blue", enabled = true },
     { key = "PVP", labelKey = "TAB_PVP", descKey = "TAB_PVP_DESC", icon = "Interface\\Icons\\achievement_bg_killxenemies_generalsroom", enabled = true },
+    { key = "RENOWN", labelKey = "TAB_RENOWN", descKey = "TAB_RENOWN_DESC", icon = "Interface\\Icons\\Achievement_Reputation_08", enabled = true },
     { key = "PROFESSIONS", labelKey = "TAB_PROFESSIONS", descKey = "TAB_PROFESSIONS_DESC", shortLabelKey = "TAB_PROFESSIONS_SHORT", icon = "Interface\\Icons\\INV_Misc_Gear_01", enabled = true },
     { key = "PROGRESS", labelKey = "TAB_PROGRESS", descKey = "TAB_PROGRESS_DESC", shortLabelKey = "TAB_PROGRESS_SHORT", icon = "Interface\\Icons\\Spell_Holy_BorrowedTime", enabled = true },
 }

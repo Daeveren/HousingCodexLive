@@ -5,7 +5,7 @@
 
 local _, addon = ...
 
-local CURRENT_DB_VERSION = 6
+local CURRENT_DB_VERSION = 7
 
 local defaults = {
     version = CURRENT_DB_VERSION,
@@ -44,6 +44,10 @@ local defaults = {
             selectedCategory = nil,
             selectedAchievementID = nil,
             selectedRecordID = nil,
+            completionFilter = "incomplete",  -- "all" | "incomplete" | "complete"
+        },
+        renown = {
+            selectedExpansion = nil,
             completionFilter = "incomplete",  -- "all" | "incomplete" | "complete"
         },
     },
@@ -174,6 +178,12 @@ local function MigrateDB(db)
             db.endeavors.scale = "normal"
         end
         db.version = 6
+    end
+
+    -- v6 -> v7: Renown tab (browser.renown defaults handled by MergeDefaults)
+    if db.version < 7 then
+        db.characters = nil  -- Clean up if present from testing
+        db.version = 7
     end
 
     return db

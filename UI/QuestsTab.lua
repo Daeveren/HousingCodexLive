@@ -625,9 +625,15 @@ end
 local function QuestMatchesSearch(questKey, searchText, zoneName, expansionKey)
     if searchText == "" then return true end
 
-    -- Check quest title
+    -- Check quest title (API/localized)
     local title = strlower(addon:GetQuestTitle(questKey) or "")
     if title:find(searchText, 1, true) then return true end
+
+    -- Also check scraped English name for numeric keys (API title may differ or be unavailable)
+    if type(questKey) == "number" then
+        local fallback = addon.questTitleFallback and addon.questTitleFallback[questKey]
+        if fallback and strlower(fallback):find(searchText, 1, true) then return true end
+    end
 
     -- Check zone name (English and localized)
     if strlower(zoneName):find(searchText, 1, true) then return true end

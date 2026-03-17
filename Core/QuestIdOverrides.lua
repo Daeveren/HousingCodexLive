@@ -45,5 +45,6 @@ addon.QuestIdOverrides = {
     ["The Jade Serpent"] = 30000,
     ["The Traveling Flowers"] = 86956,
     ["To Mechagon!"] = 54088,
+    ["Two Tons of Metal and Holy Fire"] = 88700,
     ["Wey'nan's Ward"] = 88993,
 }

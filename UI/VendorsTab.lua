@@ -1364,7 +1364,7 @@ function VendorsTab:BuildVendorDisplay()
 
                 if #zoneVendors > 0 then
                     table.insert(elements, { isZoneHeader = true, expansionKey = expansionKey, zoneName = zoneName })
-                    if zoneFilterActive or self:IsZoneExpanded(expansionKey, zoneName) then
+                    if zoneFilterActive or searchText ~= "" or self:IsZoneExpanded(expansionKey, zoneName) then
                         for _, vendor in ipairs(zoneVendors) do
                             table.insert(elements, vendor)
                         end

@@ -2,6 +2,21 @@
 
 All notable changes to Housing Codex.
 
+**2.0.0** (2026-03-17)
+
+**Added**
+- NEW - Renown tab — browse reputation-gated housing decor across all expansions
+  - See which factions sell housing items and what reputation level you need
+  - Per-item reputation markers for items you haven't unlocked yet
+  - Alliance/Horde faction indicators
+  - Search across factions and items, filter by completion status
+
+**Changed**
+- More Midnight decor item vendor updates
+- Updated some Midnight achievements
+- Vendor zones now auto-expand when searching, showing matching vendors immediately
+- Localization improvements for quest search
+
 **1.9.15** (2026-03-16)
 
 **Changed**

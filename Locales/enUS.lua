@@ -584,6 +584,36 @@ L["PVP_EMPTY_NO_RESULTS"] = "No PvP sources match your search"
 L["SETTINGS_CATEGORY_NAME"] = "Housing |cffFB7104Codex|r"
 
 --------------------------------------------------------------------------------
+-- Renown Tab
+--------------------------------------------------------------------------------
+L["TAB_RENOWN"] = "RENOWN"
+L["TAB_RENOWN_DESC"] = "Reputation sources for housing decor"
+L["RENOWN_SEARCH_PLACEHOLDER"] = "Search factions..."
+L["RENOWN_FILTER_ALL"] = "All"
+L["RENOWN_FILTER_INCOMPLETE"] = "Incomplete"
+L["RENOWN_FILTER_COMPLETE"] = "Complete"
+L["STANDING_HATED"] = "Hated"
+L["STANDING_HOSTILE"] = "Hostile"
+L["STANDING_UNFRIENDLY"] = "Unfriendly"
+L["STANDING_NEUTRAL"] = "Neutral"
+L["STANDING_FRIENDLY"] = "Friendly"
+L["STANDING_HONORED"] = "Honored"
+L["STANDING_REVERED"] = "Revered"
+L["STANDING_EXALTED"] = "Exalted"
+L["RENOWN_ACCOUNT_WIDE"] = "Account-Wide"
+L["RENOWN_LOCKED"] = "Not yet unlocked"
+L["RENOWN_REQUIRED"] = "Requires %s"
+L["RENOWN_REP_MET"] = "Reputation met"
+L["RENOWN_CURRENTLY_AT"] = "currently at: "
+L["RENOWN_NEEDS_ALLIANCE"] = "Requires an Alliance character"
+L["RENOWN_NEEDS_HORDE"] = "Requires a Horde character"
+L["RENOWN_VENDOR_LABEL"] = "Vendor: %s"
+L["RENOWN_PROGRESS_FORMAT"] = "%d/%d"
+L["RENOWN_SELECT_EXPANSION"] = "Select an expansion"
+L["RENOWN_EMPTY_NO_RESULTS"] = "No factions match your filters"
+L["RENOWN_EMPTY_NO_DATA"] = "Reputation data is loading..."
+
+--------------------------------------------------------------------------------
 -- Game Entity Names (drop sources, encounter names, treasure locations)
 -- Translators: copy this block to your locale file, change the values.
 -- These names appear in the Drops tab and PvP tab source lists.
