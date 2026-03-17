@@ -366,7 +366,7 @@ function QuestsTab:Show()
     if not self.frame then return end
 
     -- Build index if not done
-    if not addon.questIndexBuilt then
+    if addon.dataLoaded and not addon.questIndexBuilt then
         addon:BuildQuestIndex()
         addon:BuildQuestHierarchy()
     end

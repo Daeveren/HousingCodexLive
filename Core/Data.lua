@@ -13,6 +13,7 @@ end
 
 -- Fallback icon for items without valid 2D icon (model-only items)
 local FALLBACK_ICON = "Interface\\Icons\\INV_Misc_QuestionMark"
+local ALL_CATEGORY_ATLAS = "category-icons_all_inactive"
 
 -- Use constant from Init.lua
 local TRACKING_TYPE_DECOR = addon.CONSTANTS.TRACKING_TYPE_DECOR
@@ -75,8 +76,34 @@ local function GetEntryIcon(info)
         return iconAtlas, "atlas"
     end
 
-    -- Final fallback - item has no icon data (model-only items)
-    -- Mark as model-only so Grid can render 3D preview instead
+    -- Priority 3: category or subcategory icon atlas (model-only items with no flat icon)
+    if C_HousingCatalog then
+        local getCatInfo = C_HousingCatalog.GetCatalogCategoryInfo
+        local getSubInfo = C_HousingCatalog.GetCatalogSubcategoryInfo
+        if getCatInfo and info.categoryIDs then
+            for _, catID in ipairs(info.categoryIDs) do
+                local catInfo = getCatInfo(catID)
+                if catInfo and catInfo.icon and IsValidAtlas(catInfo.icon) then
+                    return catInfo.icon, "atlas", true
+                end
+            end
+        end
+        if getSubInfo and info.subcategoryIDs then
+            for _, subID in ipairs(info.subcategoryIDs) do
+                local subInfo = getSubInfo(subID)
+                if subInfo and subInfo.icon and IsValidAtlas(subInfo.icon) then
+                    return subInfo.icon, "atlas", true
+                end
+            end
+        end
+    end
+
+    -- Priority 4: generic "All" category atlas (Blizzard's catalog fallback)
+    if IsValidAtlas(ALL_CATEGORY_ATLAS) then
+        return ALL_CATEGORY_ATLAS, "atlas", true
+    end
+
+    -- Final fallback - item has no icon data at all
     return FALLBACK_ICON, "texture", true  -- third return = isModelOnly
 end
 

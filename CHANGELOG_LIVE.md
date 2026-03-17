@@ -2,6 +2,16 @@
 
 All notable changes to Housing Codex.
 
+**2.0.1** (2026-03-18)
+
+**Fixed**
+- Fixed Quests and Achievements tabs showing empty if opened before housing data finished loading
+- Removed a phantom vendor and items that showed with "?" icons in the Vendors tab
+- Fixed friendship factions (Tillers, Brawlers) in the Renown tab showing wrong progress and permanently unmet unlock requirements
+- Renown tab reputation tracking fixes
+- Fixed newly unlocked major factions staying shown as "Locked" in the Renown tab
+- Fixed some decor items showing "?" icons instead of their category icon in the Renown tab and other lists
+
 **2.0.0** (2026-03-17)
 
 **Added**

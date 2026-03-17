@@ -95,6 +95,9 @@ function RenownTab:Show()
 
     self.frame:Show()
 
+    -- Wipe standing cache so reopening after hidden-period rep changes shows fresh data
+    wipe(addon.renownStandingCache)
+
     local saved = EnsureRenownDB()
     if saved then
         self.selectedExpansion = saved.selectedExpansion
@@ -135,6 +138,7 @@ function RenownTab:RegisterStandingEvents()
     if not standingEventFrame then return end
     standingEventFrame:RegisterEvent("UPDATE_FACTION")
     standingEventFrame:RegisterEvent("MAJOR_FACTION_RENOWN_LEVEL_CHANGED")
+    standingEventFrame:RegisterEvent("MAJOR_FACTION_UNLOCKED")
 end
 
 function RenownTab:UnregisterStandingEvents()
@@ -564,7 +568,8 @@ function RenownTab:SetupDecorRows(frame, entries, factionID)
     for i, entry in ipairs(entries) do
         local isTable = type(entry) == "table"
         local decorId = isTable and entry.decorId or entry
-        local itemReqStanding = isTable and entry.requiredStanding or nil
+        local itemReqStanding = isTable and entry.requiredStanding
+        local itemReqRankLevel = isTable and entry.requiredRankLevel
         local row = frame.decorRows[i]
         if not row then
             row = CreateFrame("Button", nil, frame.decorContainer)
@@ -633,7 +638,7 @@ function RenownTab:SetupDecorRows(frame, entries, factionID)
         -- Check if this item's specific standing requirement is unmet
         local itemRepUnmet = false
         if itemReqStanding and not row.isCollected then
-            itemRepUnmet = not addon:HasMetItemStandingRequirement(factionID, itemReqStanding)
+            itemRepUnmet = not addon:HasMetItemStandingRequirement(factionID, itemReqStanding, itemReqRankLevel)
         end
 
         local textBrightness = row.isCollected and 0.4 or 0.7
@@ -715,7 +720,6 @@ local function GetVisibleDecorEntries(resolvedDecorIds, filter)
     for _, entry in ipairs(resolvedDecorIds) do
         local isTable = type(entry) == "table"
         local decorId = isTable and entry.decorId or entry
-        local reqStanding = isTable and entry.requiredStanding or nil
 
         -- Skip items that can't be resolved by the housing catalog (? icon, no preview)
         if addon:ResolveRecord(decorId) then
@@ -723,7 +727,8 @@ local function GetVisibleDecorEntries(resolvedDecorIds, filter)
             if not (filter == "incomplete" and isCollected) then
                 table.insert(visible, {
                     decorId = decorId,
-                    requiredStanding = reqStanding,
+                    requiredStanding = isTable and entry.requiredStanding,
+                    requiredRankLevel = isTable and entry.requiredRankLevel,
                 })
             end
         end

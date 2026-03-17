@@ -74,7 +74,7 @@ local function ResolveDecorEntriesForFaction(factionData)
     if factionData.rewards then
         for _, reward in ipairs(factionData.rewards) do
             if reward.decorId and not seen[reward.decorId] then
-                table.insert(entries, { decorId = reward.decorId, requiredStanding = reward.requiredStanding })
+                table.insert(entries, { decorId = reward.decorId, requiredStanding = reward.requiredStanding, requiredRankLevel = reward.requiredRankLevel })
                 table.insert(plainIds, reward.decorId)
                 seen[reward.decorId] = true
             end
@@ -176,12 +176,17 @@ local function GetFriendshipStanding(factionID)
     local rankInfo = C_GossipInfo.GetFriendshipReputationRanks(repInfo.friendshipFactionID)
     local standingText = repInfo.reaction or L["STANDING_NEUTRAL"]
     local currentValue = repInfo.standing or 0
-    local maxValue = repInfo.maxRep or 0
+
+    -- Use nextThreshold (current rank ceiling), not maxRep (lifetime faction cap)
+    -- Matches Blizzard FriendshipStatusBar.lua:72
+    local maxValue = repInfo.nextThreshold or 0
     local minValue = repInfo.reactionThreshold or 0
 
     local range = maxValue > 0 and (maxValue - minValue) or 1
     local progress = maxValue > 0 and (currentValue - minValue) or 0
-    local isMaxed = rankInfo and rankInfo.currentLevel ~= nil and rankInfo.currentLevel == rankInfo.maxLevel
+    -- Nil nextThreshold is definitive max-rank signal (Blizzard FriendshipStatusBar.lua:50)
+    local isMaxed = repInfo.nextThreshold == nil
+        or (rankInfo and rankInfo.currentLevel ~= nil and rankInfo.currentLevel == rankInfo.maxLevel)
     local progressPct = isMaxed and 100 or math.floor(progress / range * 100)
 
     return {
@@ -192,6 +197,7 @@ local function GetFriendshipStanding(factionID)
         isMaxed = isMaxed,
         isUnlocked = true,
         isAccountWide = false,
+        currentRankLevel = rankInfo and rankInfo.currentLevel or nil,
     }
 end
 
@@ -226,14 +232,17 @@ function addon:HasMetStandingRequirement(factionID)
         end
         return standing.isMaxed
     elseif kind == "friendship" then
-        -- Friendship doesn't have a clean rank comparison; use isMaxed as proxy
+        local reqLevel = sourceData.requiredRankLevel or tonumber(required:match("%d+"))
+        if reqLevel and standing.currentRankLevel then
+            return standing.currentRankLevel >= reqLevel
+        end
         return standing.isMaxed
     end
 
     return false
 end
 
-function addon:HasMetItemStandingRequirement(factionID, itemReqStanding)
+function addon:HasMetItemStandingRequirement(factionID, itemReqStanding, requiredRankLevel)
     if not itemReqStanding then return true end
 
     local standing = self:GetFactionStandingInfo(factionID)
@@ -255,6 +264,12 @@ function addon:HasMetItemStandingRequirement(factionID, itemReqStanding)
         local curLevel = tonumber(standing.standingText:match("%d+"))
         if reqLevel and curLevel then
             return curLevel >= reqLevel
+        end
+        return standing.isMaxed
+    elseif kind == "friendship" then
+        local reqLevel = requiredRankLevel or tonumber(itemReqStanding:match("%d+"))
+        if reqLevel and standing.currentRankLevel then
+            return standing.currentRankLevel >= reqLevel
         end
         return standing.isMaxed
     end

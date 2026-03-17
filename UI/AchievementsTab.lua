@@ -313,7 +313,7 @@ function AchievementsTab:Show()
     if not self.frame then return end
 
     -- Build index if not done
-    if not addon.achievementIndexBuilt then
+    if addon.dataLoaded and not addon.achievementIndexBuilt then
         addon:BuildAchievementIndex()
         addon:BuildAchievementHierarchy()
     end

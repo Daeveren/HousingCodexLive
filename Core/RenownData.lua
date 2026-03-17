@@ -95,11 +95,12 @@ addon.RenownSourceData = {
         factionSide = nil,
         group = "The Tillers",
         requiredStanding = "Good Friend",
+        requiredRankLevel = 5, -- Good Friend = rank 5 of 6 (verify in-game)
         vendors = {
             { npcId = 58706, name = "Gina Mudclaw", zone = "Valley of the Four Winds" },
         },
         rewards = {
-            { itemId = 0, decorId = nil, requiredStanding = "Good Friend" },
+            { itemId = 0, decorId = nil, requiredStanding = "Good Friend", requiredRankLevel = 5 },
         },
     },
     [1283] = {
@@ -109,11 +110,12 @@ addon.RenownSourceData = {
         factionSide = nil,
         group = "The Tillers",
         requiredStanding = "Good Friend",
+        requiredRankLevel = 5,
         vendors = {
             { npcId = 58706, name = "Gina Mudclaw", zone = "Valley of the Four Winds" },
         },
         rewards = {
-            { itemId = 0, decorId = nil, requiredStanding = "Good Friend" },
+            { itemId = 0, decorId = nil, requiredStanding = "Good Friend", requiredRankLevel = 5 },
         },
     },
     [1275] = {
@@ -123,11 +125,12 @@ addon.RenownSourceData = {
         factionSide = nil,
         group = "The Tillers",
         requiredStanding = "Good Friend",
+        requiredRankLevel = 5,
         vendors = {
             { npcId = 58706, name = "Gina Mudclaw", zone = "Valley of the Four Winds" },
         },
         rewards = {
-            { itemId = 0, decorId = nil, requiredStanding = "Good Friend" },
+            { itemId = 0, decorId = nil, requiredStanding = "Good Friend", requiredRankLevel = 5 },
         },
     },
     [1280] = {
@@ -137,11 +140,12 @@ addon.RenownSourceData = {
         factionSide = nil,
         group = "The Tillers",
         requiredStanding = "Good Friend",
+        requiredRankLevel = 5,
         vendors = {
             { npcId = 58706, name = "Gina Mudclaw", zone = "Valley of the Four Winds" },
         },
         rewards = {
-            { itemId = 0, decorId = nil, requiredStanding = "Good Friend" },
+            { itemId = 0, decorId = nil, requiredStanding = "Good Friend", requiredRankLevel = 5 },
         },
     },
     [1345] = {
@@ -508,13 +512,14 @@ addon.RenownSourceData = {
         factionSide = "Horde",
         group = nil,
         requiredStanding = "Rank 7",
+        requiredRankLevel = 7, -- Brawler ranks 1-8 (verify in-game)
         vendors = {
             { npcId = 145695, name = "\"Bad Luck\" Symmes", zone = "Brawl'gar Arena" },
         },
         rewards = {
-            { itemId = 0, decorId = 14815, requiredStanding = "Rank 2" },
-            { itemId = 0, decorId = 12263, requiredStanding = "Rank 5" },
-            { itemId = 0, decorId = 10913, requiredStanding = "Rank 7" },
+            { itemId = 0, decorId = 14815, requiredStanding = "Rank 2", requiredRankLevel = 2 },
+            { itemId = 0, decorId = 12263, requiredStanding = "Rank 5", requiredRankLevel = 5 },
+            { itemId = 0, decorId = 10913, requiredStanding = "Rank 7", requiredRankLevel = 7 },
         },
     },
     [2767] = {
@@ -524,13 +529,14 @@ addon.RenownSourceData = {
         factionSide = "Alliance",
         group = nil,
         requiredStanding = "Rank 7",
+        requiredRankLevel = 7,
         vendors = {
             { npcId = 151941, name = "Dershway the Triggered", zone = "Bizmo's Brawlpub" },
         },
         rewards = {
-            { itemId = 0, decorId = 14815, requiredStanding = "Rank 2" },
-            { itemId = 0, decorId = 12263, requiredStanding = "Rank 5" },
-            { itemId = 0, decorId = 10913, requiredStanding = "Rank 7" },
+            { itemId = 0, decorId = 14815, requiredStanding = "Rank 2", requiredRankLevel = 2 },
+            { itemId = 0, decorId = 12263, requiredStanding = "Rank 5", requiredRankLevel = 5 },
+            { itemId = 0, decorId = 10913, requiredStanding = "Rank 7", requiredRankLevel = 7 },
         },
     },
     -- =====================================================================
