@@ -196,6 +196,13 @@ function ProfessionsTab:Show()
     end
 
     self.frame:Show()
+
+    -- Skip default rebuild when navigating from Progress
+    if self.pendingNavigation then
+        self.pendingNavigation = nil
+        return
+    end
+
     local db = EnsureProfessionsDB()
 
     -- Restore persisted profession; reset craft selection each session
@@ -227,13 +234,15 @@ function ProfessionsTab:CreateToolbar(parent)
     })
 end
 
-function ProfessionsTab:SetCompletionFilter(filterKey)
+function ProfessionsTab:SetCompletionFilter(filterKey, skipRefresh)
     for key, btn in pairs(self.filterButtons) do
         btn:SetActive(key == filterKey)
     end
     local db = GetProfessionsDB()
     if db then db.completionFilter = filterKey end
-    self:RefreshDisplay()
+    if not skipRefresh then
+        self:RefreshDisplay()
+    end
 end
 
 function ProfessionsTab:GetCompletionFilter()
@@ -340,6 +349,12 @@ function ProfessionsTab:SelectProfession(professionName)
     end
 
     self:BuildCraftDisplay()
+end
+
+function ProfessionsTab:NavigateFromProgress(professionName)
+    addon.SearchBox:Clear()
+    self:SetCompletionFilter("incomplete", true)
+    self:SelectProfession(professionName)
 end
 
 --------------------------------------------------------------------------------

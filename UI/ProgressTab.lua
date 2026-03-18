@@ -87,6 +87,9 @@ end
 function ProgressTab:Show()
     if not self.frame then return end
 
+    local skipRefresh = self.ownershipRefreshedThisShow
+    self.ownershipRefreshedThisShow = nil
+
     -- Ensure all indexes are built (lazy-load on first visit, guarded until data is ready)
     if addon.dataLoaded then
         if not addon.questIndexBuilt then
@@ -106,7 +109,9 @@ function ProgressTab:Show()
     -- Collapse preview BEFORE RefreshDisplay so columns are sized for full-width content area
     addon.MainFrame:CollapsePreview()
 
-    self:RefreshDisplay()
+    if not skipRefresh then
+        self:RefreshDisplay()
+    end
 end
 
 function ProgressTab:Hide()
@@ -561,6 +566,14 @@ end
 -- By Source Section
 --------------------------------------------------------------------------------
 
+local function NavigateToSourceTab(tabObj, tabKey, arg)
+    tabObj.pendingNavigation = true
+    addon.Tabs:SelectTab(tabKey)
+    if tabObj.frame then
+        tabObj:NavigateFromProgress(arg)
+    end
+end
+
 function ProgressTab:BuildSourceSection(yOffset, columnWidth, xOffset)
     local L = addon.L
 
@@ -571,10 +584,11 @@ function ProgressTab:BuildSourceSection(yOffset, columnWidth, xOffset)
         local row = self:GetOrCreateProgressRow(self.sourceRows, i)
         self:SetupProgressRow(row, data, yOffset, columnWidth, function()
             if data.category then
-                addon.Tabs:SelectTab("DROPS")
-                if addon.DropsTab and addon.DropsTab.frame then
-                    addon.DropsTab:SelectCategory(data.category)
-                end
+                NavigateToSourceTab(addon.DropsTab, "DROPS", data.category)
+            elseif data.targetTabKey == "ACHIEVEMENTS" then
+                NavigateToSourceTab(addon.AchievementsTab, "ACHIEVEMENTS")
+            elseif data.targetTabKey == "PVP" then
+                NavigateToSourceTab(addon.PvPTab, "PVP")
             else
                 addon.Tabs:SelectTab(data.targetTabKey)
             end
@@ -666,25 +680,25 @@ end
 
 function ProgressTab:NavigateToExpansion(data)
     if data.sourceKind == "QUESTS" then
+        addon.QuestsTab.pendingNavigation = true
         addon.Tabs:SelectTab("QUESTS")
         if addon.QuestsTab.frame then
-            addon.QuestsTab:SetCompletionFilter("incomplete")
-            addon.QuestsTab:SelectExpansion(data.expansionKey)
+            addon.QuestsTab:NavigateFromProgress(data.expansionKey)
         end
     elseif data.sourceKind == "VENDORS" then
+        addon.VendorsTab.pendingNavigation = true
         addon.Tabs:SelectTab("VENDORS")
         if addon.VendorsTab.frame then
-            addon.VendorsTab:SetCompletionFilter("incomplete")
-            addon.VendorsTab:SelectExpansion(data.expansionKey)
+            addon.VendorsTab:NavigateFromProgress(data.expansionKey)
         end
     end
 end
 
 function ProgressTab:NavigateToProfession(professionName)
+    addon.ProfessionsTab.pendingNavigation = true
     addon.Tabs:SelectTab("PROFESSIONS")
     if addon.ProfessionsTab.frame then
-        addon.ProfessionsTab:SetCompletionFilter("incomplete")
-        addon.ProfessionsTab:SelectProfession(professionName)
+        addon.ProfessionsTab:NavigateFromProgress(professionName)
     end
 end
 

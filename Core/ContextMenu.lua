@@ -98,3 +98,39 @@ function addon.ContextMenu:ShowForAchievement(owner, achievementID, recordID)
         AddWowheadOption(rootDescription, owner, "https://www.wowhead.com/achievement=" .. achievementID)
     end)
 end
+
+--------------------------------------------------------------------------------
+-- Renown Faction Vendors (RenownTab)
+--------------------------------------------------------------------------------
+
+function addon.ContextMenu:ShowForRenownFaction(owner, vendors)
+    if not vendors or #vendors == 0 then return end
+
+    MenuUtil.CreateContextMenu(owner, function(_, rootDescription)
+        rootDescription:SetTag(MENU_TAG)
+
+        local hasAny = false
+        for _, vendor in ipairs(vendors) do
+            local locData = addon:GetNPCLocation(vendor.npcId)
+            if locData then
+                hasAny = true
+                local name = addon:GetLocalizedNPCName(vendor.npcId, vendor.name)
+                local label = string.format(L["RENOWN_WAYPOINT_VENDOR"], name, vendor.zone or L["VENDORS_UNKNOWN_ZONE"])
+                rootDescription:CreateButton(label, function()
+                    if not addon.Waypoints:Set(locData.uiMapId, locData.x / 100, locData.y / 100, name) then
+                        return
+                    end
+                    addon:Print(string.format(L["VENDOR_WAYPOINT_SET"], name))
+                    if not InCombatLockdown() then
+                        if OpenWorldMap then OpenWorldMap(locData.uiMapId) end
+                    end
+                end)
+            end
+        end
+
+        if not hasAny then
+            local disabled = rootDescription:CreateButton(L["VENDOR_NO_LOCATION"])
+            disabled:SetEnabled(false)
+        end
+    end)
+end

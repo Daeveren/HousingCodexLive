@@ -295,13 +295,15 @@ function addon:GetVendorZoneCollectionProgress(expansionKey, zoneName)
     if cached then return cached.owned, cached.total end
 
     local owned, total = 0, 0
+    local seen = {}
     for _, vendor in ipairs(self:GetVendorsForZone(expansionKey, zoneName)) do
         for _, decorId in ipairs(vendor.decorIds) do
-            local record = self:ResolveRecord(decorId)
-            if record then
-                total = total + 1
-                if record.isCollected then
-                    owned = owned + 1
+            if not seen[decorId] then
+                seen[decorId] = true
+                local record = self:ResolveRecord(decorId)
+                if record then
+                    total = total + 1
+                    if record.isCollected then owned = owned + 1 end
                 end
             end
         end

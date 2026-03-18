@@ -373,6 +373,12 @@ function QuestsTab:Show()
 
     self.frame:Show()
 
+    -- Skip default rebuild when navigating from Progress
+    if self.pendingNavigation then
+        self.pendingNavigation = nil
+        return
+    end
+
     -- Restore saved state
     local saved = GetQuestsDB()
     if saved then
@@ -383,6 +389,12 @@ function QuestsTab:Show()
 
     -- Always apply completion filter (triggers RefreshDisplay → BuildZoneQuestDisplay → UpdateEmptyStates)
     self:SetCompletionFilter(saved and saved.completionFilter or "incomplete")
+end
+
+function QuestsTab:NavigateFromProgress(expansionKey)
+    addon.SearchBox:Clear()
+    self:SetCompletionFilter("incomplete", true)
+    self:SelectExpansion(expansionKey)
 end
 
 function QuestsTab:Hide()
@@ -419,13 +431,15 @@ function QuestsTab:RefreshDisplay()
     end
 end
 
-function QuestsTab:SetCompletionFilter(filterKey)
+function QuestsTab:SetCompletionFilter(filterKey, skipRefresh)
     for key, btn in pairs(self.filterButtons) do
         btn:SetActive(key == filterKey)
     end
     local db = GetQuestsDB()
     if db then db.completionFilter = filterKey end
-    self:RefreshDisplay()
+    if not skipRefresh then
+        self:RefreshDisplay()
+    end
 end
 
 function QuestsTab:GetCompletionFilter()

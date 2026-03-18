@@ -276,6 +276,7 @@ function TabBaseMixin:RegisterTabVisibility(tabKey)
             if self.ownershipDirty and self.ownershipRefreshFn then
                 self.ownershipDirty = nil
                 self.ownershipRefreshFn()
+                self.ownershipRefreshedThisShow = true
             end
             self:Show()
         else

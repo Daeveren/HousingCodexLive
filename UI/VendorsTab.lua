@@ -100,6 +100,12 @@ function VendorsTab:Show()
     self.frame:Show()
     EnsureVendorsDB()
 
+    -- Skip default rebuild when navigating from Progress
+    if self.pendingNavigation then
+        self.pendingNavigation = nil
+        return
+    end
+
     local saved = GetVendorsDB()
     if saved then
         -- Reset expanded zones before first render (SetCompletionFilter triggers RefreshDisplay)
@@ -166,13 +172,15 @@ function VendorsTab:RefreshDisplay()
     filterCache = nil
 end
 
-function VendorsTab:SetCompletionFilter(filterKey)
+function VendorsTab:SetCompletionFilter(filterKey, skipRefresh)
     for key, btn in pairs(self.filterButtons) do
         btn:SetActive(key == filterKey)
     end
     local db = GetVendorsDB()
     if db then db.completionFilter = filterKey end
-    self:RefreshDisplay()
+    if not skipRefresh then
+        self:RefreshDisplay()
+    end
 end
 
 function VendorsTab:GetCompletionFilter()
@@ -1151,6 +1159,17 @@ function VendorsTab:NavigateToVendor(npcId)
             return elementData.npcId == npcId
         end, ScrollBoxConstants.AlignNearest, ScrollBoxConstants.NoScrollInterpolation)
     end)
+end
+
+function VendorsTab:NavigateFromProgress(expansionKey)
+    addon.SearchBox:Clear()
+    -- Clear "Current Zone" filter so all vendors in the expansion are visible
+    if self.currentZoneCheckbox then
+        self.currentZoneCheckbox:SetChecked(false)
+    end
+    self.currentZoneOnly = false
+    self:SetCompletionFilter("incomplete", true)
+    self:SelectExpansion(expansionKey)
 end
 
 --------------------------------------------------------------------------------

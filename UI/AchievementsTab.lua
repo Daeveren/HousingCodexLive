@@ -320,6 +320,12 @@ function AchievementsTab:Show()
 
     self.frame:Show()
 
+    -- Skip default rebuild when navigating from Progress
+    if self.pendingNavigation then
+        self.pendingNavigation = nil
+        return
+    end
+
     -- Restore saved state
     local saved = GetAchievementsDB()
     if saved then
@@ -364,13 +370,20 @@ function AchievementsTab:RefreshDisplay()
     end
 end
 
-function AchievementsTab:SetCompletionFilter(filterKey)
+function AchievementsTab:SetCompletionFilter(filterKey, skipRefresh)
     for key, btn in pairs(self.filterButtons) do
         btn:SetActive(key == filterKey)
     end
     local db = GetAchievementsDB()
     if db then db.completionFilter = filterKey end
-    self:RefreshDisplay()
+    if not skipRefresh then
+        self:RefreshDisplay()
+    end
+end
+
+function AchievementsTab:NavigateFromProgress()
+    addon.SearchBox:Clear()
+    self:SetCompletionFilter("incomplete")
 end
 
 function AchievementsTab:GetCompletionFilter()

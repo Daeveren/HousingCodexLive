@@ -149,7 +149,7 @@ local function GetRenownStanding(factionID)
             progressPct = 0,
             isMaxed = false,
             isUnlocked = false,
-            isAccountWide = false,
+            isAccountWide = true,
         }
     end
 
@@ -166,7 +166,7 @@ local function GetRenownStanding(factionID)
         progressPct = progressPct,
         isMaxed = hasMax,
         isUnlocked = true,
-        isAccountWide = false,
+        isAccountWide = true,
     }
 end
 

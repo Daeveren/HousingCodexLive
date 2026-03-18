@@ -224,9 +224,11 @@ function addon:LoadData()
     searcher:SetUncollected(true)
     searcher:SetAutoUpdateOnParamChanges(false)
 
-    -- BasicDecor excludes Rooms/Fixtures (layout-only items not placeable in decor mode),
-    -- matching the Categories sidebar scope. Other tabs resolve items on-demand via GetRecord()
-    searcher:SetEditorModeContext(Enum.HouseEditorMode.BasicDecor)
+    -- Nil context returns ALL catalog entries (decor, rooms, fixtures, expert items).
+    -- BasicDecor mode silently excludes items only available in other editor modes,
+    -- reducing decorRecords and breaking counts, quest/vendor/drop lookups, and LDB totals.
+    -- UI tabs filter display as needed; the record set must be complete.
+    searcher:SetEditorModeContext(nil)
 
     -- Set up callback for when search results are ready (Blizzard pattern)
     searcher:SetResultsUpdatedCallback(function()

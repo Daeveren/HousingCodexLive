@@ -88,6 +88,12 @@ function DropsTab:Show()
     self.frame:Show()
     EnsureDropsDB()
 
+    -- Skip default rebuild when navigating from Progress
+    if self.pendingNavigation then
+        self.pendingNavigation = nil
+        return
+    end
+
     local saved = GetDropsDB()
     if saved then
         self.selectedCategory = saved.selectedCategory
@@ -118,18 +124,26 @@ function DropsTab:CreateToolbar(parent)
     })
 end
 
-function DropsTab:SetCompletionFilter(filterKey)
+function DropsTab:SetCompletionFilter(filterKey, skipRefresh)
     for key, btn in pairs(self.filterButtons) do
         btn:SetActive(key == filterKey)
     end
     local db = GetDropsDB()
     if db then db.completionFilter = filterKey end
-    self:RefreshDisplay()
+    if not skipRefresh then
+        self:RefreshDisplay()
+    end
 end
 
 function DropsTab:GetCompletionFilter()
     local db = GetDropsDB()
     return db and db.completionFilter or "incomplete"
+end
+
+function DropsTab:NavigateFromProgress(category)
+    addon.SearchBox:Clear()
+    self:SetCompletionFilter("incomplete", true)
+    self:SelectCategory(category)
 end
 
 function DropsTab:OnSearchTextChanged(_)

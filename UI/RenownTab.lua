@@ -340,6 +340,12 @@ local function FactionCardOnLeave(frame)
     frame.bg:SetColorTexture(unpack(COLORS.ROW_BG))
 end
 
+local function FactionCardOnClick(frame, button)
+    if button == "RightButton" and frame.vendors then
+        addon.ContextMenu:ShowForRenownFaction(frame, frame.vendors)
+    end
+end
+
 -- Named handlers for decor rows
 local function DecorRowOnClick(row)
     local decorId = row.decorId
@@ -367,6 +373,12 @@ local function DecorRowOnEnter(row)
     GameTooltip:SetText(addon:ResolveDecorName(row.decorId, row.record), 1, 1, 1)
     if row.isCollected then
         GameTooltip:AddLine(addon.L["FILTER_COLLECTED"], 0.4, 0.9, 0.4)
+    end
+    if row.vendors then
+        for _, vendor in ipairs(row.vendors) do
+            local name = addon:GetLocalizedNPCName(vendor.npcId, vendor.name)
+            GameTooltip:AddDoubleLine(name, vendor.zone or "", 0.7, 0.7, 0.7, 0.7, 0.7, 0.7)
+        end
     end
     GameTooltip:Show()
 end
@@ -432,6 +444,7 @@ function RenownTab:SetupFactionCard(frame, elementData)
     local sourceData = addon.RenownSourceData[factionID]
     frame.factionID = factionID
     frame.factionLabel = factionData.label
+    frame.vendors = factionData.vendors
 
     -- Standing info
     local standing = addon:GetFactionStandingInfo(factionID)
@@ -497,11 +510,7 @@ function RenownTab:SetupFactionCard(frame, elementData)
     frame.decorContainer:SetHeight(decorCount * DECOR_ROW_HEIGHT)
     frame.decorContainer:Show()
 
-    self:SetupDecorRows(frame, entries, factionID)
-
-    -- Hover/tooltip
-    frame:SetScript("OnEnter", FactionCardOnEnter)
-    frame:SetScript("OnLeave", FactionCardOnLeave)
+    self:SetupDecorRows(frame, entries, factionID, factionData.vendors)
 end
 
 function RenownTab:InitializeFactionFrame(frame)
@@ -548,11 +557,15 @@ function RenownTab:InitializeFactionFrame(frame)
     frame.decorRows = {}
     frame:EnableMouse(true)
     frame:RegisterForClicks("AnyUp")
+    frame:SetScript("OnEnter", FactionCardOnEnter)
+    frame:SetScript("OnLeave", FactionCardOnLeave)
+    frame:SetScript("OnClick", FactionCardOnClick)
 end
 
 function RenownTab:ResetFactionFrame(frame)
     frame.factionID = nil
     frame.factionLabel = nil
+    frame.vendors = nil
     frame.headerContainer:Show()
     frame.decorContainer:Hide()
 
@@ -564,7 +577,7 @@ function RenownTab:ResetFactionFrame(frame)
     end
 end
 
-function RenownTab:SetupDecorRows(frame, entries, factionID)
+function RenownTab:SetupDecorRows(frame, entries, factionID, vendors)
     for i, entry in ipairs(entries) do
         local isTable = type(entry) == "table"
         local decorId = isTable and entry.decorId or entry
@@ -622,6 +635,7 @@ function RenownTab:SetupDecorRows(frame, entries, factionID)
         row.decorId = decorId
         row.record = record
         row.isCollected = record and record.isCollected
+        row.vendors = vendors
 
         if record and record.icon then
             if record.iconType == "atlas" then

@@ -92,6 +92,12 @@ function PvPTab:Show()
     self.frame:Show()
     EnsurePvPDB()
 
+    -- Skip default rebuild when navigating from Progress
+    if self.pendingNavigation then
+        self.pendingNavigation = nil
+        return
+    end
+
     local saved = GetPvPDB()
     if saved then
         self.selectedCategory = saved.selectedCategory
@@ -122,14 +128,21 @@ function PvPTab:CreateToolbar(parent)
     })
 end
 
-function PvPTab:SetCompletionFilter(filterKey)
+function PvPTab:SetCompletionFilter(filterKey, skipRefresh)
     if not VALID_FILTERS[filterKey] then filterKey = "incomplete" end
     for key, btn in pairs(self.filterButtons) do
         btn:SetActive(key == filterKey)
     end
     local db = GetPvPDB()
     if db then db.completionFilter = filterKey end
-    self:RefreshDisplay()
+    if not skipRefresh then
+        self:RefreshDisplay()
+    end
+end
+
+function PvPTab:NavigateFromProgress()
+    addon.SearchBox:Clear()
+    self:SetCompletionFilter("incomplete")
 end
 
 function PvPTab:GetCompletionFilter()

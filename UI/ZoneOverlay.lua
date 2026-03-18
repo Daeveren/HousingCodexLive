@@ -216,7 +216,7 @@ end
 local function CreateOverlayFrame()
     if frame then return end
 
-    frame = CreateFrame("Frame", "HousingCodexZoneOverlayFrame", WorldMapFrame.ScrollContainer, "BackdropTemplate")
+    frame = CreateFrame("Frame", "HousingCodexZoneOverlayFrame", WorldMapFrame, "BackdropTemplate")
     frame:SetFrameStrata("HIGH")
     frame:SetClampedToScreen(true)
     frame:SetClipsChildren(true)
@@ -248,8 +248,6 @@ local function CreateOverlayFrame()
         if not addon.db or not addon.db.settings.zoneOverlayMinimized then return end
         local tooltip = GetMapTooltip()
         tooltip:SetOwner(self, "ANCHOR_CURSOR_RIGHT")
-        tooltip:SetFrameStrata("TOOLTIP")
-        tooltip:SetFrameLevel(200)
         GameTooltip_SetTitle(tooltip, "Housing Codex", COLOR_GOLD)
         GameTooltip_AddNormalLine(tooltip, addon.L["ZONE_OVERLAY_COLLAPSED_TOOLTIP"])
         tooltip:Show()
@@ -401,8 +399,6 @@ local function CreateOverlayFrame()
                 ShowPreview(self, self.recordID)
                 local tooltip = GetMapTooltip()
                 tooltip:SetOwner(self, "ANCHOR_CURSOR_RIGHT")
-                tooltip:SetFrameStrata("TOOLTIP")
-                tooltip:SetFrameLevel(200)
                 local L = addon.L
                 if self.categoryKey == "vendors" and self.sourceName then
                     local locationLine = self.cityName

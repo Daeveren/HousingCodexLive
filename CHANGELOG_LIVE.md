@@ -2,6 +2,18 @@
 
 All notable changes to Housing Codex.
 
+**2.0.3** (2026-03-19)
+
+**Added**
+- Right-click a faction card in the Renown tab to set a waypoint to its vendor
+
+**Fixed**
+- Fixed world map errors that could occur when hovering certain map icons
+- Fixed some items missing from the addon's total item count and progress tracking
+- Fixed vendor zone progress showing inflated item counts in the Progress tab
+- Fixed PvP progress bar not appearing in the Progress tab
+- Clicking a source row in the Progress tab now properly filters the destination tab
+
 **2.0.2** (2026-03-18)
 
 **Added**
