@@ -182,10 +182,18 @@ function ContainerOverlay:Initialize()
     self.eventFrame:RegisterEvent("HOUSING_MARKET_AVAILABILITY_UPDATED")
     self.eventFrame:RegisterEvent("HOUSING_STORAGE_ENTRY_UPDATED")
     self.eventFrame:RegisterEvent("HOUSING_STORAGE_UPDATED")
-    self.eventFrame:SetScript("OnEvent", RefreshAll)
+    self.eventFrame:SetScript("OnEvent", function(_, event, ...)
+        if event == "HOUSING_STORAGE_ENTRY_UPDATED" then
+            ContainerOverlay:UpdateAllContainerFrames()
+        else
+            RefreshAll()
+        end
+    end)
 
-    -- Internal ownership updates
-    addon:RegisterInternalEvent("RECORD_OWNERSHIP_UPDATED", RefreshAll)
+    -- Internal ownership updates (skip cache wipe — ownership doesn't change decor identity)
+    addon:RegisterInternalEvent("RECORD_OWNERSHIP_UPDATED", function()
+        ContainerOverlay:UpdateAllContainerFrames()
+    end)
 
     addon:Debug("ContainerOverlay initialized")
 end

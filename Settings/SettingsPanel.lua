@@ -320,6 +320,11 @@ function addon.Settings:Initialize()
         end
     end)
 
+    -- Clean up keybind capture mode when Settings panel closes
+    panel:SetScript("OnHide", function()
+        StopKeyCapture(keybindBtn)
+    end)
+
     yOffset = yOffset - 26
 
     CreateDivider(panel, yOffset)

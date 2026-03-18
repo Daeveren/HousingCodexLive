@@ -187,15 +187,7 @@ function ProgressTab:CreateScrollFrame(parent)
 
     -- Thumb drag
     thumb:EnableMouse(true)
-    thumb:SetScript("OnMouseDown", function(t, button)
-        if button == "LeftButton" then
-            t.dragging = true
-            t.dragStartY = select(2, GetCursorPosition()) / UIParent:GetEffectiveScale()
-            t.dragStartScroll = scrollFrame:GetVerticalScroll()
-        end
-    end)
-    thumb:SetScript("OnMouseUp", function(t) t.dragging = false end)
-    thumb:SetScript("OnUpdate", function(t)
+    local function ThumbOnUpdate(t)
         if not t.dragging then return end
         local cursorY = select(2, GetCursorPosition()) / UIParent:GetEffectiveScale()
         local deltaY = t.dragStartY - cursorY
@@ -204,6 +196,19 @@ function ProgressTab:CreateScrollFrame(parent)
         if maxTravel <= 0 then return end
         local range = scrollFrame:GetVerticalScrollRange()
         scrollFrame:SetVerticalScroll(math.max(0, math.min(range, t.dragStartScroll + (deltaY / maxTravel) * range)))
+    end
+
+    thumb:SetScript("OnMouseDown", function(t, button)
+        if button == "LeftButton" then
+            t.dragging = true
+            t.dragStartY = select(2, GetCursorPosition()) / UIParent:GetEffectiveScale()
+            t.dragStartScroll = scrollFrame:GetVerticalScroll()
+            t:SetScript("OnUpdate", ThumbOnUpdate)
+        end
+    end)
+    thumb:SetScript("OnMouseUp", function(t)
+        t.dragging = false
+        t:SetScript("OnUpdate", nil)
     end)
 
     -- Track click to page-scroll

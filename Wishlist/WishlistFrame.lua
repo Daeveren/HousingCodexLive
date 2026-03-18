@@ -1011,6 +1011,35 @@ function WishlistFrame:RecalculateDetailsHeight()
     self.detailsArea:SetHeight(math.max(DETAILS_MIN_HEIGHT, height))
 end
 
+-- Lightweight ownership-only refresh (no model rebuild, no name/source update)
+function WishlistFrame:UpdateOwnershipDetails(record)
+    local L = addon.L
+
+    -- Owned count
+    if record.totalOwned and record.totalOwned > 0 then
+        self.detailsOwned:SetText(string.format(L["DETAILS_OWNED"], record.totalOwned))
+        self.detailsOwned:SetTextColor(0.2, 0.8, 0.2)
+    else
+        self.detailsOwned:SetText(L["DETAILS_NOT_OWNED"])
+        self.detailsOwned:SetTextColor(0.6, 0.6, 0.6)
+    end
+    self.detailsOwned:Show()
+
+    -- Placed count
+    if record.numPlaced and record.numPlaced > 0 then
+        self.detailsPlaced:SetText(string.format(L["DETAILS_PLACED"], record.numPlaced))
+        self.detailsPlaced:Show()
+    else
+        self.detailsPlaced:Hide()
+    end
+
+    -- Action buttons (track/wishlist state may depend on ownership)
+    self:UpdateActionButtons(record)
+
+    -- Recalculate details height (owned/placed visibility may have changed)
+    self:RecalculateDetailsHeight()
+end
+
 function WishlistFrame:ShowPreview(recordID)
     -- Guard against preview updates when frame is hidden (edge case from hover transitions)
     if not self.frame or not self.frame:IsShown() then return end
@@ -1269,15 +1298,20 @@ addon:RegisterInternalEvent("WISHLIST_CHANGED", function(recordID, isWishlisted)
 end)
 
 -- Refresh when record ownership changes
-addon:RegisterInternalEvent("RECORD_OWNERSHIP_UPDATED", function()
-    if WishlistFrame:IsShown() then
-        -- Just refresh visible tiles, don't rebuild
-        if WishlistFrame.scrollBox then
-            WishlistFrame.scrollBox:FullUpdate(ScrollBoxConstants.UpdateImmediately)
-        end
-        -- Refresh preview details if showing an item
-        if WishlistFrame.currentRecordID then
-            WishlistFrame:ShowPreview(WishlistFrame.currentRecordID)
+addon:RegisterInternalEvent("RECORD_OWNERSHIP_UPDATED", function(recordID)
+    if not WishlistFrame:IsShown() then return end
+
+    -- Always refresh tiles (owned state affects all visible items)
+    if WishlistFrame.scrollBox then
+        WishlistFrame.scrollBox:FullUpdate(ScrollBoxConstants.UpdateImmediately)
+    end
+
+    -- Only update preview details if this record matches (or bulk refresh)
+    if WishlistFrame.currentRecordID then
+        if recordID ~= nil and recordID ~= WishlistFrame.currentRecordID then return end
+        local record = addon:GetRecord(WishlistFrame.currentRecordID)
+        if record then
+            WishlistFrame:UpdateOwnershipDetails(record)
         end
     end
 end)

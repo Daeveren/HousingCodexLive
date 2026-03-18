@@ -277,7 +277,7 @@ addon.RenownSourceData = {
         requiredStanding = "Revered",
         vendors = {
             { npcId = 115736, name = "First Arcanist Thalyssra", zone = "Shal'Aran" },
-            { npcId = 107109, name = "Lunastre Attendant", zone = "Suramar" },
+            { npcId = 248594, name = "Sundries Merchant", zone = "Suramar" },
         },
         rewards = {
             { itemId = 0, decorId = nil, requiredStanding = "Revered" },
@@ -360,6 +360,7 @@ addon.RenownSourceData = {
         requiredStanding = "Revered",
         vendors = {
             { npcId = 148924, name = "Provisioner Mukra", zone = "Zuldazar" },
+            { npcId = 251921, name = "Arcanist Peroleth", zone = "Zuldazar" },
         },
         rewards = {
             { itemId = 0, decorId = nil, requiredStanding = "Revered" },
@@ -604,6 +605,77 @@ addon.RenownSourceData = {
         rewards = {
             { itemId = 0, decorId = nil, requiredStanding = "Renown 5" },
             { itemId = 0, decorId = nil, requiredStanding = "Renown 10" },
+        },
+    },
+    [2711] = {
+        label = "The Magisters",
+        kind = "standard",
+        expansionKey = "EXPANSION_MIDNIGHT",
+        factionSide = nil,
+        group = nil,
+        requiredStanding = "Friendly",
+        vendors = {
+            { npcId = 242723, name = "Apprentice Diell", zone = "Silvermoon City" },
+            { npcId = 242726, name = "Neriv", zone = "Silvermoon City" },
+        },
+        rewards = {
+            { itemId = 0, decorId = nil, requiredStanding = "Friendly" },
+        },
+    },
+    [2712] = {
+        label = "Blood Knights",
+        kind = "standard",
+        expansionKey = "EXPANSION_MIDNIGHT",
+        factionSide = nil,
+        group = nil,
+        requiredStanding = "Friendly",
+        vendors = {
+            { npcId = 242725, name = "Armorer Goldcrest", zone = "Silvermoon City" },
+        },
+        rewards = {
+            { itemId = 0, decorId = nil, requiredStanding = "Friendly" },
+        },
+    },
+    [2713] = {
+        label = "Farstriders",
+        kind = "standard",
+        expansionKey = "EXPANSION_MIDNIGHT",
+        factionSide = nil,
+        group = nil,
+        requiredStanding = "Friendly",
+        vendors = {
+            { npcId = 242724, name = "Ranger Allorn", zone = "Silvermoon City" },
+        },
+        rewards = {
+            { itemId = 0, decorId = nil, requiredStanding = "Friendly" },
+        },
+    },
+    [2714] = {
+        label = "Shades of the Row",
+        kind = "standard",
+        expansionKey = "EXPANSION_MIDNIGHT",
+        factionSide = nil,
+        group = nil,
+        requiredStanding = "Friendly",
+        vendors = {
+            { npcId = 242726, name = "Neriv", zone = "Silvermoon City" },
+        },
+        rewards = {
+            { itemId = 0, decorId = nil, requiredStanding = "Friendly" },
+        },
+    },
+    [2770] = {
+        label = "Slayer's Duellum",
+        kind = "standard",
+        expansionKey = "EXPANSION_MIDNIGHT",
+        factionSide = nil,
+        group = nil,
+        requiredStanding = "Friendly",
+        vendors = {
+            { npcId = 258328, name = "Thraxadar", zone = "Masters' Perch" },
+        },
+        rewards = {
+            { itemId = 0, decorId = nil, requiredStanding = "Friendly" },
         },
     },
 }

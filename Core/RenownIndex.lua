@@ -119,11 +119,11 @@ local function GetStandardStanding(factionID)
     local currentValue = data.currentStanding or 0
     local minValue = data.currentReactionThreshold or 0
     local maxValue = data.nextReactionThreshold or 1
-    local range = maxValue - minValue
-    local progressMax = range > 0 and range or 1
-    local progress = range > 0 and (currentValue - minValue) or 0
     local isMaxed = reaction == 8  -- Exalted
-    local progressPct = math.floor(progress / progressMax * 100)
+    local range = maxValue - minValue
+    local progressMax = isMaxed and 1 or (range > 0 and range or 1)
+    local progress = isMaxed and 1 or (range > 0 and (currentValue - minValue) or 0)
+    local progressPct = isMaxed and 100 or math.floor(progress / progressMax * 100)
 
     return {
         standingText = standingText,
@@ -155,7 +155,8 @@ local function GetRenownStanding(factionID)
 
     local hasMax = C_MajorFactions.HasMaximumRenown(factionID)
     local earned = data.renownReputationEarned or 0
-    local threshold = data.renownLevelThreshold or 1
+    local rawThreshold = data.renownLevelThreshold or 0
+    local threshold = rawThreshold > 0 and rawThreshold or 1
     local progressPct = hasMax and 100 or math.floor(earned / threshold * 100)
 
     return {
@@ -182,11 +183,12 @@ local function GetFriendshipStanding(factionID)
     local maxValue = repInfo.nextThreshold or 0
     local minValue = repInfo.reactionThreshold or 0
 
-    local range = maxValue > 0 and (maxValue - minValue) or 1
-    local progress = maxValue > 0 and (currentValue - minValue) or 0
     -- Nil nextThreshold is definitive max-rank signal (Blizzard FriendshipStatusBar.lua:50)
     local isMaxed = repInfo.nextThreshold == nil
         or (rankInfo and rankInfo.currentLevel ~= nil and rankInfo.currentLevel == rankInfo.maxLevel)
+    -- Match Blizzard FriendshipStatusBar.lua:50-51 bar values at max rank
+    local range = isMaxed and 1 or (maxValue > 0 and (maxValue - minValue) or 1)
+    local progress = isMaxed and 1 or (maxValue > 0 and (currentValue - minValue) or 0)
     local progressPct = isMaxed and 100 or math.floor(progress / range * 100)
 
     return {
@@ -409,11 +411,21 @@ function addon:GetFactionRewardProgress(factionID)
 end
 
 function addon:GetRenownExpansionProgress(expKey)
+    local seen = {}
     local owned, total = 0, 0
     for _, faction in ipairs(self:GetFactionsForExpansion(expKey)) do
-        local fOwned, fTotal = self:GetFactionRewardProgress(faction.factionID)
-        owned = owned + fOwned
-        total = total + fTotal
+        local decorIds = faction.resolvedDecorIds
+        if decorIds then
+            for _, decorId in ipairs(decorIds) do
+                if not seen[decorId] and self:ResolveRecord(decorId) then
+                    seen[decorId] = true
+                    total = total + 1
+                    if self:IsDecorCollected(decorId) then
+                        owned = owned + 1
+                    end
+                end
+            end
+        end
     end
     return owned, total
 end

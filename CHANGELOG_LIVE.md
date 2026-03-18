@@ -2,6 +2,18 @@
 
 All notable changes to Housing Codex.
 
+**2.0.2** (2026-03-18)
+
+**Added**
+- 5 new Midnight standard factions in the Renown tab (The Magisters, Blood Knights, Farstriders, Shades of the Row, Slayer's Duellum)
+- Additional reputation vendors for Nightfallen and Honorbound factions
+
+**Fixed**
+- Renown tab no longer double-counts items shared between factions in expansion progress totals
+- Fixed reputation progress bars showing incorrect values for some factions
+- Keybind capture mode no longer gets stuck if the Settings panel is closed while setting a keybind
+- Wishlist 3D preview no longer resets camera angle when collecting unrelated items
+
 **2.0.1** (2026-03-18)
 
 **Fixed**
