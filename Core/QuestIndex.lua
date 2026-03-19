@@ -397,7 +397,7 @@ function addon:GetQuestCollectionProgress(questKey)
     local owned, total = 0, 0
     for recordID in pairs(records) do
         total = total + 1
-        local record = self.decorRecords[recordID]
+        local record = self:GetRecord(recordID)
         if record and record.isCollected then
             owned = owned + 1
         end

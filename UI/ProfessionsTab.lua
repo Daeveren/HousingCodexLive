@@ -704,7 +704,12 @@ addon:RegisterInternalEvent("DATA_LOADED", function()
     end
 end)
 
-ProfessionsTab:RegisterOwnershipRefresh(function() ProfessionsTab:RefreshDisplay() end)
+ProfessionsTab:RegisterOwnershipRefresh(function()
+    if addon.dataLoaded and not addon.craftingIndexBuilt then
+        addon:BuildCraftingIndex()
+    end
+    ProfessionsTab:RefreshDisplay()
+end)
 
 addon.MainFrame:RegisterContentAreaInitializer("ProfessionsTab", function(contentArea)
     ProfessionsTab:Create(contentArea)

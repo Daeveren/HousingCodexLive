@@ -455,6 +455,9 @@ function addon:GetRecordCount()
     for _ in pairs(self.decorRecords) do
         count = count + 1
     end
+    for _, record in pairs(self.fallbackRecords) do
+        if record ~= false then count = count + 1 end
+    end
     return count
 end
 
@@ -463,6 +466,9 @@ function addon:GetUniqueCollectedCount()
     local count = 0
     for _ in pairs(self.indexes.collected) do
         count = count + 1
+    end
+    for _, record in pairs(self.fallbackRecords) do
+        if record ~= false and record.isCollected then count = count + 1 end
     end
     return count
 end

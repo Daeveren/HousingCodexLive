@@ -565,8 +565,9 @@ function HousingCodexVendorPinMixin:OnMouseEnter()
 
     if owned < total and #missingNames > 0 then
         GameTooltip_AddColoredLine(tooltip, L["VENDOR_PIN_UNCOLLECTED_HEADER"], COLOR_LIGHT_GRAY)
-        for _, name in ipairs(missingNames) do
-            AddBulletedTooltipLine(tooltip, name)
+        for _, entry in ipairs(missingNames) do
+            local suffix = entry.locked and " (|cffcc5a40" .. L["VENDOR_PIN_ITEM_LOCKED"] .. "|r)" or ""
+            GameTooltip_AddColoredLine(tooltip, TOOLTIP_LIST_INDENT .. TOOLTIP_LIST_BULLET .. entry.name .. suffix, COLOR_ITEM_LIST, false)
         end
 
         local overflow = (total - owned) - #missingNames

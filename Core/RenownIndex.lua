@@ -82,19 +82,27 @@ local function ResolveDecorEntriesForFaction(factionData)
     end
 
     -- Second: cross-reference vendor NPC IDs against VendorSourceData
-    -- These items get the faction-level requiredStanding (per-item unknown until scraper runs)
+    -- When vendor.decorIds is present (scraper-populated, faction-scoped), use it directly.
+    -- Fall back to NPC lookup only when absent (all NPC items get faction-level requiredStanding).
     local factionReq = factionData.requiredStanding
     if factionData.vendors and vendorNPCDecorLookup then
-        for _, vendor in ipairs(factionData.vendors) do
-            local npcDecors = vendorNPCDecorLookup[vendor.npcId]
-            if npcDecors then
-                for _, decorId in ipairs(npcDecors) do
-                    if not seen[decorId] then
-                        table.insert(entries, { decorId = decorId, requiredStanding = factionReq })
-                        table.insert(plainIds, decorId)
-                        seen[decorId] = true
-                    end
+        local function addDecorList(list)
+            for _, decorId in ipairs(list) do
+                if not seen[decorId] then
+                    table.insert(entries, { decorId = decorId, requiredStanding = factionReq })
+                    table.insert(plainIds, decorId)
+                    seen[decorId] = true
                 end
+            end
+        end
+        for _, vendor in ipairs(factionData.vendors) do
+            if vendor.decorIds then
+                -- Faction-scoped vendor decor list (prevents shared NPC inventory leaking)
+                addDecorList(vendor.decorIds)
+            else
+                -- Fallback: full NPC inventory from VendorSourceData
+                local npcDecors = vendorNPCDecorLookup[vendor.npcId]
+                if npcDecors then addDecorList(npcDecors) end
             end
         end
     end
@@ -134,6 +142,7 @@ local function GetStandardStanding(factionID)
         isMaxed = isMaxed,
         isUnlocked = true,
         isAccountWide = data.isAccountWide or false,
+        factionName = data.name,
     }
 end
 
@@ -150,6 +159,7 @@ local function GetRenownStanding(factionID)
             isMaxed = false,
             isUnlocked = false,
             isAccountWide = true,
+            factionName = data.name,
         }
     end
 
@@ -161,12 +171,14 @@ local function GetRenownStanding(factionID)
 
     return {
         standingText = string.format(L["RENOWN_LEVEL_FORMAT"], data.renownLevel or 0),
+        renownLevel = data.renownLevel or 0,
         currentValue = earned,
         maxValue = threshold,
         progressPct = progressPct,
         isMaxed = hasMax,
         isUnlocked = true,
         isAccountWide = true,
+        factionName = data.name,
     }
 end
 
@@ -191,6 +203,10 @@ local function GetFriendshipStanding(factionID)
     local progress = isMaxed and 1 or (maxValue > 0 and (currentValue - minValue) or 0)
     local progressPct = isMaxed and 100 or math.floor(progress / range * 100)
 
+    -- Friendship API doesn't include faction name; piggyback on GetFactionDataByID
+    local factionData = C_Reputation.GetFactionDataByID(factionID)
+    local factionName = factionData and factionData.name
+
     return {
         standingText = standingText,
         currentValue = progress,
@@ -200,6 +216,7 @@ local function GetFriendshipStanding(factionID)
         isUnlocked = true,
         isAccountWide = false,
         currentRankLevel = rankInfo and rankInfo.currentLevel or nil,
+        factionName = factionName,
     }
 end
 
@@ -226,9 +243,9 @@ function addon:HasMetStandingRequirement(factionID)
         end
         return standing.isMaxed
     elseif kind == "renown" then
-        -- Parse "Renown X" from both required and current
+        -- Use raw numeric level from standing struct (locale-independent)
         local reqLevel = tonumber(required:match("%d+"))
-        local curLevel = tonumber(standing.standingText:match("%d+"))
+        local curLevel = standing.renownLevel
         if reqLevel and curLevel then
             return curLevel >= reqLevel
         end
@@ -262,8 +279,9 @@ function addon:HasMetItemStandingRequirement(factionID, itemReqStanding, require
         end
         return standing.isMaxed
     elseif kind == "renown" then
+        -- Use raw numeric level from standing struct (locale-independent)
         local reqLevel = tonumber(itemReqStanding:match("%d+"))
-        local curLevel = tonumber(standing.standingText:match("%d+"))
+        local curLevel = standing.renownLevel
         if reqLevel and curLevel then
             return curLevel >= reqLevel
         end
@@ -276,6 +294,27 @@ function addon:HasMetItemStandingRequirement(factionID, itemReqStanding, require
         return standing.isMaxed
     end
     return standing.isMaxed
+end
+
+function addon:LocalizeRequiredStanding(requiredStanding, kind, factionID)
+    if not requiredStanding then return requiredStanding end
+
+    if kind == "standard" then
+        local idx = STANDING_REACTION[requiredStanding]
+        if idx then return L[STANDING_LABELS[idx]] end
+    elseif kind == "renown" then
+        local level = tonumber(requiredStanding:match("%d+"))
+        if level then return string.format(L["RENOWN_LEVEL_FORMAT"], level) end
+    end
+    -- friendship: API only returns current rank name, not a specific required rank; fall through to raw English
+
+    -- "Rank N" values (used by some friendship/renown factions)
+    if requiredStanding:match("^Rank %d+$") then
+        local rank = tonumber(requiredStanding:match("%d+"))
+        if rank then return string.format(L["RENOWN_RANK_FORMAT"], rank) end
+    end
+
+    return requiredStanding
 end
 
 function addon:GetFactionStandingInfo(factionID)

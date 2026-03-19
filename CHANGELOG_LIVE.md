@@ -2,6 +2,22 @@
 
 All notable changes to Housing Codex.
 
+**2.0.5** (2026-03-20)
+
+**Added**
+- Vendor NPC tooltips now play a subtle animation when the vendor has uncollected decor items
+
+**Changed**
+- Adjusted how locked items are displayed in vendor tooltips and map pins to make them more visible
+
+**Fixed**
+- Fixed Renown tab showing inflated progress when vendors are shared between factions
+- Renown tab standing requirements and faction names now display in your game language
+- Fixed Renown level requirements not working correctly on non-English clients
+- Renown tab search now matches both English and localized names
+- Improved the decor counting algorithm to be more resilient and accurate
+- Fixed Progress tab sometimes showing stale data after collecting items
+
 **2.0.4** (2026-03-19)
 
 **Fixed**

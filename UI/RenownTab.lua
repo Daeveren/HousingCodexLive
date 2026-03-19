@@ -377,7 +377,8 @@ local function DecorRowOnEnter(row)
     if row.vendors then
         for _, vendor in ipairs(row.vendors) do
             local name = addon:GetLocalizedNPCName(vendor.npcId, vendor.name)
-            GameTooltip:AddDoubleLine(name, vendor.zone or "", 0.7, 0.7, 0.7, 0.7, 0.7, 0.7)
+            local zone = addon:GetLocalizedVendorZoneName(vendor.zone) or vendor.zone or ""
+            GameTooltip:AddDoubleLine(name, zone, 0.7, 0.7, 0.7, 0.7, 0.7, 0.7)
         end
     end
     GameTooltip:Show()
@@ -452,8 +453,8 @@ function RenownTab:SetupFactionCard(frame, elementData)
     local hasMet = addon:HasMetStandingRequirement(factionID)
     local requiredStanding = sourceData and sourceData.requiredStanding
 
-    -- Faction name (+ faction side icon via inline texture)
-    local nameText = factionData.label or ("Faction #" .. factionID)
+    -- Faction name: prefer localized API name, fall back to scraped English label
+    local nameText = (standing and standing.factionName) or factionData.label or ("Faction #" .. factionID)
     if factionData.factionSide == "Alliance" then
         nameText = nameText .. "  |TInterface\\PVPFrame\\PVP-Currency-Alliance:14:14:0:0|t"
     elseif factionData.factionSide == "Horde" then
@@ -484,8 +485,10 @@ function RenownTab:SetupFactionCard(frame, elementData)
         frame.standingLabel:SetText(L["RENOWN_REP_MET"])
         frame.standingLabel:SetTextColor(0.4, 0.9, 0.4, 1)
     else
-        local reqPart = requiredStanding
-            and ("|cFFCC6630* " .. strlower(string.format(L["RENOWN_REQUIRED"], requiredStanding)) .. "|r")
+        local localizedStanding = requiredStanding
+            and addon:LocalizeRequiredStanding(requiredStanding, sourceData and sourceData.kind, factionID)
+        local reqPart = localizedStanding
+            and ("|cFFCC6630* " .. strlower(string.format(L["RENOWN_REQUIRED"], localizedStanding)) .. "|r")
             or ""
         local statusPart
         if isUnlocked then
@@ -684,7 +687,15 @@ end
 local function FactionMatchesSearch(factionData, searchText)
     if searchText == "" then return true end
 
+    -- English label (scraped)
     if factionData.label and strlower(factionData.label):find(searchText, 1, true) then
+        return true
+    end
+
+    -- Localized faction name from standing cache
+    local standing = addon.renownStandingCache[factionData.factionID]
+    if standing and standing.factionName and standing.factionName ~= factionData.label
+        and strlower(standing.factionName):find(searchText, 1, true) then
         return true
     end
 
@@ -694,10 +705,22 @@ local function FactionMatchesSearch(factionData, searchText)
 
     if factionData.vendors then
         for _, vendor in ipairs(factionData.vendors) do
+            -- English vendor name
             if vendor.name and strlower(vendor.name):find(searchText, 1, true) then
                 return true
             end
+            -- Localized vendor name
+            local localizedName = addon:GetLocalizedNPCName(vendor.npcId, vendor.name)
+            if localizedName ~= vendor.name and strlower(localizedName):find(searchText, 1, true) then
+                return true
+            end
+            -- English zone
             if vendor.zone and strlower(vendor.zone):find(searchText, 1, true) then
+                return true
+            end
+            -- Localized zone
+            local localizedZone = addon:GetLocalizedVendorZoneName(vendor.zone)
+            if localizedZone and localizedZone ~= vendor.zone and strlower(localizedZone):find(searchText, 1, true) then
                 return true
             end
         end

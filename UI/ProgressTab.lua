@@ -725,6 +725,17 @@ addon:RegisterInternalEvent("DATA_LOADED", function()
 end)
 
 ProgressTab:RegisterOwnershipRefresh(function()
+    if addon.dataLoaded then
+        if not addon.questIndexBuilt then
+            addon:BuildQuestIndex()
+            addon:BuildQuestHierarchy()
+        end
+        if not addon.vendorIndexBuilt then addon:BuildVendorIndex() end
+        if not addon.achievementIndexBuilt then addon:BuildAchievementIndex() end
+        if not addon.dropIndexBuilt then addon:BuildDropIndex() end
+        if not addon.craftingIndexBuilt then addon:BuildCraftingIndex() end
+        if not addon.pvpIndexBuilt then addon:BuildPvPIndex() end
+    end
     ProgressTab:RefreshDisplay(true)
 end)
 

@@ -115,7 +115,8 @@ function addon.ContextMenu:ShowForRenownFaction(owner, vendors)
             if locData then
                 hasAny = true
                 local name = addon:GetLocalizedNPCName(vendor.npcId, vendor.name)
-                local label = string.format(L["RENOWN_WAYPOINT_VENDOR"], name, vendor.zone or L["VENDORS_UNKNOWN_ZONE"])
+                local zone = addon:GetLocalizedVendorZoneName(vendor.zone) or L["VENDORS_UNKNOWN_ZONE"]
+                local label = string.format(L["RENOWN_WAYPOINT_VENDOR"], name, zone)
                 rootDescription:CreateButton(label, function()
                     if not addon.Waypoints:Set(locData.uiMapId, locData.x / 100, locData.y / 100, name) then
                         return
