@@ -2,6 +2,14 @@
 
 All notable changes to Housing Codex.
 
+**2.0.4** (2026-03-19)
+
+**Fixed**
+- Fixed Renown tab showing 0/0 progress if opened before housing data finished loading
+- Fixed search sometimes matching a faction but showing an empty card with no items
+- Renown tab now correctly shows "No factions match your filters" when all results are filtered out
+- Renown level labels now display in your game language instead of English-only
+
 **2.0.3** (2026-03-19)
 
 **Added**

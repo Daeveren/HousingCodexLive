@@ -160,7 +160,7 @@ local function GetRenownStanding(factionID)
     local progressPct = hasMax and 100 or math.floor(earned / threshold * 100)
 
     return {
-        standingText = "Renown " .. (data.renownLevel or 0),
+        standingText = string.format(L["RENOWN_LEVEL_FORMAT"], data.renownLevel or 0),
         currentValue = earned,
         maxValue = threshold,
         progressPct = progressPct,

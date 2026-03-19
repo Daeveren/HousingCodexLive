@@ -840,12 +840,14 @@ function RenownTab:BuildFactionDisplay(visCache)
         for _, faction in ipairs(addon:GetFactionsForExpansion(expKey)) do
             if IsFactionVisible(faction.factionID, expKey, visCache) then
                 local visibleEntries = GetVisibleDecorEntries(faction.resolvedDecorEntries or faction.resolvedDecorIds, filter)
-                table.insert(elements, {
-                    factionID = faction.factionID,
-                    factionData = faction,
-                    visibleEntries = visibleEntries,
-                    visibleDecorCount = #visibleEntries,
-                })
+                if #visibleEntries > 0 then
+                    table.insert(elements, {
+                        factionID = faction.factionID,
+                        factionData = faction,
+                        visibleEntries = visibleEntries,
+                        visibleDecorCount = #visibleEntries,
+                    })
+                end
             end
         end
     end
@@ -887,13 +889,14 @@ end
 function RenownTab:UpdateEmptyStates()
     local hasFactions = addon:GetRenownFactionCount() > 0
     local hasSelection = self.selectedExpansion ~= nil
+    local hasExpansions = self.expansionDataProvider and self.expansionDataProvider:GetSize() > 0
     local dataProvider = self.factionScrollBox and self.factionScrollBox:GetDataProvider()
     local hasResults = dataProvider and dataProvider:GetSize() > 0
     local showFactionList = hasFactions and hasSelection and hasResults
 
     if self.emptyState then self.emptyState:SetShown(not hasFactions) end
-    if self.noExpansionState then self.noExpansionState:SetShown(hasFactions and not hasSelection) end
-    if self.noResultsState then self.noResultsState:SetShown(hasFactions and hasSelection and not hasResults) end
+    if self.noExpansionState then self.noExpansionState:SetShown(hasFactions and not hasSelection and hasExpansions) end
+    if self.noResultsState then self.noResultsState:SetShown(hasFactions and ((hasSelection and not hasResults) or not hasExpansions)) end
     if self.expansionScrollBox then self.expansionScrollBox:SetShown(hasFactions) end
     if self.factionScrollBox then self.factionScrollBox:SetShown(showFactionList) end
     if self.factionScrollBar then self.factionScrollBar:SetShown(showFactionList) end
@@ -906,7 +909,8 @@ end
 RenownTab:RegisterTabVisibility("RENOWN")
 
 addon:RegisterInternalEvent("DATA_LOADED", function()
-    if RenownTab:IsShown() and not addon.renownIndexBuilt then
+    addon.renownIndexBuilt = false
+    if RenownTab:IsShown() then
         addon:BuildRenownIndex()
         RenownTab:RefreshDisplay()
     end
