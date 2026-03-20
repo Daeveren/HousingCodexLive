@@ -8,17 +8,15 @@
 local _, addon = ...
 local L = addon.L
 
--- Standing labels indexed by reaction (luaIndex 1-8: Hated→Exalted)
-local STANDING_LABELS = {
-    "STANDING_HATED", "STANDING_HOSTILE", "STANDING_UNFRIENDLY", "STANDING_NEUTRAL",
-    "STANDING_FRIENDLY", "STANDING_HONORED", "STANDING_REVERED", "STANDING_EXALTED",
-}
-
 -- Standing name → reaction luaIndex for requirement comparison (English names from RenownSourceData)
 local STANDING_REACTION = {
     ["Hated"] = 1, ["Hostile"] = 2, ["Unfriendly"] = 3, ["Neutral"] = 4,
     ["Friendly"] = 5, ["Honored"] = 6, ["Revered"] = 7, ["Exalted"] = 8,
 }
+
+local function StandingLabel(reactionIdx)
+    return GetText("FACTION_STANDING_LABEL" .. (reactionIdx or 4), UnitSex("player"))
+end
 
 -- Runtime data structures
 addon.renownHierarchy = {}         -- { [expansionKey] = { factions = {...} } }
@@ -122,8 +120,7 @@ local function GetStandardStanding(factionID)
     if not data then return nil end
 
     local reaction = data.reaction  -- luaIndex 1-8
-    local labelKey = STANDING_LABELS[reaction]
-    local standingText = labelKey and L[labelKey] or L["STANDING_NEUTRAL"]
+    local standingText = StandingLabel(reaction)
     local currentValue = data.currentStanding or 0
     local minValue = data.currentReactionThreshold or 0
     local maxValue = data.nextReactionThreshold or 1
@@ -170,7 +167,7 @@ local function GetRenownStanding(factionID)
     local progressPct = hasMax and 100 or math.floor(earned / threshold * 100)
 
     return {
-        standingText = string.format(L["RENOWN_LEVEL_FORMAT"], data.renownLevel or 0),
+        standingText = RENOWN_LEVEL_LABEL:format(data.renownLevel or 0),
         renownLevel = data.renownLevel or 0,
         currentValue = earned,
         maxValue = threshold,
@@ -187,7 +184,7 @@ local function GetFriendshipStanding(factionID)
     if not repInfo or repInfo.friendshipFactionID == 0 then return nil end
 
     local rankInfo = C_GossipInfo.GetFriendshipReputationRanks(repInfo.friendshipFactionID)
-    local standingText = repInfo.reaction or L["STANDING_NEUTRAL"]
+    local standingText = repInfo.reaction or StandingLabel(4)
     local currentValue = repInfo.standing or 0
 
     -- Use nextThreshold (current rank ceiling), not maxRep (lifetime faction cap)
@@ -301,10 +298,10 @@ function addon:LocalizeRequiredStanding(requiredStanding, kind, factionID)
 
     if kind == "standard" then
         local idx = STANDING_REACTION[requiredStanding]
-        if idx then return L[STANDING_LABELS[idx]] end
+        if idx then return StandingLabel(idx) end
     elseif kind == "renown" then
         local level = tonumber(requiredStanding:match("%d+"))
-        if level then return string.format(L["RENOWN_LEVEL_FORMAT"], level) end
+        if level then return RENOWN_LEVEL_LABEL:format(level) end
     end
     -- friendship: API only returns current rank name, not a specific required rank; fall through to raw English
 

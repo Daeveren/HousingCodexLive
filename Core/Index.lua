@@ -36,7 +36,6 @@ function addon:BuildCollectedIndex()
     local startTime = debugprofilestop()
 
     wipe(self.indexes.collected)
-    self.byWordIndexBuilt = false
 
     -- Build collected index from records
     for recordID, record in pairs(self.decorRecords) do

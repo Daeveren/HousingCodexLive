@@ -2,6 +2,19 @@
 
 All notable changes to Housing Codex.
 
+**2.0.6** (2026-03-20)
+
+**Added**
+- More objects and categories in the Decor tab browser (Rooms, doors, windows, exterior items, and other previously hidden categories)
+
+**Changed**
+- "Reset Filters" button now also clears the selected category
+
+**Fixed**
+- Improved localization for Renown tab standing labels and level text on non-English clients
+- Added missing German, French, and Chinese translations for the Renown tab and other recent features
+- Codebase improvements in order to make the addon run smoother
+
 **2.0.5** (2026-03-20)
 
 **Added**

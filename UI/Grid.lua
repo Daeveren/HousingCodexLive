@@ -796,10 +796,6 @@ function Grid:ClearSelection()
     addon:FireEvent("RECORD_SELECTED", nil)
 end
 
-function Grid:GetSelectedRecord()
-    return self.selectedRecordID
-end
-
 function Grid:Refresh()
     if self.scrollBox then
         self.scrollBox:FullUpdate(ScrollBoxConstants.UpdateImmediately)

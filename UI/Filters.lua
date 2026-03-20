@@ -373,6 +373,15 @@ function Filters:ResetAllFilters()
         -- Reset placed-only filter
         self:SetPlacedOnly(false)
 
+        -- Reset category/subcategory filters
+        if addon.Categories then
+            addon.Categories:ClearFocusOnly()
+        end
+        if addon.catalogSearcher then
+            addon.catalogSearcher:SetFilteredCategoryID(nil)
+            addon.catalogSearcher:SetFilteredSubcategoryID(nil)
+        end
+
         -- Reset FilterBar (special filters + tags)
         if addon.FilterBar then
             addon.FilterBar:ResetToDefault()

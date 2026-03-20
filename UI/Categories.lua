@@ -113,10 +113,9 @@ function Categories:LoadCategories()
         return
     end
 
-    -- Get all categories (match searcher's editorModeContext)
+    -- Get all categories (no editor mode filter, matches searcher scope)
     local categoryIDs = C_HousingCatalog.SearchCatalogCategories({
         withOwnedEntriesOnly = false,
-        editorModeContext = Enum.HouseEditorMode.BasicDecor,
     })
     if not categoryIDs then return end
 

@@ -28,7 +28,6 @@ addon.loadingInProgress = false
 addon.loadStartTime = 0
 addon.categoryCache = {}
 addon.subcategoryCache = {}
-addon.needsRecordRefresh = false
 addon.fallbackRecords = {}  -- Cache for items resolved via direct API (HiddenInCatalog)
 
 local function IsValidFileID(id)
@@ -330,21 +329,6 @@ end
 function addon:OnSearchResultsUpdated(entries)
     local recordIDs = {}
     local seen = {}
-    local refreshing = self.needsRecordRefresh
-    self.needsRecordRefresh = false
-
-    -- If refreshing, update ALL records (not just filtered ones)
-    -- This ensures ownership counts stay accurate for items outside current filters
-    if refreshing then
-        for _, record in pairs(self.decorRecords) do
-            local info = C_HousingCatalog.GetCatalogEntryInfo(record.entryID)
-            if info then
-                RefreshRecordOwnership(record, info)
-            end
-        end
-        self:Debug("Refreshed ownership for all records")
-    end
-
     -- Collect unique IDs from search results
     for _, entryID in ipairs(entries or {}) do
         local recordID = entryID.recordID
@@ -627,12 +611,6 @@ addon:RegisterWoWEvent("CONTENT_TRACKING_UPDATE", function(trackingType, id, isT
     end
 end)
 
--- Trigger a record refresh by flagging ownership data as stale and re-running the search
-local function TriggerRecordRefresh()
-    addon.needsRecordRefresh = true
-    addon:RunSearchNow("TriggerRecordRefresh")
-end
-
 -- Central debounced search request to coalesce rapid UI interactions
 local pendingSearchTimer = nil
 
@@ -686,7 +664,7 @@ function addon:WithSearcherBatchUpdate(reason, fn)
 
     batchDepth = math.max(0, batchDepth - 1)
     if batchDepth == 0 then
-        self:SetSearcherVisible(true)
+        self:SetSearcherVisible(self.MainFrame and self.MainFrame:IsShown() or false)
         if ok then
             self:RunSearchNow(reason)
         end
@@ -779,11 +757,10 @@ addon:RegisterWoWEvent("HOUSING_STORAGE_UPDATED", function()
     -- CONDITIONAL: Heavy search only when MainFrame visible
     if addon.MainFrame and addon.MainFrame:IsShown() then
         addon:Debug("Storage updated (visible), re-running search")
-        TriggerRecordRefresh()
+        addon:RunSearchNow("storage updated")
     else
         addon:Debug("Storage updated (hidden), deferring search")
         addon.needsFullRefresh = true
-        addon.needsRecordRefresh = true
     end
 end)
 
