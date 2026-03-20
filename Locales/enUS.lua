@@ -508,13 +508,13 @@ L["WELCOME_F1_DESC"] = "Preview any decor in 3D: rotate, zoom, and resize the vi
 L["WELCOME_F2_TITLE"] = "Decor Catalog & Grid"
 L["WELCOME_F2_DESC"] = "Browse the full catalog in a customizable grid with fast search and filters."
 L["WELCOME_F3_TITLE"] = "Sources & Discovery"
-L["WELCOME_F3_DESC"] = "See where to get missing decor: quests, achievements, vendors, drops, professions."
+L["WELCOME_F3_DESC"] = "See where to get missing decor: quests, achievements, vendors, drops, professions, renown, and PvP."
 L["WELCOME_F4_TITLE"] = "Vendor Indicators"
-L["WELCOME_F4_DESC"] = "Vendor UI shows decor icons, so collectibles stand out instantly."
+L["WELCOME_F4_DESC"] = "Vendor UI shows decor icons, so collectibles stand out instantly. Also marks decor in your bags and bank."
 L["WELCOME_F5_TITLE"] = "Map Integration"
-L["WELCOME_F5_DESC"] = "Map pins show the decor vendors location, and a zone overlay points you to missing decor."
+L["WELCOME_F5_DESC"] = "Map pins show decor vendor locations, and a zone overlay points you to missing decor."
 L["WELCOME_F6_TITLE"] = "Collection Progress"
-L["WELCOME_F6_DESC"] = "Progress bars show your collection status by category at a glance."
+L["WELCOME_F6_DESC"] = "The Progress tab shows your collection status by source and expansion at a glance."
 
 --------------------------------------------------------------------------------
 -- Endeavors Panel

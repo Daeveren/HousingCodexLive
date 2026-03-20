@@ -27,6 +27,16 @@ WhatsNew.featureEntries = {}
 WhatsNew.selectedIndex = nil
 WhatsNew.checkboxChecked = false
 
+-- Typewriter animation state (What's New description text)
+local twDriver          -- child frame driving OnUpdate
+local twFullText = ""   -- complete description string to reveal
+local twDescFS          -- FontString being animated
+local twElapsed = 0     -- running clock
+local twActive = false  -- guard against stale OnUpdate firing
+local TW_CHARS_PER_SEC = 40
+local StopTypewriter    -- forward declarations (defined after Build, called before)
+local StartTypewriter
+
 --------------------------------------------------------------------------------
 -- Version Comparison
 --------------------------------------------------------------------------------
@@ -220,9 +230,11 @@ local function CreateFeatureEntry(parent, index, feature, hasImage)
     desc:SetPoint("RIGHT", -WN.ENTRY_PADDING, 0)
     desc:SetJustifyH("LEFT")
     desc:SetWordWrap(true)
-    desc:SetText(L[feature.descKey] or feature.descKey)
+    local descText = L[feature.descKey] or feature.descKey
+    desc:SetText(descText)
     desc:SetTextColor(0.9, 0.9, 0.9, 1)
     entry.desc = desc
+    entry.descText = descText
 
     -- Mouse interaction
     entry:EnableMouse(true)
@@ -325,18 +337,23 @@ local function CreateWelcomeFeatureGrid(parent)
         desc:SetJustifyH("LEFT")
         desc:SetJustifyV("TOP")
         desc:SetWordWrap(true)
-        desc:SetText(L[feature.descKey] or feature.descKey)
+        local descText = L[feature.descKey] or feature.descKey
+        desc:SetText(descText)
         desc:SetTextColor(0.75, 0.75, 0.75, 1)
         card.desc = desc
+        card.descText = descText
 
         card:EnableMouse(true)
         card:SetScript("OnEnter", function()
             card:SetBackdropColor(0.18, 0.18, 0.20, 1)
             card:SetBackdropBorderColor(unpack(COLORS.GOLD))
+            StartTypewriter(card.desc, card.descText)
         end)
         card:SetScript("OnLeave", function()
             card:SetBackdropColor(0.12, 0.12, 0.14, 0.95)
             card:SetBackdropBorderColor(0.25, 0.25, 0.25, 1)
+            -- Snap to full text on leave
+            StopTypewriter()
         end)
 
         entries[#entries + 1] = card
@@ -562,6 +579,7 @@ function WhatsNew:Build(variant)
         self.sweepDriver:SetScript("OnUpdate", nil)
         self.sweepDriver = nil
     end
+    StopTypewriter()
     if self.contentArea then ReleaseChild(self.contentArea); self.contentArea = nil end
 
     -- Reset state
@@ -687,15 +705,74 @@ function WhatsNew:BuildWelcomeContent(content, frame)
 end
 
 --------------------------------------------------------------------------------
+-- Typewriter Animation (What's New description reveal)
+--------------------------------------------------------------------------------
+
+StopTypewriter = function()
+    if twDriver then
+        twDriver:SetScript("OnUpdate", nil)
+    end
+    if twActive and twDescFS then
+        twDescFS:SetText(twFullText)
+    end
+    twActive = false
+    twDescFS = nil
+    twFullText = ""
+    twElapsed = 0
+end
+
+local function TypewriterOnUpdate(_, dt)
+    if not twActive or not twDescFS then
+        StopTypewriter()
+        return
+    end
+
+    twElapsed = twElapsed + dt
+    local charCount = math.floor(twElapsed * TW_CHARS_PER_SEC)
+
+    if charCount >= #twFullText then
+        twDescFS:SetText(twFullText)
+        twActive = false
+        twDriver:SetScript("OnUpdate", nil)
+        return
+    end
+
+    twDescFS:SetText(twFullText:sub(1, charCount))
+end
+
+StartTypewriter = function(descFontString, fullText)
+    StopTypewriter()
+
+    if not fullText or fullText == "" then return end
+
+    -- Create driver frame once (parented to UIParent so it ticks regardless)
+    if not twDriver then
+        twDriver = CreateFrame("Frame", nil, UIParent)
+    end
+
+    twDescFS = descFontString
+    twFullText = fullText
+    twElapsed = 0
+    twActive = true
+
+    -- Start with empty text
+    twDescFS:SetText("")
+    twDriver:SetScript("OnUpdate", TypewriterOnUpdate)
+end
+
+--------------------------------------------------------------------------------
 -- Feature Selection (What's New hover)
 --------------------------------------------------------------------------------
 
 function WhatsNew:SelectFeature(index)
-    -- Deselect previous
+    -- Skip if already selected (prevents typewriter restart on mouse jitter)
+    if self.selectedIndex == index then return end
+
     if self.selectedIndex and self.featureEntries[self.selectedIndex] then
         local prev = self.featureEntries[self.selectedIndex].entry
         prev.accent:Hide()
         prev.hoverBg:SetColorTexture(0.1, 0.1, 0.12, 0)
+        prev.desc:SetText(prev.descText)
     end
 
     self.selectedIndex = index
@@ -711,6 +788,9 @@ function WhatsNew:SelectFeature(index)
         if feature.image then
             self:SetShowcaseImage(feature.image)
         end
+
+        -- Typewriter the description text (title stays instant)
+        StartTypewriter(current.desc, current.descText)
     end
 end
 
@@ -817,6 +897,8 @@ end
 
 function WhatsNew:Close()
     if not self.frame or not self.frame:IsShown() then return end
+
+    StopTypewriter()
 
     -- Save state before animating out
     self:SaveDismissState()

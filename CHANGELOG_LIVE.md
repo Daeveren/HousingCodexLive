@@ -2,6 +2,18 @@
 
 All notable changes to Housing Codex.
 
+**2.0.7** (2026-03-20)
+
+**Added**
+- Adjusted the Welcome panel with animated text effects
+
+**Changed**
+- Updated Welcome screen descriptions to highlight recent features (renown, PvP, bags, Progress tab)
+- Item tooltips now appear near your cursor instead of off to the side
+
+**Fixed**
+- Vendor NPC names that initially failed to load now retry automatically instead of staying blank
+
 **2.0.6** (2026-03-20)
 
 **Added**

@@ -279,10 +279,7 @@ QuestRowOnEnter = function(frame)
         addon:FireEvent("RECORD_SELECTED", recordID)
     end
 
-    GameTooltip:SetOwner(UIParent, "ANCHOR_NONE")
-    local x, y = GetCursorPosition()
-    local scale = UIParent:GetEffectiveScale()
-    GameTooltip:SetPoint("BOTTOMLEFT", UIParent, "BOTTOMLEFT", (x / scale) + 15, (y / scale) + 15)
+    addon:AnchorTooltipToCursor(frame)
     if type(frame.questID) == "number" then
         GameTooltip:SetHyperlink("quest:" .. frame.questID)
     else

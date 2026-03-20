@@ -366,10 +366,7 @@ local function DecorRowOnEnter(row)
     end
     addon:FireEvent("RECORD_SELECTED", row.decorId)
 
-    GameTooltip:SetOwner(UIParent, "ANCHOR_NONE")
-    local x, y = GetCursorPosition()
-    local scale = UIParent:GetEffectiveScale()
-    GameTooltip:SetPoint("BOTTOMLEFT", UIParent, "BOTTOMLEFT", (x / scale) + 15, (y / scale) + 15)
+    addon:AnchorTooltipToCursor(row)
     GameTooltip:SetText(addon:ResolveDecorName(row.decorId, row.record), 1, 1, 1)
     if row.isCollected then
         GameTooltip:AddLine(addon.L["FILTER_COLLECTED"], 0.4, 0.9, 0.4)

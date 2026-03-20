@@ -347,6 +347,13 @@ function addon:Print(msg)
     print("|cFFFFD100Housing Codex:|r " .. tostring(msg))
 end
 
+function addon:AnchorTooltipToCursor(owner)
+    GameTooltip:SetOwner(owner, "ANCHOR_NONE")
+    local x, y = GetCursorPosition()
+    local scale = UIParent:GetEffectiveScale()
+    GameTooltip:SetPoint("BOTTOMLEFT", UIParent, "BOTTOMLEFT", x / scale + 20, y / scale + 20)
+end
+
 function addon:GetDecorLink(recordID, callback)
     local record = recordID and self:GetRecord(recordID)
     local fallback = string.format("|cFFFFD100[%s]|r", record and record.name or addon.L["UNKNOWN"])

@@ -115,6 +115,8 @@ end
 local function OnTooltipUnit(tooltip)
     if not tooltip or tooltip ~= GameTooltip then return end
 
+    CleanupAnimation()
+
     -- Early-out if setting disabled
     if not addon.db or not addon.db.settings or not addon.db.settings.showVendorTooltips then return end
 
@@ -196,8 +198,9 @@ function VendorTooltipOverlay:Initialize()
 
     TooltipDataProcessor.AddTooltipPostCall(Enum.TooltipDataType.Unit, OnTooltipUnit)
 
-    -- Clean up animation state when tooltip hides
+    -- Clean up animation state when tooltip hides or clears
     GameTooltip:HookScript("OnHide", CleanupAnimation)
+    GameTooltip:HookScript("OnTooltipCleared", CleanupAnimation)
 
     addon:Debug("VendorTooltipOverlay initialized")
 end

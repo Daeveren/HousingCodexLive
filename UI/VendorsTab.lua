@@ -293,10 +293,7 @@ local function VendorDecorRowOnEnter(row)
     addon:FireEvent("RECORD_SELECTED", decorId)
 
     local L = addon.L
-    GameTooltip:SetOwner(UIParent, "ANCHOR_NONE")
-    local x, y = GetCursorPosition()
-    local scale = UIParent:GetEffectiveScale()
-    GameTooltip:SetPoint("BOTTOMLEFT", UIParent, "BOTTOMLEFT", (x / scale) + 15, (y / scale) + 15)
+    addon:AnchorTooltipToCursor(row)
     local record = row.record
     local fallback = row.fallback
     if record then

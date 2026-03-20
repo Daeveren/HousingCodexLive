@@ -531,10 +531,7 @@ function ProfessionsTab:SetupCraftRow(frame, craft)
 
         addon:FireEvent("RECORD_SELECTED", craft.decorId)
 
-        GameTooltip:SetOwner(UIParent, "ANCHOR_NONE")
-        local x, y = GetCursorPosition()
-        local scale = UIParent:GetEffectiveScale()
-        GameTooltip:SetPoint("BOTTOMLEFT", UIParent, "BOTTOMLEFT", (x / scale) + 15, (y / scale) + 15)
+        addon:AnchorTooltipToCursor(f)
         GameTooltip:SetText(addon:ResolveDecorName(craft.decorId, record), 1, 1, 1)
         if isCollected then
             GameTooltip:AddLine(L["FILTER_COLLECTED"], 0.4, 0.9, 0.4)

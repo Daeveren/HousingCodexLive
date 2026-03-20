@@ -117,17 +117,16 @@ end
 -- Uses C_TooltipInfo.GetHyperlink with a synthetic unit GUID to resolve
 -- English NPC names to locale-aware names. Only vendor NPCs have npcId in our
 -- data; drop sources remain under the sourceNameLocale manual system.
--- Positive results cached as the name string; false cached when RETRIEVING_DATA
--- was seen, to skip re-querying until cache wipe.
+-- Positive results cached as the name string. RETRIEVING_DATA responses are
+-- not cached, allowing natural retry on next call (220 NPCs, negligible cost).
 --------------------------------------------------------------------------------
-local npcNameCache = {}  -- npcID -> name string, or false (RETRIEVING_DATA sentinel)
+local npcNameCache = {}  -- npcID -> name string (positive results only)
 
 function addon:GetLocalizedNPCName(npcID, fallbackName)
     if not npcID or npcID <= 0 then return fallbackName end
 
-    -- Check cache: false sentinel means RETRIEVING_DATA was seen, skip re-query
     local cached = npcNameCache[npcID]
-    if cached ~= nil then return cached or fallbackName end
+    if cached then return cached end
 
     -- AllowedWhenUntainted: safe from normal addon code, do not call from tainted context
     if not (C_TooltipInfo and C_TooltipInfo.GetHyperlink) then return fallbackName end
@@ -137,20 +136,11 @@ function addon:GetLocalizedNPCName(npcID, fallbackName)
 
     local name = tooltipData.lines[1] and tooltipData.lines[1].leftText
     if not name or name == "" or name == RETRIEVING_DATA then
-        npcNameCache[npcID] = false  -- Sentinel: avoid re-querying until cache wipe
         return fallbackName
     end
 
     npcNameCache[npcID] = name
     return name
-end
-
--- Flush false sentinels so stale RETRIEVING_DATA entries can be re-queried
--- Called on DATA_LOADED (e.g., /hc retry) when game client data may now be available
-function addon:ClearNPCNameSentinels()
-    for k, v in pairs(npcNameCache) do
-        if v == false then npcNameCache[k] = nil end
-    end
 end
 
 --------------------------------------------------------------------------------
@@ -199,11 +189,3 @@ function addon:GetLocalizedSkillLine(englishSkillLine)
 
     return englishSkillLine
 end
-
---------------------------------------------------------------------------------
--- Event Handlers
---------------------------------------------------------------------------------
-
-addon:RegisterInternalEvent("DATA_LOADED", function()
-    addon:ClearNPCNameSentinels()
-end)
