@@ -389,6 +389,7 @@ L["DROPS_FILTER_COMPLETE"] = "Complétés"
 L["DROPS_EMPTY_NO_SOURCES"] = "Aucune source de butin trouvée"
 L["DROPS_EMPTY_NO_SOURCES_DESC"] = "Les données de butin peuvent ne pas être disponibles"
 L["DROPS_SELECT_CATEGORY"] = "Sélectionnez une catégorie"
+L["DROPS_EMPTY_NO_RESULTS"] = "Aucune source de butin ne correspond a votre recherche"
 
 -- Drop source category labels
 L["DROPS_CATEGORY_DROP"] = "Butins"

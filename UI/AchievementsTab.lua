@@ -153,6 +153,7 @@ local function SetupAchievementRow(self, frame, elementData)
 end
 addon.AchievementsTab = {}
 local AchievementsTab = addon.AchievementsTab
+local VALID_FILTERS = { all = true, incomplete = true, complete = true }
 
 -- Apply shared mixin for common tab functionality
 Mixin(AchievementsTab, addon.TabBaseMixin)
@@ -368,6 +369,7 @@ function AchievementsTab:RefreshDisplay()
 end
 
 function AchievementsTab:SetCompletionFilter(filterKey, skipRefresh)
+    if not VALID_FILTERS[filterKey] then filterKey = "incomplete" end
     for key, btn in pairs(self.filterButtons) do
         btn:SetActive(key == filterKey)
     end
@@ -379,7 +381,6 @@ function AchievementsTab:SetCompletionFilter(filterKey, skipRefresh)
 end
 
 function AchievementsTab:NavigateFromProgress()
-    addon.SearchBox:Clear()
     if self.searchBox then
         self.searchBox:SetText("")
     end

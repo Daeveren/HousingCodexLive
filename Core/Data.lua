@@ -611,6 +611,12 @@ addon:RegisterWoWEvent("CONTENT_TRACKING_UPDATE", function(trackingType, id, isT
     end
 end)
 
+addon:RegisterWoWEvent("TRACKABLE_INFO_UPDATE", function(trackingType, id)
+    if trackingType == TRACKING_TYPE_DECOR then
+        addon:UpdateRecordTrackingStatus(id)
+    end
+end)
+
 -- Central debounced search request to coalesce rapid UI interactions
 local pendingSearchTimer = nil
 

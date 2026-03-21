@@ -132,6 +132,7 @@ end
 
 addon.ProfessionsTab = {}
 local ProfessionsTab = addon.ProfessionsTab
+local VALID_FILTERS = { all = true, incomplete = true, complete = true }
 
 Mixin(ProfessionsTab, addon.TabBaseMixin)
 ProfessionsTab.tabName = "ProfessionsTab"
@@ -234,6 +235,7 @@ function ProfessionsTab:CreateToolbar(parent)
 end
 
 function ProfessionsTab:SetCompletionFilter(filterKey, skipRefresh)
+    if not VALID_FILTERS[filterKey] then filterKey = "incomplete" end
     for key, btn in pairs(self.filterButtons) do
         btn:SetActive(key == filterKey)
     end
@@ -351,7 +353,6 @@ function ProfessionsTab:SelectProfession(professionName)
 end
 
 function ProfessionsTab:NavigateFromProgress(professionName)
-    addon.SearchBox:Clear()
     if self.searchBox then
         self.searchBox:SetText("")
     end

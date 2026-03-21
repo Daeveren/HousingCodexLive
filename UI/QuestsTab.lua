@@ -218,6 +218,7 @@ local function SetupQuestRow(self, frame, elementData)
 end
 addon.QuestsTab = {}
 local QuestsTab = addon.QuestsTab
+local VALID_FILTERS = { all = true, incomplete = true, complete = true }
 
 -- Apply shared mixin for common tab functionality
 Mixin(QuestsTab, addon.TabBaseMixin)
@@ -389,7 +390,6 @@ function QuestsTab:Show()
 end
 
 function QuestsTab:NavigateFromProgress(expansionKey)
-    addon.SearchBox:Clear()
     if self.searchBox then
         self.searchBox:SetText("")
     end
@@ -432,6 +432,7 @@ function QuestsTab:RefreshDisplay()
 end
 
 function QuestsTab:SetCompletionFilter(filterKey, skipRefresh)
+    if not VALID_FILTERS[filterKey] then filterKey = "incomplete" end
     for key, btn in pairs(self.filterButtons) do
         btn:SetActive(key == filterKey)
     end

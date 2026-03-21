@@ -75,6 +75,7 @@ addon.CONSTANTS = {
         TAB_HOVER = { 0.15, 0.15, 0.17, 0.9 },
         TAB_SELECTED = { 0.12, 0.12, 0.14, 1 },
         TAB_TEXT_INACTIVE = { 0.56, 0.56, 0.56, 1 },
+        TAB_ICON_ALPHA_INACTIVE = 0.75,
         TEXT_PRIMARY = { 1, 1, 1, 1 },
         TEXT_SECONDARY = { 0.9, 0.9, 0.9, 1 },
         TEXT_TERTIARY = { 0.7, 0.7, 0.7, 1 },
@@ -255,6 +256,11 @@ addon.CONSTANTS = {
         INITIATIVE_POLL_INTERVAL = 10, -- seconds between initiative data re-requests (progress detection)
         TYPEWRITER_CHAR_DELAY = 0.03,  -- seconds per character for task name typewriter animation
         COMMUNITY_COUPON_CURRENCY_ID = 3363,
+    },
+
+    -- NPC crafting sources (not player professions — no tab navigation)
+    NPC_CRAFTING_SOURCES = {
+        ["Junkyard Tinkering"] = true,
     },
 
     -- Vendor world map pins

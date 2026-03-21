@@ -387,6 +387,7 @@ L["DROPS_FILTER_COMPLETE"] = "已完成"
 L["DROPS_EMPTY_NO_SOURCES"] = "未找到掉落来源"
 L["DROPS_EMPTY_NO_SOURCES_DESC"] = "掉落数据可能不可用"
 L["DROPS_SELECT_CATEGORY"] = "选择一个类别"
+L["DROPS_EMPTY_NO_RESULTS"] = "没有符合您搜索条件的掉落来源"
 
 -- Drop source category labels
 L["DROPS_CATEGORY_DROP"] = "掉落"

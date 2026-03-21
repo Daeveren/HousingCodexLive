@@ -388,6 +388,7 @@ L["DROPS_FILTER_COMPLETE"] = "Abgeschlossen"
 L["DROPS_EMPTY_NO_SOURCES"] = "Keine Beutequellen gefunden"
 L["DROPS_EMPTY_NO_SOURCES_DESC"] = "Beutedaten sind möglicherweise nicht verfügbar"
 L["DROPS_SELECT_CATEGORY"] = "Wähle eine Kategorie"
+L["DROPS_EMPTY_NO_RESULTS"] = "Keine Beutequellen entsprechen deiner Suche"
 
 -- Drop source category labels
 L["DROPS_CATEGORY_DROP"] = "Beute"

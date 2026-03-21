@@ -45,7 +45,7 @@ addon.pvpIndexBuilt = false
 addon.pvpCategoryProgressCache = {}
 
 local function SortBySourceName(a, b)
-    return (a.sourceName or "") < (b.sourceName or "")
+    return (addon:GetLocalizedSourceName(a.sourceName) or "") < (addon:GetLocalizedSourceName(b.sourceName) or "")
 end
 
 function addon:GetPvPSourceCategoryInfo(category)

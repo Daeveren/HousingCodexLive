@@ -12,16 +12,21 @@ local HTAB_GAP = addon.CONSTANTS.HTAB_GAP
 local HTAB_PADDING_X = addon.CONSTANTS.HTAB_PADDING_X
 local ICON_CROP_COORDS = addon.CONSTANTS.ICON_CROP_COORDS
 
+-- Truncation levels: full text, then progressively shorter (6..2 chars + "...")
+-- Each tab only truncates if its full text exceeds the char limit
+local TRUNCATE_CHAR_LIMITS = { 6, 5, 4, 3, 2 }
+local ICON_ONLY_LEVEL = #TRUNCATE_CHAR_LIMITS + 1
+
 local TAB_CONFIG = {
     { key = "DECOR", labelKey = "TAB_DECOR", descKey = "TAB_DECOR_DESC", atlas = "house-decor-budget-icon", enabled = true },
     { key = "QUESTS", labelKey = "TAB_QUESTS", descKey = "TAB_QUESTS_DESC", icon = "Interface\\Icons\\INV_Misc_Book_08", enabled = true },
-    { key = "ACHIEVEMENTS", labelKey = "TAB_ACHIEVEMENTS", descKey = "TAB_ACHIEVEMENTS_DESC", shortLabelKey = "TAB_ACHIEVEMENTS_SHORT", icon = "Interface\\Icons\\Achievement_General", enabled = true },
+    { key = "ACHIEVEMENTS", labelKey = "TAB_ACHIEVEMENTS", descKey = "TAB_ACHIEVEMENTS_DESC", icon = "Interface\\Icons\\Achievement_General", enabled = true },
     { key = "VENDORS", labelKey = "TAB_VENDORS", descKey = "TAB_VENDORS_DESC", icon = "Interface\\Icons\\INV_Misc_Coin_02", enabled = true },
     { key = "DROPS", labelKey = "TAB_DROPS", descKey = "TAB_DROPS_DESC", icon = "Interface\\Icons\\INV_Misc_Bag_10_Blue", enabled = true },
     { key = "PVP", labelKey = "TAB_PVP", descKey = "TAB_PVP_DESC", icon = "Interface\\Icons\\achievement_bg_killxenemies_generalsroom", enabled = true },
     { key = "RENOWN", labelKey = "TAB_RENOWN", descKey = "TAB_RENOWN_DESC", icon = "Interface\\Icons\\Achievement_Reputation_08", enabled = true },
-    { key = "PROFESSIONS", labelKey = "TAB_PROFESSIONS", descKey = "TAB_PROFESSIONS_DESC", shortLabelKey = "TAB_PROFESSIONS_SHORT", icon = "Interface\\Icons\\INV_Misc_Gear_01", enabled = true },
-    { key = "PROGRESS", labelKey = "TAB_PROGRESS", descKey = "TAB_PROGRESS_DESC", shortLabelKey = "TAB_PROGRESS_SHORT", icon = "Interface\\Icons\\Spell_Holy_BorrowedTime", enabled = true },
+    { key = "PROFESSIONS", labelKey = "TAB_PROFESSIONS", descKey = "TAB_PROFESSIONS_DESC", icon = "Interface\\Icons\\INV_Misc_Gear_01", enabled = true },
+    { key = "PROGRESS", labelKey = "TAB_PROGRESS", descKey = "TAB_PROGRESS_DESC", icon = "Interface\\Icons\\Spell_Holy_BorrowedTime", enabled = true },
 }
 
 addon.Tabs = {}
@@ -29,10 +34,20 @@ local Tabs = addon.Tabs
 Tabs.buttons = {}
 Tabs.currentTab = nil
 Tabs.container = nil
-Tabs.layoutMode = nil      -- "full", "compact", or "iconOnly"
-Tabs.fullWidth = 0
-Tabs.compactWidth = 0
-Tabs.iconOnlyWidth = 0
+Tabs.currentTruncLevel = 0  -- 0 = full, 1..5 = truncated at TRUNCATE_CHAR_LIMITS[level], ICON_ONLY_LEVEL = iconOnly
+Tabs.levelWidths = {}       -- total width for each truncation level
+
+-- Truncate text to N chars + "..." if longer than N chars
+-- At 2 chars (last level before icon-only), drop the ellipsis
+local function TruncateText(fullText, charLimit)
+    if #fullText <= charLimit then
+        return fullText
+    end
+    if charLimit <= 2 then
+        return fullText:sub(1, charLimit)
+    end
+    return fullText:sub(1, charLimit) .. "..."
+end
 
 local function CreateTabButton(parent, tabConfig, index)
     local btn = CreateFrame("Button", nil, parent)
@@ -71,30 +86,35 @@ local function CreateTabButton(parent, tabConfig, index)
     -- Label
     local label = addon:CreateFontString(btn, "OVERLAY", "GameFontNormal")
     label:SetPoint("LEFT", icon, "RIGHT", 6, 0)
-    label:SetText(addon.L[tabConfig.labelKey] or tabConfig.key)
+    local fullText = addon.L[tabConfig.labelKey] or tabConfig.key
+    label:SetText(fullText)
     btn.label = label
+    btn.fullText = fullText
 
     -- Calculate button width based on content
     local labelWidth = label:GetStringWidth()
     local totalWidth = HTAB_PADDING_X + iconSize + 6 + labelWidth + HTAB_PADDING_X
     btn:SetWidth(totalWidth)
 
-    -- Store per-button width variants for responsive layout
     btn.fullWidth = totalWidth
-    btn.fullText = addon.L[tabConfig.labelKey] or tabConfig.key
     btn.iconOnlyWidth = HTAB_PADDING_X + iconSize + HTAB_PADDING_X
 
-    if tabConfig.shortLabelKey then
-        local shortText = addon.L[tabConfig.shortLabelKey]
-        label:SetText(shortText)
-        local shortLabelWidth = label:GetStringWidth()
-        label:SetText(btn.fullText)
-        btn.compactText = shortText
-        btn.compactWidth = HTAB_PADDING_X + iconSize + 6 + shortLabelWidth + HTAB_PADDING_X
-    else
-        btn.compactText = btn.fullText
-        btn.compactWidth = btn.fullWidth
+    -- Pre-compute truncated widths (6..2 chars)
+    btn.truncWidths = {}
+    btn.truncTexts = {}
+    for i, charLimit in ipairs(TRUNCATE_CHAR_LIMITS) do
+        local truncText = TruncateText(fullText, charLimit)
+        btn.truncTexts[i] = truncText
+        if truncText == fullText then
+            -- No truncation needed at this level — same as full
+            btn.truncWidths[i] = totalWidth
+        else
+            label:SetText(truncText)
+            local truncLabelWidth = label:GetStringWidth()
+            btn.truncWidths[i] = HTAB_PADDING_X + iconSize + 6 + truncLabelWidth + HTAB_PADDING_X
+        end
     end
+    label:SetText(fullText)
 
     -- Store config
     btn.tabKey = tabConfig.key
@@ -111,13 +131,14 @@ local function CreateTabButton(parent, tabConfig, index)
     else
         -- Enabled but not selected - set initial color (dimmed from TEXT_TERTIARY)
         label:SetTextColor(unpack(COLORS.TAB_TEXT_INACTIVE))
+        icon:SetAlpha(COLORS.TAB_ICON_ALPHA_INACTIVE)
         -- Enable hover effects + tooltip
         btn:SetScript("OnEnter", function(self)
             if not Tabs:IsSelected(tabConfig.key) then
                 bg:SetColorTexture(unpack(COLORS.TAB_HOVER))
             end
-            -- Show tooltip in icon-only mode
-            if Tabs.layoutMode == "iconOnly" then
+            -- Show tooltip when truncated or icon-only
+            if Tabs.currentTruncLevel > 0 then
                 GameTooltip:SetOwner(self, "ANCHOR_BOTTOM")
                 GameTooltip:SetText(addon.L[tabConfig.labelKey])
                 GameTooltip:AddLine(addon.L[tabConfig.descKey], 1, 1, 1, true)
@@ -149,9 +170,13 @@ function Tabs:Create(titleBar, anchorAfter)
     container:SetPoint("LEFT", anchorAfter, "RIGHT", 16, 0)
     self.container = container
 
-    -- Create tab buttons
+    -- Create tab buttons and compute total widths for each truncation level
     local xOffset = 0
-    local fullSum, compactSum, iconOnlySum = 0, 0, 0
+    local gapTotal = (#TAB_CONFIG - 1) * HTAB_GAP
+
+    -- Accumulators: level 0 = full, 1..5 = truncated, ICON_ONLY_LEVEL = iconOnly
+    local levelSums = {}
+
     for i, config in ipairs(TAB_CONFIG) do
         local btn = CreateTabButton(container, config, i)
         btn:SetPoint("LEFT", container, "LEFT", xOffset, 0)
@@ -159,22 +184,26 @@ function Tabs:Create(titleBar, anchorAfter)
         self.buttons[i] = btn
         self.buttons[config.key] = btn
 
-        fullSum = fullSum + btn.fullWidth
-        compactSum = compactSum + btn.compactWidth
-        iconOnlySum = iconOnlySum + btn.iconOnlyWidth
+        -- Level 0: full width
+        levelSums[0] = (levelSums[0] or 0) + btn.fullWidth
+        -- Levels 1..5: truncated widths
+        for lvl = 1, #TRUNCATE_CHAR_LIMITS do
+            levelSums[lvl] = (levelSums[lvl] or 0) + btn.truncWidths[lvl]
+        end
+        -- Icon-only level
+        levelSums[ICON_ONLY_LEVEL] = (levelSums[ICON_ONLY_LEVEL] or 0) + btn.iconOnlyWidth
 
         xOffset = xOffset + btn:GetWidth() + HTAB_GAP
     end
 
-    -- Compute total widths for each layout mode
-    local gapTotal = (#TAB_CONFIG - 1) * HTAB_GAP
-    self.fullWidth = fullSum + gapTotal
-    self.compactWidth = compactSum + gapTotal
-    self.iconOnlyWidth = iconOnlySum + gapTotal
+    -- Store total widths including gaps
+    for lvl = 0, ICON_ONLY_LEVEL do
+        self.levelWidths[lvl] = levelSums[lvl] + gapTotal
+    end
 
     -- Set initial container width (full mode until UpdateLayout fires)
-    container:SetWidth(self.fullWidth)
-    self.layoutMode = "full"
+    container:SetWidth(self.levelWidths[0])
+    self.currentTruncLevel = 0
 
     -- Always start on DECOR tab (skip save to avoid overwriting user's last session)
     self:SelectTab("DECOR", true)
@@ -185,37 +214,38 @@ end
 function Tabs:UpdateLayout(availableWidth)
     if not self.container then return end
 
-    -- Determine new layout mode
-    local newMode
-    if availableWidth >= self.fullWidth then
-        newMode = "full"
-    elseif availableWidth >= self.compactWidth then
-        newMode = "compact"
-    else
-        newMode = "iconOnly"
+    -- Find the best truncation level that fits
+    -- Level 0 = full, 1..5 = truncated at 6/5/4/3/2 chars, ICON_ONLY_LEVEL = iconOnly
+    local newLevel = ICON_ONLY_LEVEL  -- default to icon-only
+    for lvl = 0, ICON_ONLY_LEVEL do
+        if availableWidth >= self.levelWidths[lvl] then
+            newLevel = lvl
+            break
+        end
     end
 
     -- Skip redundant relayout
-    if newMode == self.layoutMode then return end
-    self.layoutMode = newMode
+    if newLevel == self.currentTruncLevel then return end
+    self.currentTruncLevel = newLevel
 
+    local isIconOnly = (newLevel == ICON_ONLY_LEVEL)
     local xOffset = 0
     for i = 1, #TAB_CONFIG do
         local btn = self.buttons[i]
 
         local btnWidth, labelText
-        if newMode == "iconOnly" then
+        if isIconOnly then
             btnWidth = btn.iconOnlyWidth
-        elseif newMode == "compact" then
-            btnWidth = btn.compactWidth
-            labelText = btn.compactText
-        else
+        elseif newLevel == 0 then
             btnWidth = btn.fullWidth
             labelText = btn.fullText
+        else
+            btnWidth = btn.truncWidths[newLevel]
+            labelText = btn.truncTexts[newLevel]
         end
 
         btn:SetWidth(btnWidth)
-        btn.label:SetShown(labelText ~= nil)
+        btn.label:SetShown(not isIconOnly)
         if labelText then
             btn.label:SetText(labelText)
         end
@@ -238,12 +268,14 @@ function Tabs:SelectTab(tabKey, skipSave)
         oldBtn.bg:SetColorTexture(unpack(COLORS.TAB_NORMAL))
         oldBtn.selectBar:Hide()
         oldBtn.label:SetTextColor(unpack(COLORS.TAB_TEXT_INACTIVE))
+        oldBtn.icon:SetAlpha(0.75)
     end
 
     -- Select new
     btn.bg:SetColorTexture(unpack(COLORS.TAB_SELECTED))
     btn.selectBar:Show()
     btn.label:SetTextColor(unpack(COLORS.TEXT_PRIMARY))
+    btn.icon:SetAlpha(1.0)
 
     self.currentTab = tabKey
 

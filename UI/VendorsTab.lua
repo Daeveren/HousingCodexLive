@@ -21,6 +21,7 @@ local WAYPOINT_MATCH_EPSILON = CONSTS.WAYPOINT_MATCH_EPSILON or 0.0001
 
 addon.VendorsTab = {}
 local VendorsTab = addon.VendorsTab
+local VALID_FILTERS = { all = true, incomplete = true, complete = true }
 
 Mixin(VendorsTab, addon.TabBaseMixin)
 VendorsTab.tabName = "VendorsTab"
@@ -173,6 +174,7 @@ function VendorsTab:RefreshDisplay()
 end
 
 function VendorsTab:SetCompletionFilter(filterKey, skipRefresh)
+    if not VALID_FILTERS[filterKey] then filterKey = "incomplete" end
     for key, btn in pairs(self.filterButtons) do
         btn:SetActive(key == filterKey)
     end
@@ -1159,7 +1161,6 @@ function VendorsTab:NavigateToVendor(npcId)
 end
 
 function VendorsTab:NavigateFromProgress(expansionKey)
-    addon.SearchBox:Clear()
     if self.searchBox then
         self.searchBox:SetText("")
     end

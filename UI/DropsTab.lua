@@ -22,6 +22,7 @@ local CATEGORY_ICON_SIZE = 20
 
 addon.DropsTab = {}
 local DropsTab = addon.DropsTab
+local VALID_FILTERS = { all = true, incomplete = true, complete = true }
 
 Mixin(DropsTab, addon.TabBaseMixin)
 DropsTab.tabName = "DropsTab"
@@ -51,6 +52,7 @@ DropsTab.searchBox = nil
 DropsTab.filterButtons = {}
 DropsTab.emptyState = nil
 DropsTab.noCategoryState = nil
+DropsTab.noResultsState = nil
 
 DropsTab.selectedCategory = nil
 DropsTab.selectedSourceName = nil
@@ -125,6 +127,7 @@ function DropsTab:CreateToolbar(parent)
 end
 
 function DropsTab:SetCompletionFilter(filterKey, skipRefresh)
+    if not VALID_FILTERS[filterKey] then filterKey = "incomplete" end
     for key, btn in pairs(self.filterButtons) do
         btn:SetActive(key == filterKey)
     end
@@ -141,7 +144,6 @@ function DropsTab:GetCompletionFilter()
 end
 
 function DropsTab:NavigateFromProgress(category)
-    addon.SearchBox:Clear()
     if self.searchBox then
         self.searchBox:SetText("")
     end
@@ -834,17 +836,22 @@ function DropsTab:CreateEmptyStates()
         CATEGORY_PANEL_WIDTH - 16
     )
     self.noCategoryState = addon:CreateEmptyStateFrame(self.sourcePanel, "DROPS_SELECT_CATEGORY")
+    self.noResultsState = addon:CreateEmptyStateFrame(self.sourcePanel, "DROPS_EMPTY_NO_RESULTS")
 end
 
 function DropsTab:UpdateEmptyStates()
     local hasDrops = addon:GetDropCount() > 0
     local hasSelection = self.selectedCategory ~= nil
+    local dataProvider = self.sourceScrollBox and self.sourceScrollBox:GetDataProvider()
+    local hasResults = dataProvider and dataProvider:GetSize() > 0
+    local showSourceList = hasDrops and hasSelection and hasResults
 
     if self.emptyState then self.emptyState:SetShown(not hasDrops) end
     if self.noCategoryState then self.noCategoryState:SetShown(hasDrops and not hasSelection) end
+    if self.noResultsState then self.noResultsState:SetShown(hasDrops and hasSelection and not hasResults) end
     if self.categoryScrollBox then self.categoryScrollBox:SetShown(hasDrops) end
-    if self.sourceScrollBox then self.sourceScrollBox:SetShown(hasDrops and hasSelection) end
-    if self.sourceScrollBar then self.sourceScrollBar:SetShown(hasDrops and hasSelection) end
+    if self.sourceScrollBox then self.sourceScrollBox:SetShown(showSourceList) end
+    if self.sourceScrollBar then self.sourceScrollBar:SetShown(showSourceList) end
 end
 
 --------------------------------------------------------------------------------

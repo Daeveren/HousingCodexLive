@@ -67,7 +67,7 @@ function addon:BuildDropIndex()
 
         -- Sort sources alphabetically within each category
         table.sort(self.dropHierarchy[category].sources, function(a, b)
-            return (a.sourceName or "") < (b.sourceName or "")
+            return (addon:GetLocalizedSourceName(a.sourceName) or "") < (addon:GetLocalizedSourceName(b.sourceName) or "")
         end)
 
         -- Remove empty categories after filtering

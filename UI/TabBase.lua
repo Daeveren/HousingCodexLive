@@ -136,6 +136,7 @@ function TabBaseMixin:CreateStandardToolbar(parent, config)
     toolbar:SetPoint("TOPLEFT", parent, "TOPLEFT", 0, 0)
     toolbar:SetPoint("TOPRIGHT", parent, "TOPRIGHT", 0, 0)
     toolbar:SetHeight(CONSTS.HEADER_HEIGHT)
+    toolbar:SetClipsChildren(true)
     self.toolbar = toolbar
 
     local bg = toolbar:CreateTexture(nil, "BACKGROUND")

@@ -2,6 +2,19 @@
 
 All notable changes to Housing Codex.
 
+**2.0.9** (2026-03-22)
+
+**Changed**
+- Tabs now shrink their labels smoothly when the window gets narrow, instead of jumping straight to icon-only mode
+- Tweaked inactive tab styling so the active tab is easier to notice
+
+**Fixed**
+- Clicking "Junkyard Tinkering" in the Progress tab no longer tries to open the Professions tab
+- Drops tab now shows a "no results" message when search or filters remove all sources
+- Shift-click tracking state now updates reliably when track limits change
+- Tab filter settings no longer silently blank a tab if saved data was corrupted
+- Drop and PvP source lists now sort correctly in non-English languages
+
 **2.0.8** (2026-03-21)
 
 **Added**

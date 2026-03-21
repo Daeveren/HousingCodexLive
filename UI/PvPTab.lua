@@ -141,7 +141,6 @@ function PvPTab:SetCompletionFilter(filterKey, skipRefresh)
 end
 
 function PvPTab:NavigateFromProgress()
-    addon.SearchBox:Clear()
     if self.searchBox then
         self.searchBox:SetText("")
     end

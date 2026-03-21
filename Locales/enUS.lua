@@ -388,6 +388,7 @@ L["DROPS_FILTER_COMPLETE"] = "Complete"
 L["DROPS_EMPTY_NO_SOURCES"] = "No drop sources found"
 L["DROPS_EMPTY_NO_SOURCES_DESC"] = "Drop data may not be available"
 L["DROPS_SELECT_CATEGORY"] = "Select a category"
+L["DROPS_EMPTY_NO_RESULTS"] = "No drop sources match your search"
 
 -- Drop source category labels
 L["DROPS_CATEGORY_DROP"] = "Drops"

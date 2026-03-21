@@ -560,6 +560,13 @@ function ProgressTab:SetupProgressRow(row, data, yOffset, rowWidth, onClick, xOf
     row.bar:SetStatusBarColor(progressColor[1], progressColor[2], progressColor[3], 0.25)
 
     row:SetScript("OnClick", onClick)
+    if onClick then
+        row:SetScript("OnEnter", function(r) r.bg:SetColorTexture(0.14, 0.14, 0.16, 0.8) end)
+        row:SetScript("OnLeave", function(r) r.bg:SetColorTexture(0.10, 0.10, 0.13, 0.6) end)
+    else
+        row:SetScript("OnEnter", nil)
+        row:SetScript("OnLeave", nil)
+    end
     row:Show()
 end
 
@@ -614,9 +621,13 @@ function ProgressTab:BuildProfessionsSection(yOffset, columnWidth, xOffset)
 
     for i, data in ipairs(profData) do
         local row = self:GetOrCreateProgressRow(self.professionRows, i)
-        self:SetupProgressRow(row, data, yOffset, columnWidth, function()
-            self:NavigateToProfession(data.professionName)
-        end, xOffset)
+        local onClick = nil
+        if not CONSTS.NPC_CRAFTING_SOURCES[data.professionName] then
+            onClick = function()
+                self:NavigateToProfession(data.professionName)
+            end
+        end
+        self:SetupProgressRow(row, data, yOffset, columnWidth, onClick, xOffset)
         yOffset = yOffset - ROW_HEIGHT - 2
     end
 
