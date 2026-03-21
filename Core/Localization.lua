@@ -187,5 +187,12 @@ function addon:GetLocalizedSkillLine(englishSkillLine)
         end
     end
 
+    -- Unprefixed skill line (e.g., "Junkyard Tinkering") — try profession name lookup
+    local localizedName = self:GetLocalizedProfessionName(englishSkillLine)
+    if localizedName ~= englishSkillLine then
+        skillLineCache[englishSkillLine] = localizedName
+        return localizedName
+    end
+
     return englishSkillLine
 end

@@ -2,6 +2,16 @@
 
 All notable changes to Housing Codex.
 
+**2.0.8** (2026-03-21)
+
+**Added**
+- New task names in the Endeavors panel now play a subtle typewriter animation when they first appear
+
+**Fixed**
+- Clicking a source row in the Progress tab now correctly shows all items in the destination tab
+- Professions tab now remembers your selected craft when switching between tabs
+- Profession names in the Progress tab now display in your game language
+
 **2.0.7** (2026-03-20)
 
 **Added**

@@ -142,6 +142,9 @@ end
 
 function PvPTab:NavigateFromProgress()
     addon.SearchBox:Clear()
+    if self.searchBox then
+        self.searchBox:SetText("")
+    end
     self:SetCompletionFilter("incomplete")
 end
 

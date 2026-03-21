@@ -534,7 +534,8 @@ function ProgressTab:SetupProgressRow(row, data, yOffset, rowWidth, onClick, xOf
     row:SetPoint("TOPLEFT", self.scrollChild, "TOPLEFT", xOffset, yOffset)
     row:SetWidth(rowWidth)
 
-    local displayLabel = L[data.labelKey] or data.labelKey
+    local displayLabel = (data.professionName and addon:GetLocalizedProfessionName(data.professionName))
+        or L[data.labelKey] or data.labelKey
     -- For "Most Progressed" rows, suffix with source kind
     if data.sourceLabel then
         displayLabel = displayLabel .. "  |cFF888888(" .. data.sourceLabel .. ")|r"

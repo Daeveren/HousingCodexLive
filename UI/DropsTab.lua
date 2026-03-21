@@ -142,6 +142,9 @@ end
 
 function DropsTab:NavigateFromProgress(category)
     addon.SearchBox:Clear()
+    if self.searchBox then
+        self.searchBox:SetText("")
+    end
     self:SetCompletionFilter("incomplete", true)
     self:SelectCategory(category)
 end

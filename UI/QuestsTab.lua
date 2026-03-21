@@ -390,6 +390,9 @@ end
 
 function QuestsTab:NavigateFromProgress(expansionKey)
     addon.SearchBox:Clear()
+    if self.searchBox then
+        self.searchBox:SetText("")
+    end
     self:SetCompletionFilter("incomplete", true)
     self:SelectExpansion(expansionKey)
 end

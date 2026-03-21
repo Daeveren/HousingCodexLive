@@ -253,6 +253,7 @@ addon.CONSTANTS = {
         BAR_LAYOUT_DURATION = 0.35,   -- seconds for stacked ↔ inline bar animation
         TASK_COLLAPSE_DELAY = 60,  -- seconds of no task progress before collapsing task section visually
         INITIATIVE_POLL_INTERVAL = 10, -- seconds between initiative data re-requests (progress detection)
+        TYPEWRITER_CHAR_DELAY = 0.03,  -- seconds per character for task name typewriter animation
         COMMUNITY_COUPON_CURRENCY_ID = 3363,
     },
 

@@ -1160,6 +1160,9 @@ end
 
 function VendorsTab:NavigateFromProgress(expansionKey)
     addon.SearchBox:Clear()
+    if self.searchBox then
+        self.searchBox:SetText("")
+    end
     -- Clear "Current Zone" filter so all vendors in the expansion are visible
     if self.currentZoneCheckbox then
         self.currentZoneCheckbox:SetChecked(false)

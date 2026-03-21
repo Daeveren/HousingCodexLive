@@ -72,6 +72,9 @@ local widthAnimDriver = nil
 -- Cached active tasks (invalidated on each Refresh, persists across animation frames)
 local cachedActiveTasks = nil
 
+-- Typewriter animation: tracks which taskIDs have already been animated (play once per session)
+local typewriterAnimatedTasks = {}
+
 -- Content backdrop slide state (expanded mode: slides down when title hides, up on hover)
 local contentBackdropDriver = nil
 local contentBackdropTopOffset = 0  -- 0 = flush with frame top, negative = slid down
@@ -501,12 +504,68 @@ local function CreateTaskRow(parent, index)
     return row
 end
 
+local function StopTypewriterAnimation(row)
+    if row.typewriterDriver then
+        row.typewriterDriver:SetScript("OnUpdate", nil)
+    end
+    row.typewriterActiveTaskID = nil
+end
+
+local function StartTypewriterAnimation(row, taskID, fullText, r, g, b, alpha)
+    local totalChars = strlenutf8(fullText)
+    if totalChars == 0 then
+        row.nameText:SetText(fullText)
+        return
+    end
+
+    local elapsed = 0
+    row.nameText:SetText("")
+    row.nameText:SetTextColor(r, g, b, alpha)
+    row.typewriterActiveTaskID = taskID
+
+    if not row.typewriterDriver then
+        row.typewriterDriver = CreateFrame("Frame", nil, row)
+    end
+
+    local byteLen = #fullText
+    local lastCharsShown = 0
+    row.typewriterDriver:SetScript("OnUpdate", function(self, dt)
+        elapsed = elapsed + dt
+        local charsToShow = math.floor(elapsed / CONST.TYPEWRITER_CHAR_DELAY)
+        if charsToShow >= totalChars then
+            row.nameText:SetText(fullText)
+            self:SetScript("OnUpdate", nil)
+            row.typewriterActiveTaskID = nil
+            return
+        end
+        -- Skip SetText if no new character this frame
+        if charsToShow == lastCharsShown then return end
+        lastCharsShown = charsToShow
+        -- Walk bytes once to find the byte offset for charsToShow UTF-8 characters
+        local count = 0
+        local i = 1
+        while i <= byteLen and count < charsToShow do
+            local byte = fullText:byte(i)
+            if byte >= 0xF0 then i = i + 4
+            elseif byte >= 0xE0 then i = i + 3
+            elseif byte >= 0xC0 then i = i + 2
+            else i = i + 1
+            end
+            count = count + 1
+        end
+        row.nameText:SetText(fullText:sub(1, i - 1))
+    end)
+end
+
 local function UpdateTaskRow(row, taskData)
     if not row or not taskData then return end
 
-    row.taskData = taskData
-    row.nameText:SetText(taskData.taskName)
+    -- Cancel any ongoing typewriter animation if row is being reassigned to a different task
+    if row.typewriterActiveTaskID and row.typewriterActiveTaskID ~= taskData.taskID then
+        StopTypewriterAnimation(row)
+    end
 
+    row.taskData = taskData
     row.progressText:SetText(taskData.current .. "/" .. taskData.max)
 
     -- Fade out over last 20% of the task timeout
@@ -517,7 +576,17 @@ local function UpdateTaskRow(row, taskData)
         alpha = 1.0 - (fadePct * 0.5)  -- fade from 1.0 to 0.5
     end
     row.progressText:SetTextColor(0.65, 0.65, 0.65, alpha)
-    row.nameText:SetTextColor(0.65, 0.65, 0.65, alpha)
+
+    -- Typewriter animation: play once per task, let it run through layout refreshes
+    if row.typewriterActiveTaskID == taskData.taskID then
+        -- Animation still in progress for this task — don't interrupt
+    elseif not typewriterAnimatedTasks[taskData.taskID] then
+        typewriterAnimatedTasks[taskData.taskID] = true
+        StartTypewriterAnimation(row, taskData.taskID, taskData.taskName, 0.65, 0.65, 0.65, alpha)
+    else
+        row.nameText:SetText(taskData.taskName)
+        row.nameText:SetTextColor(0.65, 0.65, 0.65, alpha)
+    end
 
     row:Show()
 end
@@ -1614,6 +1683,9 @@ function EP:TryHide()
     isTaskExpanded = false
     tasksCollapsed = false
     ResetBarLayout()
+
+    -- Reset typewriter tracking (new tasks in next neighborhood get fresh animation)
+    wipe(typewriterAnimatedTasks)
 
     -- Stop initiative progress poll
     addon.EndeavorsData:StopInitiativePoll()

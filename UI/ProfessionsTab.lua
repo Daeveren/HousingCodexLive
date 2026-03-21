@@ -205,9 +205,8 @@ function ProfessionsTab:Show()
 
     local db = EnsureProfessionsDB()
 
-    -- Restore persisted profession; reset craft selection each session
+    -- Restore persisted profession
     self.selectedProfession = db and db.selectedProfession
-    self.selectedDecorId = nil
 
     self:SetCompletionFilter((db and db.completionFilter) or "incomplete")
     self:UpdateEmptyStates()
@@ -353,7 +352,11 @@ end
 
 function ProfessionsTab:NavigateFromProgress(professionName)
     addon.SearchBox:Clear()
+    if self.searchBox then
+        self.searchBox:SetText("")
+    end
     self:SetCompletionFilter("incomplete", true)
+    self:BuildProfessionDisplay()
     self:SelectProfession(professionName)
 end
 
