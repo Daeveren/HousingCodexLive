@@ -27,6 +27,7 @@ local function MigrateCollectionState(filters)
     if filters.showUncollected == nil and filters.collectionState then
         filters.showUncollected = filters.collectionState ~= "collected"
     end
+    filters.collectionState = nil
 end
 
 function Filters:Initialize()
@@ -260,13 +261,16 @@ function Filters:SaveState()
         db.dyeable = searcher:IsCustomizableOnlyActive()
         db.firstAcquisition = searcher:IsFirstAcquisitionBonusOnlyActive()
 
-        -- Save tag filter states
+        -- Save tag filter states (sparse: only disabled tags, default is enabled)
         if addon.FilterBar and addon.FilterBar.tagGroups then
             db.tagFilters = {}
             for _, group in ipairs(addon.FilterBar.tagGroups) do
-                db.tagFilters[group.groupID] = {}
                 for _, tag in pairs(group.tags) do
-                    db.tagFilters[group.groupID][tag.tagID] = searcher:GetFilterTagStatus(group.groupID, tag.tagID)
+                    local state = searcher:GetFilterTagStatus(group.groupID, tag.tagID)
+                    if state == false then
+                        db.tagFilters[group.groupID] = db.tagFilters[group.groupID] or {}
+                        db.tagFilters[group.groupID][tag.tagID] = false
+                    end
                 end
             end
         end

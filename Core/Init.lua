@@ -575,15 +575,14 @@ end
 
 function addon:MergeDefaults(target, defaults)
     for key, value in pairs(defaults) do
-        if target[key] == nil then
-            if type(value) == "table" then
+        if type(value) == "table" then
+            if type(target[key]) ~= "table" then
+                -- nil or type mismatch: replace with empty table
                 target[key] = {}
-                self:MergeDefaults(target[key], value)
-            else
-                target[key] = value
             end
-        elseif type(value) == "table" and type(target[key]) == "table" then
             self:MergeDefaults(target[key], value)
+        elseif target[key] == nil then
+            target[key] = value
         end
     end
 end
@@ -988,19 +987,19 @@ function addon:ShowURLPopup(url, anchorButton)
     popup:Show()
 end
 
--- Shared action: insert item name as chat link
+-- Shared action: insert item link into chat (real hyperlink when itemID exists)
 function addon:InsertItemChatLink(recordID)
     local record = recordID and self:GetRecord(recordID)
     if not record then return end
-    ChatFrameUtil.OpenChat("")
-    C_Timer.After(0, function()
-        local editBox = ChatFrame1EditBox
-        if editBox and editBox:IsShown() then
-            editBox:Insert(string.format("|cFFFFD100[%s]|r", record.name))
-            addon:Print(addon.L["LINK_INSERTED"])
-        else
-            addon:Print(addon.L["LINK_ERROR"])
-        end
+    self:GetDecorLink(recordID, function(link)
+        ChatFrameUtil.OpenChat("")
+        C_Timer.After(0, function()
+            if ChatFrameUtil.InsertLink(link) then
+                addon:Print(addon.L["LINK_INSERTED"])
+            else
+                addon:Print(addon.L["LINK_ERROR"])
+            end
+        end)
     end)
 end
 

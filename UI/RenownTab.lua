@@ -95,14 +95,18 @@ function RenownTab:Show()
 
     self.frame:Show()
 
-    -- Wipe standing cache so reopening after hidden-period rep changes shows fresh data
-    wipe(addon.renownStandingCache)
+    -- Skip saved-state restore when navigating from Progress (NavigateFromProgress sets its own state)
+    if not self.pendingNavigation then
+        -- Wipe standing cache so reopening after hidden-period rep changes shows fresh data
+        wipe(addon.renownStandingCache)
 
-    local saved = EnsureRenownDB()
-    if saved then
-        self.selectedExpansion = saved.selectedExpansion
-        self:SetCompletionFilter(saved.completionFilter or "incomplete")
+        local saved = EnsureRenownDB()
+        if saved then
+            self.selectedExpansion = saved.selectedExpansion
+            self:SetCompletionFilter(saved.completionFilter or "incomplete")
+        end
     end
+    self.pendingNavigation = nil
 
     self:RegisterStandingEvents()
     self:UpdateEmptyStates()
@@ -119,6 +123,16 @@ function RenownTab:IsShown()
     return self.frame and self.frame:IsShown()
 end
 
+function RenownTab:NavigateFromProgress(expansionKey)
+    if self.searchBox then
+        self.searchBox:SetText("")
+    end
+    self:SetCompletionFilter("incomplete")
+    if expansionKey then
+        self:SelectExpansion(expansionKey)
+    end
+end
+
 --------------------------------------------------------------------------------
 -- Standing Event Registration (Show/Hide pattern per Blizzard)
 --------------------------------------------------------------------------------
@@ -126,8 +140,11 @@ end
 function RenownTab:CreateStandingEventFrame()
     if standingEventFrame then return end
     standingEventFrame = CreateFrame("Frame")
-    standingEventFrame:SetScript("OnEvent", function(_, event, factionID)
+    standingEventFrame:SetScript("OnEvent", function(_, event)
         wipe(addon.renownStandingCache)
+        if event == "MAJOR_FACTION_RENOWN_LEVEL_CHANGED" then
+            addon:FireEvent("RENOWN_LEVEL_CHANGED")
+        end
         if RenownTab:IsShown() then
             RenownTab:RefreshDisplay()
         end

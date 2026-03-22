@@ -331,6 +331,11 @@ function Preview:CreateWidthPresets()
                 addon.MainFrame:SetPreviewWidth(presetWidth)
                 self:UpdateWidthPresetHighlight()
                 self:UpdateMetadataLayout()
+                -- Reflow details after layout processes the new width
+                C_Timer.After(0, function()
+                    self.sourceContainer:SetHeight(self.detailsSource:GetStringHeight() or 20)
+                    self:RecalculateDetailsHeight()
+                end)
             end
         end)
 
@@ -866,7 +871,7 @@ function Preview:ShowDecor(recordID)
         self:Create()
     end
 
-    local record = addon:GetRecord(recordID)
+    local record = addon:GetRecord(recordID) or addon:ResolveRecord(recordID)
     if not record then
         -- Item not in catalog (HiddenInCatalog flag) - show name via shared fallback chain
         self.placeholderText:Hide()
@@ -875,6 +880,7 @@ function Preview:ShowDecor(recordID)
         self:UpdateActionButtons(nil)
         self.detailsName:SetText(addon:ResolveDecorName(recordID, nil))
         self.detailsName:SetTextColor(1, 1, 1)
+        self:RecalculateDetailsHeight()
         self:ShowFallback(addon.L["PREVIEW_NOT_IN_CATALOG"])
         return
     end

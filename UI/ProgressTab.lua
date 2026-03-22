@@ -16,6 +16,12 @@ local ROW_HEIGHT = 28
 local CONTENT_PADDING = 20
 local COLUMN_GAP = 16
 
+local SOURCE_LABEL_KEYS = {
+    QUESTS = "PROGRESS_SOURCE_QUESTS",
+    VENDORS = "PROGRESS_SOURCE_VENDORS",
+    RENOWN = "PROGRESS_SOURCE_RENOWN",
+}
+
 addon.ProgressTab = {}
 local ProgressTab = addon.ProgressTab
 
@@ -32,6 +38,7 @@ ProgressTab.professionRows = {}
 ProgressTab.vendorExpRows = {}
 ProgressTab.almostThereRows = {}
 ProgressTab.questExpRows = {}
+ProgressTab.renownExpRows = {}
 
 -- Override: gray for <100%, green at 100%
 function ProgressTab:GetProgressColor(percent)
@@ -101,6 +108,7 @@ function ProgressTab:Show()
         if not addon.dropIndexBuilt then addon:BuildDropIndex() end
         if not addon.craftingIndexBuilt then addon:BuildCraftingIndex() end
         if not addon.pvpIndexBuilt then addon:BuildPvPIndex() end
+        if not addon.renownIndexBuilt then addon:BuildRenownIndex() end
     end
 
     self.frame:Show()
@@ -279,7 +287,7 @@ function ProgressTab:ShowLoadingState()
 end
 
 function ProgressTab:ClearDashboard()
-    local pools = { self.sourceRows, self.professionRows, self.vendorExpRows, self.questExpRows, self.almostThereRows }
+    local pools = { self.sourceRows, self.professionRows, self.vendorExpRows, self.questExpRows, self.renownExpRows, self.almostThereRows }
     for _, pool in ipairs(pools) do
         for _, frame in ipairs(pool) do
             frame:Hide()
@@ -290,7 +298,7 @@ function ProgressTab:ClearDashboard()
         element:Hide()
     end
 
-    local headers = { "loadingMsg", "sourceHeader", "professionsHeader", "vendorExpHeader", "questExpHeader", "almostThereHeader" }
+    local headers = { "loadingMsg", "sourceHeader", "professionsHeader", "vendorExpHeader", "questExpHeader", "renownExpHeader", "almostThereHeader" }
     for _, key in ipairs(headers) do
         if self[key] then self[key]:Hide() end
     end
@@ -326,13 +334,18 @@ function ProgressTab:BuildDashboard(preserveScroll)
         leftY = self:BuildExpansionSection(leftY, columnWidth, "questExp", L["PROGRESS_QUEST_EXPANSIONS"], questExpData, self.questExpRows, 0)
     end
 
-    -- Right column: Professions + Vendor Expansions
+    -- Right column: Professions + Vendor Expansions + Renown Expansions
     local rightX = columnWidth + COLUMN_GAP
     local rightY = self:BuildProfessionsSection(0, columnWidth, rightX)
     local vendorExpData = addon:GetProgressByExpansion("VENDORS")
     if #vendorExpData > 0 then
         if rightY < 0 then rightY = rightY - SECTION_PADDING end
         rightY = self:BuildExpansionSection(rightY, columnWidth, "vendorExp", L["PROGRESS_VENDOR_EXPANSIONS"], vendorExpData, self.vendorExpRows, rightX)
+    end
+    local renownExpData = addon:GetProgressByExpansion("RENOWN")
+    if #renownExpData > 0 then
+        if rightY < 0 then rightY = rightY - SECTION_PADDING end
+        rightY = self:BuildExpansionSection(rightY, columnWidth, "renownExp", L["PROGRESS_RENOWN_EXPANSIONS"], renownExpData, self.renownExpRows, rightX)
     end
 
     local totalHeight = math.max(math.abs(leftY), math.abs(rightY))
@@ -597,6 +610,11 @@ function ProgressTab:BuildSourceSection(yOffset, columnWidth, xOffset)
                 NavigateToSourceTab(addon.AchievementsTab, "ACHIEVEMENTS")
             elseif data.targetTabKey == "PVP" then
                 NavigateToSourceTab(addon.PvPTab, "PVP")
+            elseif data.targetTabKey == "RENOWN" then
+                NavigateToSourceTab(addon.RenownTab, "RENOWN")
+            elseif data.targetTabKey == "DECOR" then
+                addon.Tabs:SelectTab("DECOR")
+                addon.Filters:ResetAllFilters()
             else
                 addon.Tabs:SelectTab(data.targetTabKey)
             end
@@ -667,7 +685,7 @@ function ProgressTab:BuildAlmostThereSection(yOffset, columnWidth, xOffset)
     for i, data in ipairs(rows) do
         -- If expansion name is "Other" (unmapped zones), just show the source type name
         local isUnknownExpansion = (data.labelKey == "QUESTS_UNKNOWN_EXPANSION" or data.labelKey == "VENDORS_UNKNOWN_EXPANSION")
-        local sourceLabelKey = data.sourceKind == "QUESTS" and "PROGRESS_SOURCE_QUESTS" or "PROGRESS_SOURCE_VENDORS"
+        local sourceLabelKey = SOURCE_LABEL_KEYS[data.sourceKind] or "PROGRESS_SOURCE_VENDORS"
         local displayData = {
             labelKey    = isUnknownExpansion and sourceLabelKey or data.labelKey,
             owned       = data.owned,
@@ -690,19 +708,16 @@ end
 -- Click Navigation
 --------------------------------------------------------------------------------
 
+local EXPANSION_TAB_MAP = {
+    QUESTS  = { key = "QUESTS",    obj = function() return addon.QuestsTab end },
+    VENDORS = { key = "VENDORS",   obj = function() return addon.VendorsTab end },
+    RENOWN  = { key = "RENOWN",    obj = function() return addon.RenownTab end },
+}
+
 function ProgressTab:NavigateToExpansion(data)
-    if data.sourceKind == "QUESTS" then
-        addon.QuestsTab.pendingNavigation = true
-        addon.Tabs:SelectTab("QUESTS")
-        if addon.QuestsTab.frame then
-            addon.QuestsTab:NavigateFromProgress(data.expansionKey)
-        end
-    elseif data.sourceKind == "VENDORS" then
-        addon.VendorsTab.pendingNavigation = true
-        addon.Tabs:SelectTab("VENDORS")
-        if addon.VendorsTab.frame then
-            addon.VendorsTab:NavigateFromProgress(data.expansionKey)
-        end
+    local entry = EXPANSION_TAB_MAP[data.sourceKind]
+    if entry then
+        NavigateToSourceTab(entry.obj(), entry.key, data.expansionKey)
     end
 end
 
@@ -732,6 +747,7 @@ addon:RegisterInternalEvent("DATA_LOADED", function()
     if not addon.dropIndexBuilt then addon:BuildDropIndex() end
     if not addon.craftingIndexBuilt then addon:BuildCraftingIndex() end
     if not addon.pvpIndexBuilt then addon:BuildPvPIndex() end
+    if not addon.renownIndexBuilt then addon:BuildRenownIndex() end
 
     ProgressTab:RefreshDisplay(true)
 end)
@@ -747,6 +763,7 @@ ProgressTab:RegisterOwnershipRefresh(function()
         if not addon.dropIndexBuilt then addon:BuildDropIndex() end
         if not addon.craftingIndexBuilt then addon:BuildCraftingIndex() end
         if not addon.pvpIndexBuilt then addon:BuildPvPIndex() end
+        if not addon.renownIndexBuilt then addon:BuildRenownIndex() end
     end
     ProgressTab:RefreshDisplay(true)
 end)

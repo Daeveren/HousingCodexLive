@@ -321,9 +321,20 @@ function addon:GetVendorExpansionCollectionProgress(expansionKey)
     if not expData then return 0, 0 end
 
     local owned, total = 0, 0
+    local seen = {}
     for zoneName in pairs(expData.zones) do
-        local zOwned, zTotal = self:GetVendorZoneCollectionProgress(expansionKey, zoneName)
-        owned, total = owned + zOwned, total + zTotal
+        for _, vendor in ipairs(self:GetVendorsForZone(expansionKey, zoneName)) do
+            for _, decorId in ipairs(vendor.decorIds) do
+                if not seen[decorId] then
+                    seen[decorId] = true
+                    local record = self:ResolveRecord(decorId)
+                    if record then
+                        total = total + 1
+                        if record.isCollected then owned = owned + 1 end
+                    end
+                end
+            end
+        end
     end
 
     self.vendorExpansionProgressCache[expansionKey] = { owned = owned, total = total }

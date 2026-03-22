@@ -22,6 +22,10 @@ addon:RegisterInternalEvent("DATA_LOADED", function()
     wipe(addon.progressCache)
 end)
 
+addon:RegisterInternalEvent("RENOWN_LEVEL_CHANGED", function()
+    wipe(addon.progressCache)
+end)
+
 --------------------------------------------------------------------------------
 -- Public: Overall Progress
 --------------------------------------------------------------------------------
@@ -102,6 +106,24 @@ function addon:GetProgressBySourceType()
         targetTabKey = "QUESTS",
     })
 
+    -- Renown
+    local rOwned, rTotal = 0, 0
+    for _, expKey in ipairs(self:GetSortedRenownExpansions()) do
+        local eOwned, eTotal = self:GetRenownExpansionProgress(expKey)
+        rOwned = rOwned + eOwned
+        rTotal = rTotal + eTotal
+    end
+    if rTotal > 0 then
+        table.insert(result, {
+            key = "RENOWN",
+            labelKey = "PROGRESS_SOURCE_RENOWN",
+            owned = rOwned,
+            total = rTotal,
+            percent = rOwned / rTotal * 100,
+            targetTabKey = "RENOWN",
+        })
+    end
+
     -- Achievements
     local aOwned, aTotal = 0, 0
     for achievementId in pairs(self.achievementIndex) do
@@ -163,7 +185,7 @@ function addon:GetProgressBySourceType()
             labelKey = "PROGRESS_SOURCE_PVP",
             owned = pvpOwned,
             total = pvpTotal,
-            percent = pvpTotal > 0 and (pvpOwned / pvpTotal * 100) or 0,
+            percent = pvpOwned / pvpTotal * 100,
             targetTabKey = "PVP",
         })
     end
@@ -176,7 +198,7 @@ end
 -- Public: Progress By Expansion
 --------------------------------------------------------------------------------
 
--- sourceKind: "QUESTS" or "VENDORS"
+-- sourceKind: "QUESTS", "VENDORS", or "RENOWN"
 -- Returns ordered array of { expansionKey, labelKey, owned, total, percent, targetTabKey, sourceKind }
 function addon:GetProgressByExpansion(sourceKind)
     local cacheKey = "byExpansion_" .. (sourceKind or "")
@@ -191,9 +213,14 @@ function addon:GetProgressByExpansion(sourceKind)
     elseif sourceKind == "VENDORS" then
         hierarchy = self.vendorHierarchy
         progressFn = self.GetVendorExpansionCollectionProgress
+    elseif sourceKind == "RENOWN" then
+        hierarchy = self.renownHierarchy
+        progressFn = self.GetRenownExpansionProgress
     else
         return {}
     end
+
+    if not hierarchy then return {} end
 
     local result = {}
     for expansionKey in pairs(hierarchy) do
@@ -254,7 +281,7 @@ end
 --------------------------------------------------------------------------------
 
 -- Returns array of { expansionKey, labelKey, owned, total, percent, remaining, targetTabKey, sourceKind }
--- Combines quest + vendor expansion rows, sorted by highest % then smallest remaining
+-- Combines quest + vendor + renown expansion rows, sorted by highest % then smallest remaining
 function addon:GetAlmostThereRows(limit)
     limit = limit or 5
 
@@ -280,6 +307,7 @@ function addon:GetAlmostThereRows(limit)
 
     addIncomplete(self:GetProgressByExpansion("QUESTS"), "QUESTS", "QUESTS")
     addIncomplete(self:GetProgressByExpansion("VENDORS"), "VENDORS", "VENDORS")
+    addIncomplete(self:GetProgressByExpansion("RENOWN"), "RENOWN", "RENOWN")
 
     -- Sort: highest % first, then smallest remaining as tiebreaker
     table.sort(candidates, function(a, b)

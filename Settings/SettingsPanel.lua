@@ -390,12 +390,10 @@ function addon.Settings:Initialize()
     treasureHuntCheck:SetPoint("TOPLEFT", COL1_X, yOffset)
     self.treasureHuntCheck = treasureHuntCheck
 
-    -- TomTom Waypoints checkbox
-    local tomtomInstalled = addon.Waypoints and addon.Waypoints:IsTomTomAvailable()
-    local tomtomLabel = tomtomInstalled and L["OPTIONS_USE_TOMTOM"] or L["OPTIONS_USE_TOMTOM_NOT_INSTALLED"]
+    -- TomTom Waypoints checkbox (state updates dynamically — TomTom detection runs after Settings init)
     local tomtomCheck = CreateCheckbox(
         panel,
-        tomtomLabel,
+        L["OPTIONS_USE_TOMTOM_NOT_INSTALLED"],
         L["OPTIONS_USE_TOMTOM_TOOLTIP"],
         function() return addon.db and addon.db.settings.useTomTom end,
         function(checked)
@@ -405,23 +403,35 @@ function addon.Settings:Initialize()
         end
     )
     tomtomCheck:SetPoint("TOPLEFT", COL2_X, yOffset)
-    if not tomtomInstalled then
-        tomtomCheck:Disable()
-        tomtomCheck.Text:SetTextColor(0.5, 0.5, 0.5)
-    end
+    tomtomCheck:Disable()
+    tomtomCheck.Text:SetTextColor(0.5, 0.5, 0.5)
     self.tomtomCheck = tomtomCheck
+
+    local function UpdateTomTomState()
+        local available = addon.Waypoints and addon.Waypoints:IsTomTomAvailable()
+        if available then
+            tomtomCheck:Enable()
+            tomtomCheck.Text:SetText(L["OPTIONS_USE_TOMTOM"])
+            tomtomCheck.Text:SetTextColor(1, 0.82, 0)
+        else
+            tomtomCheck:Disable()
+            tomtomCheck.Text:SetText(L["OPTIONS_USE_TOMTOM_NOT_INSTALLED"])
+            tomtomCheck.Text:SetTextColor(0.5, 0.5, 0.5)
+        end
+    end
+    self.UpdateTomTomState = UpdateTomTomState
     yOffset = yOffset - 26
 
     CreateDivider(panel, yOffset)
     yOffset = yOffset - 14
 
     --------------------------------------------------------------------------------
-    -- MERCHANT SECTION
+    -- VENDOR SECTION
     --------------------------------------------------------------------------------
-    local merchantHeader = addon:CreateFontString(panel, "ARTWORK", "GameFontNormal")
-    merchantHeader:SetPoint("TOPLEFT", 16, yOffset)
-    merchantHeader:SetText(L["OPTIONS_SECTION_MERCHANT"])
-    merchantHeader:SetTextColor(1, 0.82, 0)
+    local vendorHeader = addon:CreateFontString(panel, "ARTWORK", "GameFontNormal")
+    vendorHeader:SetPoint("TOPLEFT", 16, yOffset)
+    vendorHeader:SetText(L["OPTIONS_SECTION_VENDOR"])
+    vendorHeader:SetTextColor(1, 0.82, 0)
     yOffset = yOffset - 20
 
     -- Show Vendor Decor Indicators checkbox
@@ -607,10 +617,13 @@ function addon.Settings:Initialize()
     end)
     resetSizeBtn:SetPoint("LEFT", resetPosBtn, "RIGHT", 10, 0)
 
-    -- Welcome Screen button (disabled — use /hc welcome instead)
-    local welcomeBtn = CreateResetButton(panel, "OPTIONS_SHOW_WELCOME", "OPTIONS_SHOW_WELCOME_TOOLTIP_DISABLED", nil)
+    -- Welcome Screen button
+    local welcomeBtn = CreateResetButton(panel, "OPTIONS_SHOW_WELCOME", "OPTIONS_SHOW_WELCOME_TOOLTIP", function()
+        if addon.WhatsNew then
+            addon.WhatsNew:ForceShow("welcome")
+        end
+    end)
     welcomeBtn:SetPoint("TOPRIGHT", panel, "TOPRIGHT", -16, yOffset)
-    welcomeBtn:Disable()
 
     --------------------------------------------------------------------------------
     -- Register with WoW Settings system
@@ -618,6 +631,9 @@ function addon.Settings:Initialize()
     local category = Settings.RegisterCanvasLayoutCategory(panel, L["SETTINGS_CATEGORY_NAME"])
     Settings.RegisterAddOnCategory(category)
     self.category = category
+
+    -- Update TomTom state once detection has run (DATA_LOADED fires after ADDON_LOADED)
+    addon:RegisterInternalEvent("DATA_LOADED", UpdateTomTomState)
 
     addon:Debug("Settings panel initialized")
 end

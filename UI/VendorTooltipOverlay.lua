@@ -44,7 +44,23 @@ local function BuildHeaderAtChar(n)
     end
 end
 
+local function CleanupAnimation()
+    if animDriver then
+        animDriver:SetScript("OnUpdate", nil)
+    end
+    animElapsed = 0
+    animPhase = nil
+    headerFS = nil
+    pauseStart = nil
+end
+
 local function AnimOnUpdate(self, dt)
+    -- Self-terminate when tooltip no longer shows a unit (avoids tainting GameTooltip via HookScript)
+    if not GameTooltip:IsShown() or not select(2, GameTooltip:GetUnit()) then
+        CleanupAnimation()
+        return
+    end
+
     animElapsed = animElapsed + dt
 
     -- Header animation (typewriter → pause → pulse)
@@ -77,16 +93,6 @@ local function AnimOnUpdate(self, dt)
             )
         end
     end
-end
-
-local function CleanupAnimation()
-    if animDriver then
-        animDriver:SetScript("OnUpdate", nil)
-    end
-    animElapsed = 0
-    animPhase = nil
-    headerFS = nil
-    pauseStart = nil
 end
 
 local function StartAnimations(tooltip)
@@ -197,10 +203,6 @@ function VendorTooltipOverlay:Initialize()
     ICON_PREFIX = string.format("|T%s:18:18:0:0|t ", HC_ICON_PATH)
 
     TooltipDataProcessor.AddTooltipPostCall(Enum.TooltipDataType.Unit, OnTooltipUnit)
-
-    -- Clean up animation state when tooltip hides or clears
-    GameTooltip:HookScript("OnHide", CleanupAnimation)
-    GameTooltip:HookScript("OnTooltipCleared", CleanupAnimation)
 
     addon:Debug("VendorTooltipOverlay initialized")
 end

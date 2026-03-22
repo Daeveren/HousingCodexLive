@@ -2,6 +2,24 @@
 
 All notable changes to Housing Codex.
 
+**2.0.10** (2026-03-22)
+
+**Added**
+- Renown sources now appear in the Progress tab — see your renown collection progress alongside other sources, and click to jump to the Renown tab
+
+**Changed**
+- "Merchant" section in Settings renamed to "Vendor" for consistency
+
+**Fixed**
+- Fixed a crash that could occur when hovering certain map icons after using vendor tooltips
+- Fixed Settings showing TomTom as "Not Installed" even when the addon was loaded
+- Fixed Welcome Screen button in Settings being permanently disabled
+- Fixed preview panel layout not updating properly when changing the preview width
+- Fixed some items from Achievements and Quests not showing full details in the 3D preview
+- Fixed vendor progress in the Progress tab double-counting items sold by multiple vendors in the same expansion
+- Fixed a potential crash on login if saved data was corrupted
+- Old unused settings are now automatically cleaned up
+
 **2.0.9** (2026-03-22)
 
 **Changed**

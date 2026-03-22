@@ -189,18 +189,57 @@ local function MigrateDB(db)
     return db
 end
 
+-- Remove dead keys from retired features (blocklist — never whitelist,
+-- because browser.vendors/drops/pvp/professions and minimap are created
+-- dynamically by Ensure*DB() functions and are NOT in the defaults table)
+local function SanitizeDB(db)
+    db.options = nil
+    db.characters = nil
+    db.extractedVendorInfo = nil
+    db.extractedNPCLocations = nil
+
+    if db.settings then
+        db.settings.toggleKeybind = nil
+        db.settings.previewAutoOpen = nil
+        db.settings.showFullyCollectedVendorsOnMap = nil
+        db.settings.showMidnightDrops = nil
+    end
+
+    if db.preview then
+        db.preview.isOpen = nil
+    end
+
+    local browser = db.browser
+    if browser then
+        if browser.quests then browser.quests.expandedExpansions = nil end
+        if browser.filters then
+            browser.filters.collectionState = nil
+            browser.filters.searchText = nil
+        end
+        if browser.achievements then browser.achievements.searchText = nil end
+    end
+end
+
 function addon:InitializeDB()
     if not HousingCodexDB then
         HousingCodexDB = CopyTable(defaults)
     else
-        -- Fill missing fields from defaults (deep merge)
-        self:MergeDefaults(HousingCodexDB, defaults)
+        -- Coerce version first (nil/non-numeric → 0 so migrations fire correctly)
+        if type(HousingCodexDB.version) ~= "number" then
+            HousingCodexDB.version = 0
+        end
 
-        -- Run migrations if needed
+        -- Run migrations before merging defaults (merge would backfill current version)
         if HousingCodexDB.version < CURRENT_DB_VERSION then
             HousingCodexDB = MigrateDB(HousingCodexDB)
         end
+
+        -- Fill missing fields from defaults (deep merge)
+        self:MergeDefaults(HousingCodexDB, defaults)
     end
+
+    -- Clean up dead keys from retired features
+    SanitizeDB(HousingCodexDB)
 
     self.db = HousingCodexDB
     self:Debug("Database initialized (version " .. self.db.version .. ")")
