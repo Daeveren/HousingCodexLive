@@ -117,17 +117,6 @@ function HousingCodexWorldMapButtonMixin:Refresh()
             end
         )
 
-        -- TODO: unhide for future release
-        -- rootDescription:CreateCheckbox(
-        --     L["VENDOR_PINS_MINIMAL"],
-        --     function() return db.settings.vendorPinMinimal end,
-        --     function()
-        --         db.settings.vendorPinMinimal = not db.settings.vendorPinMinimal
-        --         local provider = addon.vendorMapProvider
-        --         if provider then provider:ApplyPinAppearance() end
-        --     end
-        -- )
-
         local pinAlphaSubmenu = rootDescription:CreateButton(L["VENDOR_PINS_TRANSPARENCY"])
         for _, pct in ipairs({ 100, 80, 60, 40 }) do
             pinAlphaSubmenu:CreateRadio(

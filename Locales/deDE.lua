@@ -465,7 +465,6 @@ L["ZONE_OVERLAY_COLLAPSED_TOOLTIP"] = "Klicken, um Dekorobjekte in dieser Zone a
 L["VENDOR_PINS_SECTION_HEADER"] = "Händlerkartenpins"
 L["VENDOR_PINS_TRANSPARENCY"] = "Pin-Transparenz"
 L["VENDOR_PINS_SCALE"] = "Pin-Größe"
-L["VENDOR_PINS_MINIMAL"] = "Nur Symbol (ohne Hintergrund)"
 L["VENDOR_PINS_LAYER"] = "Ebene der Kartenpins anpassen"
 L["VENDOR_PINS_LAYER_BELOW"] = "Unter anderen Symbolen"
 L["VENDOR_PINS_LAYER_ABOVE"] = "Über anderen Symbolen"

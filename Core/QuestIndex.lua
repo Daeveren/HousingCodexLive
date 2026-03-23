@@ -17,11 +17,11 @@ addon.questIndex = {}           -- questKey -> { [recordID] = true, ... } (quest
 addon.questSortedRecords = {}   -- questKey -> sorted { recordID, ... } (cached at build time)
 addon.questHierarchy = {}       -- expansionKey -> { order, zones = { zoneName -> { questKeys } } }
 addon.questTitleCache = {}      -- questKey -> title string
-addon.questCompletionCache = {} -- questKey -> boolean
 addon.questZoneCache = {}       -- questKey -> { zoneName, expansionKey }
 addon.questIndexBuilt = false
 addon.pendingQuestLoads = {}    -- questID -> true (for async title loading)
-addon.questZoneFromScrape = {}  -- questKey -> { zoneName, expansionKey } (from scraped QuestSourceData)
+addon.questZoneFromScrape = {}  -- questKey -> { zoneName, expansionKey } (primary zone, from scraped QuestSourceData)
+addon.questAllZones = {}        -- questKey -> { {zoneName, expansionKey}, ... } (all zones, for multi-zone hierarchy)
 addon.questStringsInterned = false
 
 -- Intern quest name strings to reduce memory (Lua 5.1 doesn't auto-intern table strings)
@@ -152,6 +152,7 @@ function addon:BuildQuestIndex()
     wipe(self.questIndex)
     wipe(self.questSortedRecords)
     wipe(self.questZoneFromScrape)
+    wipe(self.questAllZones)
     wipe(self.questZoneCache)
     wipe(self.questTitleCache)
     self.questTitleFallback = {}
@@ -163,10 +164,9 @@ function addon:BuildQuestIndex()
     -- Primary source: Use scraped DecorToQuestLookup
     -- WowDB decorId = WoW API's HousingCatalogEntryID.recordID (decorID)
     if self.DecorToQuestLookup then
-        for decorId, questData in pairs(self.DecorToQuestLookup) do
-            local recordID = decorId
-            -- Only index if the record exists in our data
-            if self.decorRecords[recordID] then
+        for recordID, questData in pairs(self.DecorToQuestLookup) do
+            -- Only index if the record exists in our data (ResolveRecord covers HiddenInCatalog items)
+            if self:ResolveRecord(recordID) then
                 -- Use questId if available, check override table, then fall back to questName
                 local questKey = questData.questId
                     or (questData.questName and self.QuestIdOverrides and self.QuestIdOverrides[questData.questName])
@@ -200,8 +200,9 @@ function addon:BuildQuestIndex()
         end
     end
 
-    -- Build zone cache from QuestSourceData (provides zone → quest mapping)
-    -- Priority: Prefer Dornogal when a quest appears in multiple zones (avoids duplicate entries)
+    -- Build zone caches from QuestSourceData (provides zone → quest mapping)
+    -- questZoneFromScrape: single primary zone per quest (deterministic tiebreaker for GetQuestLocation/ZoneIndex)
+    -- questAllZones: all zones per quest (for multi-zone hierarchy placement)
     if self.QuestSourceData then
         for zoneName, quests in pairs(self.QuestSourceData) do
             local expansionKey = ZONE_TO_EXPANSION[zoneName] or "QUESTS_UNKNOWN_EXPANSION"
@@ -210,22 +211,25 @@ function addon:BuildQuestIndex()
                     or (questInfo.questName and self.QuestIdOverrides and self.QuestIdOverrides[questInfo.questName])
                     or questInfo.questName
                 if questKey and self.questIndex[questKey] then
+                    local zoneEntry = { zoneName = zoneName, expansionKey = expansionKey }
+
+                    -- All-zones list for multi-zone hierarchy
+                    local allZones = self.questAllZones[questKey]
+                    if not allZones then
+                        allZones = {}
+                        self.questAllZones[questKey] = allZones
+                    end
+                    table.insert(allZones, zoneEntry)
+
+                    -- Primary zone with deterministic tiebreaker (Dornogal wins, then alphabetical)
                     local existing = self.questZoneFromScrape[questKey]
                     if not existing then
-                        self.questZoneFromScrape[questKey] = {
-                            zoneName = zoneName,
-                            expansionKey = expansionKey,
-                        }
+                        self.questZoneFromScrape[questKey] = zoneEntry
                     elseif existing.zoneName ~= zoneName then
-                        -- Deterministic tiebreaker for duplicate quest IDs across zones:
-                        -- Dornogal always wins; otherwise keep alphabetically-first zone name
                         local keepExisting = existing.zoneName == "Dornogal"
                             or (zoneName ~= "Dornogal" and existing.zoneName < zoneName)
                         if not keepExisting then
-                            self.questZoneFromScrape[questKey] = {
-                                zoneName = zoneName,
-                                expansionKey = expansionKey,
-                            }
+                            self.questZoneFromScrape[questKey] = zoneEntry
                         end
                     end
                 end
@@ -284,25 +288,32 @@ function addon:BuildQuestHierarchy()
     -- Clear existing hierarchy
     wipe(self.questHierarchy)
 
-    -- Group quests by expansion and zone
-    for questKey in pairs(self.questIndex) do
-        local zoneName, expansionKey = GetQuestLocation(questKey)
-
-        -- Initialize expansion entry if needed
+    -- Helper: insert questKey into a zone within the hierarchy
+    local function InsertIntoHierarchy(questKey, zoneName, expansionKey)
         if not self.questHierarchy[expansionKey] then
             self.questHierarchy[expansionKey] = {
                 order = EXPANSION_ORDER[expansionKey] or 0,
                 zones = {},
             }
         end
-
-        -- Initialize zone entry if needed
         if not self.questHierarchy[expansionKey].zones[zoneName] then
             self.questHierarchy[expansionKey].zones[zoneName] = {}
         end
-
-        -- Add quest to zone
         table.insert(self.questHierarchy[expansionKey].zones[zoneName], questKey)
+    end
+
+    -- Group quests by expansion and zone (multi-zone quests appear in all applicable zones)
+    for questKey in pairs(self.questIndex) do
+        local zones = self.questAllZones[questKey]
+        if zones then
+            for _, zoneEntry in ipairs(zones) do
+                InsertIntoHierarchy(questKey, zoneEntry.zoneName, zoneEntry.expansionKey)
+            end
+        else
+            -- Fallback for quests from secondary source (sourceText parsing, not in QuestSourceData)
+            local zoneName, expansionKey = GetQuestLocation(questKey)
+            InsertIntoHierarchy(questKey, zoneName, expansionKey)
+        end
     end
 
     -- Helper to get quest difficulty level (only works for numeric IDs)
@@ -419,16 +430,22 @@ function addon:GetZoneCollectionProgress(expansionKey, zoneName)
     return owned, total
 end
 
--- Get collection progress for an expansion
+-- Get collection progress for an expansion (deduped: multi-zone quests counted once)
 function addon:GetExpansionCollectionProgress(expansionKey)
     local expData = self.questHierarchy[expansionKey]
     if not expData then return 0, 0 end
 
     local owned, total = 0, 0
+    local seenQuests = {}
     for zoneName in pairs(expData.zones) do
-        local zOwned, zTotal = self:GetZoneCollectionProgress(expansionKey, zoneName)
-        owned = owned + zOwned
-        total = total + zTotal
+        for _, questKey in ipairs(expData.zones[zoneName]) do
+            if not seenQuests[questKey] then
+                seenQuests[questKey] = true
+                local qOwned, qTotal = self:GetQuestCollectionProgress(questKey)
+                owned = owned + qOwned
+                total = total + qTotal
+            end
+        end
     end
 
     return owned, total
@@ -467,37 +484,6 @@ function addon:GetQuestTitle(questKey)
     return string.format(self.L["QUESTS_UNKNOWN_QUEST"], questKey)
 end
 
--- Check if quest is completed (account-wide first, then character)
--- questKey can be a numeric questID or a string questName (for quests without IDs)
-function addon:IsQuestCompleted(questKey)
-    if not questKey then return false end
-
-    -- Check cache
-    local cached = self.questCompletionCache[questKey]
-    if cached ~= nil then return cached end
-
-    -- String keys (quests without IDs) cannot be checked via API
-    if type(questKey) ~= "number" then
-        self.questCompletionCache[questKey] = false
-        return false
-    end
-
-    -- Numeric quest IDs can be checked via WoW API
-    if not C_QuestLog then return false end
-
-    -- Try account-wide first (11.0+), fallback to character
-    local isComplete = false
-    if C_QuestLog.IsQuestFlaggedCompletedOnAccount then
-        isComplete = C_QuestLog.IsQuestFlaggedCompletedOnAccount(questKey)
-    end
-    if not isComplete and C_QuestLog.IsQuestFlaggedCompleted then
-        isComplete = C_QuestLog.IsQuestFlaggedCompleted(questKey)
-    end
-
-    self.questCompletionCache[questKey] = isComplete
-    return isComplete
-end
-
 -- Get total quest count (matches SavedVars pattern)
 function addon:GetQuestCount()
     local count = 0
@@ -528,34 +514,3 @@ addon:RegisterWoWEvent("QUEST_DATA_LOAD_RESULT", function(questID, success)
     end
 end)
 
--- Update quest completion cache on quest turn-in
-local recentTurnIns = {}
-addon:RegisterWoWEvent("QUEST_TURNED_IN", function(questID)
-    if addon.questIndex[questID] then
-        addon.questCompletionCache[questID] = true
-        recentTurnIns[questID] = true
-        addon:FireEvent("QUEST_COMPLETION_CHANGED", questID, true)
-    end
-end)
-
--- Periodic refresh of completion status (some quests may be completed elsewhere)
--- Debounced: QUEST_LOG_UPDATE fires frequently for any quest progress change
-local questLogUpdatePending = false
-addon:RegisterWoWEvent("QUEST_LOG_UPDATE", function()
-    if not addon.questIndexBuilt then return end
-    if not next(addon.questIndex) then return end
-    if questLogUpdatePending then return end
-
-    questLogUpdatePending = true
-    C_Timer.After(addon.CONSTANTS.TIMER.QUEST_LOG_UPDATE_DEBOUNCE, function()
-        questLogUpdatePending = false
-        -- Selective wipe: preserve confirmed turn-ins, invalidate everything else
-        for questID in pairs(addon.questCompletionCache) do
-            if not recentTurnIns[questID] then
-                addon.questCompletionCache[questID] = nil
-            end
-        end
-        wipe(recentTurnIns)
-        addon:FireEvent("QUEST_COMPLETION_CACHE_INVALIDATED")
-    end)
-end)

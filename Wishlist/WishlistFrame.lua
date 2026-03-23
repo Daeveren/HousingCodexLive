@@ -266,29 +266,23 @@ function WishlistFrame:CreateGrid()
     scrollBar:SetPoint("BOTTOMLEFT", scrollBox, "BOTTOMRIGHT", 4, 0)
     self.scrollBar = scrollBar
 
-    -- Calculate columns
-    local tileSize = self.tileSize
-    local function GetColumnCount()
-        local containerWidth = container:GetWidth()
-        if containerWidth <= 0 then containerWidth = DEFAULT_WIDTH - PREVIEW_WIDTH - GRID_OUTER_PAD * 2 - 20 end
-        return math.max(1, math.floor((containerWidth + GRID_CELL_GAP) / (tileSize + GRID_CELL_GAP)))
-    end
-
-    self.currentColumnCount = nil
+    -- Debounced resize handler — FullUpdate triggers GetStride() re-derivation
+    self.resizeTimer = nil
 
     container:SetScript("OnSizeChanged", function(_, width)
         if self.resizeTimer then self.resizeTimer:Cancel() end
         self.resizeTimer = C_Timer.NewTimer(CONSTS.TIMER.INPUT_DEBOUNCE, function()
             self.resizeTimer = nil
-            local newColumns = math.max(1, math.floor((width + GRID_CELL_GAP) / (self.tileSize + GRID_CELL_GAP)))
-            if self.currentColumnCount and newColumns ~= self.currentColumnCount then
-                self:RebuildGrid()
+            if self.scrollBox then
+                self.scrollBox:FullUpdate(ScrollBoxConstants.UpdateImmediately)
             end
         end)
     end)
 
     -- Create grid view
-    local columns = GetColumnCount()
+    local containerWidth = container:GetWidth()
+    if containerWidth <= 0 then containerWidth = DEFAULT_WIDTH - PREVIEW_WIDTH - GRID_OUTER_PAD * 2 - 20 end
+    local columns = math.max(1, math.floor((containerWidth + GRID_CELL_GAP) / (self.tileSize + GRID_CELL_GAP)))
     local view = CreateScrollBoxListGridView(
         columns,
         1,
@@ -299,12 +293,13 @@ function WishlistFrame:CreateGrid()
         GRID_CELL_GAP
     )
 
+    -- Uses self.tileSize so in-place tile-size changes take effect without rebuild
     view:SetElementSizeCalculator(function()
-        return tileSize, tileSize
+        return self.tileSize, self.tileSize
     end)
 
-    view:SetElementExtent(tileSize)
-    view:SetStrideExtent(tileSize)
+    view:SetElementExtent(self.tileSize)
+    view:SetStrideExtent(self.tileSize)
 
     -- Element resetter
     view:SetElementResetter(function(tile)
@@ -334,9 +329,9 @@ function WishlistFrame:CreateGrid()
     -- Element initializer
     view:SetElementInitializer("BackdropTemplate", function(tile, elementData)
         if not tile.icon then
-            self:SetupTileFrame(tile, tileSize)
+            self:SetupTileFrame(tile, self.tileSize)
         else
-            tile:SetSize(tileSize, tileSize)
+            tile:SetSize(self.tileSize, self.tileSize)
         end
 
         local recordID = elementData.recordID
@@ -420,7 +415,6 @@ function WishlistFrame:CreateGrid()
     -- Initialize ScrollBox
     ScrollUtil.InitScrollBoxListWithScrollBar(scrollBox, scrollBar, view)
     self.view = view
-    self.currentColumnCount = columns
 
     -- Initialize DataProvider once (reused via Flush/InsertTable in RefreshData)
     self.dataProvider = CreateDataProvider()
@@ -907,54 +901,23 @@ function WishlistFrame:SetTileSize(newSize)
         db.tileSize = newSize
     end
 
-    -- Rebuild the grid
-    self:RebuildGrid()
-end
+    if not self.view or not self.scrollBox then return end
 
-function WishlistFrame:RebuildGrid()
-    if not self.frame then return end
-
-    -- Save current selection
-    local savedSelection = self.selectedRecordID
-
-    -- Destroy and recreate grid
-    if self.scrollBox then
-        addon:UnregisterFontStrings(self.scrollBox)
-        self.scrollBox:Hide()
-        self.scrollBox:SetParent(nil)
-        self.scrollBox = nil
-    end
-    if self.scrollBar then
-        self.scrollBar:Hide()
-        self.scrollBar:SetParent(nil)
-        self.scrollBar = nil
-    end
-    self.view = nil
-    self.dataProvider = nil
-
-    -- Clean up old emptyState (child of gridContainer)
-    if self.emptyState then
-        addon:UnregisterFontStrings(self.emptyState)
-        self.emptyState:Hide()
-        self.emptyState:SetParent(nil)
-        self.emptyState = nil
-    end
-    -- Clean up old grid container (detaches children including containerBg)
-    if self.gridContainer then
-        addon:UnregisterFontStrings(self.gridContainer)
-        self.gridContainer:Hide()
-        self.gridContainer:SetParent(nil)
-        self.gridContainer = nil
+    -- Cancel pending resize timer to avoid double update
+    if self.resizeTimer then
+        self.resizeTimer:Cancel()
+        self.resizeTimer = nil
     end
 
-    self:CreateGrid()
-    self:CreateEmptyState()
-    self.selectedRecordID = savedSelection
+    -- Update view sizing (closures already read self.tileSize)
+    self.view:SetElementExtent(newSize)
+    self.view:SetStrideExtent(newSize)
+    self.view:SetElementSizeCalculator(function()
+        return self.tileSize, self.tileSize
+    end)
 
-    -- Refresh data
-    self:RefreshData()
-
-    addon:Debug("WishlistFrame grid rebuilt with tile size " .. self.tileSize)
+    -- Force full frame re-acquire with new sizes
+    self.scrollBox:Rebuild(ScrollBoxConstants.RetainScrollPosition)
 end
 
 function WishlistFrame:SelectRecord(recordID)

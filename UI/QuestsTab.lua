@@ -165,15 +165,9 @@ local function SetupQuestRow(self, frame, elementData)
     frame.questID = elementData.questID
     frame.recordID = elementData.recordID
 
-    -- For multi-reward quests, check if this specific reward is collected
-    -- For single-reward quests, use quest completion status
-    local isComplete
-    if elementData.recordID then
-        local record = addon:GetRecord(elementData.recordID)
-        isComplete = record and record.isCollected or false
-    else
-        isComplete = addon:IsQuestCompleted(elementData.questID)
-    end
+    -- Check if this specific reward is collected (quests without recordID default to incomplete)
+    local record = elementData.recordID and addon:GetRecord(elementData.recordID)
+    local isComplete = record and record.isCollected or false
     frame.isComplete = isComplete  -- Store for ApplyQuestRowState to use
     local isSelected = self.selectedQuestID == elementData.questID and
         (not elementData.recordID or self.selectedRecordID == elementData.recordID)
@@ -538,11 +532,13 @@ function QuestsTab:SelectExpansion(expansionKey)
     local db = GetQuestsDB()
     if db then db.selectedExpansionKey = expansionKey end
 
-    -- Reset all zones in this expansion to expanded (removes collapsed state)
-    if db and db.expandedZones then
-        for _, zoneName in ipairs(addon:GetSortedZones(expansionKey)) do
-            local key = expansionKey .. ":" .. zoneName
-            db.expandedZones[key] = nil  -- nil = default expanded
+    -- Reset all zones in this expansion to expanded (only when switching to a different expansion)
+    if prevSelected ~= expansionKey then
+        if db and db.expandedZones then
+            for _, zoneName in ipairs(addon:GetSortedZones(expansionKey)) do
+                local key = expansionKey .. ":" .. zoneName
+                db.expandedZones[key] = nil  -- nil = default expanded
+            end
         end
     end
 
@@ -964,8 +960,6 @@ local function DebouncedQuestRefresh()
 end
 
 addon:RegisterInternalEvent("QUEST_ALL_TITLES_LOADED", DebouncedQuestRefresh)
-addon:RegisterInternalEvent("QUEST_COMPLETION_CHANGED", DebouncedQuestRefresh)
-addon:RegisterInternalEvent("QUEST_COMPLETION_CACHE_INVALIDATED", DebouncedQuestRefresh)
 
 QuestsTab:RegisterOwnershipRefresh(RefreshQuestDisplays)
 

@@ -448,16 +448,6 @@ function HousingCodexVendorPinMixin:ApplyPOIStyle()
 
     self.HCIcon:SetTexture(VENDOR_PIN_TEXTURE)
     self.HCIcon:SetTexCoord(0, 1, 0, 1)
-
-    local minimal = addon.db and addon.db.settings and addon.db.settings.vendorPinMinimal
-    local buttonAlpha = minimal and 0 or 1
-    self.NormalTexture:SetAlpha(buttonAlpha)
-    self.PushedTexture:SetAlpha(buttonAlpha)
-    self.HighlightTexture:SetAlpha(buttonAlpha)
-
-    self.HCShadow:SetTexture(VENDOR_PIN_TEXTURE)
-    self.HCShadow:SetTexCoord(0, 1, 0, 1)
-    self.HCShadow:SetShown(minimal)
 end
 
 function HousingCodexVendorPinMixin:UpdateCountText()

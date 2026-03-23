@@ -1,7 +1,8 @@
 --[[
     Housing Codex - ZoneOverlay.lua
     World map overlay panel showing uncollected decor items for the current zone
-    Parented to WorldMapFrame.ScrollContainer; preview popout reparented to UIParent to prevent ModelScene taint propagation
+    Parented to UIParent; anchored to WorldMapFrame.ScrollContainer to prevent taint propagation
+    Preview popout also parented to UIParent to prevent ModelScene taint propagation
 ]]
 
 local _, addon = ...
@@ -216,8 +217,8 @@ end
 local function CreateOverlayFrame()
     if frame then return end
 
-    frame = CreateFrame("Frame", "HousingCodexZoneOverlayFrame", WorldMapFrame, "BackdropTemplate")
-    frame:SetFrameStrata("HIGH")
+    frame = CreateFrame("Frame", "HousingCodexZoneOverlayFrame", UIParent, "BackdropTemplate")
+    frame:SetFrameStrata("DIALOG")  -- above WorldMapFrame (HIGH) so overlay renders on top
     frame:SetClampedToScreen(true)
     frame:SetClipsChildren(true)
     frame:EnableMouse(false)  -- let clicks pass through to the map; titleBar and rows handle their own mouse
@@ -590,6 +591,20 @@ local function HideOverlay()
     HidePreview()
 end
 
+local function SyncScaleWithMap()
+    local mapScale = WorldMapFrame:GetScale()
+    if mapScale and not issecretvalue(mapScale) and mapScale > 0 then
+        frame:SetScale(mapScale)
+    end
+end
+
+local function ShowOverlayDeferred()
+    if InCombatLockdown() then return end
+    SyncScaleWithMap()
+    frame:Show()
+    ScheduleMapUpdate()
+end
+
 function ZoneOverlay:RefreshLayout()
     if not frame or not addon.db then return end
 
@@ -617,6 +632,7 @@ function ZoneOverlay:RefreshLayout()
 
     -- Ensure frame is visible (may have been hidden by empty zone)
     if db.settings.showZoneOverlay and WorldMapFrame:IsShown() then
+        if InCombatLockdown() then return end
         frame:Show()
     end
 
@@ -806,11 +822,12 @@ function ZoneOverlay:UpdatePreviewSize()
     previewFrame.icon:SetSize(size - 16, size - 16)
 end
 
--- No combat guard needed: overlay is a child of WorldMapFrame.ScrollContainer (not a top-level frame)
+-- Combat guard added: overlay is parented to UIParent (top-level frame); EnableMouse(false) so purely visual
 function ZoneOverlay:UpdateVisibility()
     if not frame or not addon.db then return end
 
     if addon.db.settings.showZoneOverlay and WorldMapFrame:IsShown() then
+        if InCombatLockdown() then return end
         frame:Show()
         self:RefreshLayout()
     else
@@ -862,16 +879,17 @@ local function InitializeOverlay()
     -- Hook zone changes
     hooksecurefunc(WorldMapFrame, "OnMapChanged", ScheduleMapUpdate)
 
-    -- Show/hide with world map
+    -- Show/hide with world map (deferred to avoid tainting WorldMapFrame's execution context)
     WorldMapFrame:HookScript("OnShow", function()
-        if addon.db and addon.db.settings.showZoneOverlay then
-            frame:Show()
-            ScheduleMapUpdate()
-        end
+        C_Timer.After(0, function()
+            if addon.db and addon.db.settings.showZoneOverlay and WorldMapFrame:IsShown() then
+                ShowOverlayDeferred()
+            end
+        end)
     end)
 
     WorldMapFrame:HookScript("OnHide", function()
-        HideOverlay()
+        C_Timer.After(0, HideOverlay)
     end)
 
     -- Refresh on ownership changes (debounced to coalesce rapid updates)
@@ -884,13 +902,23 @@ local function InitializeOverlay()
         end)
     end)
 
-    -- Initial state (restore saved minimized preference)
-    if WorldMapFrame:IsShown() and addon.db and addon.db.settings.showZoneOverlay then
-        frame:Show()
-        ScheduleMapUpdate()
-    else
-        frame:Hide()
-    end
+    -- Recover after combat ends (combat guards may have blocked Show/RefreshLayout)
+    addon:RegisterWoWEvent("PLAYER_REGEN_ENABLED", function()
+        if frame and WorldMapFrame:IsShown() and addon.db and addon.db.settings.showZoneOverlay then
+            if InCombatLockdown() then return end
+            frame:Show()
+            ZoneOverlay:RefreshLayout()
+        end
+    end)
+
+    -- Initial state (deferred to clean execution context)
+    C_Timer.After(0, function()
+        if WorldMapFrame:IsShown() and addon.db and addon.db.settings.showZoneOverlay then
+            ShowOverlayDeferred()
+        else
+            frame:Hide()
+        end
+    end)
 
     addon:Debug("Zone overlay initialized")
 end

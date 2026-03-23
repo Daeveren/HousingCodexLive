@@ -170,18 +170,6 @@ function addon:GetPvPSourcesForCategory(category)
     return catData and catData.sources or {}
 end
 
-function addon:GetPvPSourceCollectionProgress(source)
-    local owned = 0
-    local decorIds = source.decorIds or {}
-    for _, decorId in ipairs(decorIds) do
-        local record = self:GetRecord(decorId)
-        if record and record.isCollected then
-            owned = owned + 1
-        end
-    end
-    return owned, #decorIds
-end
-
 function addon:GetPvPCategoryCollectionProgress(category)
     local cached = self.pvpCategoryProgressCache[category]
     if cached then return cached.owned, cached.total end

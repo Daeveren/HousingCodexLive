@@ -2,6 +2,14 @@
 
 All notable changes to Housing Codex.
 
+**2.0.11** (2026-03-23)
+
+**Fixed**
+- Quests available in multiple zones now correctly appear under all applicable zones instead of only one
+- Re-clicking the same expansion in the Quests tab no longer resets your collapsed zones
+- Fixed a crash that could occur when using the zone overlay on the world map
+- Changing tile size or resizing the window is now smoother
+
 **2.0.10** (2026-03-22)
 
 **Added**

@@ -327,30 +327,23 @@ function Grid:CreateScrollBox(parent, tileSize)
     scrollBar:SetPoint("BOTTOMLEFT", container, "BOTTOMRIGHT", 4, 0)
     self.scrollBar = scrollBar
 
-    -- Calculate columns based on current container width
-    local function GetColumnCount()
-        local containerWidth = container:GetWidth()
-        if containerWidth <= 0 then containerWidth = 800 end
-        return math.max(1, math.floor((containerWidth + GRID_CELL_GAP) / (tileSize + GRID_CELL_GAP)))
-    end
-
-    -- Track column count for resize detection
-    self.currentColumnCount = nil
+    -- Debounced resize handler — FullUpdate triggers GetStride() re-derivation
     self.resizeTimer = nil
 
     container:SetScript("OnSizeChanged", function(_, width, height)
         if self.resizeTimer then self.resizeTimer:Cancel() end
         self.resizeTimer = C_Timer.NewTimer(CONSTS.TIMER.INPUT_DEBOUNCE, function()
             self.resizeTimer = nil
-            local newColumns = math.max(1, math.floor((width + GRID_CELL_GAP) / (self.tileSize + GRID_CELL_GAP)))
-            if self.currentColumnCount and newColumns ~= self.currentColumnCount then
-                self:Rebuild()
+            if self.scrollBox then
+                self.scrollBox:FullUpdate(ScrollBoxConstants.UpdateImmediately)
             end
         end)
     end)
 
     -- Create grid view
-    local columns = GetColumnCount()
+    local containerWidth = container:GetWidth()
+    if containerWidth <= 0 then containerWidth = 800 end
+    local columns = math.max(1, math.floor((containerWidth + GRID_CELL_GAP) / (tileSize + GRID_CELL_GAP)))
     local view = CreateScrollBoxListGridView(
         columns,
         1,  -- top padding (minimal)
@@ -362,8 +355,9 @@ function Grid:CreateScrollBox(parent, tileSize)
     )
 
     -- Tell the view element sizes (BackdropTemplate has no defined size)
+    -- Uses self.tileSize so in-place tile-size changes take effect without rebuild
     view:SetElementSizeCalculator(function()
-        return tileSize, tileSize
+        return self.tileSize, self.tileSize
     end)
 
     -- Set element extent for scroll calculations
@@ -400,10 +394,10 @@ function Grid:CreateScrollBox(parent, tileSize)
     -- Element initializer
     view:SetElementInitializer("BackdropTemplate", function(tile, elementData)
         if not tile.icon then
-            SetupTileFrame(tile, tileSize)
+            SetupTileFrame(tile, self.tileSize)
         else
             -- Update size if tile was recycled from different size
-            tile:SetSize(tileSize, tileSize)
+            tile:SetSize(self.tileSize, self.tileSize)
         end
 
         local recordID = elementData.recordID
@@ -484,7 +478,6 @@ function Grid:CreateScrollBox(parent, tileSize)
     -- Initialize ScrollBox
     ScrollUtil.InitScrollBoxListWithScrollBar(scrollBox, scrollBar, view)
     self.view = view
-    self.currentColumnCount = columns
 
     -- Initialize DataProvider once (reused via Flush/InsertTable in SetData)
     self.dataProvider = CreateDataProvider()
@@ -630,36 +623,24 @@ function Grid:SetTileSize(newSize)
         addon.db.browser.tileSize = newSize
     end
 
-    -- Rebuild the grid
-    self:Rebuild()
-end
+    if not self.view or not self.scrollBox then return end
 
-function Grid:Rebuild()
-    if not self.parent then return end
-
-    -- Save current data
-    local savedUnfilteredIDs = self.unfilteredRecordIDs
-    local savedSelection = self.selectedRecordID
-
-    -- Destroy and recreate
-    self:DestroyScrollBox()
-    self:CreateScrollBox(self.parent, self.tileSize)
-
-    -- Recreate empty state (depends on container)
-    if self.emptyState then
-        addon:UnregisterFontStrings(self.emptyState)
-        self.emptyState:SetParent(nil)
-        self.emptyState = nil
-    end
-    self:CreateEmptyState(self.parent)
-
-    -- Restore data
-    self.selectedRecordID = savedSelection
-    if savedUnfilteredIDs then
-        self:SetData(savedUnfilteredIDs)
+    -- Cancel pending resize timer to avoid double update
+    if self.resizeTimer then
+        self.resizeTimer:Cancel()
+        self.resizeTimer = nil
     end
 
-    addon:Debug("Grid rebuilt with tile size " .. self.tileSize)
+    -- Update view sizing (closures already read self.tileSize)
+    self.view:SetElementExtent(newSize)
+    self.view:SetStrideExtent(newSize)
+    -- Must call SetElementSizeCalculator to clear cached element size data
+    self.view:SetElementSizeCalculator(function()
+        return self.tileSize, self.tileSize
+    end)
+
+    -- Force full frame re-acquire with new sizes
+    self.scrollBox:Rebuild(ScrollBoxConstants.RetainScrollPosition)
 end
 
 -- Store unfiltered IDs for re-filtering without new search

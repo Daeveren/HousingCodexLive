@@ -879,7 +879,12 @@ function WhatsNew:Show(variant)
         return
     end
 
-    self:Build(variant)
+    -- Skip rebuild if same variant already built
+    if variant == self.currentVariant and self.header then
+        self.checkboxChecked = false
+    else
+        self:Build(variant)
+    end
 
     -- Pre-animation: set invisible
     self.frame:SetAlpha(0)
