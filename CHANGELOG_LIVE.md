@@ -2,6 +2,16 @@
 
 All notable changes to Housing Codex.
 
+**2.0.12** (2026-03-24)
+
+**Changed**
+- Rewrote a large part of the addon's world map and tooltip code to work around WoW UI Bug #811, a bug on Blizzard's side that caused crashes when addons interact with the world map
+- Removed the "Adjust Map Pin Layer" setting from the world map button — vendor pins now always appear at a fixed layer
+- Removed the vendor NPC tooltip animation to improve world map stability
+
+**Fixed**
+- Fixed rare crashes that could occur when hovering quest objectives, event icons, and other map pins on the world map
+
 **2.0.11** (2026-03-23)
 
 **Fixed**

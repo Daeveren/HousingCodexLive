@@ -465,9 +465,7 @@ L["ZONE_OVERLAY_COLLAPSED_TOOLTIP"] = "Click to see decor items in this zone"
 L["VENDOR_PINS_SECTION_HEADER"] = "Vendor Map Pins"
 L["VENDOR_PINS_TRANSPARENCY"] = "Pin Transparency"
 L["VENDOR_PINS_SCALE"] = "Pin Size"
-L["VENDOR_PINS_LAYER"] = "Adjust Map Pin Layer"
-L["VENDOR_PINS_LAYER_BELOW"] = "Below Other Icons"
-L["VENDOR_PINS_LAYER_ABOVE"] = "On Top of Other Icons"
+-- VENDOR_PINS_LAYER removed: custom frame levels tainted WorldMapFrame (WoWUIBugs #811)
 L["OPTIONS_ZONE_OVERLAY"] = "Show Zone Overlay on World Map"
 L["OPTIONS_ZONE_OVERLAY_TOOLTIP"] = "Display a panel on the world map showing available decor items for the current zone"
 

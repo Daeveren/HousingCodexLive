@@ -465,9 +465,7 @@ L["ZONE_OVERLAY_COLLAPSED_TOOLTIP"] = "Klicken, um Dekorobjekte in dieser Zone a
 L["VENDOR_PINS_SECTION_HEADER"] = "Händlerkartenpins"
 L["VENDOR_PINS_TRANSPARENCY"] = "Pin-Transparenz"
 L["VENDOR_PINS_SCALE"] = "Pin-Größe"
-L["VENDOR_PINS_LAYER"] = "Ebene der Kartenpins anpassen"
-L["VENDOR_PINS_LAYER_BELOW"] = "Unter anderen Symbolen"
-L["VENDOR_PINS_LAYER_ABOVE"] = "Über anderen Symbolen"
+-- VENDOR_PINS_LAYER removed: custom frame levels tainted WorldMapFrame (WoWUIBugs #811)
 L["OPTIONS_ZONE_OVERLAY"] = "Zonenoverlay auf der Weltkarte anzeigen"
 L["OPTIONS_ZONE_OVERLAY_TOOLTIP"] = "Ein Panel auf der Weltkarte anzeigen, das verfügbares Dekor für die aktuelle Zone zeigt"
 

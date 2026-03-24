@@ -23,22 +23,11 @@ function addon:StyleMapTooltip(tooltip)
     nine:SetBorderColor(0.45, 0.45, 0.45, 1)
 end
 
-local CUSTOM_LEVEL_LOW = "PIN_FRAME_LEVEL_HC_VENDOR_LOW"
-local CUSTOM_LEVEL_HIGH = "PIN_FRAME_LEVEL_HC_VENDOR_HIGH"
-local customLevelsRegistered = false
-
 local function GetPinSetting(key)
     local db = addon.db
     if not db or not db.settings then return 1 end
     local v = db.settings[key]
     return (v ~= nil) and v or 1
-end
-
-local function GetPinFrameLevelType()
-    if not customLevelsRegistered then
-        return "PIN_FRAME_LEVEL_AREA_POI"
-    end
-    return (GetPinSetting("vendorPinLayer") == "above") and CUSTOM_LEVEL_HIGH or CUSTOM_LEVEL_LOW
 end
 
 local TOOLTIP_LIST_INDENT = "    "
@@ -404,13 +393,12 @@ function HousingCodexVendorDataProviderMixin:ApplyPinAppearance()
     if not map then return end
     local alpha = GetPinSetting("vendorPinAlpha")
     local scale = GetPinSetting("vendorPinScale")
-    local levelType = GetPinFrameLevelType()
     for pin in map:EnumeratePinsByTemplate(TEMPLATE_NAME) do
         pin:SetAlpha(alpha)
         pin:SetScalingLimits(C.SCALE_FACTOR, C.SCALE_MIN * scale, C.SCALE_MAX * scale)
         pin:ApplyCurrentScale()
         pin:ApplyPOIStyle()
-        pin:UseFrameLevelType(levelType)
+        pin:UseFrameLevelType("PIN_FRAME_LEVEL_AREA_POI")
         pin:ApplyFrameLevel()
     end
 end
@@ -428,7 +416,7 @@ end
 function HousingCodexVendorPinMixin:OnLoad()
     self:SetSize(C.SIZE, C.SIZE)
     self:SetScalingLimits(C.SCALE_FACTOR, C.SCALE_MIN, C.SCALE_MAX)
-    self:UseFrameLevelType(GetPinFrameLevelType())
+    self:UseFrameLevelType("PIN_FRAME_LEVEL_AREA_POI")
 
     self:SetStyle(POIButtonUtil.Style.AreaPOI)
     self:SetAreaPOIInfo(VENDOR_AREA_POI_STYLE_INFO)
@@ -473,7 +461,7 @@ function HousingCodexVendorPinMixin:OnAcquired(vendorData, owned, total, vendorC
     local scale = GetPinSetting("vendorPinScale")
     self:SetScalingLimits(C.SCALE_FACTOR, C.SCALE_MIN * scale, C.SCALE_MAX * scale)
     self:UpdateCountText()
-    self:UseFrameLevelType(GetPinFrameLevelType())
+    self:UseFrameLevelType("PIN_FRAME_LEVEL_AREA_POI")
     self:ApplyFrameLevel()
 end
 
@@ -646,12 +634,11 @@ local function RegisterProvider()
     addon.vendorMapProvider = provider
     providerRegistered = true
 
-    local manager = WorldMapFrame:GetPinFrameLevelsManager()
-    if manager then
-        local lowOk = manager:InsertFrameLevelBelow(CUSTOM_LEVEL_LOW, "PIN_FRAME_LEVEL_DUNGEON_ENTRANCE")
-        local highOk = manager:InsertFrameLevelAbove(CUSTOM_LEVEL_HIGH, "PIN_FRAME_LEVEL_QUEST_PING")
-        customLevelsRegistered = (lowOk ~= false) and (highOk ~= false)
-    end
+    -- Custom frame levels removed: InsertFrameLevelBelow/Above modifies
+    -- WorldMapFrame's internal PinFrameLevelsManager from addon context, which
+    -- taints WorldMapFrame and causes secret value crashes in Blizzard's AreaPOI
+    -- tooltip widget code (WoWUIBugs #811). Pins use PIN_FRAME_LEVEL_AREA_POI
+    -- via the fallback in "PIN_FRAME_LEVEL_AREA_POI".
 end
 
 local function OnWorldMapAddonLoaded(loadedAddon)

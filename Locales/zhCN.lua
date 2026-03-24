@@ -464,9 +464,7 @@ L["ZONE_OVERLAY_COLLAPSED_TOOLTIP"] = "点击查看此区域的装饰物品"
 L["VENDOR_PINS_SECTION_HEADER"] = "商人地图标记"
 L["VENDOR_PINS_TRANSPARENCY"] = "标记透明度"
 L["VENDOR_PINS_SCALE"] = "标记大小"
-L["VENDOR_PINS_LAYER"] = "调整地图标记图层"
-L["VENDOR_PINS_LAYER_BELOW"] = "置于其他图标下方"
-L["VENDOR_PINS_LAYER_ABOVE"] = "置于其他图标上方"
+-- VENDOR_PINS_LAYER removed: custom frame levels tainted WorldMapFrame (WoWUIBugs #811)
 L["OPTIONS_ZONE_OVERLAY"] = "在世界地图上显示区域覆盖"
 L["OPTIONS_ZONE_OVERLAY_TOOLTIP"] = "在世界地图上显示一个面板，展示当前区域可用的装饰物品"
 

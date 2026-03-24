@@ -466,9 +466,7 @@ L["ZONE_OVERLAY_COLLAPSED_TOOLTIP"] = "Cliquez pour voir les décors de cette zo
 L["VENDOR_PINS_SECTION_HEADER"] = "Repères de marchands"
 L["VENDOR_PINS_TRANSPARENCY"] = "Transparence des repères"
 L["VENDOR_PINS_SCALE"] = "Taille des repères"
-L["VENDOR_PINS_LAYER"] = "Couche des repères sur la carte"
-L["VENDOR_PINS_LAYER_BELOW"] = "Sous les autres icônes"
-L["VENDOR_PINS_LAYER_ABOVE"] = "Au-dessus des autres icônes"
+-- VENDOR_PINS_LAYER removed: custom frame levels tainted WorldMapFrame (WoWUIBugs #811)
 L["OPTIONS_ZONE_OVERLAY"] = "Afficher la superposition de zone sur la carte du monde"
 L["OPTIONS_ZONE_OVERLAY_TOOLTIP"] = "Afficher un panneau sur la carte du monde montrant les décors disponibles dans la zone actuelle"
 

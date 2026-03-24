@@ -879,8 +879,10 @@ local function InitializeOverlay()
     -- Hook zone changes
     hooksecurefunc(WorldMapFrame, "OnMapChanged", ScheduleMapUpdate)
 
-    -- Show/hide with world map (deferred to avoid tainting WorldMapFrame's execution context)
-    WorldMapFrame:HookScript("OnShow", function()
+    -- Show/hide with world map via safe post-hooks (hooksecurefunc runs AFTER the
+    -- method returns in a separate context, unlike HookScript which runs inside
+    -- the frame's script handler and taints WorldMapFrame — WoWUIBugs #811)
+    hooksecurefunc(WorldMapFrame, "Show", function()
         C_Timer.After(0, function()
             if addon.db and addon.db.settings.showZoneOverlay and WorldMapFrame:IsShown() then
                 ShowOverlayDeferred()
@@ -888,7 +890,7 @@ local function InitializeOverlay()
         end)
     end)
 
-    WorldMapFrame:HookScript("OnHide", function()
+    hooksecurefunc(WorldMapFrame, "Hide", function()
         C_Timer.After(0, HideOverlay)
     end)
 

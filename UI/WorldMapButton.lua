@@ -143,21 +143,6 @@ function HousingCodexWorldMapButtonMixin:Refresh()
             )
         end
 
-        local pinLayerSubmenu = rootDescription:CreateButton(L["VENDOR_PINS_LAYER"])
-        for _, info in ipairs({
-            { label = L["VENDOR_PINS_LAYER_BELOW"], value = "below" },
-            { label = L["VENDOR_PINS_LAYER_ABOVE"], value = "above" },
-        }) do
-            pinLayerSubmenu:CreateRadio(
-                info.label,
-                function() return (db.settings.vendorPinLayer or "below") == info.value end,
-                function()
-                    db.settings.vendorPinLayer = info.value
-                    local provider = addon.vendorMapProvider
-                    if provider then provider:ApplyPinAppearance() end
-                end
-            )
-        end
     end)
 end
 
@@ -196,7 +181,24 @@ local function CreateWorldMapButton()
 
     local rwm = LibStub("Krowi_WorldMapButtons-1.4")
     addon.worldMapButton = rwm:Add("HousingCodexWorldMapButtonTemplate", "DropdownButton")
-    addon:Debug("World map button created")
+
+    -- Reparent to UIParent: Krowi library parents to WorldMapFrame, which taints
+    -- WorldMapFrame with addon execution context and causes secret value crashes
+    -- in Blizzard's AreaPOI tooltip widget code (WoWUIBugs #811)
+    local button = addon.worldMapButton
+    button:SetParent(UIParent)
+    button:SetFrameStrata("DIALOG")
+    local scale = WorldMapFrame:GetEffectiveScale()
+    if scale and not issecretvalue(scale) and scale > 0 then
+        button:SetScale(scale)
+    end
+    button:SetShown(WorldMapFrame:IsShown())
+
+    -- Visibility: show/hide with WorldMapFrame via safe post-hooks
+    hooksecurefunc(WorldMapFrame, "Show", function() button:Show() end)
+    hooksecurefunc(WorldMapFrame, "Hide", function() button:Hide() end)
+
+    addon:Debug("World map button created (reparented to UIParent)")
 end
 
 addon:RegisterInternalEvent("DATA_LOADED", function()
