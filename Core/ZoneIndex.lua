@@ -273,16 +273,18 @@ local function BuildIndex()
         end
     end
 
-    -- 2. Build questsByZoneName reverse index from questZoneFromScrape
+    -- 2. Build questsByZoneName reverse index from questAllZones (multi-zone support)
     wipe(questsByZoneName)
-    if addon.questZoneFromScrape then
-        for questKey, zoneData in pairs(addon.questZoneFromScrape) do
-            local zoneName = zoneData.zoneName
-            if zoneName then
-                if not questsByZoneName[zoneName] then
-                    questsByZoneName[zoneName] = {}
+    if addon.questAllZones then
+        for questKey, zones in pairs(addon.questAllZones) do
+            for _, zoneEntry in ipairs(zones) do
+                local zoneName = zoneEntry.zoneName
+                if zoneName then
+                    if not questsByZoneName[zoneName] then
+                        questsByZoneName[zoneName] = {}
+                    end
+                    table.insert(questsByZoneName[zoneName], questKey)
                 end
-                table.insert(questsByZoneName[zoneName], questKey)
             end
         end
     end

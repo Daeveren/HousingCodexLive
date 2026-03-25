@@ -2,6 +2,14 @@
 
 All notable changes to Housing Codex.
 
+**2.0.13** (2026-03-25)
+
+**Fixed**
+- Vendor waypoints no longer accidentally remove map pins you placed yourself
+- Quests available in multiple zones now appear under all applicable zones in the world map overlay
+- Vendor tab now remembers which zones you had expanded when switching between tabs
+- Fixed world map button positioning and size after the recent map stability update
+
 **2.0.12** (2026-03-24)
 
 **Changed**

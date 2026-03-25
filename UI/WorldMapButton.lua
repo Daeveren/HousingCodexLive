@@ -188,15 +188,43 @@ local function CreateWorldMapButton()
     local button = addon.worldMapButton
     button:SetParent(UIParent)
     button:SetFrameStrata("DIALOG")
-    local scale = WorldMapFrame:GetEffectiveScale()
-    if scale and not issecretvalue(scale) and scale > 0 then
-        button:SetScale(scale)
+
+    -- Sync scale: other Krowi buttons are children of WorldMapFrame with own
+    -- scale 1.0, so their effective scale = WorldMapFrame's effective scale.
+    -- Our button (parented to UIParent) needs own scale = WorldMapFrame:GetScale()
+    -- so that UIParent effective × ownScale = WorldMapFrame effective.
+    -- Use WorldMapFrame:GetScale() (NOT canvas container — that includes zoom).
+    local function SyncButtonScale()
+        local wmfScale = WorldMapFrame:GetScale()
+        if issecretvalue(wmfScale) then return end
+        if wmfScale and wmfScale > 0 then
+            button:SetScale(wmfScale)
+        end
     end
+
+    -- Sync scale then re-run Krowi layout so offsets use the correct scale.
+    -- Must run AFTER Krowi's own RefreshOverlayFrames hook (which calls SetPoints
+    -- with the pre-scale offset), so our post-hook corrects the position.
+    local function SyncButtonLayout()
+        SyncButtonScale()
+        if rwm and rwm.SetPoints then rwm.SetPoints() end
+    end
+
+    SyncButtonLayout()
     button:SetShown(WorldMapFrame:IsShown())
 
-    -- Visibility: show/hide with WorldMapFrame via safe post-hooks
-    hooksecurefunc(WorldMapFrame, "Show", function() button:Show() end)
+    -- Visibility + layout sync via safe post-hooks
+    hooksecurefunc(WorldMapFrame, "Show", function()
+        button:Show()
+        SyncButtonLayout()
+    end)
     hooksecurefunc(WorldMapFrame, "Hide", function() button:Hide() end)
+    hooksecurefunc(WorldMapFrame, "RefreshOverlayFrames", function()
+        if WorldMapFrame:IsShown() then
+            button:Show()
+        end
+        SyncButtonLayout()
+    end)
 
     addon:Debug("World map button created (reparented to UIParent)")
 end

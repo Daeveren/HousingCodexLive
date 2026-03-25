@@ -109,8 +109,7 @@ function VendorsTab:Show()
 
     local saved = GetVendorsDB()
     if saved then
-        -- Reset expanded zones before first render (SetCompletionFilter triggers RefreshDisplay)
-        saved.expandedZones = {}
+        -- Expanded zones persist across sessions (EnsureVendorsDB initializes on first load)
         self.selectedExpansionKey = saved.selectedExpansionKey
         self:SetCompletionFilter(saved.completionFilter or "incomplete")
     end

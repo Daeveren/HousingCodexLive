@@ -13,6 +13,8 @@ local tomtomAvailable = false
 local activeTomTomUid = nil
 local activeWaypoint = nil  -- { mapID, x, y, title }
 local ownsNativeWaypoint = false  -- true when this addon placed the native waypoint
+local isSettingWaypoint = false  -- guards against self-triggered USER_WAYPOINT_UPDATED
+local waypointEventRegistered = false  -- never reset: survives DATA_LOADED re-fires on /hc retry
 
 function Waypoints:IsTomTomAvailable()
     return tomtomAvailable
@@ -53,7 +55,9 @@ function Waypoints:Set(mapID, normX, normY, title)
     -- Validation passed — safe to clear previous addon waypoint and place new one
     self:Clear()
     local point = UiMapPoint.CreateFromCoordinates(mapID, normX, normY)
+    isSettingWaypoint = true
     C_Map.SetUserWaypoint(point)
+    isSettingWaypoint = false
     C_SuperTrack.SetSuperTrackedUserWaypoint(true)
     ownsNativeWaypoint = true
     activeWaypoint = { mapID = mapID, x = normX, y = normY, title = title }
@@ -92,6 +96,30 @@ function Waypoints:GetHyperlink()
     return C_Map.HasUserWaypoint() and C_Map.GetUserWaypointHyperlink() or nil
 end
 
+-- Drop native ownership when external changes occur
+local function ReconcileOwnership()
+    if isSettingWaypoint or not ownsNativeWaypoint then return end
+
+    local function DropOwnership()
+        ownsNativeWaypoint = false
+        activeWaypoint = nil
+    end
+
+    if not C_Map.HasUserWaypoint() then return DropOwnership() end
+
+    local point = C_Map.GetUserWaypoint()
+    if not point or not point.position or not activeWaypoint then return DropOwnership() end
+
+    local x, y = point.position:GetXY()
+    local EPSILON = addon.CONSTANTS.WAYPOINT_MATCH_EPSILON
+    if x == nil or y == nil
+        or point.uiMapID ~= activeWaypoint.mapID
+        or math.abs(x - activeWaypoint.x) > EPSILON
+        or math.abs(y - activeWaypoint.y) > EPSILON then
+        DropOwnership()
+    end
+end
+
 -- Detection at DATA_LOADED
 addon:RegisterInternalEvent("DATA_LOADED", function()
     tomtomAvailable = (TomTom ~= nil
@@ -99,4 +127,9 @@ addon:RegisterInternalEvent("DATA_LOADED", function()
         and type(TomTom.RemoveWaypoint) == "function")
 
     addon:Debug("Waypoints: TomTom " .. (tomtomAvailable and "available" or "not found"))
+
+    if not waypointEventRegistered then
+        addon:RegisterWoWEvent("USER_WAYPOINT_UPDATED", ReconcileOwnership)
+        waypointEventRegistered = true
+    end
 end)
