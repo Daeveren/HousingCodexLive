@@ -684,11 +684,6 @@ SN["World Glimmering Treasure Chest Drop"] = "Butin de coffre au trésor scintil
 
 -- Manual quest title translations (quests without quest IDs)
 local QT = addon.questTitleLocale
-QT["Cheese for Glowergold"] = "Du fromage pour Brilledor"
-QT["Spare A Chair"] = "Une chaise en trop"
-QT["Dreamy Inspiration"] = "Inspiration onirique"
-QT["Last Light"] = "Dernière lumière"
-QT["Draconic Decor"] = "Décor draconique"
 
 -- Keybinding globals (must be set per-locale since enUS sets them before frFR overrides L values)
 BINDING_HEADER_HCODEX = L["KEYBIND_HEADER"]

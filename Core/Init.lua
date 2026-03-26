@@ -1036,7 +1036,17 @@ end
 function addon.IsDecorOwned(catalogInfo)
     if type(catalogInfo) ~= "table" then return false end
     local total = (catalogInfo.quantity or 0) + (catalogInfo.remainingRedeemable or 0) + (catalogInfo.numPlaced or 0)
-    return total > 0 or ((catalogInfo.entryID and catalogInfo.entryID.entrySubtype) or 0) > 1
+    if total > 0 then return true end
+    if ((catalogInfo.entryID and catalogInfo.entryID.entrySubtype) or 0) > 1 then return true end
+    -- Fallback: GetCatalogEntryInfoByItem returns "Unowned" subtype (ownership fields = 0)
+    -- before housing ownership data fully loads; cross-reference addon's pre-loaded records
+    local recordID = catalogInfo.entryID and catalogInfo.entryID.recordID
+    if recordID then
+        if addon.indexes and addon.indexes.collected and addon.indexes.collected[recordID] then return true end
+        local fallback = addon.fallbackRecords and addon.fallbackRecords[recordID]
+        if fallback and fallback.isCollected then return true end
+    end
+    return false
 end
 
 -- Helper: set texture icon (handles atlas vs texture path)

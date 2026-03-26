@@ -635,12 +635,12 @@ SN["Dargrul the Underking"] = "Dargrul der Unterkönig"
 SN["Degentrius (Magisters' Terrace)"] = "Degentrius (Terrasse der Magister)"
 SN["Echo of Doragosa (Algeth'ar Academy)"] = "Echo von Doragosa (Akademie Algeth'ar)"
 SN["Emperor Dagran Thaurissan (Blackrock Depths)"] = "Imperator Dagran Thaurissan (Schwarzfelstiefen)"
-SN["Fallen-King Salhadaar (The Voidspire)"] = "Gefallener König Salhadaar (The Voidspire)"
+SN["Fallen-King Salhadaar (The Voidspire)"] = "Gefallener König Salhadaar (Die Leerenspitze)"
 SN["Garrosh Hellscream (Siege of Orgrimmar)"] = "Garrosh Höllschrei (Schlacht um Orgrimmar)"
-SN["Goldie Baronbottom (Cinderbrew Meadery)"] = "Goldie Baronbottom (Cinderbrew Meadery)"
+SN["Goldie Baronbottom (Cinderbrew Meadery)"] = "Goldie Barontasch (Metbrauerei Glutbräu)"
 SN["Harlan Sweete (Freehold)"] = "Harlan Sweete (Freihafen)"
 SN["High Sage Viryx (Skyreach)"] = "Hochweise Viryx (Himmelsnadel)"
-SN["Imperator Averzian (The Voidspire)"] = "Imperator Averzian (The Voidspire)"
+SN["Imperator Averzian (The Voidspire)"] = "Imperator Averzian (Die Leerenspitze)"
 SN["King Mechagon"] = "König Mechagon"
 SN["Kyrakka and Erkhart Stormvein"] = "Kyrakka und Erkhart Sturmader"
 SN["L'ura (The Seat of the Triumvirate)"] = "L'ura (Sitz des Triumvirats)"
@@ -665,10 +665,10 @@ SN["Vaelgor & Ezzorak"] = "Vaelgor & Ezzorak"
 SN["Vanessa VanCleef"] = "Vanessa VanCleef"
 SN["Viz'aduum the Watcher (Karazhan)"] = "Viz'aduum der Wächter (Karazhan)"
 SN["Vol'zith the Whisperer (Shrine of the Storm)"] = "Vol'zith der Flüsterer (Schrein des Sturms)"
-SN["Vorasius (The Voidspire)"] = "Vorasius (The Voidspire)"
+SN["Vorasius (The Voidspire)"] = "Vorasius (Die Leerenspitze)"
 SN["Warlord Sargha (Neltharus)"] = "Kriegsherrin Sargha (Neltharus)"
 SN["Warlord Zaela"] = "Kriegsherrin Zaela"
-SN["Ziekket (The Blinding Vale)"] = "Ziekket (The Blinding Vale)"
+SN["Ziekket (The Blinding Vale)"] = "Ziekket (Das blendende Tal)"
 
 -- Treasures
 SN["Gift of the Phoenix (Eversong Woods)"] = "Gabe des Phönix (Immersangwald)"
@@ -683,11 +683,7 @@ SN["World Glimmering Treasure Chest Drop"] = "Weltweiter Drop einer schimmernden
 
 -- Manual quest title translations (quests without quest IDs)
 local QT = addon.questTitleLocale
-QT["Cheese for Glowergold"] = "Käse für Glowergold"
-QT["Spare A Chair"] = "Ein Stuhl übrig"
-QT["Dreamy Inspiration"] = "Verträumte Inspiration"
-QT["Last Light"] = "Letztes Licht"
-QT["Draconic Decor"] = "Drachen-Dekor"
+QT["Sky's Hope"] = "Hoffnung des Himmels"
 
 -- Keybinding globals (must be set per-locale since enUS sets them before locale files override L values)
 BINDING_HEADER_HCODEX = L["KEYBIND_HEADER"]

@@ -682,11 +682,6 @@ SN["World Glimmering Treasure Chest Drop"] = "世界闪闪光光的宝箱掉落"
 
 -- Manual quest title translations (quests without quest IDs)
 local QT = addon.questTitleLocale
-QT["Cheese for Glowergold"] = "给闪金镇的奶酪"
-QT["Spare A Chair"] = "多余的椅子"
-QT["Dreamy Inspiration"] = "梦幻灵感"
-QT["Last Light"] = "最后之光"
-QT["Draconic Decor"] = "龙族装饰"
 
 -- Keybinding globals (deferred from Init.lua -- WoW resolves these lazily when Keybindings UI opens)
 BINDING_HEADER_HCODEX = L["KEYBIND_HEADER"]

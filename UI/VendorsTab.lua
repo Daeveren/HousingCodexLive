@@ -1243,7 +1243,14 @@ local function VendorMatchesSearch(vendorData, searchText, zoneName, expansionKe
         result = true
     elseif strlower(vendorData.currencyName or addon.L["CURRENCY_GOLD"]):find(searchText, 1, true) then
         result = true
-    else
+    elseif vendorData.currencyName then
+        local localizedCurrency = addon:GetLocalizedCurrencyName(vendorData.currencyName)
+        if localizedCurrency ~= vendorData.currencyName and strlower(localizedCurrency):find(searchText, 1, true) then
+            result = true
+        end
+    end
+
+    if not result then
         for _, decorId in ipairs(vendorData.decorIds or {}) do
             local record = addon:GetRecord(decorId)
             if record and record.name and strlower(record.name):find(searchText, 1, true) then

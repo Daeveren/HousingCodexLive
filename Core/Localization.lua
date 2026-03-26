@@ -22,9 +22,54 @@ function addon:GetLocalizedSourceName(name)
 end
 
 --------------------------------------------------------------------------------
+-- Currency name localization
+-- Uses C_CurrencyInfo.GetCurrencyInfo() with known currency IDs to resolve
+-- English scraped currency names to locale-aware names.
+-- Positive results cached. Negative results not cached (MayReturnNothing).
+--------------------------------------------------------------------------------
+local CURRENCY_NAME_TO_ID = {
+    ["Apexis Crystal"] = 823,
+    ["Brimming Arcana"] = 3379,
+    ["Bronze"] = 2778,
+    ["Community Coupons"] = 3363,
+    ["Dragon Isles Supplies"] = 2003,
+    ["Echoes of Ny'alotha"] = 1803,
+    ["Garrison Resources"] = 824,
+    ["Kej"] = 3056,
+    ["Order Resources"] = 1220,
+    ["Remnant of Anguish"] = 3089,
+    ["Resonance Crystals"] = 2815,
+    ["Unalloyed Abundance"] = 3377,
+    ["Voidlight Marl"] = 3316,
+    ["War Resources"] = 1560,
+}
+
+local currencyNameCache = {}  -- englishName -> localized name (positive only)
+
+function addon:GetLocalizedCurrencyName(englishName)
+    if not englishName then return englishName end
+
+    local cached = currencyNameCache[englishName]
+    if cached then return cached end
+
+    local currencyID = CURRENCY_NAME_TO_ID[englishName]
+    if currencyID and C_CurrencyInfo and C_CurrencyInfo.GetCurrencyInfo then
+        local info = C_CurrencyInfo.GetCurrencyInfo(currencyID)
+        if info and info.name and info.name ~= "" then
+            currencyNameCache[englishName] = info.name
+            return info.name
+        end
+    end
+
+    -- No localization available -- return English name without caching
+    return englishName
+end
+
+--------------------------------------------------------------------------------
 -- Zone name localization
--- Uses vendorZoneToMapId (populated by VendorIndex from NPCLocationData) to
--- resolve English scraper zone names to locale-aware names via C_Map.GetMapInfo.
+-- Resolves English scraper zone names to locale-aware names via C_Map.GetMapInfo.
+-- Two mapID sources: vendorZoneToMapId (dynamic, from NPCLocationData) and
+-- ZONE_TO_MAP_ID (static, for quest-only zones with no vendor NPC data).
 -- Works for all tabs (quests, vendors, zone overlay).
 --
 -- Only positive results are cached. Negative results are NOT cached so that
@@ -33,36 +78,66 @@ end
 --------------------------------------------------------------------------------
 local zoneNameCache = {}  -- englishZoneName -> localized name (positive only)
 
+-- Static mapIDs for zones that have no vendor NPC location data (quest-only zones)
+-- Source: WoW uiMapID values from C_Map.GetMapChildrenInfo traversal
+local ZONE_TO_MAP_ID = {
+    ["Azj-Kahet"] = 2255,
+    ["Blasted Lands"] = 17,
+    ["Drustvar"] = 896,
+    ["Dustwallow Marsh"] = 70,
+    ["Elwynn Forest"] = 37,
+    ["Emerald Dream"] = 2200,
+    ["Eredath"] = 882,
+    ["Felwood"] = 77,
+    ["Frostfire Ridge"] = 525,
+    ["Gilneas"] = 217,
+    ["Loch Modan"] = 48,
+    ["Mulgore"] = 7,
+    ["Nagrand"] = 550,
+    ["Shadowmoon Valley"] = 539,
+    ["Stormheim"] = 634,
+    ["The Azure Span"] = 2024,
+    ["Vol'dun"] = 864,
+    ["Westfall"] = 52,
+}
+
+-- Resolve a zone name to a uiMapID from either vendor data or the static table
+local function getMapIdForZone(self, zoneName)
+    return (self.vendorZoneToMapId and self.vendorZoneToMapId[zoneName])
+        or ZONE_TO_MAP_ID[zoneName]
+end
+
+-- Resolve a uiMapID to a localized zone name via C_Map
+local function getLocalizedNameFromMapId(mapId)
+    if not mapId then return nil end
+    local mapInfo = C_Map and C_Map.GetMapInfo(mapId)
+    return mapInfo and mapInfo.name
+end
+
 function addon:GetLocalizedZoneName(englishZoneName)
     if not englishZoneName then return englishZoneName end
 
     local cached = zoneNameCache[englishZoneName]
     if cached then return cached end
 
-    -- Try direct mapID lookup from vendor NPC location data
-    local mapId = self.vendorZoneToMapId and self.vendorZoneToMapId[englishZoneName]
-    if mapId then
-        local mapInfo = C_Map and C_Map.GetMapInfo(mapId)
-        if mapInfo and mapInfo.name then
-            zoneNameCache[englishZoneName] = mapInfo.name
-            return mapInfo.name
-        end
+    -- Try direct mapID lookup
+    local localizedName = getLocalizedNameFromMapId(getMapIdForZone(self, englishZoneName))
+    if localizedName then
+        zoneNameCache[englishZoneName] = localizedName
+        return localizedName
     end
 
     -- For compound names like "Mudsprocket, Dustwallow Marsh" or "The Bazaar, Silvermoon City",
-    -- try localizing the parent zone (after the last comma)
-    local parentZone = englishZoneName:match(",.-([^,]+)$")
+    -- try localizing both the parent zone (after the last comma) and the subzone prefix
+    local prefix, parentZone = englishZoneName:match("^(.+),%s*([^,]+)$")
     if parentZone then
-        parentZone = parentZone:match("^%s*(.-)%s*$")  -- trim whitespace
-        local parentMapId = self.vendorZoneToMapId and self.vendorZoneToMapId[parentZone]
-        if parentMapId then
-            local parentInfo = C_Map and C_Map.GetMapInfo(parentMapId)
-            if parentInfo and parentInfo.name then
-                local prefix = englishZoneName:match("^(.+,)%s*[^,]+$")
-                local localized = prefix .. " " .. parentInfo.name
-                zoneNameCache[englishZoneName] = localized
-                return localized
-            end
+        local localizedParent = getLocalizedNameFromMapId(getMapIdForZone(self, parentZone))
+        local localizedPrefix = getLocalizedNameFromMapId(getMapIdForZone(self, prefix))
+        if localizedParent then
+            local displayPrefix = localizedPrefix or prefix
+            local localized = displayPrefix .. ", " .. localizedParent
+            zoneNameCache[englishZoneName] = localized
+            return localized
         end
     end
 
@@ -89,6 +164,7 @@ local PROFESSION_SKILL_LINE_IDS = {
     ["Skinning"] = 393,
     ["Tailoring"] = 197,
     ["Fishing"] = 356,
+    ["Junkyard Tinkering"] = 2720,
 }
 
 local professionNameCache = {}  -- englishName -> localized name (positive only)

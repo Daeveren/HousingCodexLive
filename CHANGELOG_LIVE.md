@@ -2,6 +2,16 @@
 
 All notable changes to Housing Codex.
 
+**2.0.14** (2026-03-26)
+
+**Changed**
+- Currency names in vendor search now match your game language instead of always showing English
+- Zone names and profession names in quest lists now display more accurately in non-English languages
+
+**Fixed**
+- Improved how the green checkmarks are applied at vendor and bag/bank screens
+- Added a missing German translation for the quest "Sky's Hope"
+
 **2.0.13** (2026-03-25)
 
 **Fixed**

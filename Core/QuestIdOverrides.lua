@@ -35,6 +35,7 @@ addon.QuestIdOverrides = {
     ["Rescue from the Shadows"] = 86660,
     ["Return to Keeshan"] = 28183,
     ["Root Dash Delivery"] = 91589,
+    ["Root of the World"] = 88998,
     ["Russula's Outreach"] = 88997,
     ["Spare A Chair"] = 92580,
     ["The Bargain is Struck"] = 47432,
