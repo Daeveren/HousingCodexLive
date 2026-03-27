@@ -2,6 +2,12 @@
 
 All notable changes to Housing Codex.
 
+**2.0.15** (2026-03-27)
+
+**Fixed**
+- Vendor category labels (Accents, Furnishings, Lighting, etc.) now display in your game language for non-English game clients
+- Removed an item incorrectly listed under Void Researcher Aemely — the Ornate Void Elf Banner is only sold by Anomander
+
 **2.0.14** (2026-03-26)
 
 **Changed**

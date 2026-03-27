@@ -368,6 +368,14 @@ L["VENDORS_ACTION_TRACK_DISABLED_TOOLTIP"] = "Dieser Händler hat keinen gültig
 L["CURRENCY_GOLD"] = "Gold"
 -- Vendor decor fallback
 L["VENDORS_DECOR_ID"] = "Dekor #%d"
+L["VENDOR_CAT_ACCENTS"] = "Akzente"
+L["VENDOR_CAT_FUNCTIONAL"] = "Funktional"
+L["VENDOR_CAT_FURNISHINGS"] = "Möbel"
+L["VENDOR_CAT_LIGHTING"] = "Beleuchtung"
+L["VENDOR_CAT_MISCELLANEOUS"] = "Verschiedenes"
+L["VENDOR_CAT_NATURE"] = "Natur"
+L["VENDOR_CAT_STRUCTURAL"] = "Bauteile"
+L["VENDOR_CAT_UNCATEGORIZED"] = "Ohne Kategorie"
 
 -- Vendor zone annotations
 L["VENDOR_CLASS_HALL_SUFFIX"] = "Klassenhalle"
@@ -683,7 +691,6 @@ SN["World Glimmering Treasure Chest Drop"] = "Weltweiter Drop einer schimmernden
 
 -- Manual quest title translations (quests without quest IDs)
 local QT = addon.questTitleLocale
-QT["Sky's Hope"] = "Hoffnung des Himmels"
 
 -- Keybinding globals (must be set per-locale since enUS sets them before locale files override L values)
 BINDING_HEADER_HCODEX = L["KEYBIND_HEADER"]

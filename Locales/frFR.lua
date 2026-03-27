@@ -369,6 +369,14 @@ L["VENDORS_ACTION_TRACK_DISABLED_TOOLTIP"] = "Ce marchand n'a pas d'emplacement 
 L["CURRENCY_GOLD"] = "or"
 -- Vendor decor fallback
 L["VENDORS_DECOR_ID"] = "Décor #%d"
+L["VENDOR_CAT_ACCENTS"] = "Accents"
+L["VENDOR_CAT_FUNCTIONAL"] = "Fonctionnel"
+L["VENDOR_CAT_FURNISHINGS"] = "Mobilier"
+L["VENDOR_CAT_LIGHTING"] = "Éclairage"
+L["VENDOR_CAT_MISCELLANEOUS"] = "Divers"
+L["VENDOR_CAT_NATURE"] = "Nature"
+L["VENDOR_CAT_STRUCTURAL"] = "Structure"
+L["VENDOR_CAT_UNCATEGORIZED"] = "Non classé"
 
 -- Vendor zone annotations
 L["VENDOR_CLASS_HALL_SUFFIX"] = "fief de classe"

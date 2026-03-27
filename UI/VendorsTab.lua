@@ -305,7 +305,7 @@ local function VendorDecorRowOnEnter(row)
     elseif fallback and fallback.name then
         GameTooltip:SetText(fallback.name, 1, 1, 1)
         if fallback.category then
-            GameTooltip:AddLine(fallback.category, 0.7, 0.7, 0.7)
+            GameTooltip:AddLine(addon:GetLocalizedCategory(fallback.category), 0.7, 0.7, 0.7)
         end
     else
         GameTooltip:SetText(string.format(L["VENDORS_DECOR_ID"], decorId), 1, 1, 1)

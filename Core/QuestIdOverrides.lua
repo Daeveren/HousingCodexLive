@@ -37,6 +37,7 @@ addon.QuestIdOverrides = {
     ["Root Dash Delivery"] = 91589,
     ["Root of the World"] = 88998,
     ["Russula's Outreach"] = 88997,
+    ["Sky's Hope"] = 88999,
     ["Spare A Chair"] = 92580,
     ["The Bargain is Struck"] = 47432,
     ["The Cauldron of Echoes"] = 88994,

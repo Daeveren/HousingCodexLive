@@ -368,6 +368,14 @@ L["VENDORS_ACTION_TRACK_DISABLED_TOOLTIP"] = "This vendor has no valid waypoint 
 L["CURRENCY_GOLD"] = "gold"
 -- Vendor decor fallback
 L["VENDORS_DECOR_ID"] = "Decor #%d"
+L["VENDOR_CAT_ACCENTS"] = "Accents"
+L["VENDOR_CAT_FUNCTIONAL"] = "Functional"
+L["VENDOR_CAT_FURNISHINGS"] = "Furnishings"
+L["VENDOR_CAT_LIGHTING"] = "Lighting"
+L["VENDOR_CAT_MISCELLANEOUS"] = "Miscellaneous"
+L["VENDOR_CAT_NATURE"] = "Nature"
+L["VENDOR_CAT_STRUCTURAL"] = "Structural"
+L["VENDOR_CAT_UNCATEGORIZED"] = "Uncategorized"
 
 -- Vendor zone annotations
 L["VENDOR_CLASS_HALL_SUFFIX"] = "class hall"

@@ -367,6 +367,14 @@ L["VENDORS_ACTION_TRACK_DISABLED_TOOLTIP"] = "此商人没有有效的路径点�
 L["CURRENCY_GOLD"] = "金币"
 -- Vendor decor fallback
 L["VENDORS_DECOR_ID"] = "装饰 #%d"
+L["VENDOR_CAT_ACCENTS"] = "装饰品"
+L["VENDOR_CAT_FUNCTIONAL"] = "功能性"
+L["VENDOR_CAT_FURNISHINGS"] = "家具"
+L["VENDOR_CAT_LIGHTING"] = "照明"
+L["VENDOR_CAT_MISCELLANEOUS"] = "杂项"
+L["VENDOR_CAT_NATURE"] = "自然"
+L["VENDOR_CAT_STRUCTURAL"] = "建筑"
+L["VENDOR_CAT_UNCATEGORIZED"] = "未分类"
 
 -- Vendor zone annotations
 L["VENDOR_CLASS_HALL_SUFFIX"] = "职业大厅"

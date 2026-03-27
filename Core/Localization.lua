@@ -21,6 +21,25 @@ function addon:GetLocalizedSourceName(name)
     return self.sourceNameLocale[name] or name
 end
 
+-- Vendor fallback category localization
+-- Maps English category strings from VendorItemFallback to L["KEY"] entries
+local VENDOR_CAT_KEYS = {
+    ["Accents"] = "VENDOR_CAT_ACCENTS",
+    ["Functional"] = "VENDOR_CAT_FUNCTIONAL",
+    ["Furnishings"] = "VENDOR_CAT_FURNISHINGS",
+    ["Lighting"] = "VENDOR_CAT_LIGHTING",
+    ["Miscellaneous"] = "VENDOR_CAT_MISCELLANEOUS",
+    ["Nature"] = "VENDOR_CAT_NATURE",
+    ["Structural"] = "VENDOR_CAT_STRUCTURAL",
+    ["Uncategorized"] = "VENDOR_CAT_UNCATEGORIZED",
+}
+
+function addon:GetLocalizedCategory(englishCategory)
+    if not englishCategory then return englishCategory end
+    local key = VENDOR_CAT_KEYS[englishCategory]
+    return key and self.L[key] or englishCategory
+end
+
 --------------------------------------------------------------------------------
 -- Currency name localization
 -- Uses C_CurrencyInfo.GetCurrencyInfo() with known currency IDs to resolve
