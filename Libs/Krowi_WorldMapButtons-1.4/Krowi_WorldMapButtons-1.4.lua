@@ -14,7 +14,7 @@
 
 ---@diagnostic disable: undefined-global
 
-local lib, oldminor = LibStub:NewLibrary('Krowi_WorldMapButtons-1.4', 9);
+local lib, oldminor = LibStub:NewLibrary('Krowi_WorldMapButtons-1.4', 10);
 
 if not lib then
 	return;
@@ -37,7 +37,9 @@ function lib.SetPoints()
 	local xOffset, yOffset = lib.XOffset, lib.YOffset;
 	for _, button in next, lib.Buttons do
 		if button:IsShown() then
-			button:SetPoint("TOPRIGHT", button.relativeFrame, -xOffset, yOffset);
+			if button.isKrowiButton then
+				button:SetPoint("TOPRIGHT", button.relativeFrame, -xOffset, yOffset);
+			end
 			if lib.IsMainline then
 				yOffset = yOffset - 32;
 			else
@@ -55,11 +57,9 @@ local function HookDefaultButtons()
 
 	for _, f in next, WorldMapFrame.overlayFrames do
 		if WorldMapTrackingOptionsButtonMixin and f.OnLoad == WorldMapTrackingOptionsButtonMixin.OnLoad then
-			f.KrowiWorldMapButtonsIndex = #lib.Buttons;
 			tinsert(lib.Buttons, f);
 		end
 		if WorldMapTrackingPinButtonMixin and f.OnLoad == WorldMapTrackingPinButtonMixin.OnLoad then
-			f.KrowiWorldMapButtonsIndex = #lib.Buttons;
 			tinsert(lib.Buttons, f);
 		end
 	end
@@ -95,7 +95,7 @@ local function AddButton(button)
 	return button;
 end
 
-function lib:Add(templateName, templateType)
+function lib:Add(templateName, templateType, parentOverride)
 	if self.Buttons == nil then
 		self.Buttons = {};
 	end
@@ -106,7 +106,8 @@ function lib:Add(templateName, templateType)
 
 	PatchWrathClassic();
 
-	local button = CreateFrame(templateType, "Krowi_WorldMapButtons" .. (#self.Buttons + 1), lib.HasNoOverlay and WorldMapFrame.ScrollContainer or WorldMapFrame, templateName);
+	local button = CreateFrame(templateType, "Krowi_WorldMapButtons" .. (#self.Buttons + 1), parentOverride or (lib.HasNoOverlay and WorldMapFrame.ScrollContainer or WorldMapFrame), templateName);
+	button.isKrowiButton = true;
 
 	if lib.HasNoOverlay then
 		button:SetFrameStrata("TOOLTIP");
@@ -126,6 +127,18 @@ if oldminor and oldminor == 3 then
 		for _, button in next, lib.Buttons do
 			button:SetParent(WorldMapFrame.ScrollContainer);
 			button:SetFrameStrata("TOOLTIP");
+		end
+	end
+end
+
+if oldminor and oldminor < 10 then
+	if lib.Buttons then
+		for _, button in next, lib.Buttons do
+			local isOptionsButton = WorldMapTrackingOptionsButtonMixin and button.OnLoad == WorldMapTrackingOptionsButtonMixin.OnLoad;
+			local isPinButton = WorldMapTrackingPinButtonMixin and button.OnLoad == WorldMapTrackingPinButtonMixin.OnLoad;
+			if not isOptionsButton and not isPinButton then
+				button.isKrowiButton = true;
+			end
 		end
 	end
 end

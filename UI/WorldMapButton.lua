@@ -180,13 +180,9 @@ local function CreateWorldMapButton()
     buttonCreated = true
 
     local rwm = LibStub("Krowi_WorldMapButtons-1.4")
-    addon.worldMapButton = rwm:Add("HousingCodexWorldMapButtonTemplate", "DropdownButton")
+    addon.worldMapButton = rwm:Add("HousingCodexWorldMapButtonTemplate", "DropdownButton", UIParent)
 
-    -- Reparent to UIParent: Krowi library parents to WorldMapFrame, which taints
-    -- WorldMapFrame with addon execution context and causes secret value crashes
-    -- in Blizzard's AreaPOI tooltip widget code (WoWUIBugs #811)
     local button = addon.worldMapButton
-    button:SetParent(UIParent)
     button:SetFrameStrata("DIALOG")
 
     -- Sync scale: other Krowi buttons are children of WorldMapFrame with own
@@ -194,20 +190,14 @@ local function CreateWorldMapButton()
     -- Our button (parented to UIParent) needs own scale = WorldMapFrame:GetScale()
     -- so that UIParent effective × ownScale = WorldMapFrame effective.
     -- Use WorldMapFrame:GetScale() (NOT canvas container — that includes zoom).
-    local function SyncButtonScale()
-        local wmfScale = WorldMapFrame:GetScale()
-        if issecretvalue(wmfScale) then return end
-        if wmfScale and wmfScale > 0 then
-            button:SetScale(wmfScale)
-        end
-    end
-
-    -- Sync scale then re-run Krowi layout so offsets use the correct scale.
     -- Must run AFTER Krowi's own RefreshOverlayFrames hook (which calls SetPoints
     -- with the pre-scale offset), so our post-hook corrects the position.
     local function SyncButtonLayout()
-        SyncButtonScale()
-        if rwm and rwm.SetPoints then rwm.SetPoints() end
+        local wmfScale = WorldMapFrame:GetScale()
+        if not issecretvalue(wmfScale) and wmfScale and wmfScale > 0 then
+            button:SetScale(wmfScale)
+        end
+        if rwm.SetPoints then rwm.SetPoints() end
     end
 
     SyncButtonLayout()
@@ -226,7 +216,7 @@ local function CreateWorldMapButton()
         SyncButtonLayout()
     end)
 
-    addon:Debug("World map button created (reparented to UIParent)")
+    addon:Debug("World map button created (UIParent-parented, taint-safe)")
 end
 
 addon:RegisterInternalEvent("DATA_LOADED", function()

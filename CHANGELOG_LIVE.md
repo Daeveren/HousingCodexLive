@@ -2,6 +2,11 @@
 
 All notable changes to Housing Codex.
 
+**2.0.16** (2026-03-27)
+
+**Fixed**
+- Fixed another world map error that could occur when hovering quest objectives, event icons, and other map pins (continued fix for WoW UI Bug #811)
+
 **2.0.15** (2026-03-27)
 
 **Fixed**
