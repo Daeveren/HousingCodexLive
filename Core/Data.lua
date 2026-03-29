@@ -435,12 +435,10 @@ function addon:ResolveRecord(recordID)
 end
 
 function addon:GetRecordCount()
+    if not self.indexesBuilt then return 0 end
     local count = 0
     for _ in pairs(self.decorRecords) do
         count = count + 1
-    end
-    for _, record in pairs(self.fallbackRecords) do
-        if record ~= false then count = count + 1 end
     end
     return count
 end
@@ -450,9 +448,6 @@ function addon:GetUniqueCollectedCount()
     local count = 0
     for _ in pairs(self.indexes.collected) do
         count = count + 1
-    end
-    for _, record in pairs(self.fallbackRecords) do
-        if record ~= false and record.isCollected then count = count + 1 end
     end
     return count
 end

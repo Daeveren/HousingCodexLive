@@ -30,7 +30,7 @@ addon.VendorSourceData = {
             { npcId = 255114, npcName = "Maku", decorIds = {1080, 1147, 1726, 2224, 2232, 2233, 2605, 8993, 10327, 10778, 14639, 14799, 14809, 14823, 14827, 14968, 15155, 15463, 15494, 15497, 15501, 17516, 17886} },
             { npcId = 248658, npcName = "Chel the Chip", cost = 3200, currencyName = "Unalloyed Abundance", decorIds = {11323, 15851} },
             { npcId = 251259, npcName = "Mothkeeper Wew'tam", cost = 750, currencyName = "Voidlight Marl", decorIds = {14824, 15478, 15480}, itemCosts = {[14824] = 2500, [15478] = 750, [15480] = 750} },
-            { npcId = 240407, npcName = "Naynar", cost = 750, currencyName = "Voidlight Marl", decorIds = {2219, 2225, 2588, 2589, 5651, 8916, 14808, 14825, 14965, 14967, 15502, 15503, 15504} },
+            { npcId = 240407, npcName = "Naynar", cost = 750, currencyName = "Voidlight Marl", decorIds = {2219, 2225, 2588, 5651, 8916, 14808, 14825, 14965, 14967, 15502, 15503, 15504} },
             { npcId = 258507, npcName = "Mowaia", decorIds = {15407} },
             { npcId = 258480, npcName = "Amwa'ana", decorIds = {15410} },
             { npcId = 258540, npcName = "Hawli", decorIds = {15457} },
@@ -47,7 +47,7 @@ addon.VendorSourceData = {
         ["Silvermoon City"] = {
             { npcId = 242399, npcName = "Telemancer Astrandis", cost = 10, currencyName = "Voidlight Marl", decorIds = {15399, 15400, 15401, 15412, 15413, 15455, 15460} },
             { npcId = 252916, npcName = "Hesta Forlath", cost = 1500, decorIds = {1446, 9483, 9486, 9487, 9488, 9489, 9490, 9628, 9629} },
-            { npcId = 256828, npcName = "Dennia Silvertongue", cost = 500, decorIds = {11287, 14467, 15148, 15149, 15151, 15668, 15669} },
+            { npcId = 256828, npcName = "Dennia Silvertongue", cost = 500, decorIds = {1458, 1894, 2231, 4843, 9149, 9150, 9151, 9152, 11287, 14467, 15148, 15149, 15151, 15668, 15669}, itemCosts = {[1458] = 15000, [1894] = 15000, [2231] = 15000, [4843] = 15000, [9149] = 5000, [9150] = 5000, [9151] = 5000, [9152] = 5000, [14467] = 1500} },
             { npcId = 258181, npcName = "Construct Ali'a", cost = 800, currencyName = "Remnant of Anguish", decorIds = {17439, 17440, 17441, 17442, 17443, 17444, 17446, 17447, 17449, 17450, 17452, 17453, 17454, 17455, 17456, 17457, 17458, 17459, 17460, 17462, 17464, 17465, 17467, 17469, 17472, 17474, 17518, 17519, 17520, 17521, 17522, 17523}, itemCosts = {[17439] = 1200, [17440] = 1200, [17441] = 1200, [17442] = 1200, [17443] = 1200, [17444] = 1200, [17446] = 1200, [17447] = 1200, [17449] = 1200, [17450] = 1200, [17452] = 1200, [17453] = 1200, [17454] = 1200, [17455] = 800, [17456] = 800, [17457] = 800, [17458] = 800, [17459] = 800, [17460] = 800, [17462] = 800, [17464] = 800, [17465] = 800, [17467] = 800, [17469] = 800, [17472] = 800, [17474] = 800, [17518] = 800, [17519] = 1200, [17520] = 1200, [17521] = 1200, [17522] = 800, [17523] = 800} },
         },
         ["The Bazaar, Silvermoon City"] = {
@@ -74,7 +74,7 @@ addon.VendorSourceData = {
             { npcId = 93550, npcName = "Quartermaster Ozorg", cost = 500, currencyName = "Order Resources", decorIds = {5879, 5880, 5881, 5882, 5888, 5889}, itemCosts = {[5879] = 2000, [5880] = 500, [5881] = 500, [5882] = 1500, [5888] = 5000, [5889] = 1000} },
         },
         ["All Dragonflight Zones, moves with the Dreamsurge Event"] = {
-            { npcId = 210608, npcName = "Celestine of the Harvest", cost = 500, decorIds = {10888} },
+            { npcId = 210608, npcName = "Celestine of the Harvest", cost = 500, currencyName = "Dragon Isles Supplies", decorIds = {10888} },
         },
         ["Amirdrassil"] = {
             { npcId = 216284, npcName = "Mythrin'dir", cost = 250, currencyName = "Dragon Isles Supplies", decorIds = {1989, 4561}, itemCosts = {[1989] = 500, [4561] = 250} },
@@ -1164,7 +1164,6 @@ addon.VendorItemFallback = {
     [2549] = { name = "Crude Banded Crate", category = "Furnishings" },
     [2550] = { name = "Open Crude Banded Crate", category = "Furnishings" },
     [2588] = { name = "Sealed Fungal Jar", category = "Accents" },
-    [2589] = { name = "Opened Fungal Jar", category = "Furnishings" },
     [2590] = { name = "Elegant Seat Cushion", category = "Accents" },
     [2592] = { name = "Small Orgrimmar Chair", category = "Furnishings" },
     [2594] = { name = "Roast Riverbeast Platter", category = "Accents" },

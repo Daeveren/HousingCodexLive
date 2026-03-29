@@ -238,9 +238,14 @@ function addon:BuildVendorIndex()
             if zoneInfo.zoneName and not self.vendorZoneToMapId[zoneInfo.zoneName] then
                 local locData = self.NPCLocationData[npcId]
                 if locData then
-                    local entry = type(locData[1]) == "table" and locData[1] or locData
-                    if entry.uiMapId then
-                        self.vendorZoneToMapId[zoneInfo.zoneName] = entry.uiMapId
+                    local isMultiLoc = type(locData[1]) == "table"
+                    -- Skip roaming vendors (3+ locations) — their zone names are descriptive
+                    -- and the first location's mapId would misrepresent the zone for localization
+                    if not (isMultiLoc and #locData > 2) then
+                        local entry = isMultiLoc and locData[1] or locData
+                        if entry.uiMapId then
+                            self.vendorZoneToMapId[zoneInfo.zoneName] = entry.uiMapId
+                        end
                     end
                 end
             end

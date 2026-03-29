@@ -226,6 +226,7 @@ end
 
 -- Named handlers for zone header rows (bound once, read data from frame fields)
 local function VendorZoneHeaderOnClick(frame)
+    if frame.isForceExpanded then return end
     VendorsTab:ToggleZone(frame.expansionKey, frame.zoneName)
 end
 
@@ -268,14 +269,14 @@ local function VendorRowOnLeave(frame)
 end
 
 local function VendorWaypointBtnOnClick(btn)
-    VendorsTab:SetWaypoint(btn.npcId, nil)
+    VendorsTab:SetWaypoint(btn.npcId, nil, btn.zoneName)
 end
 
 -- Named handlers for decor rows (bound once, read data from row fields)
 local function VendorDecorRowOnClick(row)
     local decorId = row.decorId
     if IsShiftKeyDown() then
-        VendorsTab:ToggleVendorDecorTracking(row.npcId, decorId)
+        VendorsTab:ToggleVendorDecorTracking(row.npcId, decorId, row.zoneName)
         return
     end
     VendorsTab:HandleItemSelection({
@@ -378,7 +379,7 @@ function VendorsTab:SelectExpansion(expansionKey)
     local db = GetVendorsDB()
     if db then
         db.selectedExpansionKey = expansionKey
-        if db.expandedZones then
+        if prevSelected ~= expansionKey and db.expandedZones then
             for _, zoneName in ipairs(addon:GetSortedVendorZones(expansionKey)) do
                 db.expandedZones[expansionKey .. ":" .. zoneName] = nil
             end
@@ -567,6 +568,8 @@ function VendorsTab:ResetVendorFrame(frame)
     frame.expansionKey = nil
     frame.isZoneHeader = nil
     frame.waypointBtn.npcId = nil
+    frame.waypointBtn.zoneName = nil
+    frame.isForceExpanded = nil
 
     -- Hide all decor rows
     for _, row in ipairs(frame.decorRows) do
@@ -664,13 +667,15 @@ function VendorsTab:SetupZoneHeader(frame, elementData)
     frame.expansionKey = elementData.expansionKey
 
     local isExpanded = self:IsZoneExpanded(elementData.expansionKey, elementData.zoneName)
+    local isEffectivelyExpanded = isExpanded or elementData.isForceExpanded
+    frame.isForceExpanded = elementData.isForceExpanded
 
     -- Reset background
     addon:ResetBackgroundTexture(frame.bg)
     frame.bg:SetColorTexture(unpack(COLORS.PANEL_NORMAL_ALT))
 
     -- Collapse indicator
-    frame.indicator:SetText(isExpanded and "-" or "+")
+    frame.indicator:SetText(isEffectivelyExpanded and "-" or "+")
     frame.indicator:SetTextColor(1, 1, 1, 1)
     frame.indicator:SetPoint("LEFT", 8, 0)
     frame.indicator:Show()
@@ -729,6 +734,8 @@ function VendorsTab:SetupVendorRow(frame, elementData)
     frame:SetHeight(VENDOR_ROW_BASE_HEIGHT + (decorCount * DECOR_ROW_HEIGHT))
     frame.npcId = elementData.npcId
     frame.decorIds = decorIds
+    frame.zoneName = elementData.zoneName
+    frame.expansionKey = elementData.expansionKey
 
     addon:ResetBackgroundTexture(frame.bg)
     frame.bg:SetColorTexture(unpack(COLORS.ROW_BG))
@@ -738,8 +745,7 @@ function VendorsTab:SetupVendorRow(frame, elementData)
     frame.decorContainer:SetHeight(decorCount * DECOR_ROW_HEIGHT)
 
     local vendorDisplayName = addon:GetLocalizedNPCName(elementData.npcId, elementData.npcName) or L["VENDOR_UNKNOWN"]
-    local zoneCache = addon.vendorZoneCache and addon.vendorZoneCache[elementData.npcId]
-    local classHall = zoneCache and addon:GetClassHallAnnotation(zoneCache.zoneName)
+    local classHall = addon:GetClassHallAnnotation(elementData.zoneName)
     if classHall then
         local colorCode = addon:GetClassColorCode(classHall)
         local localizedClass = addon:GetLocalizedClassName(classHall)
@@ -767,6 +773,7 @@ function VendorsTab:SetupVendorRow(frame, elementData)
 
     if addon:GetNPCLocation(elementData.npcId) then
         frame.waypointBtn.npcId = elementData.npcId
+        frame.waypointBtn.zoneName = elementData.zoneName
         frame.waypointBtn:Show()
     end
 
@@ -840,6 +847,7 @@ function VendorsTab:SetupDecorRows(frame, decorIds)
         row.fallback = fallback
         row.isCollected = record and record.isCollected
         row.npcId = frame.npcId
+        row.zoneName = frame.zoneName
 
         if record then
             if record.iconType == "atlas" then
@@ -915,8 +923,24 @@ local function PrintVendorTrackingMessage(messageKey, npcId)
     addon:Print(message)
 end
 
-function VendorsTab:GetVendorTrackPoint(npcId)
-    local locData = addon:GetNPCLocation(npcId)
+function VendorsTab:GetVendorTrackPoint(npcId, preferredZoneName)
+    -- For multi-location vendors, prefer the location matching the row's zone context
+    local locData
+    local locations = preferredZoneName and addon:GetNPCLocations(npcId)
+    local zoneMapId = locations and #locations > 1 and addon.vendorZoneToMapId and addon.vendorZoneToMapId[preferredZoneName]
+    if zoneMapId then
+        local zoneRootId = addon:GetZoneRootMapID(zoneMapId)
+        if zoneRootId then
+            for _, loc in ipairs(locations) do
+                if loc.uiMapId and addon:GetZoneRootMapID(loc.uiMapId) == zoneRootId then
+                    locData = loc
+                    break
+                end
+            end
+        end
+    end
+    locData = locData or addon:GetNPCLocation(npcId)
+
     if not locData or not addon.IsValidMapId(locData.uiMapId) or not addon.HasValidCoordinates(locData) then
         return nil, nil, "VENDOR_NO_LOCATION"
     end
@@ -1037,7 +1061,7 @@ function VendorsTab:ReconcileVendorTrackingWithWaypoint()
     end
 end
 
-function VendorsTab:ToggleVendorDecorTracking(npcId, decorId)
+function VendorsTab:ToggleVendorDecorTracking(npcId, decorId, zoneName)
     local L = addon.L
     if not npcId or not decorId then return end
 
@@ -1050,7 +1074,7 @@ function VendorsTab:ToggleVendorDecorTracking(npcId, decorId)
         return
     end
 
-    local point, locData, errorKey = self:GetVendorTrackPoint(npcId)
+    local point, locData, errorKey = self:GetVendorTrackPoint(npcId, zoneName)
     if not point then
         addon:Print(L[errorKey] or L["VENDOR_MAP_RESTRICTED"])
         return
@@ -1069,10 +1093,10 @@ function VendorsTab:ToggleVendorDecorTracking(npcId, decorId)
     PrintVendorTrackingMessage("VENDORS_TRACKING_STARTED", npcId)
 end
 
-function VendorsTab:SetWaypoint(npcId, npcName)
+function VendorsTab:SetWaypoint(npcId, npcName, zoneName)
     local L = addon.L
     npcName = addon:GetLocalizedNPCName(npcId, npcName)
-    local point, locData, errorKey = self:GetVendorTrackPoint(npcId)
+    local point, locData, errorKey = self:GetVendorTrackPoint(npcId, zoneName)
     if not point then
         addon:Print(L[errorKey] or L["VENDOR_MAP_RESTRICTED"])
         return
@@ -1377,6 +1401,7 @@ function VendorsTab:BuildVendorDisplay()
         local filter = self:GetCompletionFilter()
         local searchText = strlower(strtrim(self.searchBox and self.searchBox:GetText() or ""))
         local zoneFilterActive = self.currentZoneOnly
+        local isForceExpanded = zoneFilterActive or searchText ~= ""
 
         for _, zoneName in ipairs(addon:GetSortedVendorZones(expansionKey)) do
             if not zoneFilterActive or VendorZoneMatchesPlayerZone(zoneName) then
@@ -1389,14 +1414,36 @@ function VendorsTab:BuildVendorDisplay()
                 end
 
                 if #zoneVendors > 0 then
-                    table.insert(elements, { isZoneHeader = true, expansionKey = expansionKey, zoneName = zoneName })
-                    if zoneFilterActive or searchText ~= "" or self:IsZoneExpanded(expansionKey, zoneName) then
+                    table.insert(elements, { isZoneHeader = true, expansionKey = expansionKey, zoneName = zoneName, isForceExpanded = isForceExpanded })
+                    if isForceExpanded or self:IsZoneExpanded(expansionKey, zoneName) then
                         for _, vendor in ipairs(zoneVendors) do
-                            table.insert(elements, vendor)
+                            table.insert(elements, {
+                                npcId = vendor.npcId,
+                                npcName = vendor.npcName,
+                                decorIds = vendor.decorIds,
+                                zoneName = zoneName,
+                                expansionKey = expansionKey,
+                            })
                         end
                     end
                 end
             end
+        end
+    end
+
+    -- Clear stale selection if the selected vendor is no longer in the visible list
+    if self.selectedVendorNpcId then
+        local found = false
+        for _, el in ipairs(elements) do
+            if el.npcId == self.selectedVendorNpcId then
+                found = true
+                break
+            end
+        end
+        if not found then
+            self.selectedVendorNpcId = nil
+            self.selectedDecorId = nil
+            addon:FireEvent("RECORD_SELECTED", nil)
         end
     end
 

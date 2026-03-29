@@ -2,6 +2,21 @@
 
 All notable changes to Housing Codex.
 
+**2.0.17** (2026-03-29)
+
+**Changed**
+- Data broker addons (Titan Panel, Chocolate Bar, etc.) now display the Housing Codex item count instead of just an icon
+- Updated Midnight and Dragon Isles decor vendor data for accuracy
+
+**Fixed**
+- Minimap button left-click and alt-click now work during combat
+- Vendor tab no longer snaps back to a hidden item in the preview after searching or filtering
+- Zone headers in the Vendors tab now show the correct +/- indicator when searching or filtering
+- Collapsing and expanding zones in the Vendors tab is now remembered when switching within the same expansion
+- Class-specific vendor zone labels now show the correct class for vendors that appear in multiple zones
+- Waypoint pins for multi-location vendors now prefer the location matching the zone you clicked
+- Dragon Isles vendors that appear in multiple zones now show their full zone description instead of just one zone
+
 **2.0.16** (2026-03-27)
 
 **Fixed**

@@ -1,6 +1,6 @@
 --[[
     Housing Codex - LDB.lua
-    LibDataBroker support for broker display addons (Titan Panel, ChocolateBar, etc.)
+    LibDataBroker support for broker display addons
 ]]
 
 local ADDON_NAME, addon = ...
@@ -102,11 +102,6 @@ end
 
 -- Shared click handler for LDB and AddonCompartment
 local function HandleClick(clickedFrame, button)
-    if InCombatLockdown() then
-        addon:Print(L["COMBAT_LOCKDOWN_MESSAGE"])
-        return
-    end
-
     if button == "LeftButton" then
         if IsAltKeyDown() then
             ToggleBrokerPopup(clickedFrame)
@@ -114,6 +109,10 @@ local function HandleClick(clickedFrame, button)
             addon.MainFrame:Toggle()
         end
     elseif button == "RightButton" then
+        if InCombatLockdown() then
+            addon:Print(L["COMBAT_LOCKDOWN_MESSAGE"])
+            return
+        end
         if addon.Settings and addon.Settings.Open then
             addon.Settings:Open()
         else
@@ -148,7 +147,7 @@ function LDB:Initialize()
 
     -- Create data object
     dataObject = LDBLib:NewDataObject(ADDON_NAME, {
-        type = "launcher",
+        type = "data source",
         icon = "Interface\\AddOns\\HousingCodex\\HC",
         text = "",
         OnClick = HandleClick,

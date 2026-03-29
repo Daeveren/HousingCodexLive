@@ -123,6 +123,7 @@ addon.ZONE_TO_EXPANSION = {
     ["The Vindicaar"] = "EXPANSION_LEGION",
     ["The Wandering Isle"] = "EXPANSION_LEGION",
     ["Thunder Totem, Highmountain"] = "EXPANSION_LEGION",
+    ["Thunder Totem"] = "EXPANSION_LEGION",
     ["Trueshot Lodge"] = "EXPANSION_LEGION",
     ["Val'sharah"] = "EXPANSION_LEGION",
 
