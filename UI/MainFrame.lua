@@ -591,30 +591,26 @@ function MainFrame:ClampToScreen()
 end
 
 function MainFrame:ResetPosition()
-    local frame = self.frame
-    if not frame then return end
-
-    frame:ClearAllPoints()
-    frame:SetPoint("CENTER", UIParent, "CENTER")
-
     if addon.db then
         addon.db.framePosition = nil
     end
-
     addon:Print(addon.L["POSITION_RESET"])
+
+    local frame = self.frame
+    if not frame then return end
+    frame:ClearAllPoints()
+    frame:SetPoint("CENTER", UIParent, "CENTER")
 end
 
 function MainFrame:ResetSize()
-    local frame = self.frame
-    if not frame then return end
-
-    frame:SetSize(DEFAULT_WIDTH, DEFAULT_HEIGHT)
-
     if addon.db then
         addon.db.frameSize = { width = DEFAULT_WIDTH, height = DEFAULT_HEIGHT }
     end
-
     addon:Print(addon.L["SIZE_RESET"])
+
+    local frame = self.frame
+    if not frame then return end
+    frame:SetSize(DEFAULT_WIDTH, DEFAULT_HEIGHT)
 end
 
 function MainFrame:Show()

@@ -208,6 +208,10 @@ local function SanitizeDB(db)
         db.preview.isOpen = nil
     end
 
+    if db.minimap then
+        db.minimap.showInCompartment = nil
+    end
+
     local browser = db.browser
     if browser then
         if browser.quests then browser.quests.expandedExpansions = nil end

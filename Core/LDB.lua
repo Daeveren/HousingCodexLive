@@ -125,6 +125,15 @@ end
 local function ShowTooltip(tooltip)
     if not tooltip or not tooltip.AddLine then return end
     tooltip:AddLine(L["ADDON_NAME"])
+
+    if addon.indexesBuilt then
+        tooltip:AddLine(" ")
+        tooltip:AddLine(L["LDB_TOOLTIP_DECOR_HEADER"], 1, 0.82, 0, 1)
+        tooltip:AddDoubleLine(L["LDB_POPUP_UNIQUE"], tostring(addon:GetUniqueCollectedCount()), 0.8, 0.8, 0.8, 1, 1, 1)
+        tooltip:AddDoubleLine(L["LDB_POPUP_TOTAL_OWNED"], tostring(addon:GetTotalOwnedCount()), 0.8, 0.8, 0.8, 1, 1, 1)
+        tooltip:AddDoubleLine(L["LDB_POPUP_TOTAL_ITEMS"], tostring(addon:GetRecordCount()), 0.8, 0.8, 0.8, 1, 1, 1)
+    end
+
     tooltip:AddLine(" ")
     tooltip:AddLine(L["LDB_TOOLTIP_LEFT"], 0.8, 0.8, 0.8)
     tooltip:AddLine(L["LDB_TOOLTIP_RIGHT"], 0.8, 0.8, 0.8)

@@ -80,13 +80,6 @@ function Waypoints:Clear()
     activeWaypoint = nil
 end
 
-function Waypoints:HasActive()
-    if self:IsTomTomActive() then
-        return activeWaypoint ~= nil
-    end
-    return C_Map.HasUserWaypoint()
-end
-
 function Waypoints:GetActive()
     return activeWaypoint
 end

@@ -143,18 +143,7 @@ function Grid:CreateToolbar(parent)
     valueText:SetPoint("RIGHT", slider, "LEFT", -6, 0)
 
     -- Slider change handler with debounce
-    slider:SetScript("OnValueChanged", function(sliderFrame, value)
-        value = math.floor(value)
-        valueText:SetText(tostring(value))
-
-        -- Debounce the rebuild to avoid excessive rebuilds while dragging
-        if sliderFrame.debounceTimer then
-            sliderFrame.debounceTimer:Cancel()
-        end
-        sliderFrame.debounceTimer = C_Timer.NewTimer(CONSTS.TIMER.INPUT_DEBOUNCE, function()
-            Grid:SetTileSize(value)
-        end)
-    end)
+    addon:AttachTileSizeSlider(slider, valueText, Grid)
 
     -- Size label (left of value)
     local label = addon:CreateFontString(toolbar, "OVERLAY", "GameFontNormalSmall")
@@ -328,17 +317,7 @@ function Grid:CreateScrollBox(parent, tileSize)
     self.scrollBar = scrollBar
 
     -- Debounced resize handler — FullUpdate triggers GetStride() re-derivation
-    self.resizeTimer = nil
-
-    container:SetScript("OnSizeChanged", function(_, width, height)
-        if self.resizeTimer then self.resizeTimer:Cancel() end
-        self.resizeTimer = C_Timer.NewTimer(CONSTS.TIMER.INPUT_DEBOUNCE, function()
-            self.resizeTimer = nil
-            if self.scrollBox then
-                self.scrollBox:FullUpdate(ScrollBoxConstants.UpdateImmediately)
-            end
-        end)
-    end)
+    addon:AttachGridResizeHandler(container, self)
 
     -- Create grid view
     local containerWidth = container:GetWidth()
@@ -623,24 +602,7 @@ function Grid:SetTileSize(newSize)
         addon.db.browser.tileSize = newSize
     end
 
-    if not self.view or not self.scrollBox then return end
-
-    -- Cancel pending resize timer to avoid double update
-    if self.resizeTimer then
-        self.resizeTimer:Cancel()
-        self.resizeTimer = nil
-    end
-
-    -- Update view sizing (closures already read self.tileSize)
-    self.view:SetElementExtent(newSize)
-    self.view:SetStrideExtent(newSize)
-    -- Must call SetElementSizeCalculator to clear cached element size data
-    self.view:SetElementSizeCalculator(function()
-        return self.tileSize, self.tileSize
-    end)
-
-    -- Force full frame re-acquire with new sizes
-    self.scrollBox:Rebuild(ScrollBoxConstants.RetainScrollPosition)
+    addon:ApplyTileSizeToView(self)
 end
 
 -- Store unfiltered IDs for re-filtering without new search

@@ -2,6 +2,20 @@
 
 All notable changes to Housing Codex.
 
+**2.1.0** (2026-03-30)
+
+**Added**
+- Hovering the minimap button or addon compartment now shows your decor collection stats (unique collected, total owned, total items)
+
+**Changed**
+- Addon settings panel has a cleaner layout with improved section headers and spacing
+- Improvements to "Reset Window Position" and "Reset Window Size" logic
+- Keybind display now shows both bindings when two keys are set (e.g., "Ctrl-H / F6")
+
+**Fixed**
+- Fixed a duplicate addon compartment entry that could appear after certain settings changes
+- Keybind capture is now blocked during combat, matching the existing unbind behavior
+
 **2.0.17** (2026-03-29)
 
 **Changed**

@@ -211,17 +211,7 @@ function WishlistFrame:CreateToolbar()
     slider:SetObeyStepOnDrag(true)
     self.tileSizeSlider = slider
 
-    slider:SetScript("OnValueChanged", function(sliderFrame, value)
-        value = math.floor(value)
-        valueText:SetText(tostring(value))
-
-        if sliderFrame.debounceTimer then
-            sliderFrame.debounceTimer:Cancel()
-        end
-        sliderFrame.debounceTimer = C_Timer.NewTimer(CONSTS.TIMER.INPUT_DEBOUNCE, function()
-            WishlistFrame:SetTileSize(value)
-        end)
-    end)
+    addon:AttachTileSizeSlider(slider, valueText, WishlistFrame)
 
     -- Item count (right side)
     local countText = addon:CreateFontString(toolbar, "OVERLAY", "GameFontNormal")
@@ -267,17 +257,7 @@ function WishlistFrame:CreateGrid()
     self.scrollBar = scrollBar
 
     -- Debounced resize handler — FullUpdate triggers GetStride() re-derivation
-    self.resizeTimer = nil
-
-    container:SetScript("OnSizeChanged", function(_, width)
-        if self.resizeTimer then self.resizeTimer:Cancel() end
-        self.resizeTimer = C_Timer.NewTimer(CONSTS.TIMER.INPUT_DEBOUNCE, function()
-            self.resizeTimer = nil
-            if self.scrollBox then
-                self.scrollBox:FullUpdate(ScrollBoxConstants.UpdateImmediately)
-            end
-        end)
-    end)
+    addon:AttachGridResizeHandler(container, self)
 
     -- Create grid view
     local containerWidth = container:GetWidth()
@@ -648,12 +628,6 @@ end
 -- Actions Row
 --------------------------------------------------------------------------------
 
--- Star button sizing and colors (matches PreviewFrame)
-local STAR_BUTTON_SIZE = CONSTS.WISHLIST_STAR_SIZE_PREVIEW
-local COLOR_STAR_EMPTY = { 0.4, 0.4, 0.4, 1 }
-local COLOR_STAR_FILLED = COLORS.GOLD
-local COLOR_STAR_HOVER = { 0.7, 0.7, 0.7, 1 }
-
 function WishlistFrame:CreateActionsRow(detailsArea, anchorElement)
     local AB = CONSTS.ACTION_BUTTON
     local L = addon.L
@@ -699,62 +673,12 @@ function WishlistFrame:CreateActionsRow(detailsArea, anchorElement)
 end
 
 function WishlistFrame:CreateWishlistButton(parent)
-    local btn = CreateFrame("Button", nil, parent)
-    btn:SetSize(STAR_BUTTON_SIZE, STAR_BUTTON_SIZE)
-
-    -- Star texture
-    local star = btn:CreateTexture(nil, "ARTWORK")
-    star:SetAllPoints()
-    star:SetAtlas("PetJournal-FavoritesIcon")
-    star:SetDesaturated(true)
-    star:SetVertexColor(unpack(COLOR_STAR_EMPTY))
-    btn.star = star
-
-    btn:SetScript("OnClick", function()
-        local recordID = self.currentRecordID
-        if not recordID then return end
-
-        local isNowWishlisted = addon:ToggleWishlist(recordID)
-        local key = isNowWishlisted and addon.L["WISHLIST_ADDED"] or addon.L["WISHLIST_REMOVED"]
-        addon:GetDecorLink(recordID, function(link)
-            addon:Print(string.format(key, link))
-        end)
-        self:UpdateWishlistButton()
-    end)
-
-    btn:SetScript("OnEnter", function(b)
-        local recordID = self.currentRecordID
-        if not recordID then return end
-
-        local isWishlisted = addon:IsWishlisted(recordID)
-        if not isWishlisted then
-            b.star:SetVertexColor(unpack(COLOR_STAR_HOVER))
-        end
-
-        local tooltipText = isWishlisted
-            and addon.L["WISHLIST_REMOVE"]
-            or addon.L["WISHLIST_ADD"]
-        GameTooltip:SetOwner(b, "ANCHOR_RIGHT")
-        GameTooltip:SetText(tooltipText)
-        GameTooltip:Show()
-    end)
-
-    btn:SetScript("OnLeave", function()
-        self:UpdateWishlistButton()
-        GameTooltip:Hide()
-    end)
-
-    return btn
+    return addon:CreateWishlistStarButton(parent, self)
 end
 
 function WishlistFrame:UpdateWishlistButton()
     if not self.wishlistButton then return end
-
-    local isWishlisted = self.currentRecordID and addon:IsWishlisted(self.currentRecordID)
-    local star = self.wishlistButton.star
-
-    star:SetDesaturated(not isWishlisted)
-    star:SetVertexColor(unpack(isWishlisted and COLOR_STAR_FILLED or COLOR_STAR_EMPTY))
+    self.wishlistButton:UpdateState(self.currentRecordID)
 end
 
 function WishlistFrame:UpdateActionButtons(record)
@@ -901,23 +825,7 @@ function WishlistFrame:SetTileSize(newSize)
         db.tileSize = newSize
     end
 
-    if not self.view or not self.scrollBox then return end
-
-    -- Cancel pending resize timer to avoid double update
-    if self.resizeTimer then
-        self.resizeTimer:Cancel()
-        self.resizeTimer = nil
-    end
-
-    -- Update view sizing (closures already read self.tileSize)
-    self.view:SetElementExtent(newSize)
-    self.view:SetStrideExtent(newSize)
-    self.view:SetElementSizeCalculator(function()
-        return self.tileSize, self.tileSize
-    end)
-
-    -- Force full frame re-acquire with new sizes
-    self.scrollBox:Rebuild(ScrollBoxConstants.RetainScrollPosition)
+    addon:ApplyTileSizeToView(self)
 end
 
 function WishlistFrame:SelectRecord(recordID)

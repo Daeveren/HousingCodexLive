@@ -573,6 +573,123 @@ function addon:CreateActionButton(parent, label, onClick, onTooltip)
     return btn
 end
 
+-- ============================================================================
+-- Shared Wishlist Star Button (used by PreviewFrame and WishlistFrame)
+-- ============================================================================
+
+local STAR_COLOR_EMPTY = { 0.4, 0.4, 0.4, 1 }
+local STAR_COLOR_HOVER = { 0.7, 0.7, 0.7, 1 }
+
+-- Creates an interactive wishlist star toggle button.
+-- owner must have .currentRecordID field and :UpdateWishlistButton() method.
+function addon:CreateWishlistStarButton(parent, owner)
+    local STAR_SIZE = self.CONSTANTS.WISHLIST_STAR_SIZE_PREVIEW
+    local GOLD = self.CONSTANTS.COLORS.GOLD
+    local L = self.L
+
+    local btn = CreateFrame("Button", nil, parent)
+    btn:SetSize(STAR_SIZE, STAR_SIZE)
+
+    local star = btn:CreateTexture(nil, "ARTWORK")
+    star:SetAllPoints()
+    star:SetAtlas("PetJournal-FavoritesIcon")
+    star:SetDesaturated(true)
+    star:SetVertexColor(unpack(STAR_COLOR_EMPTY))
+    btn.star = star
+
+    function btn:UpdateState(recordID)
+        local isWishlisted = recordID and addon:IsWishlisted(recordID)
+        self.star:SetDesaturated(not isWishlisted)
+        self.star:SetVertexColor(unpack(isWishlisted and GOLD or STAR_COLOR_EMPTY))
+    end
+
+    btn:SetScript("OnClick", function()
+        local recordID = owner.currentRecordID
+        if not recordID then return end
+
+        local isNowWishlisted = addon:ToggleWishlist(recordID)
+        local key = isNowWishlisted and L["WISHLIST_ADDED"] or L["WISHLIST_REMOVED"]
+        addon:GetDecorLink(recordID, function(link)
+            addon:Print(string.format(key, link))
+        end)
+        btn:UpdateState(recordID)
+    end)
+
+    btn:SetScript("OnEnter", function(b)
+        local recordID = owner.currentRecordID
+        if not recordID then return end
+
+        local isWishlisted = addon:IsWishlisted(recordID)
+        if not isWishlisted then
+            b.star:SetVertexColor(unpack(STAR_COLOR_HOVER))
+        end
+
+        local tooltipText = isWishlisted and L["WISHLIST_REMOVE"] or L["WISHLIST_ADD"]
+        GameTooltip:SetOwner(b, "ANCHOR_RIGHT")
+        GameTooltip:SetText(tooltipText)
+        GameTooltip:Show()
+    end)
+
+    btn:SetScript("OnLeave", function()
+        btn:UpdateState(owner.currentRecordID)
+        GameTooltip:Hide()
+    end)
+
+    return btn
+end
+
+-- ============================================================================
+-- Shared Grid Sizing Helpers (used by Grid and WishlistFrame)
+-- ============================================================================
+
+-- Attaches debounced OnValueChanged to a tile-size slider.
+-- owner must have :SetTileSize(value) method.
+function addon:AttachTileSizeSlider(slider, valueText, owner)
+    slider:SetScript("OnValueChanged", function(sliderFrame, value)
+        value = math.floor(value)
+        valueText:SetText(tostring(value))
+        if sliderFrame.debounceTimer then
+            sliderFrame.debounceTimer:Cancel()
+        end
+        sliderFrame.debounceTimer = C_Timer.NewTimer(self.CONSTANTS.TIMER.INPUT_DEBOUNCE, function()
+            owner:SetTileSize(value)
+        end)
+    end)
+end
+
+-- Attaches debounced OnSizeChanged to a grid container.
+-- owner must have .scrollBox field and .resizeTimer field.
+function addon:AttachGridResizeHandler(container, owner)
+    container:SetScript("OnSizeChanged", function()
+        if owner.resizeTimer then owner.resizeTimer:Cancel() end
+        owner.resizeTimer = C_Timer.NewTimer(self.CONSTANTS.TIMER.INPUT_DEBOUNCE, function()
+            owner.resizeTimer = nil
+            if owner.scrollBox then
+                owner.scrollBox:FullUpdate(ScrollBoxConstants.UpdateImmediately)
+            end
+        end)
+    end)
+end
+
+-- Applies tile size change to a grid view (cancel resize timer, update extents, rebuild).
+-- owner must have .tileSize, .view, .scrollBox, and .resizeTimer fields.
+function addon:ApplyTileSizeToView(owner)
+    if not owner.view or not owner.scrollBox then return end
+
+    if owner.resizeTimer then
+        owner.resizeTimer:Cancel()
+        owner.resizeTimer = nil
+    end
+
+    owner.view:SetElementExtent(owner.tileSize)
+    owner.view:SetStrideExtent(owner.tileSize)
+    owner.view:SetElementSizeCalculator(function()
+        return owner.tileSize, owner.tileSize
+    end)
+
+    owner.scrollBox:Rebuild(ScrollBoxConstants.RetainScrollPosition)
+end
+
 function addon:MergeDefaults(target, defaults)
     for key, value in pairs(defaults) do
         if type(value) == "table" then
@@ -728,11 +845,13 @@ function addon.GetCurrentKeybind()
 end
 
 function addon.GetKeybindDisplayText()
-    local key = addon.GetCurrentKeybind()
-    if key then
-        return GetBindingText(key)
+    local key1, key2 = GetBindingKey(addon.BINDING_ACTION)
+    if not key1 then return nil end
+    local text = GetBindingText(key1)
+    if key2 then
+        text = text .. " / " .. GetBindingText(key2)
     end
-    return nil
+    return text
 end
 
 -- Slash Commands
@@ -779,11 +898,7 @@ SlashCmdList["HOUSINGCODEX"] = function(msg)
         addon:ResetLoadState()
         addon:LoadData()
     elseif cmd == "reset" then
-        if addon.MainFrame then
-            addon.MainFrame:ResetPosition()
-        else
-            addon:Print(L["MAIN_WINDOW_NOT_AVAILABLE"])
-        end
+        addon.MainFrame:ResetPosition()
     elseif cmd == "stats reset" then
         addon:ResetDebugCounters()
     elseif cmd == "stats" then

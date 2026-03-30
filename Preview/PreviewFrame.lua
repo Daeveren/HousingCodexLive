@@ -498,69 +498,13 @@ function Preview:CreateActionsRow(details, anchorElement)
 end
 
 
--- Star button sizing and colors
-local WISHLIST_STAR_SIZE = addon.CONSTANTS.WISHLIST_STAR_SIZE_PREVIEW
-local COLOR_STAR_EMPTY = { 0.4, 0.4, 0.4, 1 }
-local COLOR_STAR_FILLED = COLORS.GOLD
-local COLOR_STAR_HOVER = { 0.7, 0.7, 0.7, 1 }
-
 function Preview:CreateWishlistButton(parent)
-    local btn = CreateFrame("Button", nil, parent)
-    btn:SetSize(WISHLIST_STAR_SIZE, WISHLIST_STAR_SIZE)
-
-    -- Star texture (using common star atlas)
-    local star = btn:CreateTexture(nil, "ARTWORK")
-    star:SetAllPoints()
-    star:SetAtlas("PetJournal-FavoritesIcon")  -- Filled star shape
-    star:SetDesaturated(true)
-    star:SetVertexColor(unpack(COLOR_STAR_EMPTY))
-    btn.star = star
-
-    btn:SetScript("OnClick", function()
-        local recordID = self.currentRecordID
-        if not recordID then return end
-
-        local isNowWishlisted = addon:ToggleWishlist(recordID)
-        local key = isNowWishlisted and addon.L["WISHLIST_ADDED"] or addon.L["WISHLIST_REMOVED"]
-        addon:GetDecorLink(recordID, function(link)
-            addon:Print(string.format(key, link))
-        end)
-        self:UpdateWishlistButton()
-    end)
-
-    btn:SetScript("OnEnter", function(b)
-        local recordID = self.currentRecordID
-        if not recordID then return end
-
-        local isWishlisted = addon:IsWishlisted(recordID)
-        if not isWishlisted then
-            b.star:SetVertexColor(unpack(COLOR_STAR_HOVER))
-        end
-
-        local tooltipText = isWishlisted
-            and addon.L["WISHLIST_REMOVE"]
-            or addon.L["WISHLIST_ADD"]
-        GameTooltip:SetOwner(b, "ANCHOR_RIGHT")
-        GameTooltip:SetText(tooltipText)
-        GameTooltip:Show()
-    end)
-
-    btn:SetScript("OnLeave", function()
-        self:UpdateWishlistButton()
-        GameTooltip:Hide()
-    end)
-
-    return btn
+    return addon:CreateWishlistStarButton(parent, self)
 end
 
 function Preview:UpdateWishlistButton()
     if not self.wishlistButton then return end
-
-    local isWishlisted = self.currentRecordID and addon:IsWishlisted(self.currentRecordID)
-    local star = self.wishlistButton.star
-
-    star:SetDesaturated(not isWishlisted)
-    star:SetVertexColor(unpack(isWishlisted and COLOR_STAR_FILLED or COLOR_STAR_EMPTY))
+    self.wishlistButton:UpdateState(self.currentRecordID)
 end
 
 function Preview:UpdateDetails(record)

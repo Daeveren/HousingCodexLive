@@ -73,12 +73,21 @@ end
 --------------------------------------------------------------------------------
 -- Helper: Create section divider line
 --------------------------------------------------------------------------------
-local function CreateDivider(parent, yOffset)
+local SECTION_GAP = 20  -- vertical gap before each section header
+
+local function CreateSectionHeader(parent, text, yOffset)
+    local label = addon:CreateFontString(parent, "ARTWORK", "GameFontNormal")
+    label:SetPoint("TOPLEFT", 16, yOffset)
+    label:SetText(text)
+    label:SetTextColor(1, 1, 1)
+
     local divider = parent:CreateTexture(nil, "ARTWORK")
     divider:SetHeight(1)
-    divider:SetPoint("TOPLEFT", 16, yOffset - 5)
-    divider:SetPoint("TOPRIGHT", -16, yOffset - 5)
+    divider:SetPoint("LEFT", label, "RIGHT", 8, 0)
+    divider:SetPoint("RIGHT", parent, "RIGHT", -16, 0)
     divider:SetColorTexture(0.3, 0.3, 0.35, 0.6)
+
+    return label
 end
 
 local function CreateResetButton(parent, labelKey, tooltipKey, onClick)
@@ -128,30 +137,8 @@ function addon.Settings:Initialize()
     --------------------------------------------------------------------------------
     -- DISPLAY SECTION
     --------------------------------------------------------------------------------
-    local displayHeader = addon:CreateFontString(panel, "ARTWORK", "GameFontNormal")
-    displayHeader:SetPoint("TOPLEFT", 16, yOffset)
-    displayHeader:SetText(L["OPTIONS_SECTION_DISPLAY"])
-    displayHeader:SetTextColor(1, 0.82, 0)
+    CreateSectionHeader(panel, L["OPTIONS_SECTION_DISPLAY"], yOffset)
     yOffset = yOffset - 20
-
-    -- Custom font toggle hidden from UI; use /hc font to toggle
-
-    -- Show Minimap Button checkbox
-    local minimapCheck = CreateCheckbox(
-        panel,
-        L["OPTIONS_SHOW_MINIMAP"],
-        L["OPTIONS_SHOW_MINIMAP_TOOLTIP"],
-        function() return addon.db and addon.db.settings.showMinimapButton end,
-        function(checked)
-            if addon.db then
-                addon.db.settings.showMinimapButton = checked
-                if addon.LDB then
-                    addon.LDB:SetMinimapShown(checked)
-                end
-            end
-        end
-    )
-    minimapCheck:SetPoint("TOPLEFT", COL1_X, yOffset)
 
     -- Show Collected Indicator checkbox
     local collectedCheck = CreateCheckbox(
@@ -168,9 +155,8 @@ function addon.Settings:Initialize()
             end
         end
     )
-    collectedCheck:SetPoint("TOPLEFT", COL2_X, yOffset)
+    collectedCheck:SetPoint("TOPLEFT", COL1_X, yOffset)
     self.collectedCheck = collectedCheck
-    yOffset = yOffset - 26
 
     -- Auto-rotate 3D preview checkbox
     local autoRotateCheck = CreateCheckbox(
@@ -184,27 +170,22 @@ function addon.Settings:Initialize()
             end
         end
     )
-    autoRotateCheck:SetPoint("TOPLEFT", COL1_X, yOffset)
+    autoRotateCheck:SetPoint("TOPLEFT", COL2_X, yOffset)
     self.autoRotateCheck = autoRotateCheck
     yOffset = yOffset - 26
-
-    CreateDivider(panel, yOffset)
-    yOffset = yOffset - 14
 
     --------------------------------------------------------------------------------
     -- KEYBIND SECTION
     --------------------------------------------------------------------------------
-    local keybindHeader = addon:CreateFontString(panel, "ARTWORK", "GameFontNormal")
-    keybindHeader:SetPoint("TOPLEFT", 16, yOffset)
-    keybindHeader:SetText(L["OPTIONS_SECTION_KEYBIND"])
-    keybindHeader:SetTextColor(1, 0.82, 0)
+    yOffset = yOffset - SECTION_GAP
+    CreateSectionHeader(panel, L["OPTIONS_SECTION_KEYBIND"], yOffset)
     yOffset = yOffset - 20
 
     -- Keybind label
     local keybindLabel = addon:CreateFontString(panel, "ARTWORK", "GameFontNormal")
     keybindLabel:SetPoint("TOPLEFT", 16, yOffset)
     keybindLabel:SetText(L["OPTIONS_TOGGLE_KEYBIND"])
-    keybindLabel:SetTextColor(0.9, 0.9, 0.9)
+    keybindLabel:SetTextColor(1, 0.82, 0)
 
     -- Keybind button
     local keybindBtn = CreateFrame("Button", nil, panel, "UIPanelButtonTemplate")
@@ -314,6 +295,7 @@ function addon.Settings:Initialize()
             UpdateKeybindButtonText()
             GameTooltip:Hide()
         else
+            if InCombatLockdown() then return end
             btn:SetText(L["OPTIONS_PRESS_KEY"])
             btn:EnableKeyboard(true)
             btn:SetScript("OnKeyDown", OnKeyCaptured)
@@ -327,16 +309,11 @@ function addon.Settings:Initialize()
 
     yOffset = yOffset - 26
 
-    CreateDivider(panel, yOffset)
-    yOffset = yOffset - 14
-
     --------------------------------------------------------------------------------
     -- MAP & NAVIGATION SECTION
     --------------------------------------------------------------------------------
-    local mapNavHeader = addon:CreateFontString(panel, "ARTWORK", "GameFontNormal")
-    mapNavHeader:SetPoint("TOPLEFT", 16, yOffset)
-    mapNavHeader:SetText(L["OPTIONS_SECTION_MAP_NAV"])
-    mapNavHeader:SetTextColor(1, 0.82, 0)
+    yOffset = yOffset - SECTION_GAP
+    CreateSectionHeader(panel, L["OPTIONS_SECTION_MAP_NAV"], yOffset)
     yOffset = yOffset - 20
 
     -- Show Vendor Map Pins checkbox
@@ -353,6 +330,7 @@ function addon.Settings:Initialize()
         end
     )
     vendorMapPinsCheck:SetPoint("TOPLEFT", COL1_X, yOffset)
+    self.vendorMapPinsCheck = vendorMapPinsCheck
 
     -- Show Zone Overlay checkbox
     local zoneOverlayCheck = CreateCheckbox(
@@ -370,6 +348,7 @@ function addon.Settings:Initialize()
         end
     )
     zoneOverlayCheck:SetPoint("TOPLEFT", COL2_X, yOffset)
+    self.zoneOverlayCheck = zoneOverlayCheck
     yOffset = yOffset - 26
 
     -- Treasure Hunt Waypoints checkbox
@@ -422,16 +401,11 @@ function addon.Settings:Initialize()
     self.UpdateTomTomState = UpdateTomTomState
     yOffset = yOffset - 26
 
-    CreateDivider(panel, yOffset)
-    yOffset = yOffset - 14
-
     --------------------------------------------------------------------------------
     -- VENDOR SECTION
     --------------------------------------------------------------------------------
-    local vendorHeader = addon:CreateFontString(panel, "ARTWORK", "GameFontNormal")
-    vendorHeader:SetPoint("TOPLEFT", 16, yOffset)
-    vendorHeader:SetText(L["OPTIONS_SECTION_VENDOR"])
-    vendorHeader:SetTextColor(1, 0.82, 0)
+    yOffset = yOffset - SECTION_GAP
+    CreateSectionHeader(panel, L["OPTIONS_SECTION_VENDOR"], yOffset)
     yOffset = yOffset - 20
 
     -- Show Vendor Decor Indicators checkbox
@@ -494,16 +468,11 @@ function addon.Settings:Initialize()
     self.vendorTooltipsCheck = vendorTooltipsCheck
     yOffset = yOffset - 26
 
-    CreateDivider(panel, yOffset)
-    yOffset = yOffset - 14
-
     --------------------------------------------------------------------------------
     -- BAGS & BANK SECTION
     --------------------------------------------------------------------------------
-    local containersHeader = addon:CreateFontString(panel, "ARTWORK", "GameFontNormal")
-    containersHeader:SetPoint("TOPLEFT", 16, yOffset)
-    containersHeader:SetText(L["OPTIONS_SECTION_CONTAINERS"])
-    containersHeader:SetTextColor(1, 0.82, 0)
+    yOffset = yOffset - SECTION_GAP
+    CreateSectionHeader(panel, L["OPTIONS_SECTION_CONTAINERS"], yOffset)
     yOffset = yOffset - 20
 
     -- Show Container Decor Indicators checkbox
@@ -547,16 +516,11 @@ function addon.Settings:Initialize()
     self.containerOwnedCheck = containerOwnedCheck
     yOffset = yOffset - 26
 
-    CreateDivider(panel, yOffset)
-    yOffset = yOffset - 14
-
     --------------------------------------------------------------------------------
     -- ENDEAVORS SECTION
     --------------------------------------------------------------------------------
-    local endeavorsHeader = addon:CreateFontString(panel, "ARTWORK", "GameFontNormal")
-    endeavorsHeader:SetPoint("TOPLEFT", 16, yOffset)
-    endeavorsHeader:SetText(L["OPTIONS_SECTION_ENDEAVORS"])
-    endeavorsHeader:SetTextColor(1, 0.82, 0)
+    yOffset = yOffset - SECTION_GAP
+    CreateSectionHeader(panel, L["OPTIONS_SECTION_ENDEAVORS"], yOffset)
     yOffset = yOffset - 20
 
     local endeavorsEnabledCheck = CreateCheckbox(
@@ -579,26 +543,21 @@ function addon.Settings:Initialize()
         end
     )
     endeavorsEnabledCheck:SetPoint("TOPLEFT", COL1_X, yOffset)
-    yOffset = yOffset - 26
+    self.endeavorsEnabledCheck = endeavorsEnabledCheck
 
     local endeavorsBtn = CreateResetButton(panel, "ENDEAVORS_OPTIONS", "ENDEAVORS_OPTIONS_TOOLTIP", function(self)
         if addon.EndeavorsPanel then
             addon.EndeavorsPanel:OpenConfigFromSettings(self)
         end
     end)
-    endeavorsBtn:SetPoint("TOPLEFT", 16, yOffset)
+    endeavorsBtn:SetPoint("LEFT", endeavorsEnabledCheck, "RIGHT", 140, 0)
     yOffset = yOffset - 26
-
-    CreateDivider(panel, yOffset)
-    yOffset = yOffset - 14
 
     --------------------------------------------------------------------------------
     -- TROUBLESHOOTING SECTION
     --------------------------------------------------------------------------------
-    local troubleshootHeader = addon:CreateFontString(panel, "ARTWORK", "GameFontNormal")
-    troubleshootHeader:SetPoint("TOPLEFT", 16, yOffset)
-    troubleshootHeader:SetText(L["OPTIONS_SECTION_TROUBLESHOOTING"])
-    troubleshootHeader:SetTextColor(1, 0.82, 0)
+    yOffset = yOffset - SECTION_GAP
+    CreateSectionHeader(panel, L["OPTIONS_SECTION_TROUBLESHOOTING"], yOffset)
     yOffset = yOffset - 20
 
     -- Reset Position button
@@ -631,6 +590,29 @@ function addon.Settings:Initialize()
     local category = Settings.RegisterCanvasLayoutCategory(panel, L["SETTINGS_CATEGORY_NAME"])
     Settings.RegisterAddOnCategory(category)
     self.category = category
+
+    -- Resync all checkbox states when the settings panel is shown
+    -- (Blizzard calls panel.OnRefresh via securecallfunction each time the category is displayed)
+    local settings = self
+    panel.OnRefresh = function()
+        local db = addon.db
+        if not db then return end
+        local s = db.settings
+        if not s then return end
+        settings.collectedCheck:SetChecked(s.showCollectedIndicator)
+        settings.autoRotateCheck:SetChecked(s.autoRotatePreview)
+        settings.vendorMapPinsCheck:SetChecked(s.showVendorMapPins)
+        settings.zoneOverlayCheck:SetChecked(s.showZoneOverlay)
+        settings.treasureHuntCheck:SetChecked(s.treasureHuntWaypoints)
+        settings.tomtomCheck:SetChecked(s.useTomTom)
+        settings.vendorCheck:SetChecked(s.showVendorDecorIndicators)
+        settings.vendorOwnedCheck:SetChecked(s.showVendorOwnedCheckmark)
+        settings.vendorTooltipsCheck:SetChecked(s.showVendorTooltips)
+        settings.containerCheck:SetChecked(s.showContainerDecorIndicators)
+        settings.containerOwnedCheck:SetChecked(s.showContainerOwnedCheckmark)
+        settings.endeavorsEnabledCheck:SetChecked(db.endeavors and db.endeavors.enabled)
+        UpdateKeybindButtonText()
+    end
 
     -- Update TomTom state once detection has run (DATA_LOADED fires after ADDON_LOADED)
     addon:RegisterInternalEvent("DATA_LOADED", UpdateTomTomState)
