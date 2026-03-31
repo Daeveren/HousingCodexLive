@@ -55,10 +55,10 @@ function addon:BuildAchievementIndex()
         for achievementId, achievementData in pairs(self.AchievementSourceData) do
             local validDecors = {}
 
-            -- Only index decors that exist in our decorRecords
+            -- Only index decors that resolve (matches CraftingIndex/QuestIndex pattern)
             if achievementData.decorIds then
                 for _, decorId in ipairs(achievementData.decorIds) do
-                    if self.decorRecords[decorId] then
+                    if self:GetRecord(decorId) or self:ResolveRecord(decorId) then
                         validDecors[decorId] = true
                         decorCount = decorCount + 1
                     end

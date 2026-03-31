@@ -321,7 +321,8 @@ function HousingCodexVendorDataProviderMixin:OnAdded(owningMap)
     self.refreshPending = false
     self.listeningWoW = false
     self.listeningInternal = false
-    self.onOwnershipUpdated = self.onOwnershipUpdated or function()
+    self.onOwnershipUpdated = self.onOwnershipUpdated or function(recordID, collectionStateChanged)
+        if not collectionStateChanged then return end
         ScheduleRefresh(self)
     end
 end

@@ -196,7 +196,8 @@ function addon:InvalidateVendorPinCache()
     wipe(self.vendorPinProgressCache)
 end
 
-addon:RegisterInternalEvent("RECORD_OWNERSHIP_UPDATED", function()
+addon:RegisterInternalEvent("RECORD_OWNERSHIP_UPDATED", function(recordID, collectionStateChanged)
+    if not collectionStateChanged then return end
     addon:InvalidateVendorPinCache()
 end)
 

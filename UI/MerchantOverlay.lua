@@ -128,13 +128,11 @@ function MerchantOverlay:Initialize()
 
     self:HookMerchantFrame()
 
-    -- Listen for merchant events, market data, and storage changes
+    -- Listen for merchant events and market data
     self.eventFrame = CreateFrame("Frame")
     self.eventFrame:RegisterEvent("MERCHANT_CLOSED")
     self.eventFrame:RegisterEvent("MERCHANT_SHOW")
     self.eventFrame:RegisterEvent("HOUSING_MARKET_AVAILABILITY_UPDATED")
-    self.eventFrame:RegisterEvent("HOUSING_STORAGE_ENTRY_UPDATED")
-    self.eventFrame:RegisterEvent("HOUSING_STORAGE_UPDATED")
     self.eventFrame:SetScript("OnEvent", function(_, event)
         if event == "MERCHANT_SHOW" then
             -- Request housing market data refresh when merchant opens
@@ -157,11 +155,6 @@ function MerchantOverlay:Initialize()
                 ClearSessionCache()
                 self:UpdateMerchantButtons()
             end
-        elseif event == "HOUSING_STORAGE_ENTRY_UPDATED" or event == "HOUSING_STORAGE_UPDATED" then
-            if MerchantFrame and MerchantFrame:IsShown() then
-                ClearSessionCache()
-                self:UpdateMerchantButtons()
-            end
         elseif event == "MERCHANT_CLOSED" then
             waitingForMarketData = false
             ClearSessionCache()
@@ -169,7 +162,7 @@ function MerchantOverlay:Initialize()
         end
     end)
 
-    -- Listen for internal ownership updates (split from HOUSING_STORAGE_UPDATED)
+    -- Listen for internal ownership updates
     addon:RegisterInternalEvent("RECORD_OWNERSHIP_UPDATED", function()
         if not MerchantFrame or not MerchantFrame:IsShown() then return end
         -- Clear session cache to force fresh ownership checks

@@ -2,6 +2,15 @@
 
 All notable changes to Housing Codex.
 
+**2.1.1** (2026-04-01)
+
+**Added**
+- Updated Kalimdor decor vendor data
+
+**Fixed**
+- Improved reliability of green checkmarks at vendor and bag/bank screens
+- Fixed duplicate vendor entries caused by inconsistent zone naming
+
 **2.1.0** (2026-03-30)
 
 **Added**

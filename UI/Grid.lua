@@ -246,7 +246,7 @@ function Grid:CreateSortDropdown(parent)
         for _, opt in ipairs(SORT_OPTIONS) do
             local radio = rootDescription:CreateRadio(
                 GetSortLabel(opt.value),
-                function() return (addon.db.browser.sortType or 0) == opt.value end,
+                function() return (addon.db and addon.db.browser and addon.db.browser.sortType or 0) == opt.value end,
                 function()
                     Grid:SetSortType(opt.value)
                 end,
@@ -295,6 +295,27 @@ function Grid:UpdateSortDropdownText(dropdown)
 
     local sortType = addon.db and addon.db.browser and addon.db.browser.sortType or 0
     dropdown:SetDefaultText(GetSortLabel(sortType))
+end
+
+-- Update ownership display on a single tile (used by initializer and targeted ownership updates)
+local function UpdateTileOwnershipDisplay(tile, record)
+    local showIndicators = addon.db and addon.db.settings and addon.db.settings.showCollectedIndicator
+    if showIndicators and record and record.numPlaced and record.numPlaced > 0 then
+        tile.placed:SetText(record.numPlaced)
+        tile.placed:Show()
+        tile.quantity:ClearAllPoints()
+        tile.quantity:SetPoint("RIGHT", tile.placed, "LEFT", -5, 0)
+    else
+        tile.placed:Hide()
+        tile.quantity:ClearAllPoints()
+        tile.quantity:SetPoint("BOTTOMRIGHT", -4, 3)
+    end
+    if showIndicators and record and record.totalOwned and record.totalOwned > 0 then
+        tile.quantity:SetText(record.totalOwned)
+        tile.quantity:Show()
+    else
+        tile.quantity:Hide()
+    end
 end
 
 function Grid:CreateScrollBox(parent, tileSize)
@@ -386,24 +407,8 @@ function Grid:CreateScrollBox(parent, tileSize)
         -- Display 3D model or 2D icon (shared utility handles lazy ModelScene creation)
         addon:SetupTileDisplay(tile, record, CAMERA_MAINTAIN)
 
-        -- Placed count (green, right side)
-        local showIndicators = addon.db and addon.db.settings.showCollectedIndicator
-        if showIndicators and record and record.numPlaced and record.numPlaced > 0 then
-            tile.placed:SetText(record.numPlaced)
-            tile.placed:Show()
-            tile.quantity:ClearAllPoints()
-            tile.quantity:SetPoint("RIGHT", tile.placed, "LEFT", -5, 0)
-        else
-            tile.placed:Hide()
-            tile.quantity:ClearAllPoints()
-            tile.quantity:SetPoint("BOTTOMRIGHT", -4, 3)
-        end
-
-        -- Owned count (gray, left of placed or at bottom-right)
-        if showIndicators and record and record.totalOwned and record.totalOwned > 0 then
-            tile.quantity:SetText(record.totalOwned)
-            tile.quantity:Show()
-        end
+        -- Placed + owned count indicators
+        UpdateTileOwnershipDisplay(tile, record)
 
         -- Wishlist star badge
         if tile.wishlistStar then
@@ -872,14 +877,32 @@ addon:RegisterInternalEvent("FILTER_CHANGED", function()
     end
 end)
 
--- Refresh grid when a record's ownership data changes (debounced to coalesce rapid events)
+-- Refresh grid when a record's ownership data changes
 addon:RegisterInternalEvent("RECORD_OWNERSHIP_UPDATED", function(recordID, collectionStateChanged, updateKind)
-    -- Skip grid updates when MainFrame is hidden
     if not addon.MainFrame or not addon.MainFrame:IsShown() then
         addon.needsGridRefresh = true
         return
     end
-    if addon.Tabs and addon.Tabs:GetCurrentTab() == "DECOR" then
+    if not addon.Tabs or addon.Tabs:GetCurrentTab() ~= "DECOR" then return end
+
+    if updateKind == "targeted" then
+        if collectionStateChanged then
+            -- RunSearchNow already fires SEARCH_RESULTS_UPDATED → Grid:SetData
+            return
+        end
+        -- Quantity-only change: update just the matching tile
+        if Grid.scrollBox and recordID then
+            Grid.scrollBox:ForEachFrame(function(tile)
+                if not tile.recordID then return end
+                if tile.recordID == recordID then
+                    local record = addon:GetRecord(recordID)
+                    if record then
+                        UpdateTileOwnershipDisplay(tile, record)
+                    end
+                end
+            end)
+        end
+    else
         Grid:DebouncedRefresh()
     end
 end)
