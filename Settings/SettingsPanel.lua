@@ -23,6 +23,10 @@ StaticPopupDialogs["HOUSINGCODEX_KEYBIND_CONFLICT"] = {
         if key1 then SetBinding(key1, nil) end
         if key2 then SetBinding(key2, nil) end
         SetBinding(data.fullKey, BINDING_ACTION)
+        -- Preserve secondary binding (Blizzard RebindKeysInOrder pattern)
+        if key2 and key2 ~= data.fullKey then
+            SetBinding(key2, BINDING_ACTION)
+        end
         SaveBindings(GetCurrentBindingSet())
         if data.updateFunc then data.updateFunc() end
     end,
@@ -174,6 +178,25 @@ function addon.Settings:Initialize()
     self.autoRotateCheck = autoRotateCheck
     yOffset = yOffset - 26
 
+    -- Show Minimap Button checkbox
+    local minimapCheck = CreateCheckbox(
+        panel,
+        L["OPTIONS_SHOW_MINIMAP"],
+        L["OPTIONS_SHOW_MINIMAP_TOOLTIP"],
+        function() return addon.db and addon.db.settings.showMinimapButton end,
+        function(checked)
+            if addon.db then
+                addon.db.settings.showMinimapButton = checked
+                if addon.LDB then
+                    addon.LDB:SetMinimapShown(checked)
+                end
+            end
+        end
+    )
+    minimapCheck:SetPoint("TOPLEFT", COL1_X, yOffset)
+    self.minimapCheck = minimapCheck
+    yOffset = yOffset - 26
+
     --------------------------------------------------------------------------------
     -- KEYBIND SECTION
     --------------------------------------------------------------------------------
@@ -229,6 +252,10 @@ function addon.Settings:Initialize()
         if key1 then SetBinding(key1, nil) end
         if key2 then SetBinding(key2, nil) end
         SetBinding(fullKey, BINDING_ACTION)
+        -- Preserve secondary binding (Blizzard RebindKeysInOrder pattern)
+        if key2 and key2 ~= fullKey then
+            SetBinding(key2, BINDING_ACTION)
+        end
         SaveBindings(GetCurrentBindingSet())
         UpdateKeybindButtonText()
         addon:Debug("Keybind set via standard system: " .. fullKey)
@@ -601,6 +628,7 @@ function addon.Settings:Initialize()
         if not s then return end
         settings.collectedCheck:SetChecked(s.showCollectedIndicator)
         settings.autoRotateCheck:SetChecked(s.autoRotatePreview)
+        settings.minimapCheck:SetChecked(s.showMinimapButton)
         settings.vendorMapPinsCheck:SetChecked(s.showVendorMapPins)
         settings.zoneOverlayCheck:SetChecked(s.showZoneOverlay)
         settings.treasureHuntCheck:SetChecked(s.treasureHuntWaypoints)

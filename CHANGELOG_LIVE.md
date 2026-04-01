@@ -2,6 +2,16 @@
 
 All notable changes to Housing Codex.
 
+**2.1.2** (2026-04-02)
+
+**Added**
+- Reenabled the minimap button toggle in settings, inadvertently removed in a previous update
+
+**Fixed**
+- Changing a keybind in addon settings no longer erases a secondary binding set via WoW's Keybindings UI
+- Improved usability of the broker config popup when near screen edges
+- Improved profession expansion and skill details for some Professions tab items
+
 **2.1.1** (2026-04-01)
 
 **Added**

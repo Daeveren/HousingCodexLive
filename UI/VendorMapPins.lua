@@ -16,6 +16,11 @@ local function GetMapTooltip()
     return HousingCodexMapTooltip
 end
 
+-- Module-level rect cache: map coordinate projections are static geometry,
+-- so cache persists across refreshes of the same target map.
+local pinRectCache = {}
+local pinRectCacheMapID = nil
+
 function addon:StyleMapTooltip(tooltip)
     local nine = tooltip.NineSlice
     if not nine then return end
@@ -136,7 +141,12 @@ local function BuildPinEntriesForMap(mapID, mapType)
     local clustersByZone = isContinent and {} or nil
     local clustersBySubzone = isZone and {} or nil
     local seenNpcIds = (isContinent or isZone) and {} or nil
-    local rectCache = {}  -- cache map rect per source map (static geometry, safe within one refresh)
+
+    -- Invalidate rect cache on map change (static geometry, safe to persist within same map)
+    if pinRectCacheMapID ~= mapID then
+        wipe(pinRectCache)
+        pinRectCacheMapID = mapID
+    end
 
     local vendorsByMapID = addon:GetAllVendorMapVendors()
     for _, vendors in pairs(vendorsByMapID or {}) do
@@ -145,19 +155,19 @@ local function BuildPinEntriesForMap(mapID, mapType)
             local dedupKey = seenNpcIds and (vendorData.npcId .. ":" .. (sourceMapID or 0))
             if not seenNpcIds or not seenNpcIds[dedupKey] then
                 -- Resolve map rect once per unique source map
-                if sourceMapID and not rectCache[sourceMapID] then
+                if sourceMapID and not pinRectCache[sourceMapID] then
                     if sourceMapID == mapID then
-                        rectCache[sourceMapID] = true  -- identity: no projection needed
+                        pinRectCache[sourceMapID] = true  -- identity: no projection needed
                     else
                         local left, right, top, bottom = C_Map.GetMapRectOnMap(sourceMapID, mapID)
                         if left and right and top and bottom then
-                            rectCache[sourceMapID] = {left, right, top, bottom}
+                            pinRectCache[sourceMapID] = {left, right, top, bottom}
                         else
-                            rectCache[sourceMapID] = false  -- invalid: skip projection
+                            pinRectCache[sourceMapID] = false  -- invalid: skip projection
                         end
                     end
                 end
-                local rect = sourceMapID and rectCache[sourceMapID]
+                local rect = sourceMapID and pinRectCache[sourceMapID]
                 local resolvedRect = type(rect) == "table" and rect or nil
 
                 local x, y = GetProjectedCoordinates(vendorData, sourceMapID, mapID, resolvedRect)

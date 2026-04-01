@@ -33,6 +33,7 @@ local function CreateBrokerPopup()
     popup:SetBackdropColor(0.1, 0.1, 0.1, 0.95)
     popup:SetBackdropBorderColor(0.6, 0.6, 0.6)
     popup:Hide()
+    popup:SetClampedToScreen(true)
     popup:EnableMouse(true)
 
     -- ESC closes

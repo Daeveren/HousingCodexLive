@@ -639,6 +639,79 @@ function addon:CreateWishlistStarButton(parent, owner)
 end
 
 -- ============================================================================
+-- Shared Action Row (used by PreviewFrame and WishlistFrame)
+-- ============================================================================
+
+-- Applies track button visual state (enabled, active, label).
+-- @param btn: Button created by addon:CreateActionButton
+-- @param enabled: Whether tracking is available
+-- @param isTracking: Whether currently tracking
+-- @param isVendor: Use vendor-specific labels (VENDORS_ACTION_TRACK/UNTRACK)
+function addon:ApplyTrackButtonState(btn, enabled, isTracking, isVendor)
+    local L = self.L
+    local trackKey = isVendor and "VENDORS_ACTION_TRACK" or "ACTION_TRACK"
+    local untrackKey = isVendor and "VENDORS_ACTION_UNTRACK" or "ACTION_UNTRACK"
+    btn:SetEnabled(enabled)
+    btn:SetActive(enabled and isTracking)
+    btn:SetText(enabled and isTracking and L[untrackKey] or L[trackKey])
+end
+
+-- Shows a standard track/untrack tooltip on an action button.
+function addon:ShowTrackTooltip(btn, title, description, r, g, b)
+    GameTooltip:SetOwner(btn, "ANCHOR_RIGHT")
+    GameTooltip:SetText(title)
+    GameTooltip:AddLine(description, r, g, b)
+    GameTooltip:Show()
+end
+
+-- Creates the wishlist/track/link action row used by Preview and Wishlist panels.
+-- owner must implement: OnTrackButtonClick(), ShowTrackButtonTooltip(btn),
+--   OnLinkButtonClick(), OnLinkButtonRightClick(), ShowLinkButtonTooltip(btn)
+-- owner receives fields: actionsRow, wishlistButton, trackButton, linkButton
+function addon:CreateActionsRow(owner, parent, anchorElement, gap, rightPad)
+    local AB = self.CONSTANTS.ACTION_BUTTON
+    local L = self.L
+
+    local actionsRow = CreateFrame("Frame", nil, parent)
+    actionsRow:SetHeight(AB.HEIGHT + 4)
+    actionsRow:SetPoint("TOPLEFT", anchorElement, "BOTTOMLEFT", 0, -(gap or 8))
+    actionsRow:SetPoint("RIGHT", parent, "RIGHT", -(rightPad or 8), 0)
+    owner.actionsRow = actionsRow
+
+    -- Wishlist star button (first in row)
+    local wishlistBtn = self:CreateWishlistStarButton(actionsRow, owner)
+    wishlistBtn:SetPoint("LEFT", actionsRow, "LEFT", 0, 0)
+    owner.wishlistButton = wishlistBtn
+
+    -- Track/Untrack button
+    local trackBtn = self:CreateActionButton(
+        actionsRow,
+        L["ACTION_TRACK"],
+        function() owner:OnTrackButtonClick() end,
+        function(btn) owner:ShowTrackButtonTooltip(btn) end
+    )
+    trackBtn:SetPoint("LEFT", wishlistBtn, "RIGHT", AB.SPACING + 4, 0)
+    owner.trackButton = trackBtn
+
+    -- Link to Chat button (left-click: chat link, right-click: Wowhead URL)
+    local linkBtn = self:CreateActionButton(
+        actionsRow,
+        L["ACTION_LINK"],
+        function(btn, mouseButton)
+            if mouseButton == "RightButton" then
+                owner:OnLinkButtonRightClick()
+            else
+                owner:OnLinkButtonClick()
+            end
+        end,
+        function(btn) owner:ShowLinkButtonTooltip(btn) end
+    )
+    linkBtn:SetPoint("LEFT", trackBtn, "RIGHT", AB.SPACING, 0)
+    linkBtn:RegisterForClicks("LeftButtonUp", "RightButtonUp")
+    owner.linkButton = linkBtn
+end
+
+-- ============================================================================
 -- Shared Grid Sizing Helpers (used by Grid and WishlistFrame)
 -- ============================================================================
 
@@ -1063,6 +1136,7 @@ function addon:CreateURLPopup()
     popup:SetBackdropColor(0.1, 0.1, 0.1, 0.95)
     popup:SetBackdropBorderColor(0.6, 0.6, 0.6)
     popup:Hide()
+    popup:SetClampedToScreen(true)
     popup:EnableMouse(true)
     tinsert(UISpecialFrames, "HousingCodexURLPopup")
 

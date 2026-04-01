@@ -629,51 +629,7 @@ end
 --------------------------------------------------------------------------------
 
 function WishlistFrame:CreateActionsRow(detailsArea, anchorElement)
-    local AB = CONSTS.ACTION_BUTTON
-    local L = addon.L
-
-    -- Actions row container (below source text)
-    local actionsRow = CreateFrame("Frame", nil, detailsArea)
-    actionsRow:SetHeight(AB.HEIGHT + 4)
-    actionsRow:SetPoint("TOPLEFT", anchorElement, "BOTTOMLEFT", 0, -8)
-    actionsRow:SetPoint("RIGHT", detailsArea, "RIGHT", -8, 0)
-    self.actionsRow = actionsRow
-
-    -- Wishlist star button (first in row)
-    local wishlistBtn = self:CreateWishlistButton(actionsRow)
-    wishlistBtn:SetPoint("LEFT", actionsRow, "LEFT", 0, 0)
-    self.wishlistButton = wishlistBtn
-
-    -- Track/Untrack button
-    local trackBtn = addon:CreateActionButton(
-        actionsRow,
-        L["ACTION_TRACK"],
-        function() self:OnTrackButtonClick() end,
-        function(btn) self:ShowTrackButtonTooltip(btn) end
-    )
-    trackBtn:SetPoint("LEFT", wishlistBtn, "RIGHT", AB.SPACING + 4, 0)
-    self.trackButton = trackBtn
-
-    -- Link to Chat button (left-click: chat link, right-click: Wowhead URL)
-    local linkBtn = addon:CreateActionButton(
-        actionsRow,
-        L["ACTION_LINK"],
-        function(btn, mouseButton)
-            if mouseButton == "RightButton" then
-                self:OnLinkButtonRightClick()
-            else
-                self:OnLinkButtonClick()
-            end
-        end,
-        function(btn) self:ShowLinkButtonTooltip(btn) end
-    )
-    linkBtn:SetPoint("LEFT", trackBtn, "RIGHT", AB.SPACING, 0)
-    linkBtn:RegisterForClicks("LeftButtonUp", "RightButtonUp")
-    self.linkButton = linkBtn
-end
-
-function WishlistFrame:CreateWishlistButton(parent)
-    return addon:CreateWishlistStarButton(parent, self)
+    addon:CreateActionsRow(self, detailsArea, anchorElement, 8, 8)
 end
 
 function WishlistFrame:UpdateWishlistButton()
@@ -684,23 +640,11 @@ end
 function WishlistFrame:UpdateActionButtons(record)
     if not self.trackButton or not self.linkButton then return end
 
-    -- Wishlist button state
     self:UpdateWishlistButton()
 
-    -- Track button state
-    local L = addon.L
-    if record and record.isTrackable then
-        self.trackButton:SetEnabled(true)
-        local isTracking = addon:IsRecordTracked(record.recordID)
-        self.trackButton:SetActive(isTracking)
-        self.trackButton:SetText(isTracking and L["ACTION_UNTRACK"] or L["ACTION_TRACK"])
-    else
-        self.trackButton:SetEnabled(false)
-        self.trackButton:SetActive(false)
-        self.trackButton:SetText(L["ACTION_TRACK"])
-    end
+    local canTrack = record and record.isTrackable
+    addon:ApplyTrackButtonState(self.trackButton, canTrack, canTrack and addon:IsRecordTracked(record.recordID), false)
 
-    -- Link button is always enabled when an item is selected
     self.linkButton:SetEnabled(record ~= nil)
 end
 
@@ -724,30 +668,17 @@ function WishlistFrame:OnLinkButtonRightClick()
 end
 
 function WishlistFrame:ShowTrackButtonTooltip(btn)
-    GameTooltip:SetOwner(btn, "ANCHOR_RIGHT")
-
     local recordID = self.currentRecordID
     local record = recordID and addon:GetRecord(recordID)
     local L = addon.L
 
-    local title, description, r, g, b
     if not record or not record.isTrackable then
-        title = L["ACTION_TRACK"]
-        description = L["ACTION_TRACK_DISABLED_TOOLTIP"]
-        r, g, b = 1, 0.5, 0.5
+        addon:ShowTrackTooltip(btn, L["ACTION_TRACK"], L["ACTION_TRACK_DISABLED_TOOLTIP"], 1, 0.5, 0.5)
     elseif addon:IsRecordTracked(recordID) then
-        title = L["ACTION_UNTRACK"]
-        description = L["ACTION_UNTRACK_TOOLTIP"]
-        r, g, b = 1, 1, 1
+        addon:ShowTrackTooltip(btn, L["ACTION_UNTRACK"], L["ACTION_UNTRACK_TOOLTIP"], 1, 1, 1)
     else
-        title = L["ACTION_TRACK"]
-        description = L["ACTION_TRACK_TOOLTIP"]
-        r, g, b = 1, 1, 1
+        addon:ShowTrackTooltip(btn, L["ACTION_TRACK"], L["ACTION_TRACK_TOOLTIP"], 1, 1, 1)
     end
-
-    GameTooltip:SetText(title)
-    GameTooltip:AddLine(description, r, g, b)
-    GameTooltip:Show()
 end
 
 function WishlistFrame:ShowLinkButtonTooltip(btn)
