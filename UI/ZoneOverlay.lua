@@ -1,8 +1,8 @@
 --[[
     Housing Codex - ZoneOverlay.lua
     World map overlay panel showing uncollected decor items for the current zone
-    Parented to UIParent; anchored to WorldMapFrame.ScrollContainer to prevent taint propagation
-    Preview popout also parented to UIParent to prevent ModelScene taint propagation
+    Parented to WorldMapFrame to inherit its strata and auto-hide with the map
+    Preview popout also parented to WorldMapFrame for consistent layering
 ]]
 
 local _, addon = ...
@@ -118,9 +118,9 @@ local function CreatePreviewFrame()
     if previewFrame then return end
 
     local size = GetPreviewSize()
-    previewFrame = CreateFrame("Frame", nil, UIParent, "BackdropTemplate")
-    previewFrame:SetSize(size + 8, size + 8)
+    previewFrame = CreateFrame("Frame", nil, WorldMapFrame, "BackdropTemplate")
     previewFrame:SetFrameStrata("TOOLTIP")
+    previewFrame:SetSize(size + 8, size + 8)
     previewFrame:SetBackdrop({
         bgFile = "Interface\\Buttons\\WHITE8x8",
         edgeFile = "Interface\\Tooltips\\UI-Tooltip-Border",
@@ -217,8 +217,8 @@ end
 local function CreateOverlayFrame()
     if frame then return end
 
-    frame = CreateFrame("Frame", "HousingCodexZoneOverlayFrame", UIParent, "BackdropTemplate")
-    frame:SetFrameStrata("DIALOG")  -- above WorldMapFrame (HIGH) so overlay renders on top
+    frame = CreateFrame("Frame", "HousingCodexZoneOverlayFrame", WorldMapFrame, "BackdropTemplate")
+    frame:SetFrameStrata("TOOLTIP")
     frame:SetClampedToScreen(true)
     frame:SetClipsChildren(true)
     frame:EnableMouse(false)  -- let clicks pass through to the map; titleBar and rows handle their own mouse
@@ -479,7 +479,7 @@ local function CreateOverlayFrame()
     scrollBox:SetDataProvider(dp)
     frame.dataProvider = dp
 
-    -- Hide preview when overlay frame hides (previewFrame is parented to UIParent, not frame)
+    -- Hide preview when overlay frame hides (e.g., empty zone or setting toggled off)
     frame:SetScript("OnHide", function()
         HidePreview()
         CancelAnimation()
@@ -588,21 +588,6 @@ end
 --------------------------------------------------------------------------------
 local function HideOverlay()
     frame:Hide()
-    HidePreview()
-end
-
-local function SyncScaleWithMap()
-    local mapScale = WorldMapFrame:GetScale()
-    if mapScale and not issecretvalue(mapScale) and mapScale > 0 then
-        frame:SetScale(mapScale)
-    end
-end
-
-local function ShowOverlayDeferred()
-    if InCombatLockdown() then return end
-    SyncScaleWithMap()
-    frame:Show()
-    ScheduleMapUpdate()
 end
 
 function ZoneOverlay:RefreshLayout()
@@ -822,7 +807,7 @@ function ZoneOverlay:UpdatePreviewSize()
     previewFrame.icon:SetSize(size - 16, size - 16)
 end
 
--- Combat guard added: overlay is parented to UIParent (top-level frame); EnableMouse(false) so purely visual
+-- Combat guard: overlay is a WorldMapFrame child; EnableMouse(false) so purely visual
 function ZoneOverlay:UpdateVisibility()
     if not frame or not addon.db then return end
 
@@ -879,19 +864,21 @@ local function InitializeOverlay()
     -- Hook zone changes
     hooksecurefunc(WorldMapFrame, "OnMapChanged", ScheduleMapUpdate)
 
-    -- Show/hide with world map via safe post-hooks (hooksecurefunc runs AFTER the
-    -- method returns in a separate context, unlike HookScript which runs inside
-    -- the frame's script handler and taints WorldMapFrame — WoWUIBugs #811)
+    -- Refresh data when map shows (overlay auto-shows as a WorldMapFrame child,
+    -- but we still need to trigger data loading for the current zone)
     hooksecurefunc(WorldMapFrame, "Show", function()
         C_Timer.After(0, function()
             if addon.db and addon.db.settings.showZoneOverlay and WorldMapFrame:IsShown() then
-                ShowOverlayDeferred()
+                if InCombatLockdown() then return end
+                frame:Show()
+                ScheduleMapUpdate()
             end
         end)
     end)
 
+    -- Hide preview popout when map closes (overlay auto-hides as a child frame)
     hooksecurefunc(WorldMapFrame, "Hide", function()
-        C_Timer.After(0, HideOverlay)
+        C_Timer.After(0, HidePreview)
     end)
 
     -- Refresh on ownership changes (debounced to coalesce rapid updates)
@@ -916,7 +903,9 @@ local function InitializeOverlay()
     -- Initial state (deferred to clean execution context)
     C_Timer.After(0, function()
         if WorldMapFrame:IsShown() and addon.db and addon.db.settings.showZoneOverlay then
-            ShowOverlayDeferred()
+            if InCombatLockdown() then return end
+            frame:Show()
+            ScheduleMapUpdate()
         else
             frame:Hide()
         end

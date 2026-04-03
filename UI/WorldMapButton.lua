@@ -16,7 +16,6 @@ local function GetMapTooltip()
 end
 
 function HousingCodexWorldMapButtonMixin:OnLoad()
-    -- Initial setup happens in Refresh (called by Krowi lib after positioning)
 end
 
 function HousingCodexWorldMapButtonMixin:Refresh()
@@ -180,44 +179,9 @@ local function CreateWorldMapButton()
     buttonCreated = true
 
     local rwm = LibStub("Krowi_WorldMapButtons-1.4")
-    addon.worldMapButton = rwm:Add("HousingCodexWorldMapButtonTemplate", "DropdownButton", UIParent)
+    addon.worldMapButton = rwm:Add("HousingCodexWorldMapButtonTemplate", "DropdownButton")
 
-    local button = addon.worldMapButton
-    button:SetFrameStrata("HIGH")
-    button:SetFrameLevel(500)
-
-    -- Sync scale: other Krowi buttons are children of WorldMapFrame with own
-    -- scale 1.0, so their effective scale = WorldMapFrame's effective scale.
-    -- Our button (parented to UIParent) needs own scale = WorldMapFrame:GetScale()
-    -- so that UIParent effective × ownScale = WorldMapFrame effective.
-    -- Use WorldMapFrame:GetScale() (NOT canvas container — that includes zoom).
-    -- Must run AFTER Krowi's own RefreshOverlayFrames hook (which calls SetPoints
-    -- with the pre-scale offset), so our post-hook corrects the position.
-    local function SyncButtonLayout()
-        local wmfScale = WorldMapFrame:GetScale()
-        if not issecretvalue(wmfScale) and wmfScale and wmfScale > 0 then
-            button:SetScale(wmfScale)
-        end
-        if rwm.SetPoints then rwm.SetPoints() end
-    end
-
-    SyncButtonLayout()
-    button:SetShown(WorldMapFrame:IsShown())
-
-    -- Visibility + layout sync via safe post-hooks
-    hooksecurefunc(WorldMapFrame, "Show", function()
-        button:Show()
-        SyncButtonLayout()
-    end)
-    hooksecurefunc(WorldMapFrame, "Hide", function() button:Hide() end)
-    hooksecurefunc(WorldMapFrame, "RefreshOverlayFrames", function()
-        if WorldMapFrame:IsShown() then
-            button:Show()
-        end
-        SyncButtonLayout()
-    end)
-
-    addon:Debug("World map button created (UIParent-parented, taint-safe)")
+    addon:Debug("World map button created")
 end
 
 addon:RegisterInternalEvent("DATA_LOADED", function()

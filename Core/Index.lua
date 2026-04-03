@@ -175,7 +175,4 @@ end
 -- Event Handlers
 addon:RegisterInternalEvent("DATA_LOADED", function()
     addon:BuildCollectedIndex()
-    C_Timer.After(0, function()
-        addon:BuildWordIndex()
-    end)
 end)

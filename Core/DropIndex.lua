@@ -76,10 +76,29 @@ function addon:BuildDropIndex()
         end
     end
 
+    -- Enrich empty sourceText on records with drop source names
+    local enriched = 0
+    if self.decorRecords then
+        for category, sources in pairs(self.DropSourceData) do
+            for _, sourceData in ipairs(sources) do
+                local displayName = self:GetLocalizedSourceName(sourceData.sourceName) or sourceData.sourceName
+                if displayName then
+                    for _, decorId in ipairs(sourceData.decorIds or {}) do
+                        local record = self.decorRecords[decorId]
+                        if record and (not record.sourceText or record.sourceText == "") then
+                            record.sourceText = displayName
+                            enriched = enriched + 1
+                        end
+                    end
+                end
+            end
+        end
+    end
+
     self.dropIndexBuilt = true
 
-    self:Debug(string.format("Built drop index: %d sources, %d decor items in %d ms",
-        sourceCount, decorCount, math.floor(debugprofilestop() - startTime)))
+    self:Debug(string.format("Built drop index: %d sources, %d decor items (%d sourceText enriched) in %d ms",
+        sourceCount, decorCount, enriched, math.floor(debugprofilestop() - startTime)))
 end
 
 function addon:GetSortedDropCategories()

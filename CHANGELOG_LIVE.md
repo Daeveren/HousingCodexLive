@@ -2,6 +2,17 @@
 
 All notable changes to Housing Codex.
 
+**2.1.4** (2026-04-04)
+
+**Changed**
+- Improvements to make the addon load faster at startup
+
+**Fixed**
+- Improved world map overlay stability
+- Improved layering of the map overlay and world map button
+- Hidden a vendor that is not yet active in-game and was showing up in vendor lists
+- Improvements to the Drops tab, added missing source info for several dropped items
+
 **2.1.3** (2026-04-03)
 
 **Fixed**
