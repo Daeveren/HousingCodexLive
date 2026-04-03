@@ -276,6 +276,9 @@ function addon:BuildQuestIndex()
 
     self.buildingQuestIndex = false
 
+    -- Reset zone index so it rebuilds with the now-populated quest data
+    self:ResetZoneIndex()
+
     local elapsedMs = math.floor(debugprofilestop() - startTime)
     self:Debug(string.format("Built quest index: %d quests (%d scraped, %d parsed) in %d ms",
         questCount, scrapedCount, parsedCount, elapsedMs))

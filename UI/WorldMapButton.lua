@@ -183,7 +183,8 @@ local function CreateWorldMapButton()
     addon.worldMapButton = rwm:Add("HousingCodexWorldMapButtonTemplate", "DropdownButton", UIParent)
 
     local button = addon.worldMapButton
-    button:SetFrameStrata("DIALOG")
+    button:SetFrameStrata("HIGH")
+    button:SetFrameLevel(500)
 
     -- Sync scale: other Krowi buttons are children of WorldMapFrame with own
     -- scale 1.0, so their effective scale = WorldMapFrame's effective scale.

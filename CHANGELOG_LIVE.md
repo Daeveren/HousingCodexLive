@@ -2,6 +2,12 @@
 
 All notable changes to Housing Codex.
 
+**2.1.3** (2026-04-03)
+
+**Fixed**
+- Zone overlay items now appear immediately
+- World map button no longer overlaps other windows dragged over the map
+
 **2.1.2** (2026-04-02)
 
 **Added**

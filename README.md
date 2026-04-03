@@ -22,6 +22,7 @@ A World of Warcraft addon that gives you a better way to browse, track, and coll
 - **Drops** - Drop sources including bosses, treasures, and world drops
 - **Professions** - Crafted housing items organized by profession with per-profession progress
 - **PvP** - PvP-sourced decorations from battleground achievements, arena drops, and Honor/Brawler's Guild vendors
+- **Renown** - Reputation-sourced decorations organized by faction with renown level requirements and vendor locations
 - **Progress** - Collection dashboard with per-source and per-expansion breakdowns, and a most-progressed list
 
 ### In-World Integration

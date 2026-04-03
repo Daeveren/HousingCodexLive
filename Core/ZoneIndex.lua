@@ -452,6 +452,16 @@ function addon:InvalidateZoneDecorCache()
     wipe(zoneProgressCache)
 end
 
+-- Full reset: wipe reverse indexes, name cache, and result caches so BuildIndex re-runs
+-- Called after BuildQuestIndex populates questAllZones/questIndex (which are lazy)
+function addon:ResetZoneIndex()
+    wipe(questsByZoneName)
+    wipe(mapNameCache)
+    indexBuilt = false
+    self:InvalidateZoneDecorCache()
+    self:FireEvent("ZONE_DECOR_CACHE_INVALIDATED")
+end
+
 -- Invalidate on ownership changes (only when collection state actually changed)
 addon:RegisterInternalEvent("RECORD_OWNERSHIP_UPDATED", function(recordID, collectionStateChanged)
     if not collectionStateChanged then return end
