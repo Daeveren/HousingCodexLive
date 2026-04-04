@@ -71,10 +71,16 @@ function Categories:Initialize(sidebar)
         if not addon.indexesBuilt then return end
         local L = addon.L
 
+        local decorCollected = addon:GetDecorCollectedCount()
+        local decorTotal = addon:GetDecorRecordCount()
+        local roomsCollected = addon:GetRoomCollectedCount()
+        local roomsTotal = addon:GetRoomRecordCount()
+
         GameTooltip:SetOwner(frame, "ANCHOR_TOPLEFT", 0, 4)
-        GameTooltip:AddLine(string.format(L["RESULT_COUNT_TOOLTIP_UNIQUE"], addon:GetUniqueCollectedCount()), 1, 1, 1)
-        GameTooltip:AddLine(string.format(L["RESULT_COUNT_TOOLTIP_OWNED"], addon:GetTotalOwnedCount()), 1, 1, 1)
-        GameTooltip:AddLine(string.format(L["RESULT_COUNT_TOOLTIP_TOTAL"], addon:GetRecordCount()), 1, 1, 1)
+        GameTooltip:AddLine(string.format(L["RESULT_COUNT_TOOLTIP_UNIQUE"], decorCollected, decorTotal, decorTotal > 0 and (decorCollected / decorTotal * 100) or 0), 1, 1, 1)
+        GameTooltip:AddLine(string.format(L["RESULT_COUNT_TOOLTIP_ROOMS"], roomsCollected, roomsTotal), 1, 1, 1)
+        GameTooltip:AddLine(string.format(L["RESULT_COUNT_TOOLTIP_OWNED"], addon:GetTotalDecorOwnedCount()), 1, 1, 1)
+        GameTooltip:AddLine(string.format(L["RESULT_COUNT_TOOLTIP_TOTAL"], decorTotal + roomsTotal, decorTotal, roomsTotal), 1, 1, 1)
         GameTooltip:Show()
     end)
     resultOverlay:SetScript("OnLeave", function()

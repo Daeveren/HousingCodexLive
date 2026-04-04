@@ -2,6 +2,18 @@
 
 All notable changes to Housing Codex.
 
+**2.2.0** (2026-04-05)
+
+**Added**
+- New button in the Wishlist window to navigate back to the main Housing Codex window
+- Progress tab "Most Progressed" section now covers all source types (achievements, drops, PvP, professions)
+- Reworked collection counting — decor and rooms are now tracked and displayed separately in the minimap and broker button tooltip
+- Added the housing rooms unlocked in the minimap button or broker button tooltip
+- Added missing drop sources for a couple of items
+
+**Fixed**
+- Improved localized vendor search and zone names for non-English clients
+
 **2.1.4** (2026-04-04)
 
 **Changed**

@@ -22,7 +22,7 @@ local function CreateBrokerPopup()
     if brokerPopup then return brokerPopup end
 
     local popup = CreateFrame("Frame", "HousingCodexBrokerPopup", UIParent, "BackdropTemplate")
-    popup:SetSize(220, 120)
+    popup:SetSize(220, 144)
     popup:SetFrameStrata("DIALOG")
     popup:SetBackdrop({
         bgFile = "Interface/Tooltips/UI-Tooltip-Background",
@@ -63,8 +63,9 @@ local function CreateBrokerPopup()
 
     popup.checks = {
         CreatePopupCheckbox(popup, -28, L["LDB_POPUP_UNIQUE"], "ldbShowUnique"),
-        CreatePopupCheckbox(popup, -52, L["LDB_POPUP_TOTAL_OWNED"], "ldbShowTotalOwned"),
-        CreatePopupCheckbox(popup, -76, L["LDB_POPUP_TOTAL_ITEMS"], "ldbShowTotal"),
+        CreatePopupCheckbox(popup, -52, L["LDB_POPUP_ROOMS"], "ldbShowRooms"),
+        CreatePopupCheckbox(popup, -76, L["LDB_POPUP_TOTAL_OWNED"], "ldbShowTotalOwned"),
+        CreatePopupCheckbox(popup, -100, L["LDB_POPUP_TOTAL_ITEMS"], "ldbShowTotal"),
     }
 
     brokerPopup = popup
@@ -128,11 +129,18 @@ local function ShowTooltip(tooltip)
     tooltip:AddLine(L["ADDON_NAME"])
 
     if addon.indexesBuilt then
+        local decorCollected = addon:GetDecorCollectedCount()
+        local decorTotal = addon:GetDecorRecordCount()
+        local decorPct = decorTotal > 0 and (decorCollected / decorTotal * 100) or 0
+        local roomsCollected = addon:GetRoomCollectedCount()
+        local roomsTotal = addon:GetRoomRecordCount()
+
         tooltip:AddLine(" ")
         tooltip:AddLine(L["LDB_TOOLTIP_DECOR_HEADER"], 1, 0.82, 0, 1)
-        tooltip:AddDoubleLine(L["LDB_POPUP_UNIQUE"], tostring(addon:GetUniqueCollectedCount()), 0.8, 0.8, 0.8, 1, 1, 1)
-        tooltip:AddDoubleLine(L["LDB_POPUP_TOTAL_OWNED"], tostring(addon:GetTotalOwnedCount()), 0.8, 0.8, 0.8, 1, 1, 1)
-        tooltip:AddDoubleLine(L["LDB_POPUP_TOTAL_ITEMS"], tostring(addon:GetRecordCount()), 0.8, 0.8, 0.8, 1, 1, 1)
+        tooltip:AddDoubleLine(L["LDB_POPUP_UNIQUE"], string.format("%d / %d (%.1f%%)", decorCollected, decorTotal, decorPct), 0.8, 0.8, 0.8, 1, 1, 1)
+        tooltip:AddDoubleLine(L["LDB_POPUP_ROOMS"], string.format("%d / %d", roomsCollected, roomsTotal), 0.8, 0.8, 0.8, 1, 1, 1)
+        tooltip:AddDoubleLine(L["LDB_POPUP_TOTAL_OWNED"], tostring(addon:GetTotalDecorOwnedCount()), 0.8, 0.8, 0.8, 1, 1, 1)
+        tooltip:AddDoubleLine(L["LDB_POPUP_TOTAL_ITEMS"], string.format("%d (%d + %d)", decorTotal + roomsTotal, decorTotal, roomsTotal), 0.8, 0.8, 0.8, 1, 1, 1)
     end
 
     tooltip:AddLine(" ")
@@ -205,11 +213,15 @@ function LDB:UpdateText()
 
     if addon.indexesBuilt then
         if settings.ldbShowUnique then
-            segments[#segments + 1] = tostring(addon:GetUniqueCollectedCount())
+            segments[#segments + 1] = tostring(addon:GetDecorCollectedCount())
+        end
+
+        if settings.ldbShowRooms then
+            segments[#segments + 1] = tostring(addon:GetRoomCollectedCount())
         end
 
         if settings.ldbShowTotalOwned then
-            segments[#segments + 1] = tostring(addon:GetTotalOwnedCount())
+            segments[#segments + 1] = tostring(addon:GetTotalDecorOwnedCount())
         end
 
         if settings.ldbShowTotal then

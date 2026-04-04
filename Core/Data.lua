@@ -50,6 +50,13 @@ local function CalculateTotalOwned(info)
     return (info.numPlaced or 0) + (info.quantity or 0) + (info.remainingRedeemable or 0)
 end
 
+-- Entry type constant for room detection (HousingCatalogConstantsDocumentation: Room = 2)
+local ROOM_ENTRY_TYPE = Enum.HousingCatalogEntryType and Enum.HousingCatalogEntryType.Room or 2
+
+local function IsRoomRecord(record)
+    return record.entryID and record.entryID.entryType == ROOM_ENTRY_TYPE
+end
+
 -- Update a record's ownership fields from API info
 local function RefreshRecordOwnership(record, info)
     record.quantity = info.quantity or 0
@@ -321,8 +328,9 @@ function addon:ProcessSearchResults()
     -- Fire loaded event
     self:FireEvent("DATA_LOADED", recordCount)
 
-    local collectedCount = self:GetUniqueCollectedCount()
-    local collectedPct = recordCount > 0 and (collectedCount / recordCount * 100) or 0
+    local decorTotal = self:GetDecorRecordCount()
+    local decorCollected = self:GetDecorCollectedCount()
+    local collectedPct = decorTotal > 0 and (decorCollected / decorTotal * 100) or 0
     self:Print(string.format(self.L["LOADED_MESSAGE"], collectedPct))
 end
 
@@ -452,6 +460,31 @@ function addon:GetUniqueCollectedCount()
     return count
 end
 
+local function IterateCollected(decorRecords, collected, isRoom, fn)
+    for recordID in pairs(collected) do
+        local record = decorRecords[recordID]
+        if record and IsRoomRecord(record) == isRoom then
+            fn(record)
+        end
+    end
+end
+
+-- Decor-only collected count (excludes rooms)
+function addon:GetDecorCollectedCount()
+    if not self.indexesBuilt then return 0 end
+    local count = 0
+    IterateCollected(self.decorRecords, self.indexes.collected, false, function() count = count + 1 end)
+    return count
+end
+
+-- Room-only collected count
+function addon:GetRoomCollectedCount()
+    if not self.indexesBuilt then return 0 end
+    local count = 0
+    IterateCollected(self.decorRecords, self.indexes.collected, true, function() count = count + 1 end)
+    return count
+end
+
 function addon:GetTotalOwnedCount()
     if not self.indexesBuilt then return 0 end
     local total = 0
@@ -462,6 +495,42 @@ function addon:GetTotalOwnedCount()
         end
     end
     return total
+end
+
+-- Decor-only total owned (excludes rooms)
+function addon:GetTotalDecorOwnedCount()
+    if not self.indexesBuilt then return 0 end
+    local total = 0
+    IterateCollected(self.decorRecords, self.indexes.collected, false, function(record)
+        if record.totalOwned then
+            total = total + record.totalOwned
+        end
+    end)
+    return total
+end
+
+-- Decor-only record count (total decor in catalog, excludes rooms)
+function addon:GetDecorRecordCount()
+    if not self.indexesBuilt then return 0 end
+    local count = 0
+    for _, record in pairs(self.decorRecords) do
+        if not IsRoomRecord(record) then
+            count = count + 1
+        end
+    end
+    return count
+end
+
+-- Room-only record count (total rooms in catalog)
+function addon:GetRoomRecordCount()
+    if not self.indexesBuilt then return 0 end
+    local count = 0
+    for _, record in pairs(self.decorRecords) do
+        if IsRoomRecord(record) then
+            count = count + 1
+        end
+    end
+    return count
 end
 
 function addon:GetAllRecordIDs()

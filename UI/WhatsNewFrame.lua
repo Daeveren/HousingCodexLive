@@ -129,6 +129,7 @@ function WhatsNew:EnsureFrame()
     -- Safety net: mark welcome as seen no matter how the frame is hidden
     -- (UISpecialFrames ESC, /hc toggle, keybind, etc.)
     frame:SetScript("OnHide", function()
+        StopTypewriter()
         if WhatsNew.currentVariant == "welcome" and addon.db and addon.db.whatsNew then
             addon.db.whatsNew.hasSeenWelcome = true
         end

@@ -17,9 +17,13 @@ local CONTENT_PADDING = 20
 local COLUMN_GAP = 16
 
 local SOURCE_LABEL_KEYS = {
-    QUESTS = "PROGRESS_SOURCE_QUESTS",
-    VENDORS = "PROGRESS_SOURCE_VENDORS",
-    RENOWN = "PROGRESS_SOURCE_RENOWN",
+    QUESTS       = "PROGRESS_SOURCE_QUESTS",
+    VENDORS      = "PROGRESS_SOURCE_VENDORS",
+    RENOWN       = "PROGRESS_SOURCE_RENOWN",
+    ACHIEVEMENTS = "PROGRESS_SOURCE_ACHIEVEMENTS",
+    DROPS        = "PROGRESS_SOURCE_DROPS",
+    PVP          = "PROGRESS_SOURCE_PVP",
+    PROFESSIONS  = "PROGRESS_SOURCE_PROFESSIONS",
 }
 
 addon.ProgressTab = {}
@@ -91,25 +95,28 @@ function ProgressTab:CreateSidebarPanel(parent)
     border:SetColorTexture(0.2, 0.2, 0.25, 1)
 end
 
+function ProgressTab:EnsureIndexes()
+    if not addon.dataLoaded then return false end
+    if not addon.questIndexBuilt then
+        addon:BuildQuestIndex()
+        addon:BuildQuestHierarchy()
+    end
+    if not addon.vendorIndexBuilt then addon:BuildVendorIndex() end
+    if not addon.achievementIndexBuilt then addon:BuildAchievementIndex() end
+    if not addon.dropIndexBuilt then addon:BuildDropIndex() end
+    if not addon.craftingIndexBuilt then addon:BuildCraftingIndex() end
+    if not addon.pvpIndexBuilt then addon:BuildPvPIndex() end
+    if not addon.renownIndexBuilt then addon:BuildRenownIndex() end
+    return true
+end
+
 function ProgressTab:Show()
     if not self.frame then return end
 
     local skipRefresh = self.ownershipRefreshedThisShow
     self.ownershipRefreshedThisShow = nil
 
-    -- Ensure all indexes are built (lazy-load on first visit, guarded until data is ready)
-    if addon.dataLoaded then
-        if not addon.questIndexBuilt then
-            addon:BuildQuestIndex()
-            addon:BuildQuestHierarchy()
-        end
-        if not addon.vendorIndexBuilt then addon:BuildVendorIndex() end
-        if not addon.achievementIndexBuilt then addon:BuildAchievementIndex() end
-        if not addon.dropIndexBuilt then addon:BuildDropIndex() end
-        if not addon.craftingIndexBuilt then addon:BuildCraftingIndex() end
-        if not addon.pvpIndexBuilt then addon:BuildPvPIndex() end
-        if not addon.renownIndexBuilt then addon:BuildRenownIndex() end
-    end
+    self:EnsureIndexes()
 
     self.frame:Show()
     if self.sidePanel then self.sidePanel:Show() end
@@ -351,10 +358,14 @@ function ProgressTab:BuildDashboard(preserveScroll)
     local totalHeight = math.max(math.abs(leftY), math.abs(rightY))
     self.scrollChild:SetHeight(totalHeight + SECTION_PADDING)
 
-    -- Restore scroll position (clamped to new range)
+    -- Restore scroll position (deferred to next frame so layout has recalculated range)
     if savedScroll > 0 then
-        local range = self.scrollFrame:GetVerticalScrollRange()
-        self.scrollFrame:SetVerticalScroll(math.min(savedScroll, range))
+        C_Timer.After(0, function()
+            if ProgressTab:IsShown() then
+                local range = ProgressTab.scrollFrame:GetVerticalScrollRange()
+                ProgressTab.scrollFrame:SetVerticalScroll(math.min(savedScroll, range))
+            end
+        end)
     end
 end
 
@@ -547,7 +558,8 @@ function ProgressTab:SetupProgressRow(row, data, yOffset, rowWidth, onClick, xOf
     row:SetPoint("TOPLEFT", self.scrollChild, "TOPLEFT", xOffset, yOffset)
     row:SetWidth(rowWidth)
 
-    local displayLabel = (data.professionName and addon:GetLocalizedProfessionName(data.professionName))
+    local displayLabel = data.displayLabel
+        or (data.professionName and addon:GetLocalizedProfessionName(data.professionName))
         or L[data.labelKey] or data.labelKey
     -- For "Most Progressed" rows, suffix with source kind
     if data.sourceLabel then
@@ -612,11 +624,15 @@ function ProgressTab:BuildSourceSection(yOffset, columnWidth, xOffset)
                 NavigateToSourceTab(addon.PvPTab, "PVP")
             elseif data.targetTabKey == "RENOWN" then
                 NavigateToSourceTab(addon.RenownTab, "RENOWN")
+            elseif data.targetTabKey == "VENDORS" then
+                NavigateToSourceTab(addon.VendorsTab, "VENDORS")
+            elseif data.targetTabKey == "QUESTS" then
+                NavigateToSourceTab(addon.QuestsTab, "QUESTS")
+            elseif data.targetTabKey == "PROFESSIONS" then
+                NavigateToSourceTab(addon.ProfessionsTab, "PROFESSIONS")
             elseif data.targetTabKey == "DECOR" then
                 addon.Tabs:SelectTab("DECOR")
                 addon.Filters:ResetAllFilters()
-            else
-                addon.Tabs:SelectTab(data.targetTabKey)
             end
         end, xOffset)
         yOffset = yOffset - ROW_HEIGHT - 2
@@ -662,7 +678,7 @@ function ProgressTab:BuildExpansionSection(yOffset, columnWidth, headerKey, head
     for i, data in ipairs(expansionData) do
         local row = self:GetOrCreateProgressRow(rowPool, i)
         self:SetupProgressRow(row, data, yOffset, columnWidth, function()
-            self:NavigateToExpansion(data)
+            self:NavigateToDetail(data)
         end, xOffset)
         yOffset = yOffset - ROW_HEIGHT - 2
     end
@@ -683,20 +699,31 @@ function ProgressTab:BuildAlmostThereSection(yOffset, columnWidth, xOffset)
     yOffset = self:PlaceSectionHeader("almostThereHeader", L["PROGRESS_ALMOST_THERE"], yOffset, xOffset)
 
     for i, data in ipairs(rows) do
-        -- If expansion name is "Other" (unmapped zones), just show the source type name
-        local isUnknownExpansion = (data.labelKey == "QUESTS_UNKNOWN_EXPANSION" or data.labelKey == "VENDORS_UNKNOWN_EXPANSION")
+        local isUnknownExpansion = (data.labelKey == "QUESTS_UNKNOWN_EXPANSION"
+                                    or data.labelKey == "VENDORS_UNKNOWN_EXPANSION")
         local sourceLabelKey = SOURCE_LABEL_KEYS[data.sourceKind] or "PROGRESS_SOURCE_VENDORS"
+
+        -- Resolve display label for types that need special handling
+        local resolvedLabel
+        if data.categoryId then
+            resolvedLabel = addon:GetCategoryName(data.categoryId)
+        elseif isUnknownExpansion then
+            resolvedLabel = L[sourceLabelKey]
+        end
+
         local displayData = {
-            labelKey    = isUnknownExpansion and sourceLabelKey or data.labelKey,
-            owned       = data.owned,
-            total       = data.total,
-            percent     = data.percent,
-            sourceLabel = not isUnknownExpansion and L[sourceLabelKey] or nil,
+            displayLabel   = resolvedLabel,
+            labelKey       = data.labelKey,
+            professionName = data.professionName,
+            owned          = data.owned,
+            total          = data.total,
+            percent        = data.percent,
+            sourceLabel    = not isUnknownExpansion and L[sourceLabelKey] or nil,
         }
 
         local row = self:GetOrCreateProgressRow(self.almostThereRows, i)
         self:SetupProgressRow(row, displayData, yOffset, columnWidth, function()
-            self:NavigateToExpansion(data)
+            self:NavigateToDetail(data)
         end, xOffset)
         yOffset = yOffset - ROW_HEIGHT - 2
     end
@@ -708,16 +735,21 @@ end
 -- Click Navigation
 --------------------------------------------------------------------------------
 
-local EXPANSION_TAB_MAP = {
-    QUESTS  = { key = "QUESTS",    obj = function() return addon.QuestsTab end },
-    VENDORS = { key = "VENDORS",   obj = function() return addon.VendorsTab end },
-    RENOWN  = { key = "RENOWN",    obj = function() return addon.RenownTab end },
-}
-
-function ProgressTab:NavigateToExpansion(data)
-    local entry = EXPANSION_TAB_MAP[data.sourceKind]
-    if entry then
-        NavigateToSourceTab(entry.obj(), entry.key, data.expansionKey)
+function ProgressTab:NavigateToDetail(data)
+    if data.sourceKind == "QUESTS" then
+        NavigateToSourceTab(addon.QuestsTab, "QUESTS", data.expansionKey)
+    elseif data.sourceKind == "VENDORS" then
+        NavigateToSourceTab(addon.VendorsTab, "VENDORS", data.expansionKey)
+    elseif data.sourceKind == "RENOWN" then
+        NavigateToSourceTab(addon.RenownTab, "RENOWN", data.expansionKey)
+    elseif data.sourceKind == "ACHIEVEMENTS" then
+        NavigateToSourceTab(addon.AchievementsTab, "ACHIEVEMENTS", data.categoryId)
+    elseif data.sourceKind == "DROPS" then
+        NavigateToSourceTab(addon.DropsTab, "DROPS", data.category)
+    elseif data.sourceKind == "PVP" then
+        NavigateToSourceTab(addon.PvPTab, "PVP", data.pvpCategory)
+    elseif data.sourceKind == "PROFESSIONS" then
+        self:NavigateToProfession(data.professionName)
     end
 end
 
@@ -737,34 +769,12 @@ ProgressTab:RegisterTabVisibility("PROGRESS")
 
 addon:RegisterInternalEvent("DATA_LOADED", function()
     if not ProgressTab:IsShown() then return end
-
-    if not addon.questIndexBuilt then
-        addon:BuildQuestIndex()
-        addon:BuildQuestHierarchy()
-    end
-    if not addon.vendorIndexBuilt then addon:BuildVendorIndex() end
-    if not addon.achievementIndexBuilt then addon:BuildAchievementIndex() end
-    if not addon.dropIndexBuilt then addon:BuildDropIndex() end
-    if not addon.craftingIndexBuilt then addon:BuildCraftingIndex() end
-    if not addon.pvpIndexBuilt then addon:BuildPvPIndex() end
-    if not addon.renownIndexBuilt then addon:BuildRenownIndex() end
-
+    ProgressTab:EnsureIndexes()
     ProgressTab:RefreshDisplay(true)
 end)
 
 ProgressTab:RegisterOwnershipRefresh(function()
-    if addon.dataLoaded then
-        if not addon.questIndexBuilt then
-            addon:BuildQuestIndex()
-            addon:BuildQuestHierarchy()
-        end
-        if not addon.vendorIndexBuilt then addon:BuildVendorIndex() end
-        if not addon.achievementIndexBuilt then addon:BuildAchievementIndex() end
-        if not addon.dropIndexBuilt then addon:BuildDropIndex() end
-        if not addon.craftingIndexBuilt then addon:BuildCraftingIndex() end
-        if not addon.pvpIndexBuilt then addon:BuildPvPIndex() end
-        if not addon.renownIndexBuilt then addon:BuildRenownIndex() end
-    end
+    ProgressTab:EnsureIndexes()
     ProgressTab:RefreshDisplay(true)
 end)
 

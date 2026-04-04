@@ -128,6 +128,10 @@ function RenownTab:NavigateFromProgress(expansionKey)
         self.searchBox:SetText("")
     end
     self:SetCompletionFilter("incomplete")
+    if not expansionKey then
+        local expansions = addon:GetSortedRenownExpansions()
+        expansionKey = expansions[1]
+    end
     if expansionKey then
         self:SelectExpansion(expansionKey)
     end

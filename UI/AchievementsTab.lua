@@ -380,11 +380,14 @@ function AchievementsTab:SetCompletionFilter(filterKey, skipRefresh)
     end
 end
 
-function AchievementsTab:NavigateFromProgress()
+function AchievementsTab:NavigateFromProgress(categoryId)
     if self.searchBox then
         self.searchBox:SetText("")
     end
     self:SetCompletionFilter("incomplete")
+    if categoryId then
+        self:SelectCategory(categoryId)
+    end
 end
 
 function AchievementsTab:GetCompletionFilter()

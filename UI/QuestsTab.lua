@@ -388,7 +388,11 @@ function QuestsTab:NavigateFromProgress(expansionKey)
         self.searchBox:SetText("")
     end
     self:SetCompletionFilter("incomplete", true)
-    self:SelectExpansion(expansionKey)
+    if not expansionKey then
+        local expansions = addon:GetSortedExpansions()
+        expansionKey = expansions[1]
+    end
+    if expansionKey then self:SelectExpansion(expansionKey) end
 end
 
 function QuestsTab:Hide()

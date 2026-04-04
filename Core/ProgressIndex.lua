@@ -309,6 +309,61 @@ function addon:GetAlmostThereRows(limit)
     addIncomplete(self:GetProgressByExpansion("VENDORS"), "VENDORS", "VENDORS")
     addIncomplete(self:GetProgressByExpansion("RENOWN"), "RENOWN", "RENOWN")
 
+    -- Achievement categories (label resolved at display time via GetCategoryName)
+    for _, categoryId in ipairs(self:GetSortedAchievementCategories()) do
+        local owned, total = self:GetCategoryCollectionProgress(categoryId)
+        if total > 0 and owned > 0 and owned < total then
+            table.insert(candidates, {
+                categoryId   = categoryId,
+                owned        = owned,
+                total        = total,
+                percent      = owned / total * 100,
+                remaining    = total - owned,
+                targetTabKey = "ACHIEVEMENTS",
+                sourceKind   = "ACHIEVEMENTS",
+            })
+        end
+    end
+
+    -- Drop categories
+    for _, category in ipairs(self:GetSortedDropCategories()) do
+        local owned, total = self:GetDropCategoryCollectionProgress(category)
+        if total > 0 and owned > 0 and owned < total then
+            local categoryInfo = self:GetSourceCategoryInfo(category)
+            table.insert(candidates, {
+                category     = category,
+                labelKey     = categoryInfo and categoryInfo.labelKey or category,
+                owned        = owned,
+                total        = total,
+                percent      = owned / total * 100,
+                remaining    = total - owned,
+                targetTabKey = "DROPS",
+                sourceKind   = "DROPS",
+            })
+        end
+    end
+
+    -- PvP categories
+    for _, category in ipairs(self:GetSortedPvPCategories()) do
+        local owned, total = self:GetPvPCategoryCollectionProgress(category)
+        if total > 0 and owned > 0 and owned < total then
+            local categoryInfo = self:GetPvPSourceCategoryInfo(category)
+            table.insert(candidates, {
+                pvpCategory  = category,
+                labelKey     = categoryInfo and categoryInfo.labelKey or category,
+                owned        = owned,
+                total        = total,
+                percent      = owned / total * 100,
+                remaining    = total - owned,
+                targetTabKey = "PVP",
+                sourceKind   = "PVP",
+            })
+        end
+    end
+
+    -- Professions
+    addIncomplete(self:GetProgressByProfession(), "PROFESSIONS", "PROFESSIONS")
+
     -- Sort: highest % first, then smallest remaining as tiebreaker
     table.sort(candidates, function(a, b)
         if a.percent ~= b.percent then

@@ -37,7 +37,7 @@ local PVP_VENDOR_NPC_IDS = {
 }
 
 -- Drop source keywords that identify PvP drops
-local PVP_DROP_KEYWORDS = { "Voidscar Arena" }
+local PVP_DROP_KEYWORDS = { "Voidscar Arena", "Stormarion" }
 
 -- Runtime data structures
 addon.pvpHierarchy = {}
@@ -118,23 +118,25 @@ function addon:BuildPvPIndex()
         self.pvpHierarchy["vendors"] = { sources = vendorSources }
     end
 
-    -- 3. Scan DropSourceData["encounter"] for PvP drop keywords
+    -- 3. Scan DropSourceData["encounter"] and ["drop"] for PvP drop keywords
     local dropSources = {}
 
-    if self.DropSourceData and self.DropSourceData["encounter"] then
-        for _, sourceData in ipairs(self.DropSourceData["encounter"]) do
-            local name = sourceData.sourceName or ""
-            for _, keyword in ipairs(PVP_DROP_KEYWORDS) do
-                if name:find(keyword, 1, true) then
-                    local entry = {
-                        sourceName     = name ~= "" and name or L["UNKNOWN"],
-                        sourceCategory = "drops",
-                        decorIds       = sourceData.decorIds or {},
-                    }
-                    table.insert(dropSources, entry)
-                    sourceCount = sourceCount + 1
-                    decorCount  = decorCount + #entry.decorIds
-                    break
+    for _, dropCategory in ipairs({"encounter", "drop"}) do
+        if self.DropSourceData and self.DropSourceData[dropCategory] then
+            for _, sourceData in ipairs(self.DropSourceData[dropCategory]) do
+                local name = sourceData.sourceName or ""
+                for _, keyword in ipairs(PVP_DROP_KEYWORDS) do
+                    if name:find(keyword, 1, true) then
+                        local entry = {
+                            sourceName     = name ~= "" and name or L["UNKNOWN"],
+                            sourceCategory = "drops",
+                            decorIds       = sourceData.decorIds or {},
+                        }
+                        table.insert(dropSources, entry)
+                        sourceCount = sourceCount + 1
+                        decorCount  = decorCount + #entry.decorIds
+                        break
+                    end
                 end
             end
         end

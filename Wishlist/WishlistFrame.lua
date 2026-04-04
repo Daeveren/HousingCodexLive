@@ -164,6 +164,9 @@ function WishlistFrame:CreateTitleBar()
     end)
     self.closeButton = closeBtn
 
+    -- Codex button (return to main UI)
+    self:CreateCodexButton(titleBar)
+
     -- Make title bar draggable
     titleBar:EnableMouse(true)
     titleBar:RegisterForDrag("LeftButton")
@@ -174,6 +177,62 @@ function WishlistFrame:CreateTitleBar()
         frame:StopMovingOrSizing()
         WishlistFrame:SaveLayout()
     end)
+end
+
+function WishlistFrame:CreateCodexButton(titleBar)
+    local AB = addon.CONSTANTS.ACTION_BUTTON
+    local L = addon.L
+
+    local btn = CreateFrame("Button", nil, titleBar, "BackdropTemplate")
+    btn:SetBackdrop(addon.CONSTANTS.TOGGLE_BUTTON_BACKDROP)
+    btn:SetBackdropColor(unpack(AB.COLOR_NORMAL))
+    btn:SetBackdropBorderColor(unpack(AB.COLOR_BORDER_NORMAL))
+
+    -- Codex icon
+    local icon = btn:CreateTexture(nil, "ARTWORK")
+    icon:SetSize(19, 19)
+    icon:SetPoint("LEFT", 8, 0)
+    icon:SetTexture("Interface\\AddOns\\HousingCodex\\HC64")
+
+    -- Text label
+    local label = addon:CreateFontString(btn, "OVERLAY", "GameFontNormal")
+    label:SetPoint("LEFT", icon, "RIGHT", 4, 0)
+    label:SetText(L["CODEX_BUTTON"])
+    label:SetTextColor(unpack(COLORS.GOLD))
+
+    -- Calculate button width based on content
+    local btnWidth = 8 + 19 + 4 + label:GetStringWidth() + 8
+    btn:SetSize(btnWidth, 24)
+
+    -- Position before close button
+    btn:SetPoint("RIGHT", self.closeButton, "LEFT", -8, -3)
+
+    btn:SetScript("OnEnter", function(b)
+        b:SetBackdropColor(unpack(AB.COLOR_HOVER))
+        b:SetBackdropBorderColor(0.6, 0.5, 0.1, 1)
+        GameTooltip:SetOwner(b, "ANCHOR_BOTTOM")
+        GameTooltip:SetText(L["CODEX_BUTTON_TOOLTIP"])
+        GameTooltip:Show()
+    end)
+
+    btn:SetScript("OnLeave", function(b)
+        b:SetBackdropColor(unpack(AB.COLOR_NORMAL))
+        b:SetBackdropBorderColor(unpack(AB.COLOR_BORDER_NORMAL))
+        GameTooltip:Hide()
+    end)
+
+    btn:SetScript("OnClick", function()
+        if InCombatLockdown() then
+            addon:Print(L["COMBAT_LOCKDOWN_MESSAGE"])
+            return
+        end
+        WishlistFrame:Hide()
+        if addon.MainFrame then
+            addon.MainFrame:Show()
+        end
+    end)
+
+    self.codexButton = btn
 end
 
 function WishlistFrame:CreateToolbar()

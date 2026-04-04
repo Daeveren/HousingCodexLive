@@ -1193,7 +1193,11 @@ function VendorsTab:NavigateFromProgress(expansionKey)
     end
     self.currentZoneOnly = false
     self:SetCompletionFilter("incomplete", true)
-    self:SelectExpansion(expansionKey)
+    if not expansionKey then
+        local expansions = addon:GetSortedVendorExpansions()
+        expansionKey = expansions[1]
+    end
+    if expansionKey then self:SelectExpansion(expansionKey) end
 end
 
 --------------------------------------------------------------------------------

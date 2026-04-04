@@ -358,7 +358,10 @@ function ProfessionsTab:NavigateFromProgress(professionName)
     end
     self:SetCompletionFilter("incomplete", true)
     self:BuildProfessionDisplay()
-    self:SelectProfession(professionName)
+    if not professionName then
+        professionName = addon.craftingHierarchy and addon.craftingHierarchy[1]
+    end
+    if professionName then self:SelectProfession(professionName) end
 end
 
 --------------------------------------------------------------------------------

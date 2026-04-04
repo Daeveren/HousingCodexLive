@@ -209,7 +209,6 @@ addon.CONSTANTS = {
         INPUT_DEBOUNCE = 0.15,            -- User input debounce (search, slider, resize)
         OWNERSHIP_REFRESH_DEBOUNCE = 0.1, -- Collection state change coalescing
         QUEST_REFRESH_DEBOUNCE = 0.1,     -- Quest event coalescing (completion + cache invalidation)
-        QUEST_LOG_UPDATE_DEBOUNCE = 0.2,  -- QUEST_LOG_UPDATE coalescing (wider window, fires more aggressively)
     },
 
     -- What's New / Welcome popup
@@ -355,10 +354,7 @@ function addon:Print(msg)
 end
 
 function addon:AnchorTooltipToCursor(owner)
-    GameTooltip:SetOwner(owner, "ANCHOR_NONE")
-    local x, y = GetCursorPosition()
-    local scale = UIParent:GetEffectiveScale()
-    GameTooltip:SetPoint("BOTTOMLEFT", UIParent, "BOTTOMLEFT", x / scale + 20, y / scale + 20)
+    GameTooltip:SetOwner(owner, "ANCHOR_CURSOR_RIGHT")
 end
 
 function addon:GetDecorLink(recordID, callback)

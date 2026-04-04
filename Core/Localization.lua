@@ -47,20 +47,30 @@ end
 -- Positive results cached. Negative results not cached (MayReturnNothing).
 --------------------------------------------------------------------------------
 local CURRENCY_NAME_TO_ID = {
+    ["Ancient Mana"] = 1155,
     ["Apexis Crystal"] = 823,
     ["Brimming Arcana"] = 3379,
     ["Bronze"] = 2778,
     ["Community Coupons"] = 3363,
     ["Dragon Isles Supplies"] = 2003,
     ["Echoes of Ny'alotha"] = 1803,
+    ["Elemental Overflow"] = 2118,
     ["Garrison Resources"] = 824,
+    ["Honor"] = 1792,
     ["Kej"] = 3056,
+    ["Mysterious Fragment"] = 2657,
     ["Order Resources"] = 1220,
     ["Remnant of Anguish"] = 3089,
+    ["Reservoir Anima"] = 1813,
     ["Resonance Crystals"] = 2815,
+    ["Seafarer's Dubloon"] = 1710,
+    ["Stygia"] = 1767,
+    ["Twilight's Blade Insignia"] = 3319,
     ["Unalloyed Abundance"] = 3377,
     ["Voidlight Marl"] = 3316,
     ["War Resources"] = 1560,
+    -- Note: "Mark of Honor" is an item (itemID 137642), not a currency.
+    -- C_CurrencyInfo.GetCurrencyInfo cannot resolve it. Needs C_Item path or manual locale entries.
 }
 
 local currencyNameCache = {}  -- englishName -> localized name (positive only)
@@ -113,11 +123,15 @@ local ZONE_TO_MAP_ID = {
     ["Loch Modan"] = 48,
     ["Mulgore"] = 7,
     ["Nagrand"] = 550,
+    ["Northshire"] = 425,
     ["Shadowmoon Valley"] = 539,
     ["Stormheim"] = 634,
     ["The Azure Span"] = 2024,
     ["Vol'dun"] = 864,
     ["Westfall"] = 52,
+    ["Zuldazar"] = 862,
+    -- Note: "The Great Sea" and "Manaforge Omega" lack standalone uiMapIDs.
+    -- They need manual locale translations or in-game mapID verification.
 }
 
 -- Resolve a zone name to a uiMapID from either vendor data or the static table
