@@ -69,8 +69,12 @@ local CURRENCY_NAME_TO_ID = {
     ["Unalloyed Abundance"] = 3377,
     ["Voidlight Marl"] = 3316,
     ["War Resources"] = 1560,
-    -- Note: "Mark of Honor" is an item (itemID 137642), not a currency.
-    -- C_CurrencyInfo.GetCurrencyInfo cannot resolve it. Needs C_Item path or manual locale entries.
+}
+
+-- Item-based costs that appear as currencyName in VendorData but are items, not currencies.
+-- Resolved via C_Item.GetItemNameByID instead of C_CurrencyInfo.
+local ITEM_CURRENCY_TO_ID = {
+    ["Mark of Honor"] = 137642,
 }
 
 local currencyNameCache = {}  -- englishName -> localized name (positive only)
@@ -87,6 +91,16 @@ function addon:GetLocalizedCurrencyName(englishName)
         if info and info.name and info.name ~= "" then
             currencyNameCache[englishName] = info.name
             return info.name
+        end
+    end
+
+    -- Try item-based currency lookup (e.g., Mark of Honor)
+    local itemID = ITEM_CURRENCY_TO_ID[englishName]
+    if itemID and C_Item and C_Item.GetItemNameByID then
+        local name = C_Item.GetItemNameByID(itemID)
+        if name and name ~= "" then
+            currencyNameCache[englishName] = name
+            return name
         end
     end
 
@@ -130,8 +144,13 @@ local ZONE_TO_MAP_ID = {
     ["Vol'dun"] = 864,
     ["Westfall"] = 52,
     ["Zuldazar"] = 862,
-    -- Note: "The Great Sea" and "Manaforge Omega" lack standalone uiMapIDs.
-    -- They need manual locale translations or in-game mapID verification.
+}
+
+-- areaIDs for zones without uiMapIDs (used with C_Map.GetAreaInfo for localization)
+-- Source: Wowhead AreaTable DBC entries
+local ZONE_AREA_ID = {
+    ["The Great Sea"] = 9800,
+    ["Manaforge Omega"] = 16178,
 }
 
 -- Resolve a zone name to a uiMapID from either vendor data or the static table
@@ -174,7 +193,17 @@ function addon:GetLocalizedZoneName(englishZoneName)
         end
     end
 
-    -- No mapID available -- return English name without caching
+    -- Try areaID lookup for zones without uiMapIDs
+    local areaID = ZONE_AREA_ID[englishZoneName]
+    if areaID and C_Map and C_Map.GetAreaInfo then
+        local areaName = C_Map.GetAreaInfo(areaID)
+        if areaName and areaName ~= "" then
+            zoneNameCache[englishZoneName] = areaName
+            return areaName
+        end
+    end
+
+    -- No localization available -- return English name without caching
     return englishZoneName
 end
 

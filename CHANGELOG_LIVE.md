@@ -2,6 +2,14 @@
 
 All notable changes to Housing Codex.
 
+**2.2.1** (2026-04-06)
+
+**Added**
+- Updated vendor data for Dragonflight, Legion, and Outland decor vendors
+
+**Fixed**
+- Improved zone name and currency localization for non-English clients
+
 **2.2.0** (2026-04-05)
 
 **Added**
