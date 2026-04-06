@@ -2,6 +2,14 @@
 
 All notable changes to Housing Codex.
 
+**2.2.2** (2026-04-07)
+
+**Changed**
+- Improvements to how the collection stats are displayed for better readability
+
+**Fixed**
+- Updated Midnight vendor data
+
 **2.2.1** (2026-04-06)
 
 **Added**

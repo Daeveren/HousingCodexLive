@@ -137,10 +137,10 @@ local function ShowTooltip(tooltip)
 
         tooltip:AddLine(" ")
         tooltip:AddLine(L["LDB_TOOLTIP_DECOR_HEADER"], 1, 0.82, 0, 1)
-        tooltip:AddDoubleLine(L["LDB_POPUP_UNIQUE"], string.format("%d / %d (%.1f%%)", decorCollected, decorTotal, decorPct), 0.8, 0.8, 0.8, 1, 1, 1)
-        tooltip:AddDoubleLine(L["LDB_POPUP_ROOMS"], string.format("%d / %d", roomsCollected, roomsTotal), 0.8, 0.8, 0.8, 1, 1, 1)
-        tooltip:AddDoubleLine(L["LDB_POPUP_TOTAL_OWNED"], tostring(addon:GetTotalDecorOwnedCount()), 0.8, 0.8, 0.8, 1, 1, 1)
-        tooltip:AddDoubleLine(L["LDB_POPUP_TOTAL_ITEMS"], string.format("%d (%d + %d)", decorTotal + roomsTotal, decorTotal, roomsTotal), 0.8, 0.8, 0.8, 1, 1, 1)
+        tooltip:AddDoubleLine(L["LDB_POPUP_UNIQUE"], string.format("%d / %d (%.1f%%)", decorCollected, decorTotal, decorPct), 0.8, 0.8, 0.8, 0.78, 0.95, 0.78)
+        tooltip:AddDoubleLine(L["LDB_POPUP_ROOMS"], string.format("%d / %d", roomsCollected, roomsTotal), 0.8, 0.8, 0.8, 0.78, 0.88, 1.0)
+        tooltip:AddDoubleLine(L["LDB_POPUP_TOTAL_OWNED"], tostring(addon:GetTotalDecorOwnedCount()), 0.8, 0.8, 0.8, 1.0, 0.9, 0.72)
+        tooltip:AddDoubleLine(L["LDB_POPUP_TOTAL_ITEMS"], string.format("%d (%d + %d)", decorTotal + roomsTotal, decorTotal, roomsTotal), 0.8, 0.8, 0.8, 0.75, 0.75, 0.75)
     end
 
     tooltip:AddLine(" ")
