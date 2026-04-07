@@ -140,11 +140,12 @@ function PvPTab:SetCompletionFilter(filterKey, skipRefresh)
     end
 end
 
-function PvPTab:NavigateFromProgress(category)
+function PvPTab:NavigateFromProgress(category, filter)
     if self.searchBox then
         self.searchBox:SetText("")
     end
-    self:SetCompletionFilter("incomplete")
+    self:SetCompletionFilter(filter or "incomplete", true)
+    self:BuildCategoryDisplay()
     if category then
         self:SelectCategory(category)
     end

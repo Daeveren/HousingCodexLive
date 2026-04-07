@@ -140,7 +140,7 @@ local function BuildPinEntriesForMap(mapID, mapType)
     local isZone = mapType == Enum.UIMapType.Zone
     local clustersByZone = isContinent and {} or nil
     local clustersBySubzone = isZone and {} or nil
-    local seenNpcIds = (isContinent or isZone) and {} or nil
+    local seenNpcIds = {}
 
     -- Invalidate rect cache on map change (static geometry, safe to persist within same map)
     if pinRectCacheMapID ~= mapID then
@@ -152,8 +152,8 @@ local function BuildPinEntriesForMap(mapID, mapType)
     for _, vendors in pairs(vendorsByMapID or {}) do
         for _, vendorData in ipairs(vendors) do
             local sourceMapID = vendorData.uiMapId
-            local dedupKey = seenNpcIds and (vendorData.npcId .. ":" .. (sourceMapID or 0))
-            if not seenNpcIds or not seenNpcIds[dedupKey] then
+            local dedupKey = vendorData.npcId .. ":" .. (sourceMapID or 0)
+            if not seenNpcIds[dedupKey] then
                 -- Resolve map rect once per unique source map
                 if sourceMapID and not pinRectCache[sourceMapID] then
                     if sourceMapID == mapID then
@@ -176,11 +176,9 @@ local function BuildPinEntriesForMap(mapID, mapType)
                     x, y = pinOverride.x / 100, pinOverride.y / 100
                 end
                 if x and y then
+                    seenNpcIds[dedupKey] = true
                     local owned, total = addon:GetVendorPinProgress(vendorData.npcId)
                     if IsIncompleteProgress(owned, total) then
-                        if seenNpcIds then
-                            seenNpcIds[dedupKey] = true
-                        end
                         if isContinent then
                             local zoneMapID = addon:GetZoneRootMapID(sourceMapID) or sourceMapID
                             local cluster = GetOrCreateZoneCluster(clustersByZone, zoneMapID)

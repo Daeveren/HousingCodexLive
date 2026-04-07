@@ -2,7 +2,7 @@
     Housing Codex - VendorTooltipOverlay.lua
     Appends decor collection progress to unit tooltips for vendor NPCs.
     Uses TooltipDataProcessor.AddTooltipPostCall (the standard Blizzard API for
-    addon tooltip content — same approach as TSM, Raider.IO, etc.)
+    addon tooltip augmentation)
 ]]
 
 local _, addon = ...

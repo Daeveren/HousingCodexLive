@@ -472,8 +472,8 @@ addon.NPCLocationData = {
         { uiMapId = 85, x = 56.4, y = 90.0, faction = "Horde" },
     },
     [50307] = {
-        { uiMapId = 84, x = 56.2, y = 13.4, faction = "Alliance" },
         { uiMapId = 89, x = 37.0, y = 47.4, faction = "Alliance" },
+        { uiMapId = 84, x = 56.2, y = 13.4, faction = "Alliance" },
     },
     [50309] = { uiMapId = 87, x = 55.4, y = 47.4, faction = "Alliance" },
     [50483] = { uiMapId = 88, x = 46.4, y = 51.0, faction = "Horde" },
@@ -554,8 +554,8 @@ addon.NPCLocationData = {
     [199605] = { uiMapId = 2112, x = 58.2, y = 57.4 },
     [202353] = { uiMapId = 2025, x = 51.2, y = 35.0 },
     [209192] = {
-        { uiMapId = 2024, x = 27.0, y = 46.4 },
         { uiMapId = 2025, x = 61.4, y = 31.4 },
+        { uiMapId = 2024, x = 27.0, y = 46.4 },
     },
     [209220] = { uiMapId = 2025, x = 52.2, y = 80.8 },
     [210608] = {

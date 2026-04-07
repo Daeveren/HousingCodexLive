@@ -383,11 +383,12 @@ function QuestsTab:Show()
     self:SetCompletionFilter(saved and saved.completionFilter or "incomplete")
 end
 
-function QuestsTab:NavigateFromProgress(expansionKey)
+function QuestsTab:NavigateFromProgress(expansionKey, filter)
     if self.searchBox then
         self.searchBox:SetText("")
     end
-    self:SetCompletionFilter("incomplete", true)
+    self:SetCompletionFilter(filter or "incomplete", true)
+    self:BuildExpansionDisplay()
     if not expansionKey then
         local expansions = addon:GetSortedExpansions()
         expansionKey = expansions[1]

@@ -2,6 +2,15 @@
 
 All notable changes to Housing Codex.
 
+**2.2.3** (2026-04-08)
+
+**Fixed**
+- Progress tab clicks on completed rows now switch to the Collected filter
+- Improved left-panel refresh after navigating from the Progress tab
+- Fixed items incorrectly showing as locked in vendor tooltips
+- Fixed duplicate vendor pins on dungeon and sub-zone maps
+- Multi-location vendor waypoints now route to the selected zone
+
 **2.2.2** (2026-04-07)
 
 **Changed**

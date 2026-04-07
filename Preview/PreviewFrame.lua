@@ -544,7 +544,7 @@ local function GetVendorsTrackingContext()
         return nil, nil
     end
 
-    return vendorsTab, npcId
+    return vendorsTab, npcId, vendorsTab.selectedVendorZoneName
 end
 
 function Preview:ClearDetails()
@@ -670,11 +670,11 @@ function Preview:UpdateActionButtons(record)
     self:UpdateWishlistButton()
 
     local recordID = (record and record.recordID) or self.currentRecordID
-    local vendorsTab, npcId = GetVendorsTrackingContext()
+    local vendorsTab, npcId, zoneName = GetVendorsTrackingContext()
 
     -- Vendors tab: all items use vendor waypoint tracking
     if vendorsTab and recordID then
-        local canTrack = vendorsTab:CanVendorTrackDecor(npcId)
+        local canTrack = vendorsTab:CanVendorTrackDecor(npcId, zoneName)
         addon:ApplyTrackButtonState(self.trackButton, canTrack, canTrack and vendorsTab:IsVendorDecorTracked(npcId, recordID), true)
     else
         -- Native tracking behavior on non-Vendors tabs
@@ -688,9 +688,9 @@ end
 
 function Preview:OnTrackButtonClick()
     local recordID = self.currentRecordID
-    local vendorsTab, npcId = GetVendorsTrackingContext()
+    local vendorsTab, npcId, zoneName = GetVendorsTrackingContext()
     if vendorsTab and recordID then
-        vendorsTab:ToggleVendorDecorTracking(npcId, recordID)
+        vendorsTab:ToggleVendorDecorTracking(npcId, recordID, zoneName)
     else
         addon:ToggleTracking(recordID)
     end
@@ -712,10 +712,10 @@ function Preview:ShowTrackButtonTooltip(btn)
     local recordID = self.currentRecordID
     local record = recordID and addon:GetRecord(recordID)
     local L = addon.L
-    local vendorsTab, npcId = GetVendorsTrackingContext()
+    local vendorsTab, npcId, zoneName = GetVendorsTrackingContext()
 
     if vendorsTab and recordID then
-        if not vendorsTab:CanVendorTrackDecor(npcId) then
+        if not vendorsTab:CanVendorTrackDecor(npcId, zoneName) then
             addon:ShowTrackTooltip(btn, L["VENDORS_ACTION_TRACK"], L["VENDORS_ACTION_TRACK_DISABLED_TOOLTIP"], 1, 0.5, 0.5)
         elseif vendorsTab:IsVendorDecorTracked(npcId, recordID) then
             addon:ShowTrackTooltip(btn, L["VENDORS_ACTION_UNTRACK"], L["VENDORS_ACTION_UNTRACK_TOOLTIP"], 1, 1, 1)

@@ -123,11 +123,12 @@ function RenownTab:IsShown()
     return self.frame and self.frame:IsShown()
 end
 
-function RenownTab:NavigateFromProgress(expansionKey)
+function RenownTab:NavigateFromProgress(expansionKey, filter)
     if self.searchBox then
         self.searchBox:SetText("")
     end
-    self:SetCompletionFilter("incomplete")
+    self:SetCompletionFilter(filter or "incomplete", true)
+    self:BuildExpansionDisplay()
     if not expansionKey then
         local expansions = addon:GetSortedRenownExpansions()
         expansionKey = expansions[1]
@@ -144,11 +145,8 @@ end
 function RenownTab:CreateStandingEventFrame()
     if standingEventFrame then return end
     standingEventFrame = CreateFrame("Frame")
-    standingEventFrame:SetScript("OnEvent", function(_, event)
+    standingEventFrame:SetScript("OnEvent", function()
         wipe(addon.renownStandingCache)
-        if event == "MAJOR_FACTION_RENOWN_LEVEL_CHANGED" then
-            addon:FireEvent("RENOWN_LEVEL_CHANGED")
-        end
         if RenownTab:IsShown() then
             RenownTab:RefreshDisplay()
         end
@@ -825,6 +823,12 @@ end
 
 function RenownTab:BuildExpansionDisplay(visCache)
     if not self.expansionScrollBox or not self.expansionDataProvider then return false end
+
+    if not visCache then
+        local filter = self:GetCompletionFilter()
+        local searchText = strlower(strtrim(self.searchBox and self.searchBox:GetText() or ""))
+        visCache = BuildFactionVisibilityCache(filter, searchText)
+    end
 
     local elements = {}
 

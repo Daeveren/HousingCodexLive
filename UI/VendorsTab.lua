@@ -55,6 +55,7 @@ VendorsTab.noExpansionState = nil
 
 VendorsTab.selectedExpansionKey = nil
 VendorsTab.selectedVendorNpcId = nil
+VendorsTab.selectedVendorZoneName = nil
 VendorsTab.selectedDecorId = nil
 VendorsTab.activeTrackedNpcId = nil
 VendorsTab.activeTrackedDecorId = nil
@@ -246,6 +247,7 @@ local function VendorRowOnClick(frame, button)
     VendorsTab:HandleItemSelection({
         decorId = decorIds[1],
         npcId = frame.npcId,
+        zoneName = frame.zoneName,
         isVendorRow = true,
         vendorFrame = frame,
     })
@@ -282,6 +284,7 @@ local function VendorDecorRowOnClick(row)
     VendorsTab:HandleItemSelection({
         decorId = decorId,
         npcId = row.npcId,
+        zoneName = row.zoneName,
         isVendorRow = false,
         decorRow = row,
     })
@@ -398,6 +401,7 @@ function VendorsTab:SelectExpansion(expansionKey)
 
     if prevSelected ~= expansionKey then
         self.selectedVendorNpcId = nil
+        self.selectedVendorZoneName = nil
         self.selectedDecorId = nil
         addon:FireEvent("RECORD_SELECTED", nil)
     end
@@ -618,6 +622,7 @@ function VendorsTab:HandleItemSelection(params)
             self:UpdateDecorSelectionVisual(params.decorRow, false, params.decorRow.textBrightness)
         end
         self.selectedVendorNpcId = nil
+        self.selectedVendorZoneName = nil
         self.selectedDecorId = nil
         addon:FireEvent("RECORD_SELECTED", nil)
     else
@@ -644,6 +649,7 @@ function VendorsTab:HandleItemSelection(params)
 
         -- Select new
         self.selectedVendorNpcId = params.npcId
+        self.selectedVendorZoneName = params.zoneName
         self.selectedDecorId = params.decorId
         if params.isVendorRow then
             self:UpdateVendorSelectionVisual(params.vendorFrame, true)
@@ -959,8 +965,8 @@ function VendorsTab:GetVendorTrackPoint(npcId, preferredZoneName)
     return point, locData, nil
 end
 
-function VendorsTab:CanVendorTrackDecor(npcId)
-    local point = self:GetVendorTrackPoint(npcId)
+function VendorsTab:CanVendorTrackDecor(npcId, preferredZoneName)
+    local point = self:GetVendorTrackPoint(npcId, preferredZoneName)
     return point ~= nil
 end
 
@@ -1170,6 +1176,7 @@ function VendorsTab:NavigateToVendor(npcId)
     local firstDecorId = vendorData and vendorData.decorIds and vendorData.decorIds[1]
     if firstDecorId then
         self.selectedVendorNpcId = npcId
+        self.selectedVendorZoneName = zoneName
         self.selectedDecorId = firstDecorId
         addon:FireEvent("RECORD_SELECTED", firstDecorId)
     end
@@ -1183,7 +1190,7 @@ function VendorsTab:NavigateToVendor(npcId)
     end)
 end
 
-function VendorsTab:NavigateFromProgress(expansionKey)
+function VendorsTab:NavigateFromProgress(expansionKey, filter)
     if self.searchBox then
         self.searchBox:SetText("")
     end
@@ -1192,7 +1199,8 @@ function VendorsTab:NavigateFromProgress(expansionKey)
         self.currentZoneCheckbox:SetChecked(false)
     end
     self.currentZoneOnly = false
-    self:SetCompletionFilter("incomplete", true)
+    self:SetCompletionFilter(filter or "incomplete", true)
+    self:BuildExpansionDisplay()
     if not expansionKey then
         local expansions = addon:GetSortedVendorExpansions()
         expansionKey = expansions[1]
@@ -1446,6 +1454,7 @@ function VendorsTab:BuildVendorDisplay()
         end
         if not found then
             self.selectedVendorNpcId = nil
+            self.selectedVendorZoneName = nil
             self.selectedDecorId = nil
             addon:FireEvent("RECORD_SELECTED", nil)
         end

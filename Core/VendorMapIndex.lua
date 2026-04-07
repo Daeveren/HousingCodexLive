@@ -176,9 +176,8 @@ function addon:GetVendorPinProgress(npcId)
             owned = owned + 1
         elseif #missingNames < limit then
             local name = addon:ResolveDecorName(decorId, record)
-            local fallbackInfo = addon.VendorItemFallback and addon.VendorItemFallback[decorId]
             local achId = addon.DecorToAchievementLookup and addon.DecorToAchievementLookup[decorId]
-            local isLocked = (fallbackInfo and fallbackInfo.sourceCategory) or (achId and not addon:IsAchievementCompleted(achId))
+            local isLocked = achId and not addon:IsAchievementCompleted(achId)
             missingNames[#missingNames + 1] = { name = name, locked = isLocked and true or false }
         end
     end

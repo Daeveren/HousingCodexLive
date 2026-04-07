@@ -143,11 +143,12 @@ function DropsTab:GetCompletionFilter()
     return db and db.completionFilter or "incomplete"
 end
 
-function DropsTab:NavigateFromProgress(category)
+function DropsTab:NavigateFromProgress(category, filter)
     if self.searchBox then
         self.searchBox:SetText("")
     end
-    self:SetCompletionFilter("incomplete", true)
+    self:SetCompletionFilter(filter or "incomplete", true)
+    self:BuildCategoryDisplay()
     self:SelectCategory(category)
 end
 

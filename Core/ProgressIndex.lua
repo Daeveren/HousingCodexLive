@@ -22,10 +22,6 @@ addon:RegisterInternalEvent("DATA_LOADED", function()
     wipe(addon.progressCache)
 end)
 
-addon:RegisterInternalEvent("RENOWN_LEVEL_CHANGED", function()
-    wipe(addon.progressCache)
-end)
-
 --------------------------------------------------------------------------------
 -- Public: Overall Progress
 --------------------------------------------------------------------------------
@@ -199,7 +195,7 @@ end
 --------------------------------------------------------------------------------
 
 -- sourceKind: "QUESTS", "VENDORS", or "RENOWN"
--- Returns ordered array of { expansionKey, labelKey, owned, total, percent, targetTabKey, sourceKind }
+-- Returns ordered array of { expansionKey, labelKey, owned, total, percent, sourceKind }
 function addon:GetProgressByExpansion(sourceKind)
     local cacheKey = "byExpansion_" .. (sourceKind or "")
     if self.progressCache[cacheKey] then
@@ -231,7 +227,6 @@ function addon:GetProgressByExpansion(sourceKind)
             owned        = owned,
             total        = total,
             percent      = total > 0 and (owned / total * 100) or 0,
-            targetTabKey = sourceKind,
             sourceKind   = sourceKind,
         })
     end
@@ -251,7 +246,7 @@ end
 -- Public: Progress By Profession
 --------------------------------------------------------------------------------
 
--- Returns ordered array of { professionName, labelKey, owned, total, percent, targetTabKey }
+-- Returns ordered array of { professionName, labelKey, owned, total, percent }
 function addon:GetProgressByProfession()
     if self.progressCache.byProfession then
         return self.progressCache.byProfession
@@ -267,7 +262,6 @@ function addon:GetProgressByProfession()
                 owned          = owned,
                 total          = total,
                 percent        = owned / total * 100,
-                targetTabKey   = "PROFESSIONS",
             })
         end
     end
@@ -280,7 +274,7 @@ end
 -- Public: Almost There (closest to completion)
 --------------------------------------------------------------------------------
 
--- Returns array of { expansionKey, labelKey, owned, total, percent, remaining, targetTabKey, sourceKind }
+-- Returns array of { expansionKey, labelKey, owned, total, percent, remaining, sourceKind }
 -- Combines quest + vendor + renown expansion rows, sorted by highest % then smallest remaining
 function addon:GetAlmostThereRows(limit)
     limit = limit or 5
@@ -292,22 +286,21 @@ function addon:GetAlmostThereRows(limit)
 
     local candidates = {}
 
-    local function addIncomplete(sourceRows, targetTabKey, sourceKind)
+    local function addIncomplete(sourceRows, sourceKind)
         for _, row in ipairs(sourceRows) do
             if row.total > 0 and row.owned > 0 and row.owned < row.total then
                 local entry = {}
                 for k, v in pairs(row) do entry[k] = v end
                 entry.remaining = row.total - row.owned
-                entry.targetTabKey = targetTabKey
                 entry.sourceKind = sourceKind
                 table.insert(candidates, entry)
             end
         end
     end
 
-    addIncomplete(self:GetProgressByExpansion("QUESTS"), "QUESTS", "QUESTS")
-    addIncomplete(self:GetProgressByExpansion("VENDORS"), "VENDORS", "VENDORS")
-    addIncomplete(self:GetProgressByExpansion("RENOWN"), "RENOWN", "RENOWN")
+    addIncomplete(self:GetProgressByExpansion("QUESTS"), "QUESTS")
+    addIncomplete(self:GetProgressByExpansion("VENDORS"), "VENDORS")
+    addIncomplete(self:GetProgressByExpansion("RENOWN"), "RENOWN")
 
     -- Achievement categories (label resolved at display time via GetCategoryName)
     for _, categoryId in ipairs(self:GetSortedAchievementCategories()) do
@@ -319,7 +312,6 @@ function addon:GetAlmostThereRows(limit)
                 total        = total,
                 percent      = owned / total * 100,
                 remaining    = total - owned,
-                targetTabKey = "ACHIEVEMENTS",
                 sourceKind   = "ACHIEVEMENTS",
             })
         end
@@ -337,7 +329,6 @@ function addon:GetAlmostThereRows(limit)
                 total        = total,
                 percent      = owned / total * 100,
                 remaining    = total - owned,
-                targetTabKey = "DROPS",
                 sourceKind   = "DROPS",
             })
         end
@@ -355,14 +346,13 @@ function addon:GetAlmostThereRows(limit)
                 total        = total,
                 percent      = owned / total * 100,
                 remaining    = total - owned,
-                targetTabKey = "PVP",
                 sourceKind   = "PVP",
             })
         end
     end
 
     -- Professions
-    addIncomplete(self:GetProgressByProfession(), "PROFESSIONS", "PROFESSIONS")
+    addIncomplete(self:GetProgressByProfession(), "PROFESSIONS")
 
     -- Sort: highest % first, then smallest remaining as tiebreaker
     table.sort(candidates, function(a, b)

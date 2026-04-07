@@ -599,11 +599,15 @@ end
 -- By Source Section
 --------------------------------------------------------------------------------
 
-local function NavigateToSourceTab(tabObj, tabKey, arg)
+local function GetCompletionFilter(data)
+    return (data.owned == data.total and data.total > 0) and "complete" or "incomplete"
+end
+
+local function NavigateToSourceTab(tabObj, tabKey, arg, filter)
     tabObj.pendingNavigation = true
     addon.Tabs:SelectTab(tabKey)
     if tabObj.frame then
-        tabObj:NavigateFromProgress(arg)
+        tabObj:NavigateFromProgress(arg, filter)
     end
 end
 
@@ -616,20 +620,21 @@ function ProgressTab:BuildSourceSection(yOffset, columnWidth, xOffset)
     for i, data in ipairs(sourceData) do
         local row = self:GetOrCreateProgressRow(self.sourceRows, i)
         self:SetupProgressRow(row, data, yOffset, columnWidth, function()
+            local filter = GetCompletionFilter(data)
             if data.category then
-                NavigateToSourceTab(addon.DropsTab, "DROPS", data.category)
+                NavigateToSourceTab(addon.DropsTab, "DROPS", data.category, filter)
             elseif data.targetTabKey == "ACHIEVEMENTS" then
-                NavigateToSourceTab(addon.AchievementsTab, "ACHIEVEMENTS")
+                NavigateToSourceTab(addon.AchievementsTab, "ACHIEVEMENTS", nil, filter)
             elseif data.targetTabKey == "PVP" then
-                NavigateToSourceTab(addon.PvPTab, "PVP")
+                NavigateToSourceTab(addon.PvPTab, "PVP", nil, filter)
             elseif data.targetTabKey == "RENOWN" then
-                NavigateToSourceTab(addon.RenownTab, "RENOWN")
+                NavigateToSourceTab(addon.RenownTab, "RENOWN", nil, filter)
             elseif data.targetTabKey == "VENDORS" then
-                NavigateToSourceTab(addon.VendorsTab, "VENDORS")
+                NavigateToSourceTab(addon.VendorsTab, "VENDORS", nil, filter)
             elseif data.targetTabKey == "QUESTS" then
-                NavigateToSourceTab(addon.QuestsTab, "QUESTS")
+                NavigateToSourceTab(addon.QuestsTab, "QUESTS", nil, filter)
             elseif data.targetTabKey == "PROFESSIONS" then
-                NavigateToSourceTab(addon.ProfessionsTab, "PROFESSIONS")
+                NavigateToSourceTab(addon.ProfessionsTab, "PROFESSIONS", nil, filter)
             elseif data.targetTabKey == "DECOR" then
                 addon.Tabs:SelectTab("DECOR")
                 addon.Filters:ResetAllFilters()
@@ -658,7 +663,7 @@ function ProgressTab:BuildProfessionsSection(yOffset, columnWidth, xOffset)
         local onClick = nil
         if not CONSTS.NPC_CRAFTING_SOURCES[data.professionName] then
             onClick = function()
-                self:NavigateToProfession(data.professionName)
+                self:NavigateToProfession(data.professionName, GetCompletionFilter(data))
             end
         end
         self:SetupProgressRow(row, data, yOffset, columnWidth, onClick, xOffset)
@@ -736,28 +741,29 @@ end
 --------------------------------------------------------------------------------
 
 function ProgressTab:NavigateToDetail(data)
+    local filter = GetCompletionFilter(data)
     if data.sourceKind == "QUESTS" then
-        NavigateToSourceTab(addon.QuestsTab, "QUESTS", data.expansionKey)
+        NavigateToSourceTab(addon.QuestsTab, "QUESTS", data.expansionKey, filter)
     elseif data.sourceKind == "VENDORS" then
-        NavigateToSourceTab(addon.VendorsTab, "VENDORS", data.expansionKey)
+        NavigateToSourceTab(addon.VendorsTab, "VENDORS", data.expansionKey, filter)
     elseif data.sourceKind == "RENOWN" then
-        NavigateToSourceTab(addon.RenownTab, "RENOWN", data.expansionKey)
+        NavigateToSourceTab(addon.RenownTab, "RENOWN", data.expansionKey, filter)
     elseif data.sourceKind == "ACHIEVEMENTS" then
-        NavigateToSourceTab(addon.AchievementsTab, "ACHIEVEMENTS", data.categoryId)
+        NavigateToSourceTab(addon.AchievementsTab, "ACHIEVEMENTS", data.categoryId, filter)
     elseif data.sourceKind == "DROPS" then
-        NavigateToSourceTab(addon.DropsTab, "DROPS", data.category)
+        NavigateToSourceTab(addon.DropsTab, "DROPS", data.category, filter)
     elseif data.sourceKind == "PVP" then
-        NavigateToSourceTab(addon.PvPTab, "PVP", data.pvpCategory)
+        NavigateToSourceTab(addon.PvPTab, "PVP", data.pvpCategory, filter)
     elseif data.sourceKind == "PROFESSIONS" then
-        self:NavigateToProfession(data.professionName)
+        self:NavigateToProfession(data.professionName, filter)
     end
 end
 
-function ProgressTab:NavigateToProfession(professionName)
+function ProgressTab:NavigateToProfession(professionName, filter)
     addon.ProfessionsTab.pendingNavigation = true
     addon.Tabs:SelectTab("PROFESSIONS")
     if addon.ProfessionsTab.frame then
-        addon.ProfessionsTab:NavigateFromProgress(professionName)
+        addon.ProfessionsTab:NavigateFromProgress(professionName, filter)
     end
 end
 
