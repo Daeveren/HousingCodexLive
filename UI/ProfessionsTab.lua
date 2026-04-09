@@ -141,15 +141,6 @@ local function GetProfessionsDB()
     return addon.db and addon.db.browser and addon.db.browser.professions
 end
 
-local function EnsureProfessionsDB()
-    if not addon.db then return nil end
-    addon.db.browser = addon.db.browser or {}
-    addon.db.browser.professions = addon.db.browser.professions or {
-        completionFilter = "incomplete",
-    }
-    return addon.db.browser.professions
-end
-
 ProfessionsTab.frame = nil
 ProfessionsTab.toolbar = nil
 ProfessionsTab.professionPanel = nil
@@ -204,7 +195,7 @@ function ProfessionsTab:Show()
         return
     end
 
-    local db = EnsureProfessionsDB()
+    local db = GetProfessionsDB()
 
     -- Restore persisted profession
     self.selectedProfession = db and db.selectedProfession

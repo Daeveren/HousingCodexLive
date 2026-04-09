@@ -2,6 +2,14 @@
 
 All notable changes to Housing Codex.
 
+**2.2.4** (2026-04-09)
+
+**Fixed**
+- Fixed missing items at a Horde-only decor vendor
+- Removed a phantom vendor item that showed incorrect collection counts
+- Progress tab achievement categories now load without needing to visit the Achievements tab first
+- Improved shift-click tracking behavior in the Achievements and Quests tabs
+
 **2.2.3** (2026-04-08)
 
 **Fixed**

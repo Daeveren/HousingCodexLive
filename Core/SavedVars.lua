@@ -50,6 +50,22 @@ local defaults = {
             selectedExpansion = nil,
             completionFilter = "incomplete",  -- "all" | "incomplete" | "complete"
         },
+        drops = {
+            selectedCategory = nil,
+            completionFilter = "incomplete",  -- "all" | "incomplete" | "complete"
+        },
+        pvp = {
+            selectedCategory = nil,
+            completionFilter = "incomplete",  -- "all" | "incomplete" | "complete"
+        },
+        vendors = {
+            selectedExpansionKey = nil,
+            completionFilter = "incomplete",  -- "all" | "incomplete" | "complete"
+            expandedZones = {},
+        },
+        professions = {
+            completionFilter = "incomplete",  -- "all" | "incomplete" | "complete"
+        },
     },
     whatsNew = {
         lastSeenVersion = nil,
@@ -190,8 +206,7 @@ local function MigrateDB(db)
 end
 
 -- Remove dead keys from retired features (blocklist — never whitelist,
--- because browser.vendors/drops/pvp/professions and minimap are created
--- dynamically by Ensure*DB() functions and are NOT in the defaults table)
+-- because minimap is created dynamically by LibDBIcon and is NOT in the defaults table)
 local function SanitizeDB(db)
     db.options = nil
     db.characters = nil

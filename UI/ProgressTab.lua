@@ -102,7 +102,10 @@ function ProgressTab:EnsureIndexes()
         addon:BuildQuestHierarchy()
     end
     if not addon.vendorIndexBuilt then addon:BuildVendorIndex() end
-    if not addon.achievementIndexBuilt then addon:BuildAchievementIndex() end
+    if not addon.achievementIndexBuilt then
+        addon:BuildAchievementIndex()
+        addon:BuildAchievementHierarchy()
+    end
     if not addon.dropIndexBuilt then addon:BuildDropIndex() end
     if not addon.craftingIndexBuilt then addon:BuildCraftingIndex() end
     if not addon.pvpIndexBuilt then addon:BuildPvPIndex() end

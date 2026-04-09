@@ -32,16 +32,6 @@ local function GetRenownDB()
     return addon.db and addon.db.browser and addon.db.browser.renown
 end
 
-local function EnsureRenownDB()
-    if not addon.db then return nil end
-    addon.db.browser = addon.db.browser or {}
-    addon.db.browser.renown = addon.db.browser.renown or {
-        selectedExpansion = nil,
-        completionFilter = "incomplete",
-    }
-    return addon.db.browser.renown
-end
-
 RenownTab.frame = nil
 RenownTab.toolbar = nil
 RenownTab.expansionPanel = nil
@@ -100,7 +90,7 @@ function RenownTab:Show()
         -- Wipe standing cache so reopening after hidden-period rep changes shows fresh data
         wipe(addon.renownStandingCache)
 
-        local saved = EnsureRenownDB()
+        local saved = GetRenownDB()
         if saved then
             self.selectedExpansion = saved.selectedExpansion
             self:SetCompletionFilter(saved.completionFilter or "incomplete")

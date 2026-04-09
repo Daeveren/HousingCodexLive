@@ -276,6 +276,30 @@ addon.CONSTANTS = {
 -- Internal Event System
 addon.internalEvents = {}
 
+-- Event name constants (use these instead of string literals to catch typos at load time)
+addon.Events = {
+    DATA_LOADED                     = "DATA_LOADED",
+    DATA_LOAD_FAILED                = "DATA_LOAD_FAILED",
+    RECORD_SELECTED                 = "RECORD_SELECTED",
+    SEARCH_RESULTS_UPDATED          = "SEARCH_RESULTS_UPDATED",
+    SEARCH_TEXT_CHANGED             = "SEARCH_TEXT_CHANGED",
+    TRACKING_CHANGED                = "TRACKING_CHANGED",
+    VENDOR_TRACKING_CHANGED         = "VENDOR_TRACKING_CHANGED",
+    RECORD_OWNERSHIP_UPDATED        = "RECORD_OWNERSHIP_UPDATED",
+    WISHLIST_CHANGED                = "WISHLIST_CHANGED",
+    TAB_CHANGED                     = "TAB_CHANGED",
+    FILTER_CHANGED                  = "FILTER_CHANGED",
+    CATEGORY_CACHE_INVALIDATED      = "CATEGORY_CACHE_INVALIDATED",
+    SUBCATEGORY_CACHE_INVALIDATED   = "SUBCATEGORY_CACHE_INVALIDATED",
+    ACHIEVEMENT_COMPLETION_CHANGED  = "ACHIEVEMENT_COMPLETION_CHANGED",
+    QUEST_ALL_TITLES_LOADED         = "QUEST_ALL_TITLES_LOADED",
+    ZONE_DECOR_CACHE_INVALIDATED    = "ZONE_DECOR_CACHE_INVALIDATED",
+    ENDEAVORS_ZONE_CHANGED          = "ENDEAVORS_ZONE_CHANGED",
+    ENDEAVORS_HOUSE_LEVEL_UPDATED   = "ENDEAVORS_HOUSE_LEVEL_UPDATED",
+    ENDEAVORS_INITIATIVE_UPDATED    = "ENDEAVORS_INITIATIVE_UPDATED",
+    ENDEAVORS_TASK_COMPLETED        = "ENDEAVORS_TASK_COMPLETED",
+}
+
 function addon:RegisterInternalEvent(event, callback)
     self.internalEvents[event] = self.internalEvents[event] or {}
     table.insert(self.internalEvents[event], callback)
@@ -292,6 +316,10 @@ function addon:UnregisterInternalEvent(event, callback)
         end
     end
 end
+
+-- Event trace log (ring buffer for post-hoc debugging, recorded when debugMode is on)
+local TRACE_MAX = 100
+addon.traceLog = {}
 
 -- Dispatch a callback list with snapshot isolation (safe for self-unregister during dispatch)
 local function DispatchCallbacks(callbacks, ...)
@@ -310,6 +338,11 @@ local function DispatchCallbacks(callbacks, ...)
 end
 
 function addon:FireEvent(event, ...)
+    if self.db and self.db.settings and self.db.settings.debugMode then
+        local log = self.traceLog
+        if #log >= TRACE_MAX then table.remove(log, 1) end
+        log[#log + 1] = { t = GetTime(), e = event }
+    end
     local callbacks = self.internalEvents[event]
     if not callbacks then return end
     DispatchCallbacks(callbacks, ...)
@@ -420,6 +453,17 @@ end
 function addon:ResetDebugCounters()
     wipe(self.debugCounters)
     self:Print("Debug counters reset")
+end
+
+function addon:PrintTraceLog()
+    if #self.traceLog == 0 then
+        self:Print("No trace entries (enable debug mode to record)")
+        return
+    end
+    self:Print(string.format("|cFFFFD100Event Trace (%d entries):|r", #self.traceLog))
+    for i, entry in ipairs(self.traceLog) do
+        self:Print(string.format("  %d. [%.1fs] %s", i, entry.t, entry.e))
+    end
 end
 
 -- Resets a background texture to a solid color mode (clears gradients)
@@ -941,6 +985,7 @@ SlashCmdList["HOUSINGCODEX"] = function(msg)
         addon:Print("  " .. L["HELP_HELP"])
         addon:Print("  " .. L["HELP_DEBUG"])
         addon:Print("  " .. L["HELP_STATS"])
+        addon:Print("  |cFFFFD100/hc log|r - Show event trace log (requires debug mode)")
     elseif cmd == "settings" or cmd == "options" then
         if InCombatLockdown() then
             addon:Print(L["COMBAT_LOCKDOWN_MESSAGE"])
@@ -955,15 +1000,7 @@ SlashCmdList["HOUSINGCODEX"] = function(msg)
         addon:Print(L["RETRYING_DATA_LOAD"])
         addon.loadRetryCount = 0
         addon.dataLoaded = false
-        addon.indexesBuilt = false
-        addon.byWordIndexBuilt = false
-        addon.achievementIndexBuilt = false
-        addon.questIndexBuilt = false
-        addon.vendorIndexBuilt = false
-        addon.dropIndexBuilt = false
-        addon.craftingIndexBuilt = false
-        addon.pvpIndexBuilt = false
-        addon.renownIndexBuilt = false
+        addon:ResetAllIndexFlags()
         addon:ResetLoadState()
         addon:LoadData()
     elseif cmd == "reset" then
@@ -972,6 +1009,11 @@ SlashCmdList["HOUSINGCODEX"] = function(msg)
         addon:ResetDebugCounters()
     elseif cmd == "stats" then
         addon:PrintDebugCounters()
+    elseif cmd == "log clear" then
+        wipe(addon.traceLog)
+        addon:Print("Event trace log cleared")
+    elseif cmd == "log" then
+        addon:PrintTraceLog()
     elseif cmd == "debug" then
         if addon.db then
             addon.db.settings.debugMode = not addon.db.settings.debugMode

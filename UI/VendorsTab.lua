@@ -30,17 +30,6 @@ local function GetVendorsDB()
     return addon.db and addon.db.browser and addon.db.browser.vendors
 end
 
-local function EnsureVendorsDB()
-    if not addon.db then return nil end
-    addon.db.browser = addon.db.browser or {}
-    addon.db.browser.vendors = addon.db.browser.vendors or {
-        selectedExpansionKey = nil,
-        completionFilter = "incomplete",
-        expandedZones = {},
-    }
-    return addon.db.browser.vendors
-end
-
 VendorsTab.frame = nil
 VendorsTab.toolbar = nil
 VendorsTab.expansionPanel = nil
@@ -100,7 +89,6 @@ function VendorsTab:Show()
     end
 
     self.frame:Show()
-    EnsureVendorsDB()
 
     -- Skip default rebuild when navigating from Progress
     if self.pendingNavigation then
@@ -110,7 +98,7 @@ function VendorsTab:Show()
 
     local saved = GetVendorsDB()
     if saved then
-        -- Expanded zones persist across sessions (EnsureVendorsDB initializes on first load)
+        -- Expanded zones persist across sessions
         self.selectedExpansionKey = saved.selectedExpansionKey
         self:SetCompletionFilter(saved.completionFilter or "incomplete")
     end

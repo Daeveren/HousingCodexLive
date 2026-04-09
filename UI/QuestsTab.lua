@@ -251,10 +251,7 @@ QuestRowOnMouseDown = function(frame, button)
         end
         addon:ToggleTracking(recordID)
     elseif IsControlKeyDown() and elementData.recordID then
-        if C_ContentTracking then
-            local err = C_ContentTracking.StartTracking(Enum.ContentTrackingType.Decor, elementData.recordID)
-            addon:PrintTrackingResult(err, "QUESTS_TRACKING_STARTED", "QUESTS_TRACKING_FAILED", "QUESTS_TRACKING_MAX_REACHED", "QUESTS_TRACKING_ALREADY")
-        end
+        addon:ToggleTracking(elementData.recordID)
     else
         QuestsTab:SelectQuest(elementData)
     end

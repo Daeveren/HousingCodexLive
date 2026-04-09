@@ -13,6 +13,18 @@ addon.indexes = {
 addon.indexesBuilt = false
 addon.byWordIndexBuilt = false
 
+function addon:ResetAllIndexFlags()
+    self.indexesBuilt = false
+    self.byWordIndexBuilt = false
+    self.achievementIndexBuilt = false
+    self.questIndexBuilt = false
+    self.vendorIndexBuilt = false
+    self.dropIndexBuilt = false
+    self.craftingIndexBuilt = false
+    self.pvpIndexBuilt = false
+    self.renownIndexBuilt = false
+end
+
 local function AddToIndex(index, key, recordID)
     index[key] = index[key] or {}
     index[key][recordID] = true

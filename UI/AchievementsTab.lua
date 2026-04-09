@@ -176,9 +176,8 @@ AchievementRowOnMouseDown = function(frame, button)
             local err = C_ContentTracking.StartTracking(Enum.ContentTrackingType.Achievement, achievementID)
             addon:PrintTrackingResult(err, "ACHIEVEMENTS_TRACKING_STARTED_ACHIEVEMENT", "ACHIEVEMENTS_TRACKING_FAILED", "ACHIEVEMENTS_TRACKING_MAX_REACHED", "ACHIEVEMENTS_TRACKING_ALREADY")
         end
-    elseif C_ContentTracking and IsControlKeyDown() and elementData.recordID then
-        local err = C_ContentTracking.StartTracking(Enum.ContentTrackingType.Decor, elementData.recordID)
-        addon:PrintTrackingResult(err, "ACHIEVEMENTS_TRACKING_STARTED", "ACHIEVEMENTS_TRACKING_FAILED", "ACHIEVEMENTS_TRACKING_MAX_REACHED", "ACHIEVEMENTS_TRACKING_ALREADY")
+    elseif IsControlKeyDown() and elementData.recordID then
+        addon:ToggleTracking(elementData.recordID)
     else
         AchievementsTab:SelectAchievement(elementData)
     end
