@@ -718,12 +718,7 @@ end
 
 function VendorsTab:SetupVendorRow(frame, elementData)
     local L = addon.L
-    local decorIds = {}
-    for _, decorId in ipairs(elementData.decorIds or {}) do
-        if IsDecorResolvable(decorId) then
-            decorIds[#decorIds + 1] = decorId
-        end
-    end
+    local decorIds = elementData.decorIds or {}
     local decorCount = #decorIds
     frame:SetHeight(VENDOR_ROW_BASE_HEIGHT + (decorCount * DECOR_ROW_HEIGHT))
     frame.npcId = elementData.npcId
@@ -850,8 +845,7 @@ function VendorsTab:SetupDecorRows(frame, decorIds)
                 row.icon:SetTexture(record.icon)
             end
         else
-            local decorIcon = C_HousingDecor and C_HousingDecor.GetDecorIcon and C_HousingDecor.GetDecorIcon(decorId)
-            row.icon:SetTexture(decorIcon or "Interface\\Icons\\INV_Misc_QuestionMark")
+            row.icon:SetTexture(addon:ResolveDecorIcon(decorId))
         end
 
         row.checkIcon:SetShown(row.isCollected)
@@ -1417,10 +1411,16 @@ function VendorsTab:BuildVendorDisplay()
                     table.insert(elements, { isZoneHeader = true, expansionKey = expansionKey, zoneName = zoneName, isForceExpanded = isForceExpanded })
                     if isForceExpanded or self:IsZoneExpanded(expansionKey, zoneName) then
                         for _, vendor in ipairs(zoneVendors) do
+                            local filteredDecorIds = {}
+                            for _, decorId in ipairs(vendor.decorIds or {}) do
+                                if IsDecorResolvable(decorId) then
+                                    table.insert(filteredDecorIds, decorId)
+                                end
+                            end
                             table.insert(elements, {
                                 npcId = vendor.npcId,
                                 npcName = vendor.npcName,
-                                decorIds = vendor.decorIds,
+                                decorIds = filteredDecorIds,
                                 zoneName = zoneName,
                                 expansionKey = expansionKey,
                             })
@@ -1467,17 +1467,20 @@ function VendorsTab:CreateEmptyStates()
         EXPANSION_PANEL_WIDTH - 16
     )
     self.noExpansionState = addon:CreateEmptyStateFrame(self.vendorPanel, "VENDORS_SELECT_EXPANSION")
+    self.noResultsState = addon:CreateEmptyStateFrame(self.vendorPanel, "VENDORS_EMPTY_NO_RESULTS")
 end
 
 function VendorsTab:UpdateEmptyStates()
     local hasVendors = addon:GetVendorCount() > 0
     local hasSelection = self.selectedExpansionKey ~= nil
+    local hasResults = self.vendorDataProvider and self.vendorDataProvider:GetSize() > 0
 
     if self.emptyState then self.emptyState:SetShown(not hasVendors) end
     if self.noExpansionState then self.noExpansionState:SetShown(hasVendors and not hasSelection) end
+    if self.noResultsState then self.noResultsState:SetShown(hasVendors and hasSelection and not hasResults) end
     if self.expansionScrollBox then self.expansionScrollBox:SetShown(hasVendors) end
-    if self.vendorScrollBox then self.vendorScrollBox:SetShown(hasVendors and hasSelection) end
-    if self.vendorScrollBar then self.vendorScrollBar:SetShown(hasVendors and hasSelection) end
+    if self.vendorScrollBox then self.vendorScrollBox:SetShown(hasVendors and hasSelection and hasResults) end
+    if self.vendorScrollBar then self.vendorScrollBar:SetShown(hasVendors and hasSelection and hasResults) end
 end
 
 --------------------------------------------------------------------------------

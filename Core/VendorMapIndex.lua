@@ -106,7 +106,7 @@ local function BuildVendorMapIndex()
     end
 
     local vendorsByMapID = {}
-    local playerFaction = UnitFactionGroup("player")
+    local playerFaction = UnitFactionGroup("player") or "Neutral"
 
     for npcId, vendorEntry in pairs(addon.vendorIndex or {}) do
         local locations = addon:GetNPCLocations(npcId)

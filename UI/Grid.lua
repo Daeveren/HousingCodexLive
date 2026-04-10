@@ -789,6 +789,10 @@ function Grid:CancelTimers()
         self.refreshDebounceTimer:Cancel()
         self.refreshDebounceTimer = nil
     end
+    if self.resizeTimer then
+        self.resizeTimer:Cancel()
+        self.resizeTimer = nil
+    end
 end
 
 -- Event handlers
@@ -837,8 +841,7 @@ addon:RegisterInternalEvent("SEARCH_RESULTS_UPDATED", function(recordIDs)
 
     -- Supplement native searcher results with client-side text search matches
     local searchText = strtrim(addon.SearchBox and addon.SearchBox:GetText() or "")
-    local sortType = addon.db and addon.db.browser and addon.db.browser.sortType or 0
-    if #searchText >= 3 and not string.find(searchText, "[^%w%s]") and sortType >= 100 and addon.indexesBuilt and addon.Filters:AreAdvancedFiltersAtDefault() then
+    if #searchText >= 3 and not string.find(searchText, "[^%w%s]") and addon.indexesBuilt and addon.Filters:AreAdvancedFiltersAtDefault() then
         if not addon.byWordIndexBuilt then
             addon:BuildWordIndex()
         end

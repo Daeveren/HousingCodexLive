@@ -58,7 +58,7 @@ addon.VendorSourceData = {
             { npcId = 252915, npcName = "Corlen Hordralin", cost = 5000, decorIds = {9479, 9480, 9481, 9482, 9484, 9485, 9491, 9492, 9493, 9494, 9495, 9496, 9497} },
             { npcId = 242399, npcName = "Telemancer Astrandis", cost = 10, currencyName = "Voidlight Marl", decorIds = {15399, 15400, 15401, 15412, 15413, 15455, 15460} },
             { npcId = 252916, npcName = "Hesta Forlath", cost = 1500, decorIds = {1446, 9483, 9486, 9487, 9488, 9489, 9490, 9628, 9629} },
-            { npcId = 256828, npcName = "Dennia Silvertongue", cost = 500, decorIds = {1458, 1894, 2231, 4843, 9149, 9150, 9151, 9152, 11287, 14467, 15148, 15149, 15151, 15229, 15551, 15552, 15554, 15668, 15669} },
+            { npcId = 256828, npcName = "Dennia Silvertongue", cost = 500, decorIds = {1458, 1894, 2231, 4843, 9149, 9150, 9151, 9152, 11287, 14467, 15148, 15149, 15151, 15229, 15550, 15551, 15552, 15553, 15554, 15555, 15668, 15669} },
             { npcId = 258181, npcName = "Construct Ali'a", cost = 800, currencyName = "Remnant of Anguish", decorIds = {17439, 17440, 17441, 17442, 17443, 17444, 17446, 17447, 17449, 17450, 17452, 17453, 17454, 17455, 17456, 17457, 17458, 17459, 17460, 17462, 17464, 17465, 17467, 17469, 17472, 17474, 17518, 17519, 17520, 17521, 17522, 17523}, itemCosts = {[17439] = 1200, [17440] = 1200, [17441] = 1200, [17442] = 1200, [17443] = 1200, [17444] = 1200, [17446] = 1200, [17447] = 1200, [17449] = 1200, [17450] = 1200, [17452] = 1200, [17453] = 1200, [17454] = 1200, [17455] = 800, [17456] = 800, [17457] = 800, [17458] = 800, [17459] = 800, [17460] = 800, [17462] = 800, [17464] = 800, [17465] = 800, [17467] = 800, [17469] = 800, [17472] = 800, [17474] = 800, [17518] = 800, [17519] = 1200, [17520] = 1200, [17521] = 1200, [17522] = 800, [17523] = 800} },
         },
         ["Voidstorm"] = {
@@ -233,7 +233,7 @@ addon.VendorSourceData = {
         },
         ["Orgrimmar"] = {
             { npcId = 254606, npcName = "Joruh", cost = 5, decorIds = {3867, 3880, 3881, 3885, 3887, 3890, 3893, 3896, 3897, 3898, 3899, 3900, 3902, 3903, 3905, 3906, 3907, 9244, 11296}, itemCosts = {[3867] = 5000, [3880] = 2000, [3881] = 1000, [3885] = 1000, [3887] = 800, [3890] = 2500, [3893] = 1000, [3896] = 600, [3897] = 1200, [3898] = 400, [3899] = 300, [9244] = 750, [11296] = 450} },
-            { npcId = 261262, npcName = "Gabbi", cost = 5000000, decorIds = {11287, 14467, 15148, 15151, 15554, 15668, 15669} },
+            { npcId = 261262, npcName = "Gabbi", cost = 5000000, decorIds = {11287, 14467, 15148, 15149, 15151, 15229, 15550, 15551, 15552, 15553, 15554, 15555, 15668, 15669} },
             { npcId = 256119, npcName = "Lonalo", cost = 2000, decorIds = {766, 768, 2511, 2513, 2514, 2526} },
         },
         ["Port of Zandalar, Dazar'alor"] = {
@@ -314,7 +314,7 @@ addon.VendorSourceData = {
         ["Stormwind City"] = {
             { npcId = 254603, npcName = "Riica", cost = 600, currencyName = "Honor", decorIds = {3880, 3881, 3884, 3886, 3890, 3893, 3894, 3895, 3898, 3899, 3900, 3902, 3903, 3905, 3906, 3907, 9244, 11296}, itemCosts = {[3880] = 2000, [3881] = 1000, [3884] = 1000, [3886] = 800, [3890] = 2500, [3893] = 1000, [3894] = 600, [3895] = 1200, [3898] = 400, [3899] = 300, [3900] = 5, [3902] = 5, [3903] = 5, [3905] = 5, [3906] = 5, [3907] = 2, [9244] = 750, [11296] = 450} },
             { npcId = 49877, npcName = "Captain Lancy Revshon", cost = 47, decorIds = {4402, 4405, 4443, 4444, 4445, 4446, 4447, 4487, 4490, 4811, 4812, 4814, 4815, 4819, 5115, 5116, 9242, 11274} },
-            { npcId = 261231, npcName = "Tuuran", cost = 5000000, decorIds = {11287, 14467, 15148, 15149, 15151, 15554, 15668, 15669} },
+            { npcId = 261231, npcName = "Tuuran", cost = 5000000, decorIds = {11287, 14467, 15148, 15149, 15151, 15229, 15550, 15551, 15552, 15553, 15554, 15555, 15668, 15669} },
             { npcId = 256071, npcName = "Solelo", cost = 2000, decorIds = {766, 768, 2511, 2513, 2514, 2526} },
         },
         ["Stranglethorn Vale"] = {
@@ -1807,9 +1807,12 @@ addon.VendorItemFallback = {
     [15502] = { name = "Rutaani Birdfeeder", category = "Nature" },
     [15503] = { name = "Rutaani Birdbath", category = "Miscellaneous" },
     [15504] = { name = "Rutaani Bird Perch", category = "Nature" },
+    [15550] = { name = "Sturdy Portable Ice Chest", category = "Furnishings" },
     [15551] = { name = "Tall Corked Bottle of Liquid Mystery", category = "Accents" },
     [15552] = { name = "Short Corked Bottle of Liquid Mystery", category = "Accents" },
+    [15553] = { name = "Preserved Gift of Gilneas", category = "Accents" },
     [15554] = { name = "Bluebird's Golden Cage", category = "Accents" },
+    [15555] = { name = "Backboard and Hoop Playset", category = "Miscellaneous" },
     [15571] = { name = "Amani Incense Burner", category = "Miscellaneous" },
     [15572] = { name = "Amani War Drum", category = "Miscellaneous" },
     [15573] = { name = "Colossal Amani Stone Visage", category = "Miscellaneous" },

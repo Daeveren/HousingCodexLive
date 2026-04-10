@@ -149,7 +149,17 @@ local function BuildPinEntriesForMap(mapID, mapType)
     end
 
     local vendorsByMapID = addon:GetAllVendorMapVendors()
-    for _, vendors in pairs(vendorsByMapID or {}) do
+    -- For non-continent views, direct lookup: index pre-includes sub-zone vendors via rootMapID
+    local vendorBuckets
+    if isContinent then
+        vendorBuckets = vendorsByMapID
+    else
+        local mapVendors = vendorsByMapID and vendorsByMapID[mapID]
+        if mapVendors then
+            vendorBuckets = { [mapID] = mapVendors }
+        end
+    end
+    for _, vendors in pairs(vendorBuckets or {}) do
         for _, vendorData in ipairs(vendors) do
             local sourceMapID = vendorData.uiMapId
             local dedupKey = vendorData.npcId .. ":" .. (sourceMapID or 0)

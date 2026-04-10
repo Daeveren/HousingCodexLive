@@ -755,7 +755,7 @@ function WishlistFrame:RefreshData()
     local recordIDs = {}
     if addon.db and addon.db.wishlist then
         for recordID, isWishlisted in pairs(addon.db.wishlist) do
-            if isWishlisted then
+            if isWishlisted and addon:ResolveRecord(recordID) then
                 table.insert(recordIDs, recordID)
             end
         end
@@ -788,13 +788,11 @@ function WishlistFrame:RefreshData()
         self.itemCountText:SetText(string.format(L["RESULT_COUNT_ALL"], #recordIDs))
     end
 
-    -- Convert to element data
+    -- Convert to element data and populate DataProvider
     local elements = {}
     for _, recordID in ipairs(recordIDs) do
         table.insert(elements, { recordID = recordID })
     end
-
-    -- Reuse DataProvider: Flush existing data and insert new elements
     self.dataProvider:Flush()
     if #elements > 0 then
         self.dataProvider:InsertTable(elements)

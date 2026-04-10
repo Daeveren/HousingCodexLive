@@ -2,6 +2,17 @@
 
 All notable changes to Housing Codex.
 
+**2.2.5** (2026-04-10)
+
+**Added**
+- Updated promotional decor vendor data
+
+**Fixed**
+- Search now returns more results across all sort modes
+- Vendors tab now shows feedback when filters yield no results
+- Fixed visual gaps in vendor item lists
+- Wishlist no longer shows items that have been removed from the game
+
 **2.2.4** (2026-04-09)
 
 **Fixed**
