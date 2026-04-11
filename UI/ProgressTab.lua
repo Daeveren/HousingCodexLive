@@ -13,6 +13,7 @@ local COLORS = CONSTS.COLORS
 local SIDEBAR_WIDTH = CONSTS.SIDEBAR_WIDTH
 local SECTION_PADDING = 16
 local ROW_HEIGHT = 28
+local ROW_SPACING = ROW_HEIGHT + 2
 local CONTENT_PADDING = 20
 local COLUMN_GAP = 16
 
@@ -189,7 +190,7 @@ function ProgressTab:CreateScrollFrame(parent)
         end
         track:Show()
         local trackHeight = track:GetHeight()
-        if trackHeight <= 0 then return end
+        if not trackHeight or trackHeight <= 0 then return end
         local visibleRatio = scrollFrame:GetHeight() / (scrollFrame:GetHeight() + range)
         local thumbHeight = math.max(20, math.floor(trackHeight * visibleRatio))
         thumb:SetHeight(thumbHeight)
@@ -215,7 +216,9 @@ function ProgressTab:CreateScrollFrame(parent)
         local cursorY = select(2, GetCursorPosition()) / UIParent:GetEffectiveScale()
         local deltaY = t.dragStartY - cursorY
         local trackHeight = track:GetHeight()
-        local maxTravel = trackHeight - t:GetHeight()
+        local thumbHeight = t:GetHeight()
+        if not trackHeight or not thumbHeight then return end
+        local maxTravel = trackHeight - thumbHeight
         if maxTravel <= 0 then return end
         local range = scrollFrame:GetVerticalScrollRange()
         scrollFrame:SetVerticalScroll(math.max(0, math.min(range, t.dragStartScroll + (deltaY / maxTravel) * range)))
@@ -240,7 +243,10 @@ function ProgressTab:CreateScrollFrame(parent)
         local range = scrollFrame:GetVerticalScrollRange()
         if range <= 0 then return end
         local cursorY = select(2, GetCursorPosition()) / UIParent:GetEffectiveScale()
-        local pct = (t:GetTop() - cursorY) / t:GetHeight()
+        local top = t:GetTop()
+        local height = t:GetHeight()
+        if not top or not height or height <= 0 then return end
+        local pct = (top - cursorY) / height
         scrollFrame:SetVerticalScroll(math.max(0, math.min(range, pct * range)))
     end)
 
@@ -286,11 +292,11 @@ function ProgressTab:ShowLoadingState()
     if not self.loadingMsg then
         self.loadingMsg = addon:CreateFontString(self.scrollChild, "OVERLAY", "GameFontNormal")
         self.loadingMsg:SetPoint("CENTER")
+        addon:SetFontSize(self.loadingMsg, 16, "")
     end
 
     self.loadingMsg:SetText(L["PROGRESS_LOADING"])
     self.loadingMsg:SetTextColor(unpack(COLORS.TEXT_TERTIARY))
-    addon:SetFontSize(self.loadingMsg, 16, "")
     self.loadingMsg:Show()
 
     self.scrollChild:SetHeight(200)
@@ -390,12 +396,12 @@ function ProgressTab:BuildSidebarSummary()
     if not elements.header then
         elements.header = addon:CreateFontString(panel, "OVERLAY", "GameFontNormal")
         elements.header:SetJustifyH("CENTER")
+        addon:SetFontSize(elements.header, 11, "")
     end
     elements.header:ClearAllPoints()
     elements.header:SetPoint("TOP", panel, "TOP", 0, yOffset)
     elements.header:SetText(L["PROGRESS_OVERVIEW"])
     elements.header:SetTextColor(unpack(COLORS.GOLD))
-    addon:SetFontSize(elements.header, 11, "")
     elements.header:Show()
     yOffset = yOffset - 28
 
@@ -403,12 +409,12 @@ function ProgressTab:BuildSidebarSummary()
     if not elements.subtitle then
         elements.subtitle = addon:CreateFontString(panel, "OVERLAY", "GameFontNormal")
         elements.subtitle:SetJustifyH("CENTER")
+        addon:SetFontSize(elements.subtitle, 14, "")
     end
     elements.subtitle:ClearAllPoints()
     elements.subtitle:SetPoint("TOP", panel, "TOP", 0, yOffset)
     elements.subtitle:SetText(L["PROGRESS_ALL_DECOR_COLLECTED"])
     elements.subtitle:SetTextColor(unpack(COLORS.TEXT_SECONDARY))
-    addon:SetFontSize(elements.subtitle, 14, "")
     elements.subtitle:Show()
     yOffset = yOffset - 24
 
@@ -416,12 +422,12 @@ function ProgressTab:BuildSidebarSummary()
     if not elements.bigPercent then
         elements.bigPercent = addon:CreateFontString(panel, "OVERLAY", "GameFontNormal")
         elements.bigPercent:SetJustifyH("CENTER")
+        addon:SetFontSize(elements.bigPercent, 34, "")
     end
     elements.bigPercent:ClearAllPoints()
     elements.bigPercent:SetPoint("TOP", panel, "TOP", 0, yOffset)
     elements.bigPercent:SetText(string.format("%.1f%%", overview.percent))
     elements.bigPercent:SetTextColor(unpack(progressColor))
-    addon:SetFontSize(elements.bigPercent, 34, "")
     elements.bigPercent:Show()
     yOffset = yOffset - 44
 
@@ -461,23 +467,23 @@ function ProgressTab:BuildSidebarSummary()
         if not elements[labelKey] then
             elements[labelKey] = addon:CreateFontString(panel, "OVERLAY", "GameFontNormal")
             elements[labelKey]:SetJustifyH("LEFT")
+            addon:SetFontSize(elements[labelKey], 12, "")
         end
         elements[labelKey]:ClearAllPoints()
         elements[labelKey]:SetPoint("TOPLEFT", panel, "TOPLEFT", 12, yOffset)
         elements[labelKey]:SetText(stat.label)
         elements[labelKey]:SetTextColor(unpack(COLORS.TEXT_TERTIARY))
-        addon:SetFontSize(elements[labelKey], 12, "")
         elements[labelKey]:Show()
 
         if not elements[valueKey] then
             elements[valueKey] = addon:CreateFontString(panel, "OVERLAY", "GameFontNormal")
             elements[valueKey]:SetJustifyH("RIGHT")
+            addon:SetFontSize(elements[valueKey], 12, "")
         end
         elements[valueKey]:ClearAllPoints()
         elements[valueKey]:SetPoint("TOPRIGHT", panel, "TOPRIGHT", -12, yOffset)
         elements[valueKey]:SetText(stat.value)
         elements[valueKey]:SetTextColor(unpack(stat.color))
-        addon:SetFontSize(elements[valueKey], 12, "")
         elements[valueKey]:Show()
 
         yOffset = yOffset - 22
@@ -493,6 +499,7 @@ function ProgressTab:GetOrCreateSectionHeader(key)
 
     local header = addon:CreateFontString(self.scrollChild, "OVERLAY", "GameFontNormal")
     header:SetJustifyH("LEFT")
+    addon:SetFontSize(header, 14, "")
     self[key] = header
     return header
 end
@@ -504,7 +511,6 @@ function ProgressTab:PlaceSectionHeader(key, text, yOffset, xOffset)
     header:SetPoint("TOPLEFT", self.scrollChild, "TOPLEFT", xOffset, yOffset)
     header:SetText(text)
     header:SetTextColor(unpack(COLORS.GOLD))
-    addon:SetFontSize(header, 14, "")
     header:Show()
     return yOffset - 24
 end
@@ -536,19 +542,14 @@ function ProgressTab:GetOrCreateProgressRow(pool, index)
     local label = addon:CreateFontString(bar, "OVERLAY", "GameFontNormal")
     label:SetPoint("LEFT", 8, 0)
     label:SetJustifyH("LEFT")
+    addon:SetFontSize(label, 13, "")
     row.label = label
 
     local progressText = addon:CreateFontString(bar, "OVERLAY", "GameFontNormal")
     progressText:SetPoint("RIGHT", -8, 0)
     progressText:SetJustifyH("RIGHT")
+    addon:SetFontSize(progressText, 12, "")
     row.progressText = progressText
-
-    row:SetScript("OnEnter", function(r)
-        r.bg:SetColorTexture(0.14, 0.14, 0.16, 0.8)
-    end)
-    row:SetScript("OnLeave", function(r)
-        r.bg:SetColorTexture(0.10, 0.10, 0.13, 0.6)
-    end)
 
     pool[index] = row
     return row
@@ -570,7 +571,6 @@ function ProgressTab:SetupProgressRow(row, data, yOffset, rowWidth, onClick, xOf
     end
     row.label:SetText(displayLabel)
     row.label:SetTextColor(unpack(COLORS.TEXT_SECONDARY))
-    addon:SetFontSize(row.label, 13, "")
 
     local pctText
     if data.percent == 100 then
@@ -581,7 +581,6 @@ function ProgressTab:SetupProgressRow(row, data, yOffset, rowWidth, onClick, xOf
     row.progressText:SetText(pctText)
     local progressColor = self:GetProgressColor(data.percent)
     row.progressText:SetTextColor(unpack(progressColor))
-    addon:SetFontSize(row.progressText, 12, "")
 
     -- StatusBar fill with subtle color
     row.bar:SetValue(data.percent)
@@ -643,7 +642,7 @@ function ProgressTab:BuildSourceSection(yOffset, columnWidth, xOffset)
                 addon.Filters:ResetAllFilters()
             end
         end, xOffset)
-        yOffset = yOffset - ROW_HEIGHT - 2
+        yOffset = yOffset - ROW_SPACING
     end
 
     return yOffset
@@ -670,7 +669,7 @@ function ProgressTab:BuildProfessionsSection(yOffset, columnWidth, xOffset)
             end
         end
         self:SetupProgressRow(row, data, yOffset, columnWidth, onClick, xOffset)
-        yOffset = yOffset - ROW_HEIGHT - 2
+        yOffset = yOffset - ROW_SPACING
     end
 
     return yOffset
@@ -688,7 +687,7 @@ function ProgressTab:BuildExpansionSection(yOffset, columnWidth, headerKey, head
         self:SetupProgressRow(row, data, yOffset, columnWidth, function()
             self:NavigateToDetail(data)
         end, xOffset)
-        yOffset = yOffset - ROW_HEIGHT - 2
+        yOffset = yOffset - ROW_SPACING
     end
 
     return yOffset
@@ -733,7 +732,7 @@ function ProgressTab:BuildAlmostThereSection(yOffset, columnWidth, xOffset)
         self:SetupProgressRow(row, displayData, yOffset, columnWidth, function()
             self:NavigateToDetail(data)
         end, xOffset)
-        yOffset = yOffset - ROW_HEIGHT - 2
+        yOffset = yOffset - ROW_SPACING
     end
 
     return yOffset

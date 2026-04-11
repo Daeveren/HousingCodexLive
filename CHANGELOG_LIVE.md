@@ -2,6 +2,12 @@
 
 All notable changes to Housing Codex.
 
+**2.2.6** (2026-04-12)
+
+**Fixed**
+- Fixed a potential crash in the Progress tab when scrolling or clicking rows
+- Updated Dragonflight decor vendor data
+
 **2.2.5** (2026-04-10)
 
 **Added**

@@ -5,18 +5,6 @@
 local ADDON_NAME, addon = ...
 
 addon.VendorSourceData = {
-    ["EXPANSION_DF"] = {
-        ["Thaldraszus"] = {
-            { npcId = 202353, npcName = "Soridormi", decorIds = {7692} },
-        },
-        ["The Azure Span"] = {
-            { npcId = 193351, npcName = "Storyteller Iskraal", decorIds = {7688, 9425} },
-            { npcId = 193006, npcName = "Murik", decorIds = {9431, 9432, 9434, 9435, 9438} },
-        },
-        ["Valdrakken"] = {
-            { npcId = 199424, npcName = "Tethalos", decorIds = {7691, 7694, 7695, 7696, 7698, 7699} },
-        },
-    },
     ["EXPANSION_LEGION"] = {
         ["Dalaran"] = {
             { npcId = 251042, npcName = "Domelius", cost = 30000, currencyName = "Bronze", decorIds = {7610, 7620, 7621, 7622, 7623, 7624, 7625, 7658, 7686, 7687, 7690, 8810, 8811, 9165, 11278, 11279, 11942}, itemCosts = {[7610] = 10000, [7620] = 20000, [7621] = 30000, [7622] = 5000, [7623] = 5000, [7624] = 30000, [7625] = 5000, [7658] = 5000, [7686] = 10000, [7687] = 5000, [7690] = 30000, [8810] = 30000, [8811] = 30000, [9165] = 5000, [11278] = 5000, [11279] = 2500, [11942] = 20000} },
@@ -545,14 +533,10 @@ addon.NPCLocationData = {
     [188265] = { uiMapId = 2022, x = 47.8, y = 82.0 },
     [189226] = { uiMapId = 2022, x = 47.0, y = 82.4 },
     [190155] = { uiMapId = 2022, x = 55.0, y = 30.8 },
-    [193006] = { uiMapId = 2024, x = 13.2, y = 49.2 },
     [193015] = { uiMapId = 2112, x = 58.0, y = 35.4 },
-    [193351] = { uiMapId = 2024, x = 13.4, y = 48.6 },
     [193659] = { uiMapId = 2112, x = 36.4, y = 50.4 },
     [196637] = { uiMapId = 2112, x = 25.4, y = 33.4 },
-    [199424] = { uiMapId = 2112, x = 26.4, y = 55.4 },
     [199605] = { uiMapId = 2112, x = 58.2, y = 57.4 },
-    [202353] = { uiMapId = 2025, x = 51.2, y = 35.0 },
     [209192] = {
         { uiMapId = 2025, x = 61.4, y = 31.4 },
         { uiMapId = 2024, x = 27.0, y = 46.4 },
@@ -1369,7 +1353,6 @@ addon.VendorItemFallback = {
     [7668] = { name = "Forbidden Fork", category = "Accents" },
     [7686] = { name = "Legion Torture Rack", category = "Structural" },
     [7687] = { name = "Eredar Lord's Fel Torch", category = "Lighting" },
-    [7688] = { name = "Tusked Leather Tapestry", category = "Accents" },
     [7690] = { name = "Altar of the Corrupted Flames", category = "Accents" },
     [7691] = { name = "Draconic Metalshaper's Anvil", category = "Accents" },
     [7692] = { name = "Replica Grathardormu's Hammer", category = "Accents" },
@@ -1512,12 +1495,6 @@ addon.VendorItemFallback = {
     [9421] = { name = "590 Quel'Lithien Red Display Bottle", category = "Accents" },
     [9422] = { name = "Thalassian Academy Dictation Device", category = "Accents" },
     [9423] = { name = "Sin'dorei Wine Display", category = "Accents" },
-    [9425] = { name = "Iskaaran Open-Air Tent", category = "Structural" },
-    [9431] = { name = "Tuskarr Meditative Incense Burner", category = "Accents" },
-    [9432] = { name = "Tuskarr Crabber's Basket", category = "Accents" },
-    [9434] = { name = "Tuskarr Postbag", category = "Accents" },
-    [9435] = { name = "Finned Iskaaran Teapot", category = "Accents" },
-    [9438] = { name = "Arch of Iskaara", category = "Structural" },
     [9439] = { name = "Scarred Orcish Spear", category = "Furnishings" },
     [9440] = { name = "Clefthoof Hide Rug", category = "Accents" },
     [9441] = { name = "Weathered History of the Warchiefs", category = "Accents" },
