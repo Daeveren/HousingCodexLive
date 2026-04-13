@@ -2,6 +2,15 @@
 
 All notable changes to Housing Codex.
 
+**2.2.7** (2026-04-13)
+
+**Added**
+- Right-click an expansion in the Vendors tab to expand all zone sections at once
+- Preparations for the upcoming patch 12.0.5
+
+**Changed**
+- Improved performance of the 3D preview and Quests tab
+
 **2.2.6** (2026-04-12)
 
 **Fixed**

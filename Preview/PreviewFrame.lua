@@ -892,8 +892,9 @@ addon:RegisterInternalEvent("RECORD_SELECTED", function(recordID)
         return
     end
 
-    -- Update preview content when selection changes
+    -- Update preview content when selection changes (skip if already showing this record)
     if Preview:IsShown() then
+        if recordID == Preview.currentRecordID then return end
         Preview:ShowDecor(recordID)
     end
 end)

@@ -328,10 +328,12 @@ function addon:BuildQuestHierarchy()
 
     -- Precompute sort keys once (O(n) API calls instead of O(n log n) in comparator)
     local levelCache = {}
+    local titleCache = {}
     for _, expData in pairs(self.questHierarchy) do
         for _, quests in pairs(expData.zones) do
             for _, questKey in ipairs(quests) do
                 levelCache[questKey] = GetQuestLevel(questKey)
+                titleCache[questKey] = addon:GetQuestTitle(questKey)
             end
         end
     end
@@ -344,8 +346,8 @@ function addon:BuildQuestHierarchy()
                 local levelB = levelCache[b] or 0
                 if levelA ~= levelB then return levelA < levelB end
 
-                local titleA = addon:GetQuestTitle(a)
-                local titleB = addon:GetQuestTitle(b)
+                local titleA = titleCache[a] or ""
+                local titleB = titleCache[b] or ""
                 return titleA < titleB
             end)
         end

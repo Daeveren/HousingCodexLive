@@ -199,7 +199,11 @@ function VendorsTab:CreateExpansionPanel(parent)
 end
 
 -- Named handlers for expansion buttons (bound once, read data from frame fields)
-local function VendorExpansionButtonOnClick(frame)
+local function VendorExpansionButtonOnClick(frame, button)
+    if button == "RightButton" and VendorsTab.selectedExpansionKey == frame.expansionKey then
+        VendorsTab:ExpandAllZones(frame.expansionKey)
+        return
+    end
     VendorsTab:SelectExpansion(frame.expansionKey)
 end
 
@@ -343,6 +347,7 @@ function VendorsTab:SetupExpansionButton(frame, elementData)
         frame.label = label
 
         frame:EnableMouse(true)
+        frame:RegisterForClicks("LeftButtonUp", "RightButtonUp")
         frame:SetScript("OnClick", VendorExpansionButtonOnClick)
         frame:SetScript("OnEnter", VendorExpansionButtonOnEnter)
         frame:SetScript("OnLeave", VendorExpansionButtonOnLeave)
@@ -1110,6 +1115,21 @@ function VendorsTab:IsZoneExpanded(expansionKey, zoneName)
     if not db or not db.expandedZones then return false end
     local key = expansionKey .. ":" .. zoneName
     return db.expandedZones[key] == true
+end
+
+function VendorsTab:ExpandAllZones(expansionKey)
+    if not expansionKey then return end
+    local db = GetVendorsDB()
+    if not db or not db.expandedZones then return end
+    for _, zoneName in ipairs(addon:GetSortedVendorZones(expansionKey)) do
+        db.expandedZones[expansionKey .. ":" .. zoneName] = true
+    end
+    local scrollBox = self.vendorScrollBox
+    local scrollOffset = scrollBox and scrollBox:GetDerivedScrollOffset() or 0
+    self:BuildVendorDisplay()
+    if scrollOffset > 0 then
+        scrollBox:ScrollToOffset(scrollOffset, ScrollBoxConstants.NoScrollInterpolation)
+    end
 end
 
 function VendorsTab:ToggleZone(expansionKey, zoneName)
