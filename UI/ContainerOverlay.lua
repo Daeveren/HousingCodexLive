@@ -18,6 +18,7 @@ local itemDecorCache = {}
 -- State
 local initialized = false
 local trackedButtons = {}  -- buttons we've added overlays to (for HideAllOverlays)
+local dirty = false         -- deferred refresh pending (set when events fire while bags closed)
 
 local function ClearCache()
     wipe(itemDecorCache)
@@ -126,8 +127,28 @@ function ContainerOverlay:UpdateContainerFrame(frame)
     end
 end
 
+-- Check if any container frame is currently visible (combined bags mode first, then individual)
+local function AreBagsVisible()
+    if ContainerFrameCombinedBags and ContainerFrameCombinedBags:IsShown() then
+        return true
+    end
+    for i = 1, NUM_CONTAINER_FRAMES do
+        local f = _G["ContainerFrame"..i]
+        if f and f:IsShown() then return true end
+    end
+    return false
+end
+
+-- Flush deferred cache invalidation (called before updating any visible container)
+local function FlushDirtyCache()
+    if not dirty then return end
+    dirty = false
+    ClearCache()
+end
+
 -- Update all visible container frames (individual bags + combined view)
 function ContainerOverlay:UpdateAllContainerFrames()
+    FlushDirtyCache()
     for i = 1, NUM_CONTAINER_FRAMES do
         self:UpdateContainerFrame(_G["ContainerFrame"..i])
     end
@@ -142,6 +163,11 @@ function ContainerOverlay:HideAllOverlays()
 end
 
 local function RefreshAll()
+    if not AreBagsVisible() then
+        dirty = true
+        return
+    end
+    dirty = false
     ClearCache()
     ContainerOverlay:UpdateAllContainerFrames()
 end
@@ -158,6 +184,7 @@ function ContainerOverlay:Initialize()
     hooksecurefunc("ContainerFrame_OnShow", function(frame)
         C_Timer.After(0, function()
             if frame:IsShown() then
+                FlushDirtyCache()
                 self:UpdateContainerFrame(frame)
             end
         end)
@@ -170,6 +197,7 @@ function ContainerOverlay:Initialize()
     -- (when the bank panel opens), so mixin-level hook works here.
     if BankPanelItemButtonMixin then
         hooksecurefunc(BankPanelItemButtonMixin, "Refresh", function(button)
+            FlushDirtyCache()
             local itemID = button.itemInfo and button.itemInfo.itemID
             self:UpdateButton(button, itemID)
         end)

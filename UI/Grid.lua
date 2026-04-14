@@ -667,22 +667,38 @@ function Grid:SetData(recordIDs)
         return
     end
 
-    -- Apply post-search filters (trackable, etc.)
-    local filteredIDs = self:ApplyPostSearchFilters(recordIDs)
-
-    -- Apply client-side sorting if using a non-native sort type
+    -- Apply post-search filters and build element data
     local sortType = addon.db and addon.db.browser and addon.db.browser.sortType or 0
-    if sortType >= 100 then
+    local needsSort = sortType >= 100
+
+    local filteredIDs, elements
+
+    if needsSort then
+        -- Sort active: filter first, sort, then wrap (sort needs raw ID array)
+        filteredIDs = self:ApplyPostSearchFilters(recordIDs)
         filteredIDs = self:ApplyClientSideSort(filteredIDs, sortType)
+        elements = {}
+        for _, recordID in ipairs(filteredIDs) do
+            elements[#elements + 1] = { recordID = recordID }
+        end
+    else
+        -- No sort: merge filter + wrap into one pass (saves one O(N) iteration)
+        filteredIDs = {}
+        elements = {}
+        for _, recordID in ipairs(recordIDs) do
+            local record = addon:GetRecord(recordID)
+            if record
+                and addon.Filters:PassesTrackableFilter(record)
+                and addon.Filters:PassesWishlistFilter(record)
+                and addon.Filters:PassesPlacedFilter(record)
+            then
+                filteredIDs[#filteredIDs + 1] = recordID
+                elements[#elements + 1] = { recordID = recordID }
+            end
+        end
     end
 
     self.currentRecordIDs = filteredIDs
-
-    -- Convert to element data
-    local elements = {}
-    for _, recordID in ipairs(filteredIDs) do
-        table.insert(elements, { recordID = recordID })
-    end
 
     -- Reuse DataProvider: Flush existing data and insert new elements
     self.dataProvider:Flush()

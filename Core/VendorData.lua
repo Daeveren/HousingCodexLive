@@ -95,6 +95,7 @@ addon.VendorSourceData = {
         },
         ["Brawl'gar Arena"] = {
             { npcId = 145695, npcName = "\"Bad Luck\" Symmes", cost = 500, decorIds = {10913, 12263, 14815} },
+            { npcId = 68364, npcName = "Paul North", cost = 500, decorIds = {10913, 12263, 14815} },
         },
         ["Burning Steppes"] = {
             { npcId = 115805, npcName = "Hoddruc Bladebender", cost = 4500000, decorIds = {11131} },
@@ -116,6 +117,7 @@ addon.VendorSourceData = {
             { npcId = 252910, npcName = "Garnett", cost = 900, currencyName = "Resonance Crystals", decorIds = {9168, 9169, 9181, 9182, 9185, 9186, 9237}, itemCosts = {[9168] = 800, [9169] = 900, [9181] = 1000, [9182] = 450, [9185] = 600, [9186] = 500, [9237] = 900} },
             { npcId = 223728, npcName = "Auditor Balwurz", cost = 1, decorIds = {760, 761, 762, 1750, 9242}, itemCosts = {[760] = 1000, [761] = 1000, [762] = 1000, [1750] = 620} },
             { npcId = 219318, npcName = "Jorid", cost = 750, currencyName = "Resonance Crystals", decorIds = {2533} },
+            { npcId = 219217, npcName = "Velerd", cost = 2500, currencyName = "Honor", decorIds = {3890, 9244}, itemCosts = {[3890] = 2500, [9244] = 750} },
         },
         ["Dragonscale Basecamp"] = {
             { npcId = 189226, npcName = "Cataloger Jakes", cost = 400, currencyName = "Dragon Isles Supplies", decorIds = {716, 717, 718, 720, 1177, 1181}, itemCosts = {[716] = 100, [717] = 250, [718] = 250, [720] = 750, [1177] = 400, [1181] = 250} },
@@ -145,6 +147,7 @@ addon.VendorSourceData = {
             { npcId = 255222, npcName = "\"High Tides\" Ren", cost = 50, decorIds = {522, 526, 534, 535, 536, 1451, 1452, 1453, 1698, 1699, 1978, 1979, 2092, 2094, 2117, 2118, 2439, 2440, 2441, 2442, 2445, 2545, 5853, 5854, 7836, 8771, 8910, 8911, 8912, 9143, 10324, 10367, 10952, 11480, 11874} },
             { npcId = 257307, npcName = "\"Den\" Nightshade", cost = 5, currencyName = "Community Coupons", decorIds = {14677, 14678, 14679, 14680, 14793, 14800, 14829, 14830, 14831, 14832, 14833, 14834}, itemCosts = {[14677] = 5, [14678] = 5, [14679] = 2, [14680] = 5, [14793] = 10, [14800] = 10, [14829] = 10, [14830] = 5, [14831] = 20, [14832] = 10, [14833] = 5, [14834] = 15} },
             { npcId = 255228, npcName = "\"Len\" Splinthoof", cost = 25, decorIds = {1436, 1439, 1724, 1737, 2087, 2088, 2090, 2098, 2443, 2444, 2447, 2448, 2534, 2546, 2547, 2548, 2549, 2550, 5561, 8236, 8769, 8770, 10791, 10892, 11139, 11437} },
+            { npcId = 248854, npcName = "The Last Architect", cost = 500, decorIds = {14583} },
         },
         ["Freywold Village, Isle of Dorn"] = {
             { npcId = 252901, npcName = "Cinnabar", cost = 400, currencyName = "Resonance Crystals", decorIds = {9179, 9183, 9240}, itemCosts = {[9179] = 400, [9183] = 300, [9240] = 1100} },
@@ -221,6 +224,7 @@ addon.VendorSourceData = {
         },
         ["Orgrimmar"] = {
             { npcId = 254606, npcName = "Joruh", cost = 5, decorIds = {3867, 3880, 3881, 3885, 3887, 3890, 3893, 3896, 3897, 3898, 3899, 3900, 3902, 3903, 3905, 3906, 3907, 9244, 11296}, itemCosts = {[3867] = 5000, [3880] = 2000, [3881] = 1000, [3885] = 1000, [3887] = 800, [3890] = 2500, [3893] = 1000, [3896] = 600, [3897] = 1200, [3898] = 400, [3899] = 300, [9244] = 750, [11296] = 450} },
+            { npcId = 50488, npcName = "Stone Guard Nargol", cost = 10000, decorIds = {9242} },
             { npcId = 261262, npcName = "Gabbi", cost = 5000000, decorIds = {11287, 14467, 15148, 15149, 15151, 15229, 15550, 15551, 15552, 15553, 15554, 15555, 15668, 15669} },
             { npcId = 256119, npcName = "Lonalo", cost = 2000, decorIds = {766, 768, 2511, 2513, 2514, 2526} },
         },
@@ -244,7 +248,7 @@ addon.VendorSourceData = {
             { npcId = 252605, npcName = "Aeeshna", cost = 5, currencyName = "Community Coupons", decorIds = {14677, 14678, 14679, 14680, 14793, 14800, 14829, 14830, 14831, 14832, 14833, 14834}, itemCosts = {[14677] = 5, [14678] = 5, [14679] = 2, [14680] = 5, [14793] = 10, [14800] = 10, [14829] = 10, [14830] = 5, [14831] = 20, [14832] = 10, [14833] = 5, [14834] = 15} },
             { npcId = 255299, npcName = "Lefton Farrer", cost = 75, decorIds = {986, 990, 991, 1155, 1165, 1350, 1356, 1486, 1488, 3827, 4484, 11720, 11721} },
             { npcId = 253596, npcName = "The Last Architect", cost = 500, decorIds = {14583} },
-            { npcId = 255297, npcName = "Shon'ja", cost = 150, decorIds = {1439, 2090, 2443, 2444, 2447, 2448, 2547, 2550, 5561, 8236, 8769, 8770, 10791, 10892, 11139, 11437} },
+            { npcId = 255297, npcName = "Shon'ja", cost = 150, decorIds = {1436, 1439, 1724, 1737, 2087, 2088, 2090, 2098, 2443, 2444, 2447, 2448, 2534, 2546, 2547, 2548, 2549, 2550, 5561, 8236, 8769, 8770, 10791, 10892, 11139, 11437} }, -- 26 items, verified via Warcraft Wiki + in-game (WowDB had 16)
         },
         ["Ruins of Gilneas"] = {
             { npcId = 216888, npcName = "Samantha Buckley", cost = 100, decorIds = {859, 860, 1795, 1826, 11944} },
@@ -420,6 +424,7 @@ addon.VendorSourceData = {
         ["Vale of Eternal Blossoms"] = {
             { npcId = 64605, npcName = "Tan Shin Tiao", cost = 800, decorIds = {1172, 3832, 3833, 3993, 3995, 11873} },
             { npcId = 64001, npcName = "Sage Lotusbloom", cost = 500, decorIds = {3869, 15605} },
+            { npcId = 64032, npcName = "Sage Whiteheart", cost = 500, decorIds = {3869, 15605} },
             { npcId = 62088, npcName = "Lali the Assistant", cost = 2000, decorIds = {767, 11453, 11456, 11457} },
         },
         ["Valley of the Four Winds"] = {
@@ -465,6 +470,7 @@ addon.NPCLocationData = {
     },
     [50309] = { uiMapId = 87, x = 55.4, y = 47.4, faction = "Alliance" },
     [50483] = { uiMapId = 88, x = 46.4, y = 51.0, faction = "Horde" },
+    [50488] = { uiMapId = 85, x = 50.0, y = 56.0, faction = "Horde" },
     [58414] = { uiMapId = 371, x = 56.6, y = 44.4 },
     [58706] = { uiMapId = 376, x = 52.2, y = 48.6 },
     [59698] = { uiMapId = 379, x = 57.2, y = 61.0 },
@@ -472,7 +478,9 @@ addon.NPCLocationData = {
         { uiMapId = 390, x = 82.4, y = 30.4 },
         { uiMapId = 1530, x = 83.2, y = 28.2 },
     },
+    [68364] = { uiMapId = 503, x = 51.0, y = 27.6, faction = "Horde" },
     [64001] = { uiMapId = 390, x = 62.6, y = 23.2 },
+    [64032] = { uiMapId = 390, x = 84.8, y = 63.5, faction = "Alliance" },
     [64605] = { uiMapId = 390, x = 82.2, y = 29.4 },
     [76872] = { uiMapId = 590, x = 36.4, y = 40.4, faction = "Horde" },
     [78564] = { uiMapId = 584, x = 38.0, y = 33.2, faction = "Alliance" },
@@ -555,6 +563,7 @@ addon.NPCLocationData = {
     [216888] = { uiMapId = 217, x = 65.2, y = 47.2 },
     [217642] = { uiMapId = 2215, x = 42.8, y = 55.8 },
     [218202] = { uiMapId = 2213, x = 50.0, y = 31.6 },
+    [219217] = { uiMapId = 2339, x = 55.2, y = 76.4 },
     [219318] = { uiMapId = 2339, x = 57.0, y = 60.4 },
     [221390] = { uiMapId = 2214, x = 43.2, y = 32.8 },
     [223728] = { uiMapId = 2339, x = 39.2, y = 24.2 },
@@ -595,6 +604,7 @@ addon.NPCLocationData = {
     },
     [248594] = { uiMapId = 680, x = 50.8, y = 77.8 },
     [248658] = { uiMapId = 2413, x = 66.0, y = 61.4 },
+    [248854] = { uiMapId = 2352, x = 52.7, y = 37.5, faction = "Alliance" },
     [249196] = { uiMapId = 241, x = 49.8, y = 81.2 },
     [249684] = {
         { uiMapId = 2351, x = 54.2, y = 56.2, faction = "Horde" },

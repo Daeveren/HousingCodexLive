@@ -2,6 +2,12 @@
 
 All notable changes to Housing Codex.
 
+**2.2.8** (2026-04-15)
+
+**Changed**
+- Updated vendor data with additional vendor locations
+- Improved performance of bag and bank overlays
+
 **2.2.7** (2026-04-13)
 
 **Added**
