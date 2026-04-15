@@ -57,6 +57,7 @@ function addon:BuildCollectedIndex()
     end
 
     self.indexesBuilt = true
+    wipe(self.countCache)
 
     local elapsedMs = math.floor(debugprofilestop() - startTime)
     self:Debug(string.format("Built collected index in %d ms", elapsedMs))

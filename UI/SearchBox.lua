@@ -116,19 +116,19 @@ function SearchBox:ApplySearch(text)
 
     addon:Debug("SearchBox: Applying search: " .. tostring(searchText))
 
-    -- Set search text first (order matters for searcher state)
-    addon.catalogSearcher:SetSearchText(searchText)
+    -- Batch searcher mutations to avoid redundant intermediate searches
+    addon:WithSearcherBatchUpdate("ApplySearch", function()
+        addon.catalogSearcher:SetSearchText(searchText)
 
-    -- Clear category focus when searching (Blizzard pattern: search and category are mutually exclusive)
-    if searchText then
-        if addon.Categories then
-            addon.Categories:ClearFocusOnly()
+        -- Clear category focus when searching (Blizzard pattern: search and category are mutually exclusive)
+        if searchText then
+            if addon.Categories then
+                addon.Categories:ClearFocusOnly()
+            end
+            addon.catalogSearcher:SetFilteredCategoryID(nil)
+            addon.catalogSearcher:SetFilteredSubcategoryID(nil)
         end
-        addon.catalogSearcher:SetFilteredCategoryID(nil)
-        addon.catalogSearcher:SetFilteredSubcategoryID(nil)
-    end
-
-    addon:RequestSearch()
+    end)
 
     addon:FireEvent("SEARCH_TEXT_CHANGED", searchText)
 

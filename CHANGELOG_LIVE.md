@@ -2,6 +2,17 @@
 
 All notable changes to Housing Codex.
 
+**2.3.0** (2026-04-16)
+
+**Added**
+- New smooth animation added to the tab switching in the main UI
+- Wishlist count now shown in the minimap/broker tooltip
+- New "Collection %" toggle in the broker display popup to show collection percentage
+- Shift+Right-click on the minimap/broker icon opens directly to the Progress tab
+
+**Changed**
+- Refreshed minimap/broker tooltip with improved colors and layout
+
 **2.2.8** (2026-04-15)
 
 **Changed**

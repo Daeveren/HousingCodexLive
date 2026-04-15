@@ -86,6 +86,43 @@ local function SetupTileFrame(tile, tileSize)
     end)
 end
 
+-- Named handlers for tile element initializer (avoids per-bind closure allocation)
+local function TileOnMouseDown(self, button)
+    if button == "RightButton" then
+        addon.ContextMenu:ShowForDecor(self, self.recordID)
+        return
+    end
+    if button == "LeftButton" and IsShiftKeyDown() then
+        addon:ToggleTracking(self.recordID)
+        return
+    end
+    Grid:SelectRecord(self.recordID)
+end
+
+local function TileOnEnter(self)
+    self:SetBackdropColor(unpack(COLOR_BG_HOVER))
+    local rec = addon:GetRecord(self.recordID)
+    if not rec then return end
+
+    GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
+    GameTooltip:SetText(rec.name or addon.L["UNKNOWN"], 1, 1, 1)
+    if rec.sourceText and rec.sourceText ~= "" then
+        GameTooltip:AddLine(rec.sourceText, 0.8, 0.8, 0.8, true)
+    end
+    if rec.totalOwned and rec.totalOwned > 0 then
+        GameTooltip:AddLine(string.format(addon.L["DETAILS_OWNED"], rec.totalOwned), unpack(COLOR_COLLECTED))
+    end
+    if rec.numPlaced and rec.numPlaced > 0 then
+        GameTooltip:AddLine(string.format(addon.L["DETAILS_PLACED"], rec.numPlaced), 0.4, 0.8, 0.4)
+    end
+    if rec.isTrackable then
+        local isTracked = addon:IsRecordTracked(self.recordID)
+        local hint = isTracked and addon.L["TOOLTIP_SHIFT_CLICK_UNTRACK"] or addon.L["TOOLTIP_SHIFT_CLICK_TRACK"]
+        GameTooltip:AddLine(hint, 0.5, 0.5, 0.5)
+    end
+    GameTooltip:Show()
+end
+
 function Grid:CreateToolbar(parent)
     if self.toolbar then return self.toolbar end
 
@@ -420,43 +457,8 @@ function Grid:CreateScrollBox(parent, tileSize)
             tile:SetBackdropBorderColor(unpack(COLORS.GOLD))
         end
 
-        -- Click handler
-        tile:SetScript("OnMouseDown", function(_, button)
-            if button == "RightButton" then
-                addon.ContextMenu:ShowForDecor(tile, recordID)
-                return
-            end
-            if button == "LeftButton" and IsShiftKeyDown() then
-                addon:ToggleTracking(recordID)
-                return
-            end
-            Grid:SelectRecord(recordID)
-        end)
-
-        -- Tooltip handler
-        tile:SetScript("OnEnter", function(self)
-            self:SetBackdropColor(unpack(COLOR_BG_HOVER))
-            local rec = addon:GetRecord(self.recordID)
-            if not rec then return end
-
-            GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
-            GameTooltip:SetText(rec.name or addon.L["UNKNOWN"], 1, 1, 1)
-            if rec.sourceText and rec.sourceText ~= "" then
-                GameTooltip:AddLine(rec.sourceText, 0.8, 0.8, 0.8, true)
-            end
-            if rec.totalOwned and rec.totalOwned > 0 then
-                GameTooltip:AddLine(string.format(addon.L["DETAILS_OWNED"], rec.totalOwned), unpack(COLOR_COLLECTED))
-            end
-            if rec.numPlaced and rec.numPlaced > 0 then
-                GameTooltip:AddLine(string.format(addon.L["DETAILS_PLACED"], rec.numPlaced), 0.4, 0.8, 0.4)
-            end
-            if rec.isTrackable then
-                local isTracked = addon:IsRecordTracked(self.recordID)
-                local hint = isTracked and addon.L["TOOLTIP_SHIFT_CLICK_UNTRACK"] or addon.L["TOOLTIP_SHIFT_CLICK_TRACK"]
-                GameTooltip:AddLine(hint, 0.5, 0.5, 0.5)
-            end
-            GameTooltip:Show()
-        end)
+        tile:SetScript("OnMouseDown", TileOnMouseDown)
+        tile:SetScript("OnEnter", TileOnEnter)
     end)
 
     -- Initialize ScrollBox
@@ -787,6 +789,7 @@ function Grid:Show()
 end
 
 function Grid:Hide()
+    GameTooltip:Hide()
     if self.toolbar then self.toolbar:Hide() end
     if self.container then self.container:Hide() end
     if self.scrollBar then self.scrollBar:Hide() end

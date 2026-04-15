@@ -79,6 +79,9 @@ end
 function RenownTab:Show()
     if not self.frame then return end
 
+    local skipRefresh = self.ownershipRefreshedThisShow
+    self.ownershipRefreshedThisShow = nil
+
     if not addon.renownIndexBuilt then
         addon:BuildRenownIndex()
     end
@@ -93,7 +96,7 @@ function RenownTab:Show()
         local saved = GetRenownDB()
         if saved then
             self.selectedExpansion = saved.selectedExpansion
-            self:SetCompletionFilter(saved.completionFilter or "incomplete")
+            self:SetCompletionFilter(saved.completionFilter or "incomplete", skipRefresh)
         end
     end
     self.pendingNavigation = nil
@@ -166,14 +169,16 @@ function RenownTab:CreateToolbar(parent)
     })
 end
 
-function RenownTab:SetCompletionFilter(filterKey)
+function RenownTab:SetCompletionFilter(filterKey, skipRefresh)
     if not VALID_FILTERS[filterKey] then filterKey = "incomplete" end
     for key, btn in pairs(self.filterButtons) do
         btn:SetActive(key == filterKey)
     end
     local db = GetRenownDB()
     if db then db.completionFilter = filterKey end
-    self:RefreshDisplay()
+    if not skipRefresh then
+        self:RefreshDisplay()
+    end
 end
 
 function RenownTab:GetCompletionFilter()

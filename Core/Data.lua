@@ -442,21 +442,28 @@ function addon:ResolveRecord(recordID)
     return record
 end
 
+-- Count cache: invalidated by BuildCollectedIndex (full rebuild) and targeted ownership handler
+addon.countCache = {}
+
 function addon:GetRecordCount()
     if not self.indexesBuilt then return 0 end
+    if self.countCache.recordCount then return self.countCache.recordCount end
     local count = 0
     for _ in pairs(self.decorRecords) do
         count = count + 1
     end
+    self.countCache.recordCount = count
     return count
 end
 
 function addon:GetUniqueCollectedCount()
     if not self.indexesBuilt then return 0 end
+    if self.countCache.uniqueCollected then return self.countCache.uniqueCollected end
     local count = 0
     for _ in pairs(self.indexes.collected) do
         count = count + 1
     end
+    self.countCache.uniqueCollected = count
     return count
 end
 
@@ -472,21 +479,26 @@ end
 -- Decor-only collected count (excludes rooms)
 function addon:GetDecorCollectedCount()
     if not self.indexesBuilt then return 0 end
+    if self.countCache.decorCollected then return self.countCache.decorCollected end
     local count = 0
     IterateCollected(self.decorRecords, self.indexes.collected, false, function() count = count + 1 end)
+    self.countCache.decorCollected = count
     return count
 end
 
 -- Room-only collected count
 function addon:GetRoomCollectedCount()
     if not self.indexesBuilt then return 0 end
+    if self.countCache.roomCollected then return self.countCache.roomCollected end
     local count = 0
     IterateCollected(self.decorRecords, self.indexes.collected, true, function() count = count + 1 end)
+    self.countCache.roomCollected = count
     return count
 end
 
 function addon:GetTotalOwnedCount()
     if not self.indexesBuilt then return 0 end
+    if self.countCache.totalOwned then return self.countCache.totalOwned end
     local total = 0
     for recordID in pairs(self.indexes.collected) do
         local record = self.decorRecords[recordID]
@@ -494,43 +506,48 @@ function addon:GetTotalOwnedCount()
             total = total + record.totalOwned
         end
     end
+    self.countCache.totalOwned = total
     return total
 end
 
 -- Decor-only total owned (excludes rooms)
 function addon:GetTotalDecorOwnedCount()
     if not self.indexesBuilt then return 0 end
+    if self.countCache.totalDecorOwned then return self.countCache.totalDecorOwned end
     local total = 0
     IterateCollected(self.decorRecords, self.indexes.collected, false, function(record)
         if record.totalOwned then
             total = total + record.totalOwned
         end
     end)
+    self.countCache.totalDecorOwned = total
     return total
+end
+
+local function CountRecordsByRoom(decorRecords, isRoom)
+    local count = 0
+    for _, record in pairs(decorRecords) do
+        if IsRoomRecord(record) == isRoom then
+            count = count + 1
+        end
+    end
+    return count
 end
 
 -- Decor-only record count (total decor in catalog, excludes rooms)
 function addon:GetDecorRecordCount()
     if not self.indexesBuilt then return 0 end
-    local count = 0
-    for _, record in pairs(self.decorRecords) do
-        if not IsRoomRecord(record) then
-            count = count + 1
-        end
-    end
-    return count
+    if self.countCache.decorRecordCount then return self.countCache.decorRecordCount end
+    self.countCache.decorRecordCount = CountRecordsByRoom(self.decorRecords, false)
+    return self.countCache.decorRecordCount
 end
 
 -- Room-only record count (total rooms in catalog)
 function addon:GetRoomRecordCount()
     if not self.indexesBuilt then return 0 end
-    local count = 0
-    for _, record in pairs(self.decorRecords) do
-        if IsRoomRecord(record) then
-            count = count + 1
-        end
-    end
-    return count
+    if self.countCache.roomRecordCount then return self.countCache.roomRecordCount end
+    self.countCache.roomRecordCount = CountRecordsByRoom(self.decorRecords, true)
+    return self.countCache.roomRecordCount
 end
 
 function addon:GetAllRecordIDs()
@@ -793,6 +810,9 @@ addon:RegisterWoWEvent("HOUSING_STORAGE_ENTRY_UPDATED", function(entryID)
             addon.indexes.collected[recordID] = nil
         end
     end
+
+    -- Invalidate count cache after index patch (targeted path bypasses BuildCollectedIndex)
+    wipe(addon.countCache)
 
     addon:FireEvent("RECORD_OWNERSHIP_UPDATED", recordID, collectionStateChanged, "targeted")
     if collectionStateChanged and addon.MainFrame and addon.MainFrame:IsShown() then

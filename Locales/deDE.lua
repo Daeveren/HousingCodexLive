@@ -267,8 +267,12 @@ L["LDB_POPUP_TITLE"] = "Broker-Anzeige"
 L["LDB_TOOLTIP_DECOR_HEADER"] = "Sammlungsstatistik"
 L["LDB_POPUP_UNIQUE"] = "Einzigartiges Dekor"
 L["LDB_POPUP_ROOMS"] = "Freigeschaltete Räume"
-L["LDB_POPUP_TOTAL_OWNED"] = "Dekor im Besitz gesamt"
+L["LDB_POPUP_TOTAL_OWNED"] = "Gesamt (inkl. Duplikate)"
 L["LDB_POPUP_TOTAL_ITEMS"] = "Gesamtobjekte"
+L["LDB_POPUP_PERCENT"] = "Sammlung %"
+L["LDB_TOOLTIP_WISHLIST"] = "Wunschliste"
+L["LDB_TOOLTIP_WISHLIST_COUNT"] = "%d Gegenstände"
+L["LDB_TOOLTIP_SHIFT_RIGHT"] = "|cffffffffShift-Rechtsklick|r um Sammelfortschritt anzuzeigen"
 
 --------------------------------------------------------------------------------
 -- Quests Tab

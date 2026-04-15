@@ -166,12 +166,6 @@ function Categories:SetFocus(categoryID, subcategoryID)
         ClearSearchText()
     end
 
-    -- Save to db
-    if addon.db and addon.db.browser and addon.db.browser.category then
-        addon.db.browser.category.focusedCategoryID = categoryID
-        addon.db.browser.category.focusedSubcategoryID = subcategoryID
-    end
-
     self:ApplyFilter()
     self:BuildDisplay()
 end
@@ -185,11 +179,6 @@ function Categories:ClearFocusOnly()
     self.focusedCategoryID = nil
     self.focusedSubcategoryID = nil
     self.selectedCategoryID = nil
-
-    if addon.db and addon.db.browser and addon.db.browser.category then
-        addon.db.browser.category.focusedCategoryID = nil
-        addon.db.browser.category.focusedSubcategoryID = nil
-    end
 
     self:BuildDisplay()
 end

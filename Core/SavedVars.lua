@@ -83,6 +83,7 @@ local defaults = {
         ldbShowRooms = false,       -- Show rooms unlocked count in broker
         ldbShowTotalOwned = false,  -- Show total decor owned (with duplicates) in broker
         ldbShowTotal = true,        -- Show total catalog item count in broker
+        ldbShowPercent = false,     -- Show unique decor collected percentage in broker
         showMinimapButton = true,  -- Show LibDBIcon minimap button
         showVendorDecorIndicators = true,  -- Show decor icons on vendor items
         showVendorOwnedCheckmark = true,   -- Show checkmark on owned decor at vendors

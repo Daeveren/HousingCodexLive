@@ -84,6 +84,9 @@ end
 function VendorsTab:Show()
     if not self.frame then return end
 
+    local skipRefresh = self.ownershipRefreshedThisShow
+    self.ownershipRefreshedThisShow = nil
+
     if not addon.vendorIndexBuilt then
         addon:BuildVendorIndex()
     end
@@ -100,7 +103,7 @@ function VendorsTab:Show()
     if saved then
         -- Expanded zones persist across sessions
         self.selectedExpansionKey = saved.selectedExpansionKey
-        self:SetCompletionFilter(saved.completionFilter or "incomplete")
+        self:SetCompletionFilter(saved.completionFilter or "incomplete", skipRefresh)
     end
 
     self:UpdateEmptyStates()
@@ -1315,14 +1318,14 @@ local function VendorPassesCompletionFilter(vendorData, filter, zoneName, expans
 
     local owned, total = 0, 0
     for _, decorId in ipairs(vendorData.decorIds or {}) do
-        total = total + 1
-        if addon:IsDecorCollected(decorId) then owned = owned + 1 end
+        if IsDecorResolvable(decorId) then
+            total = total + 1
+            if addon:IsDecorCollected(decorId) then owned = owned + 1 end
+        end
     end
 
     local isComplete = total > 0 and owned == total
-    local result
-    if filter == "complete" then result = isComplete
-    else result = not isComplete end
+    local result = (filter == "complete") == isComplete
 
     if filterCache then filterCache[cacheKey] = result end
     return result
@@ -1494,6 +1497,11 @@ function VendorsTab:UpdateEmptyStates()
     local hasVendors = addon:GetVendorCount() > 0
     local hasSelection = self.selectedExpansionKey ~= nil
     local hasResults = self.vendorDataProvider and self.vendorDataProvider:GetSize() > 0
+
+    -- Clear preview when vendor list is empty (consistent with QuestsTab/AchievementsTab)
+    if hasVendors and hasSelection and not hasResults then
+        addon:FireEvent("RECORD_SELECTED", nil)
+    end
 
     if self.emptyState then self.emptyState:SetShown(not hasVendors) end
     if self.noExpansionState then self.noExpansionState:SetShown(hasVendors and not hasSelection) end

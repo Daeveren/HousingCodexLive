@@ -309,6 +309,9 @@ end
 function AchievementsTab:Show()
     if not self.frame then return end
 
+    local skipRefresh = self.ownershipRefreshedThisShow
+    self.ownershipRefreshedThisShow = nil
+
     -- Build index if not done
     if addon.dataLoaded and not addon.achievementIndexBuilt then
         addon:BuildAchievementIndex()
@@ -331,8 +334,7 @@ function AchievementsTab:Show()
         self.selectedRecordID = saved.selectedRecordID
     end
 
-    -- Always apply completion filter (triggers RefreshDisplay → BuildAchievementDisplay → UpdateEmptyStates)
-    self:SetCompletionFilter(saved and saved.completionFilter or "incomplete")
+    self:SetCompletionFilter(saved and saved.completionFilter or "incomplete", skipRefresh)
 end
 
 function AchievementsTab:Hide()
@@ -838,7 +840,7 @@ end
 
 addon:RegisterInternalEvent("ACHIEVEMENT_COMPLETION_CHANGED", RefreshAchievementDisplays)
 
-AchievementsTab:RegisterOwnershipRefresh(RefreshAchievementDisplays)
+AchievementsTab:RegisterOwnershipRefresh(function() AchievementsTab:RefreshDisplay() end)
 
 -- Update wishlist stars when wishlist changes
 addon:RegisterInternalEvent("WISHLIST_CHANGED", function(recordID, isWishlisted)

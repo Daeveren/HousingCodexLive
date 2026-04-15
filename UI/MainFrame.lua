@@ -656,6 +656,7 @@ function MainFrame:Show()
     -- Always show preview on first show (preview is always visible)
     if isFirstShow then
         C_Timer.After(0.05, function()
+            if not self.frame or not self.frame:IsShown() then return end
             if addon.Preview then
                 addon.Preview:Show()
                 -- Progress tab uses full width; collapse preview to reclaim content space

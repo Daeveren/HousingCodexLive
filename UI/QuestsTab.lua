@@ -354,6 +354,9 @@ end
 function QuestsTab:Show()
     if not self.frame then return end
 
+    local skipRefresh = self.ownershipRefreshedThisShow
+    self.ownershipRefreshedThisShow = nil
+
     -- Build index if not done
     if addon.dataLoaded and not addon.questIndexBuilt then
         addon:BuildQuestIndex()
@@ -376,8 +379,7 @@ function QuestsTab:Show()
         self.selectedRecordID = saved.selectedRecordID
     end
 
-    -- Always apply completion filter (triggers RefreshDisplay → BuildZoneQuestDisplay → UpdateEmptyStates)
-    self:SetCompletionFilter(saved and saved.completionFilter or "incomplete")
+    self:SetCompletionFilter(saved and saved.completionFilter or "incomplete", skipRefresh)
 end
 
 function QuestsTab:NavigateFromProgress(expansionKey, filter)
@@ -941,13 +943,6 @@ addon:RegisterInternalEvent("DATA_LOADED", function()
     end
 end)
 
--- Direct refresh handler (used by RegisterOwnershipRefresh which has its own debounce)
-local function RefreshQuestDisplays()
-    if QuestsTab:IsShown() then
-        QuestsTab:RefreshDisplay()
-    end
-end
-
 -- Debounced wrapper for noisy quest events (coalesces rapid-fire into single refresh)
 local questRefreshTimer = nil
 local function DebouncedQuestRefresh()
@@ -963,7 +958,7 @@ end
 
 addon:RegisterInternalEvent("QUEST_ALL_TITLES_LOADED", DebouncedQuestRefresh)
 
-QuestsTab:RegisterOwnershipRefresh(RefreshQuestDisplays)
+QuestsTab:RegisterOwnershipRefresh(function() QuestsTab:RefreshDisplay() end)
 
 -- Update wishlist stars when wishlist changes
 addon:RegisterInternalEvent("WISHLIST_CHANGED", function(recordID, isWishlisted)

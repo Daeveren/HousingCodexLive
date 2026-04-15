@@ -17,6 +17,65 @@ local ICON_CROP_COORDS = addon.CONSTANTS.ICON_CROP_COORDS
 local TRUNCATE_CHAR_LIMITS = { 6, 5, 4, 3, 2 }
 local ICON_ONLY_LEVEL = #TRUNCATE_CHAR_LIMITS + 1
 
+-- SelectBar slide animation (set to false to revert to instant show/hide)
+local TAB_SLIDE_ENABLED = true
+local TAB_SLIDE_DURATION = 0.20  -- 200ms
+
+local function EaseOutQuad(t)
+    return 1 - (1 - t) * (1 - t)
+end
+
+-- Animation state (only used when TAB_SLIDE_ENABLED)
+local slideDriver       -- child frame for OnUpdate
+local curBarX = 0       -- current bar x offset (container-relative)
+local curBarW = 0       -- current bar width
+local sharedSelectBar   -- the single gold texture
+
+local function ApplyBarPosition(x, w)
+    curBarX = x
+    curBarW = w
+    sharedSelectBar:ClearAllPoints()
+    sharedSelectBar:SetPoint("BOTTOMLEFT", sharedSelectBar:GetParent(), "BOTTOMLEFT", x, -3)
+    sharedSelectBar:SetWidth(w)
+end
+
+local function SnapBarTo(btn)
+    if not btn then return end
+    ApplyBarPosition(btn.xOffset, btn:GetWidth())
+    sharedSelectBar:Show()
+end
+
+local function CancelSlide()
+    slideDriver:SetScript("OnUpdate", nil)
+end
+
+local function SlideBarTo(btn)
+    if not btn then return end
+
+    local startX, startW = curBarX, curBarW
+    local targetX = btn.xOffset
+    local targetW = btn:GetWidth()
+    local elapsed = 0
+
+    sharedSelectBar:Show()
+
+    slideDriver:SetScript("OnUpdate", function(self, dt)
+        elapsed = elapsed + dt
+        local t = math.min(elapsed / TAB_SLIDE_DURATION, 1)
+        local e = EaseOutQuad(t)
+
+        ApplyBarPosition(
+            startX + (targetX - startX) * e,
+            startW + (targetW - startW) * e
+        )
+
+        if t >= 1 then
+            self:SetScript("OnUpdate", nil)
+            ApplyBarPosition(targetX, targetW)
+        end
+    end)
+end
+
 local TAB_CONFIG = {
     { key = "DECOR", labelKey = "TAB_DECOR", descKey = "TAB_DECOR_DESC", atlas = "house-decor-budget-icon", enabled = true },
     { key = "QUESTS", labelKey = "TAB_QUESTS", descKey = "TAB_QUESTS_DESC", icon = "Interface\\Icons\\INV_Misc_Book_08", enabled = true },
@@ -180,6 +239,7 @@ function Tabs:Create(titleBar, anchorAfter)
     for i, config in ipairs(TAB_CONFIG) do
         local btn = CreateTabButton(container, config, i)
         btn:SetPoint("LEFT", container, "LEFT", xOffset, 0)
+        btn.xOffset = xOffset
 
         self.buttons[i] = btn
         self.buttons[config.key] = btn
@@ -205,6 +265,16 @@ function Tabs:Create(titleBar, anchorAfter)
     container:SetWidth(self.levelWidths[0])
     self.currentTruncLevel = 0
 
+    -- Shared selection indicator bar (animated slide between tabs)
+    if TAB_SLIDE_ENABLED then
+        local bar = container:CreateTexture(nil, "OVERLAY")
+        bar:SetHeight(3)
+        bar:SetColorTexture(unpack(COLORS.GOLD))
+        bar:Hide()
+        sharedSelectBar = bar
+        slideDriver = CreateFrame("Frame", nil, container)
+    end
+
     -- Always start on DECOR tab (skip save to avoid overwriting user's last session)
     self:SelectTab("DECOR", true)
 
@@ -227,6 +297,11 @@ function Tabs:UpdateLayout(availableWidth)
     -- Skip redundant relayout
     if newLevel == self.currentTruncLevel then return end
     self.currentTruncLevel = newLevel
+
+    -- Cancel in-flight slide (button positions are about to change)
+    if TAB_SLIDE_ENABLED then
+        CancelSlide()
+    end
 
     local isIconOnly = (newLevel == ICON_ONLY_LEVEL)
     local xOffset = 0
@@ -252,30 +327,51 @@ function Tabs:UpdateLayout(availableWidth)
 
         btn:ClearAllPoints()
         btn:SetPoint("LEFT", self.container, "LEFT", xOffset, 0)
+        btn.xOffset = xOffset
         xOffset = xOffset + btnWidth + HTAB_GAP
     end
 
     self.container:SetWidth(xOffset - HTAB_GAP)
+
+    -- Re-snap shared bar to current tab's new position after relayout
+    if TAB_SLIDE_ENABLED and self.currentTab and self.buttons[self.currentTab] then
+        SnapBarTo(self.buttons[self.currentTab])
+    end
 end
 
-function Tabs:SelectTab(tabKey, skipSave)
+function Tabs:SelectTab(tabKey, skipSave, skipAnim)
     local btn = self.buttons[tabKey]
     if not btn or not btn.enabled then return end
 
+    local previousTab = self.currentTab
+
     -- Deselect current
-    if self.currentTab and self.buttons[self.currentTab] then
-        local oldBtn = self.buttons[self.currentTab]
+    if previousTab and self.buttons[previousTab] then
+        local oldBtn = self.buttons[previousTab]
         oldBtn.bg:SetColorTexture(unpack(COLORS.TAB_NORMAL))
-        oldBtn.selectBar:Hide()
         oldBtn.label:SetTextColor(unpack(COLORS.TAB_TEXT_INACTIVE))
         oldBtn.icon:SetAlpha(0.75)
+        if not TAB_SLIDE_ENABLED then
+            oldBtn.selectBar:Hide()
+        end
     end
 
     -- Select new
     btn.bg:SetColorTexture(unpack(COLORS.TAB_SELECTED))
-    btn.selectBar:Show()
     btn.label:SetTextColor(unpack(COLORS.TEXT_PRIMARY))
     btn.icon:SetAlpha(1.0)
+
+    if TAB_SLIDE_ENABLED then
+        -- Animated: snap on first selection or skipAnim, slide otherwise
+        if not previousTab or skipAnim then
+            SnapBarTo(btn)
+        else
+            SlideBarTo(btn)
+        end
+    else
+        -- Original instant behavior
+        btn.selectBar:Show()
+    end
 
     self.currentTab = tabKey
 
@@ -301,7 +397,6 @@ end
 function Tabs:RestoreSavedTab()
     -- One-shot: only restore once
     if self.tabRestored then return end
-    self.tabRestored = true
 
     local savedTab = addon.db and addon.db.browser and addon.db.browser.lastTab
     if not savedTab then return end
@@ -310,8 +405,10 @@ function Tabs:RestoreSavedTab()
     local btn = self.buttons[savedTab]
     if not btn or not btn.enabled then return end
 
+    self.tabRestored = true
+
     -- Already on this tab (DECOR default from Create) — no-op
     if self.currentTab == savedTab then return end
 
-    self:SelectTab(savedTab)
+    self:SelectTab(savedTab, false, true)
 end

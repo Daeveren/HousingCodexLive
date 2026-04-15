@@ -266,8 +266,12 @@ L["LDB_POPUP_TITLE"] = "信息显示"
 L["LDB_TOOLTIP_DECOR_HEADER"] = "收藏统计"
 L["LDB_POPUP_UNIQUE"] = "独特装饰"
 L["LDB_POPUP_ROOMS"] = "已解锁房间"
-L["LDB_POPUP_TOTAL_OWNED"] = "装饰拥有总数"
+L["LDB_POPUP_TOTAL_OWNED"] = "拥有总数（含重复）"
 L["LDB_POPUP_TOTAL_ITEMS"] = "物品总数"
+L["LDB_POPUP_PERCENT"] = "收藏进度 %"
+L["LDB_TOOLTIP_WISHLIST"] = "心愿单"
+L["LDB_TOOLTIP_WISHLIST_COUNT"] = "%d 件物品"
+L["LDB_TOOLTIP_SHIFT_RIGHT"] = "|cffffffff按住Shift右键|r查看收藏进度"
 
 --------------------------------------------------------------------------------
 -- Quests Tab

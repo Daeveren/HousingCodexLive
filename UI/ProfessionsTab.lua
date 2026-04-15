@@ -183,6 +183,9 @@ end
 function ProfessionsTab:Show()
     if not self.frame then return end
 
+    local skipRefresh = self.ownershipRefreshedThisShow
+    self.ownershipRefreshedThisShow = nil
+
     if addon.dataLoaded and not addon.craftingIndexBuilt then
         addon:BuildCraftingIndex()
     end
@@ -200,7 +203,7 @@ function ProfessionsTab:Show()
     -- Restore persisted profession
     self.selectedProfession = db and db.selectedProfession
 
-    self:SetCompletionFilter((db and db.completionFilter) or "incomplete")
+    self:SetCompletionFilter((db and db.completionFilter) or "incomplete", skipRefresh)
     self:UpdateEmptyStates()
 end
 

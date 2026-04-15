@@ -264,8 +264,12 @@ L["LDB_POPUP_TITLE"] = "Broker Display"
 L["LDB_TOOLTIP_DECOR_HEADER"] = "Collection Stats"
 L["LDB_POPUP_UNIQUE"] = "Unique Decor"
 L["LDB_POPUP_ROOMS"] = "Rooms Unlocked"
-L["LDB_POPUP_TOTAL_OWNED"] = "Total Decor Owned"
+L["LDB_POPUP_TOTAL_OWNED"] = "Total Owned (incl. dupes)"
 L["LDB_POPUP_TOTAL_ITEMS"] = "Total Items"
+L["LDB_POPUP_PERCENT"] = "Collection %"
+L["LDB_TOOLTIP_WISHLIST"] = "Wishlist"
+L["LDB_TOOLTIP_WISHLIST_COUNT"] = "%d items"
+L["LDB_TOOLTIP_SHIFT_RIGHT"] = "|cffffffffShift-Right|r to view collection progress"
 
 --------------------------------------------------------------------------------
 -- Quests Tab
