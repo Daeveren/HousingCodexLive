@@ -447,7 +447,7 @@ addon.countCache = {}
 
 function addon:GetRecordCount()
     if not self.indexesBuilt then return 0 end
-    if self.countCache.recordCount then return self.countCache.recordCount end
+    if self.countCache.recordCount ~= nil then return self.countCache.recordCount end
     local count = 0
     for _ in pairs(self.decorRecords) do
         count = count + 1
@@ -458,7 +458,7 @@ end
 
 function addon:GetUniqueCollectedCount()
     if not self.indexesBuilt then return 0 end
-    if self.countCache.uniqueCollected then return self.countCache.uniqueCollected end
+    if self.countCache.uniqueCollected ~= nil then return self.countCache.uniqueCollected end
     local count = 0
     for _ in pairs(self.indexes.collected) do
         count = count + 1
@@ -479,7 +479,7 @@ end
 -- Decor-only collected count (excludes rooms)
 function addon:GetDecorCollectedCount()
     if not self.indexesBuilt then return 0 end
-    if self.countCache.decorCollected then return self.countCache.decorCollected end
+    if self.countCache.decorCollected ~= nil then return self.countCache.decorCollected end
     local count = 0
     IterateCollected(self.decorRecords, self.indexes.collected, false, function() count = count + 1 end)
     self.countCache.decorCollected = count
@@ -489,7 +489,7 @@ end
 -- Room-only collected count
 function addon:GetRoomCollectedCount()
     if not self.indexesBuilt then return 0 end
-    if self.countCache.roomCollected then return self.countCache.roomCollected end
+    if self.countCache.roomCollected ~= nil then return self.countCache.roomCollected end
     local count = 0
     IterateCollected(self.decorRecords, self.indexes.collected, true, function() count = count + 1 end)
     self.countCache.roomCollected = count
@@ -498,7 +498,7 @@ end
 
 function addon:GetTotalOwnedCount()
     if not self.indexesBuilt then return 0 end
-    if self.countCache.totalOwned then return self.countCache.totalOwned end
+    if self.countCache.totalOwned ~= nil then return self.countCache.totalOwned end
     local total = 0
     for recordID in pairs(self.indexes.collected) do
         local record = self.decorRecords[recordID]
@@ -513,7 +513,7 @@ end
 -- Decor-only total owned (excludes rooms)
 function addon:GetTotalDecorOwnedCount()
     if not self.indexesBuilt then return 0 end
-    if self.countCache.totalDecorOwned then return self.countCache.totalDecorOwned end
+    if self.countCache.totalDecorOwned ~= nil then return self.countCache.totalDecorOwned end
     local total = 0
     IterateCollected(self.decorRecords, self.indexes.collected, false, function(record)
         if record.totalOwned then
@@ -537,7 +537,7 @@ end
 -- Decor-only record count (total decor in catalog, excludes rooms)
 function addon:GetDecorRecordCount()
     if not self.indexesBuilt then return 0 end
-    if self.countCache.decorRecordCount then return self.countCache.decorRecordCount end
+    if self.countCache.decorRecordCount ~= nil then return self.countCache.decorRecordCount end
     self.countCache.decorRecordCount = CountRecordsByRoom(self.decorRecords, false)
     return self.countCache.decorRecordCount
 end
@@ -545,7 +545,7 @@ end
 -- Room-only record count (total rooms in catalog)
 function addon:GetRoomRecordCount()
     if not self.indexesBuilt then return 0 end
-    if self.countCache.roomRecordCount then return self.countCache.roomRecordCount end
+    if self.countCache.roomRecordCount ~= nil then return self.countCache.roomRecordCount end
     self.countCache.roomRecordCount = CountRecordsByRoom(self.decorRecords, true)
     return self.countCache.roomRecordCount
 end

@@ -14,6 +14,25 @@ local STANDING_REACTION = {
     ["Friendly"] = 5, ["Honored"] = 6, ["Revered"] = 7, ["Exalted"] = 8,
 }
 
+-- Friendship rank names → locale key. The WoW friendship API only returns the
+-- player's CURRENT rank name (repInfo.reaction); it does not expose localized
+-- names for arbitrary target ranks. We ship addon-side translations for known
+-- required ranks.
+local FRIENDSHIP_STANDING_KEYS = {
+    ["Good Friend"] = "RENOWN_STANDING_GOOD_FRIEND",
+}
+
+-- C_Reputation.GetFactionDataByID returns localized .name for any factionID
+-- in the shared standard/renown/friendship ID space, even for factions the
+-- player has never interacted with (when the client has the faction data).
+-- Returns nil if the API is unavailable or the faction ID is unknown.
+local function ResolveFactionLocalizedName(factionID)
+    if not factionID then return nil end
+    if not C_Reputation or not C_Reputation.GetFactionDataByID then return nil end
+    local data = C_Reputation.GetFactionDataByID(factionID)
+    return data and data.name
+end
+
 local function StandingLabel(reactionIdx)
     return GetText("FACTION_STANDING_LABEL" .. (reactionIdx or 4), UnitSex("player"))
 end
@@ -302,8 +321,10 @@ function addon:LocalizeRequiredStanding(requiredStanding, kind, factionID)
     elseif kind == "renown" then
         local level = tonumber(requiredStanding:match("%d+"))
         if level then return RENOWN_LEVEL_LABEL:format(level) end
+    elseif kind == "friendship" then
+        local key = FRIENDSHIP_STANDING_KEYS[requiredStanding]
+        if key and L[key] then return L[key] end
     end
-    -- friendship: API only returns current rank name, not a specific required rank; fall through to raw English
 
     -- "Rank N" values (used by some friendship/renown factions)
     if requiredStanding:match("^Rank %d+$") then
@@ -363,6 +384,7 @@ function addon:BuildRenownIndex()
             table.insert(self.renownHierarchy[expKey].factions, {
                 factionID = factionID,
                 label = factionData.label,
+                localizedLabel = ResolveFactionLocalizedName(factionID),
                 kind = factionData.kind,
                 factionSide = factionData.factionSide,
                 group = factionData.group,
@@ -378,10 +400,12 @@ function addon:BuildRenownIndex()
         end
     end
 
-    -- Sort factions within each expansion alphabetically
+    -- Sort factions within each expansion alphabetically by the displayed
+    -- name: prefer the localized name so non-EN clients see alphabetical order
+    -- in their own language; fall back to the scraped English label.
     for _, expData in pairs(self.renownHierarchy) do
         table.sort(expData.factions, function(a, b)
-            return (a.label or "") < (b.label or "")
+            return (a.localizedLabel or a.label or "") < (b.localizedLabel or b.label or "")
         end)
     end
 
@@ -389,6 +413,37 @@ function addon:BuildRenownIndex()
 
     self:Debug(string.format("Built Renown index: %d factions (%d with resolved decor) in %d ms",
         factionCount, resolvedCount, math.floor(debugprofilestop() - startTime)))
+end
+
+-- Return the best available display name for a faction. Prefers the live
+-- standing's localized factionName (covers the player's current rep), then the
+-- cached localizedLabel from BuildRenownIndex (covers factions the player has
+-- not interacted with), then the scraped English label as a final fallback.
+function addon:GetRenownFactionDisplayName(factionData, standing)
+    if standing and standing.factionName then return standing.factionName end
+    if factionData and factionData.localizedLabel then return factionData.localizedLabel end
+    if factionData and factionData.label then return factionData.label end
+    return nil
+end
+
+-- Targeted refresh of the cached localizedLabel for a single faction. Called
+-- from the Renown tab event handler when MAJOR_FACTION_RENOWN_LEVEL_CHANGED or
+-- MAJOR_FACTION_UNLOCKED fires (both payloads carry majorFactionID). Safe to
+-- call with a factionID that isn't in the hierarchy (no-op). Skipped for
+-- UPDATE_FACTION because that event carries no factionID payload and faction
+-- names don't change on reputation-value updates anyway.
+function addon:RefreshFactionLocalizedLabel(factionID)
+    if not factionID or not self.renownHierarchy then return end
+    for _, expData in pairs(self.renownHierarchy) do
+        if expData.factions then
+            for _, entry in ipairs(expData.factions) do
+                if entry.factionID == factionID then
+                    entry.localizedLabel = ResolveFactionLocalizedName(factionID)
+                    return
+                end
+            end
+        end
+    end
 end
 
 function addon:GetSortedRenownExpansions()

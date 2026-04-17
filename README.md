@@ -22,8 +22,8 @@ A World of Warcraft addon that gives you a better way to browse, track, and coll
 - **Drops** - Drop sources including bosses, treasures, and world drops
 - **Professions** - Crafted housing items organized by profession with per-profession progress
 - **PvP** - PvP-sourced decorations from battleground achievements, arena drops, and Honor/Brawler's Guild vendors
-- **Renown** - Reputation-sourced decorations organized by faction with renown level requirements and vendor locations
-- **Progress** - Collection dashboard with per-source and per-expansion breakdowns, and a most-progressed list
+- **Renown** - Reputation-sourced decorations organized by expansion and faction, with standing requirements and vendor locations
+- **Progress** - Collection dashboard with per-source and per-expansion breakdowns, plus a most-progressed list that surfaces the closest-to-complete slices across quests, vendors, renown, achievements, drops, PvP, and professions
 
 ### In-World Integration
 
@@ -41,7 +41,7 @@ Download from [CurseForge](https://www.curseforge.com/wow/addons/housing-codex) 
 
 ## Usage
 
-Type `/hc` to open, click the minimap button, or set a keybind in WoW's keybinding options. Also available from the addon compartment and any LibDataBroker display addon.
+Type `/hc` to open, click the minimap button, or set a keybind in WoW's keybinding options. Also available from the addon compartment and any LibDataBroker display addon. `/hc welcome` reopens the onboarding screen, and `/hc whatsnew` opens the feature popup.
 
 ## Feedback
 

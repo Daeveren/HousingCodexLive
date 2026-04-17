@@ -138,8 +138,17 @@ end
 function RenownTab:CreateStandingEventFrame()
     if standingEventFrame then return end
     standingEventFrame = CreateFrame("Frame")
-    standingEventFrame:SetScript("OnEvent", function()
+    standingEventFrame:SetScript("OnEvent", function(_, event, ...)
         wipe(addon.renownStandingCache)
+        -- Refresh the cached localized label for the specific faction whose
+        -- state just changed. MAJOR_FACTION_RENOWN_LEVEL_CHANGED payload is
+        -- (majorFactionID, newRenownLevel, oldRenownLevel); MAJOR_FACTION_UNLOCKED
+        -- payload is (majorFactionID). UPDATE_FACTION has no payload and does
+        -- not indicate a rename, so we skip the label refresh for it.
+        if event == "MAJOR_FACTION_RENOWN_LEVEL_CHANGED" or event == "MAJOR_FACTION_UNLOCKED" then
+            local majorFactionID = ...
+            addon:RefreshFactionLocalizedLabel(majorFactionID)
+        end
         if RenownTab:IsShown() then
             RenownTab:RefreshDisplay()
         end
@@ -464,8 +473,8 @@ function RenownTab:SetupFactionCard(frame, elementData)
     local hasMet = addon:HasMetStandingRequirement(factionID)
     local requiredStanding = sourceData and sourceData.requiredStanding
 
-    -- Faction name: prefer localized API name, fall back to scraped English label
-    local nameText = (standing and standing.factionName) or factionData.label or ("Faction #" .. factionID)
+    local nameText = addon:GetRenownFactionDisplayName(factionData, standing)
+        or string.format(L["RENOWN_FACTION_UNKNOWN_FORMAT"], factionID)
     if factionData.factionSide == "Alliance" then
         nameText = nameText .. "  |TInterface\\PVPFrame\\PVP-Currency-Alliance:14:14:0:0|t"
     elseif factionData.factionSide == "Horde" then
@@ -703,9 +712,18 @@ local function FactionMatchesSearch(factionData, searchText)
         return true
     end
 
+    -- Cached localized label (from BuildRenownIndex — covers factions with no
+    -- live standing data, e.g. Midnight factions the player hasn't unlocked).
+    if factionData.localizedLabel and factionData.localizedLabel ~= factionData.label
+        and strlower(factionData.localizedLabel):find(searchText, 1, true) then
+        return true
+    end
+
     -- Localized faction name from standing cache
     local standing = addon.renownStandingCache[factionData.factionID]
-    if standing and standing.factionName and standing.factionName ~= factionData.label
+    if standing and standing.factionName
+        and standing.factionName ~= factionData.label
+        and standing.factionName ~= factionData.localizedLabel
         and strlower(standing.factionName):find(searchText, 1, true) then
         return true
     end

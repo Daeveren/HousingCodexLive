@@ -249,7 +249,7 @@ local function CreateOverlayFrame()
         if not addon.db or not addon.db.settings.zoneOverlayMinimized then return end
         local tooltip = GetMapTooltip()
         tooltip:SetOwner(self, "ANCHOR_CURSOR_RIGHT")
-        GameTooltip_SetTitle(tooltip, "Housing Codex", COLOR_GOLD)
+        GameTooltip_SetTitle(tooltip, addon.L["ZONE_OVERLAY_BUTTON_TOOLTIP"], COLOR_GOLD)
         GameTooltip_AddNormalLine(tooltip, addon.L["ZONE_OVERLAY_COLLAPSED_TOOLTIP"])
         tooltip:Show()
         addon:StyleMapTooltip(tooltip)

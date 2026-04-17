@@ -2,6 +2,18 @@
 
 All notable changes to Housing Codex.
 
+**2.3.1** (2026-04-18)
+
+**Added**
+- Improved localization support — the addon description now shows translated for non-English clients in the WoW addon list
+
+**Changed**
+- Renown tab now uses localized faction names for non-English clients (display, sort, and search)
+
+**Fixed**
+- Fixed a load error on Simplified Chinese clients
+- Codebase improvements in order to make the addon run smoother
+
 **2.3.0** (2026-04-16)
 
 **Added**

@@ -632,6 +632,8 @@ L["RENOWN_NEEDS_HORDE"] = "Nécessite un personnage de la Horde"
 L["RENOWN_WAYPOINT_VENDOR"] = "%s (%s)"
 L["RENOWN_PROGRESS_FORMAT"] = "%d/%d"
 L["RENOWN_RANK_FORMAT"] = "Rang %d"
+L["RENOWN_STANDING_GOOD_FRIEND"] = "Bon ami"
+L["RENOWN_FACTION_UNKNOWN_FORMAT"] = "Faction n°%d"
 
 --------------------------------------------------------------------------------
 -- Game Entity Names (drop sources, encounter names, treasure locations)
@@ -641,6 +643,7 @@ local SN = addon.sourceNameLocale
 -- Drops
 SN["Darkshore (BfA phase) Rare Drop"] = "Butin rare de Sombrivage (phase BfA)"
 SN["Highmountain Tauren Paragon Chest"] = "Coffre de parangon des Taurens de Haut-Roc"
+SN["In-Game Shop"] = "Boutique en jeu"
 SN["Login Reward (Midnight)"] = "Récompense de connexion (Midnight)"
 SN["Midnight Delves"] = "Gouffres de Midnight"
 SN["Self-Assembling Homeware Kit (Mechagon)"] = "Kit d'ameublement auto-assemblable (Mécagone)"
@@ -650,6 +653,7 @@ SN["Theater Troupe event chest (Isle of Dorn)"] = "Coffre de la troupe de théâ
 SN["Twitch Drop"] = "Récompense Twitch"
 SN["Twitch drop (Feb 26 to Mar 24)"] = "Récompense Twitch (26 fév. au 24 mars)"
 SN["Undermine Jobs"] = "Travaux de Creux-de-Brasier"
+SN["Victorious Stormarion Cache"] = "Cache victorieuse de Stormarion"
 SN["Zillow & Warcraft collab"] = "Collaboration Zillow et Warcraft"
 SN["Zillow for Warcraft Promotion"] = "Promotion Zillow pour Warcraft"
 
