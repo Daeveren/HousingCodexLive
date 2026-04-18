@@ -1262,9 +1262,7 @@ end
 
 function addon.IsDecorOwned(catalogInfo)
     if type(catalogInfo) ~= "table" then return false end
-    local total = (catalogInfo.quantity or 0) + (catalogInfo.remainingRedeemable or 0) + (catalogInfo.numPlaced or 0)
-    if total > 0 then return true end
-    if ((catalogInfo.entryID and catalogInfo.entryID.entrySubtype) or 0) > 1 then return true end
+    if addon.IsInfoCollected and addon.IsInfoCollected(catalogInfo) then return true end
     -- Fallback: GetCatalogEntryInfoByItem returns "Unowned" subtype (ownership fields = 0)
     -- before housing ownership data fully loads; cross-reference addon's pre-loaded records
     local recordID = catalogInfo.entryID and catalogInfo.entryID.recordID

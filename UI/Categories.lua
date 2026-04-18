@@ -186,7 +186,11 @@ end
 function Categories:ApplyFilter()
     if not addon.catalogSearcher then return end
 
-    addon.catalogSearcher:SetFilteredCategoryID(self.focusedCategoryID)
+    -- Prefer drill-down focus; fall back to single-click direct selection.
+    -- The cache-invalidation handlers rely on this fallback so they can reconcile
+    -- searcher state without forcibly routing through SetFocus (which clears search text).
+    local effectiveCat = self.focusedCategoryID or self.selectedCategoryID
+    addon.catalogSearcher:SetFilteredCategoryID(effectiveCat)
     addon.catalogSearcher:SetFilteredSubcategoryID(self.focusedSubcategoryID)
     addon:RequestSearch()
 end
@@ -479,27 +483,96 @@ addon:RegisterInternalEvent("DATA_LOADED", function()
     end
 end)
 
--- Cache invalidation for categories (fired by Init.lua from WoW events)
+-- Cache invalidation for categories (fired by Init.lua from WoW events).
+-- Mirrors Blizzard's Blizzard_HousingCatalogCategories.lua:403-460 pattern: refresh the
+-- cache, reconcile stale focus/selection, then re-apply the searcher filter and rebuild
+-- the sidebar. Uses ApplyFilter + BuildDisplay directly instead of SetFocus — SetFocus
+-- would call ClearSearchText() (wiping user's search) and destroy selectedCategoryID.
 addon:RegisterInternalEvent("CATEGORY_CACHE_INVALIDATED", function(categoryID)
     if not Categories.categories or not categoryID then return end
 
-    -- Clear cached entry and fetch fresh data
     Categories.categories[categoryID] = nil
     local info = C_HousingCatalog.GetCatalogCategoryInfo(categoryID)
     if info then
         Categories.categories[categoryID] = info
+        -- Refresh child subcategory cache entries (Blizzard's AddCategoryInfo pattern).
+        -- Guard against transient nil returns — the subID is still a child of the
+        -- refreshed category (it's in info.subcategoryIDs), so nil is transient;
+        -- overwriting with nil would make it indistinguishable from a genuine deletion
+        -- in the reconciliation block below, wrongly clearing focus.
+        if info.subcategoryIDs then
+            for _, subID in ipairs(info.subcategoryIDs) do
+                local subInfo = C_HousingCatalog.GetCatalogSubcategoryInfo(subID)
+                if subInfo then
+                    Categories.subcategories[subID] = subInfo
+                end
+            end
+        end
     end
+
+    -- Reconcile stale focus/selection — drop only what's gone
+    if Categories.focusedCategoryID and not Categories.categories[Categories.focusedCategoryID] then
+        Categories.focusedCategoryID = nil
+        Categories.focusedSubcategoryID = nil
+    end
+    if Categories.selectedCategoryID and not Categories.categories[Categories.selectedCategoryID] then
+        Categories.selectedCategoryID = nil
+    end
+    -- Subcategory reconciliation — clear focusedSubcategoryID if either:
+    --   (a) the subcategory cache entry is gone (global deletion), OR
+    --   (b) the focused category was just invalidated AND the focused subcategory
+    --       is no longer in that category's refreshed subcategoryIDs list.
+    --       BuildSubcategoryView (Categories.lua:295-304) renders from info.subcategoryIDs,
+    --       so a subcategory removed from the parent but still in the flat cache would
+    --       render-absent but filter-active — causing empty grid state.
+    if Categories.focusedSubcategoryID then
+        local invalid = false
+        if not Categories.subcategories[Categories.focusedSubcategoryID] then
+            invalid = true
+        elseif Categories.focusedCategoryID == categoryID and info and info.subcategoryIDs then
+            invalid = true
+            for _, subID in ipairs(info.subcategoryIDs) do
+                if subID == Categories.focusedSubcategoryID then
+                    invalid = false
+                    break
+                end
+            end
+        end
+        if invalid then
+            Categories.focusedSubcategoryID = nil
+        end
+    end
+
+    Categories:ApplyFilter()
     Categories:BuildDisplay()
 end)
 
 addon:RegisterInternalEvent("SUBCATEGORY_CACHE_INVALIDATED", function(subcategoryID)
     if not Categories.subcategories or not subcategoryID then return end
 
-    -- Clear cached entry and fetch fresh data
     Categories.subcategories[subcategoryID] = nil
     local info = C_HousingCatalog.GetCatalogSubcategoryInfo(subcategoryID)
     if info then
         Categories.subcategories[subcategoryID] = info
     end
+
+    -- Subcategory reconciliation:
+    --   (a) cache entry gone → subcategory was globally deleted, OR
+    --   (b) invalidated subcategory IS the focused one AND its parentCategoryID
+    --       changed — catches cross-parent reparenting when only SUBCATEGORY_UPDATED
+    --       fires (no CATEGORY_UPDATED for the old parent).
+    --       parentCategoryID field: HousingCatalogUIDocumentation.lua:529
+    if Categories.focusedSubcategoryID then
+        if not Categories.subcategories[Categories.focusedSubcategoryID] then
+            Categories.focusedSubcategoryID = nil
+        elseif Categories.focusedSubcategoryID == subcategoryID
+               and info
+               and Categories.focusedCategoryID
+               and info.parentCategoryID ~= Categories.focusedCategoryID then
+            Categories.focusedSubcategoryID = nil
+        end
+    end
+
+    Categories:ApplyFilter()
     Categories:BuildDisplay()
 end)

@@ -49,6 +49,12 @@ local CLIENT_SORT_FIELDS = {
     [CONSTS.SORT_CLIENT_PLACED] = "numPlaced",   -- Most placed first
 }
 
+-- Client-side supplement search is ASCII-tokenized (%w+ in Core/Index.lua). For CJK
+-- locales the word index is effectively empty for native-script item names, so the
+-- supplement adds no value; gate it off explicitly. Native SetSearchText remains
+-- accent-insensitive and locale-aware, so users still get correct search results.
+local IS_CJK_LOCALE = GetLocale() == "zhCN" or GetLocale() == "zhTW" or GetLocale() == "koKR"
+
 -- Camera modification type for tile ModelScene (MAINTAIN keeps zoom/rotation on recycle)
 local CAMERA_MAINTAIN = CONSTS.CAMERA.MODIFICATION_MAINTAIN
 
@@ -858,9 +864,17 @@ addon:RegisterInternalEvent("SEARCH_RESULTS_UPDATED", function(recordIDs)
 
     Grid:ClearSelection()
 
-    -- Supplement native searcher results with client-side text search matches
+    -- Supplement native searcher results with client-side text search matches.
+    -- Skip for native sorts (DateAdded / Alphabetical): MergeResults appends unseen client
+    -- hits after the native head, and native sort order is Blizzard-authoritative (DateAdded
+    -- uses server-side fields not exposed client-side), so appended items would be out of
+    -- order. Client sorts (sortType >= 100) get a post-merge re-sort in Grid:SetData.
     local searchText = strtrim(addon.SearchBox and addon.SearchBox:GetText() or "")
-    if #searchText >= 3 and not string.find(searchText, "[^%w%s]") and addon.indexesBuilt and addon.Filters:AreAdvancedFiltersAtDefault() then
+    local sortType = addon.db and addon.db.browser and addon.db.browser.sortType or 0
+    local isNativeSort = sortType < 100
+    if #searchText >= 3 and not string.find(searchText, "[^%w%s]") and addon.indexesBuilt
+       and addon.Filters:AreAdvancedFiltersAtDefault() and not isNativeSort
+       and not IS_CJK_LOCALE then
         if not addon.byWordIndexBuilt then
             addon:BuildWordIndex()
         end

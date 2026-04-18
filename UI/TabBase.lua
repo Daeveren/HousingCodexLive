@@ -1026,6 +1026,10 @@ end
 -- Empty States
 --------------------------------------------------------------------------------
 
+function TabBaseMixin:GetActiveSearchText()
+    return strlower(strtrim(self.searchBox and self.searchBox:GetText() or ""))
+end
+
 function TabBaseMixin:CreateEmptyStates()
     local cfg = self.cfg
     self.emptyState = addon:CreateEmptyStateFrame(
@@ -1043,11 +1047,13 @@ function TabBaseMixin:UpdateEmptyStates()
     local hasSelection = self.selectedCategory ~= nil
     local dataProvider = self.sourceScrollBox and self.sourceScrollBox:GetDataProvider()
     local hasResults = dataProvider and dataProvider:GetSize() > 0
+    local searchText = self:GetActiveSearchText()
+    local hasActiveFilter = (searchText ~= "") or (self:GetCompletionFilter() ~= "all")
     local showSourceList = hasSources and hasSelection and hasResults
 
     if self.emptyState then self.emptyState:SetShown(not hasSources) end
-    if self.noCategoryState then self.noCategoryState:SetShown(hasSources and not hasSelection) end
-    if self.noResultsState then self.noResultsState:SetShown(hasSources and hasSelection and not hasResults) end
+    if self.noCategoryState then self.noCategoryState:SetShown(hasSources and not hasSelection and not hasActiveFilter) end
+    if self.noResultsState then self.noResultsState:SetShown(hasSources and not hasResults and (hasSelection or hasActiveFilter)) end
     if self.categoryScrollBox then self.categoryScrollBox:SetShown(hasSources) end
     if self.sourceScrollBox then self.sourceScrollBox:SetShown(showSourceList) end
     if self.sourceScrollBar then self.sourceScrollBar:SetShown(showSourceList) end

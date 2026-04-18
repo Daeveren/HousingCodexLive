@@ -27,17 +27,22 @@ local PVP_SOURCE_CATEGORY_INFO = {
     },
 }
 
--- PvP vendor NPC IDs (manually curated from plan cross-check)
+-- PvP vendor NPC IDs (manually curated)
+-- Brawler's Guild vendors (Symmes/Dershway/Paul North) are NOT PvP — they sell Brawl'gar renown rewards
+-- (see RenownData.lua:518-540). Keep this list for rated PvP / Honor vendors only.
 local PVP_VENDOR_NPC_IDS = {
     [254603] = true,  -- Riica (Stormwind, Honor)
-    [254606] = true,  -- Joruh (Orgrimmar, Honor)
-    [145695] = true,  -- "Bad Luck" Symmes (Brawl'gar Arena)
-    [151941] = true,  -- Dershway the Triggered (Deeprun Tram)
-    [13217]  = true,  -- Thanthaldis Snowgleam (Hillsbrad)
+    [254606] = true,  -- Joruh (Orgrimmar, Honor / Mark of Honor)
+    [219217] = true,  -- Velerd (Dornogal, Honor)
+    [13217]  = true,  -- Thanthaldis Snowgleam (Hillsbrad, Stormpike AV faction)
 }
 
--- Drop source keywords that identify PvP drops
-local PVP_DROP_KEYWORDS = { "Voidscar Arena", "Stormarion" }
+-- Drop source keywords that identify PvP drops.
+-- Intentionally empty: previous entries (Voidscar Arena, Stormarion) classified PvE
+-- content as PvP — Voidscar Arena is a Midnight dungeon; Stormarion Assault is a
+-- cooperative world event / Tower Defense in Voidstorm. Add only rated-PvP,
+-- battleground, or arena source-name substrings here.
+local PVP_DROP_KEYWORDS = {}
 
 -- Runtime data structures
 addon.pvpHierarchy = {}

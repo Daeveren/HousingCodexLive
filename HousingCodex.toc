@@ -5,7 +5,7 @@
 ## Notes-frFR: Extension de découverte et d'inspection des décorations pour WoW Logement
 ## Notes-zhCN: 魔兽世界住宅装饰发现和查看插件
 ## Author: Daev
-## Version: 2.3.1
+## Version: 2.3.2
 ## SavedVariables: HousingCodexDB
 ## IconTexture: Interface\AddOns\HousingCodex\HC
 ## AddonCompartmentFunc: HousingCodex_OnAddonCompartmentClick

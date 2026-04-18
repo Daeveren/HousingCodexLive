@@ -2,6 +2,16 @@
 
 All notable changes to Housing Codex.
 
+**2.3.2** (2026-04-19)
+
+**Fixed**
+- Improved ownership detection for decor items
+- Fixed drop source text showing as unknown for certain items
+- Improved how searching by boss name is handled
+- Improved how search behaves while filtering
+- Improved empty state messages when a filter returns zero results
+- Improved reliability of category selection during search and filtering
+
 **2.3.1** (2026-04-18)
 
 **Added**

@@ -1497,6 +1497,8 @@ function VendorsTab:UpdateEmptyStates()
     local hasVendors = addon:GetVendorCount() > 0
     local hasSelection = self.selectedExpansionKey ~= nil
     local hasResults = self.vendorDataProvider and self.vendorDataProvider:GetSize() > 0
+    local searchText = self:GetActiveSearchText()
+    local hasActiveFilter = (searchText ~= "") or (self:GetCompletionFilter() ~= "all") or self.currentZoneOnly
 
     -- Clear preview when vendor list is empty (consistent with QuestsTab/AchievementsTab)
     if hasVendors and hasSelection and not hasResults then
@@ -1504,8 +1506,8 @@ function VendorsTab:UpdateEmptyStates()
     end
 
     if self.emptyState then self.emptyState:SetShown(not hasVendors) end
-    if self.noExpansionState then self.noExpansionState:SetShown(hasVendors and not hasSelection) end
-    if self.noResultsState then self.noResultsState:SetShown(hasVendors and hasSelection and not hasResults) end
+    if self.noExpansionState then self.noExpansionState:SetShown(hasVendors and not hasSelection and not hasActiveFilter) end
+    if self.noResultsState then self.noResultsState:SetShown(hasVendors and not hasResults and (hasSelection or hasActiveFilter)) end
     if self.expansionScrollBox then self.expansionScrollBox:SetShown(hasVendors) end
     if self.vendorScrollBox then self.vendorScrollBox:SetShown(hasVendors and hasSelection and hasResults) end
     if self.vendorScrollBar then self.vendorScrollBar:SetShown(hasVendors and hasSelection and hasResults) end

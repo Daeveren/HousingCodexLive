@@ -50,6 +50,16 @@ local function CalculateTotalOwned(info)
     return (info.numPlaced or 0) + (info.quantity or 0) + (info.remainingRedeemable or 0)
 end
 
+-- entrySubtype 2/3 (OwnedModifiedStack/OwnedUnmodifiedStack) indicate ownership even when
+-- showQuantity=false zeroes out quantity fields.
+local function IsInfoCollected(info)
+    if type(info) ~= "table" then return false end
+    if CalculateTotalOwned(info) > 0 then return true end
+    local sub = (info.entryID and info.entryID.entrySubtype) or 1
+    return sub > 1
+end
+addon.IsInfoCollected = IsInfoCollected
+
 -- Entry type constant for room detection (HousingCatalogConstantsDocumentation: Room = 2)
 local ROOM_ENTRY_TYPE = Enum.HousingCatalogEntryType and Enum.HousingCatalogEntryType.Room or 2
 
@@ -63,7 +73,7 @@ local function RefreshRecordOwnership(record, info)
     record.numPlaced = info.numPlaced or 0
     record.remainingRedeemable = info.remainingRedeemable or 0
     record.totalOwned = CalculateTotalOwned(record)
-    record.isCollected = record.totalOwned > 0
+    record.isCollected = IsInfoCollected(info)
 end
 
 local function GetEntryIcon(info)
@@ -115,16 +125,11 @@ end
 
 -- Shared record constructor used by both BuildRecord and ResolveRecord
 -- options.resolveTracking: query C_ContentTracking for live tracking state
--- options.useEntrySubtype: include entrySubtype > 1 as ownership signal
 local function BuildRecordFields(entryID, info, options)
     local icon, iconType, isModelOnly = GetEntryIcon(info)
     local totalOwned = CalculateTotalOwned(info)
 
-    local isCollected = totalOwned > 0
-    if options and options.useEntrySubtype then
-        local entrySubtype = (info.entryID and info.entryID.entrySubtype) or 1
-        isCollected = isCollected or entrySubtype > 1
-    end
+    local isCollected = IsInfoCollected(info)
 
     local isTrackable, isTracking = false, false
     if options and options.resolveTracking then
@@ -302,7 +307,11 @@ function addon:ProcessSearchResults()
     for _, entryID in ipairs(allEntries) do
         -- Check duplicate first to avoid unnecessary API call
         if not records[entryID.recordID] then
-            local info = C_HousingCatalog.GetCatalogEntryInfo(entryID)
+            -- Use recordID-based query with tryGetOwnedInfo=true so showQuantity=false
+            -- owned items return with the owned entrySubtype regardless of which
+            -- entryID won the dedupe (a recordID can have both Unowned and Owned stacks).
+            local info = C_HousingCatalog.GetCatalogEntryInfoByRecordID(
+                entryID.entryType, entryID.recordID, true)
             if info and not info.isPrefab then
                 local record = BuildRecord(entryID, info)
                 if record then
@@ -435,12 +444,31 @@ function addon:ResolveRecord(recordID)
         subtypeIdentifier = 0,
     }
 
-    record = BuildRecordFields(entryID, info, { resolveTracking = true, useEntrySubtype = true })
+    record = BuildRecordFields(entryID, info, { resolveTracking = true })
+
+    if not record.sourceText or record.sourceText == "" then
+        local dropSource = self:GetDropSourceText(recordID)
+        if dropSource then record.sourceText = dropSource end
+    end
 
     self.fallbackRecords[recordID] = record
     self:Debug("Resolved hidden catalog item: " .. (info.name or recordID))
     return record
 end
+
+-- Safety net: ResolveRecord may have been called before DATA_LOADED populated
+-- decorDropSourceText (e.g., saved non-Drops tab render in the 0.5s window after
+-- PLAYER_ENTERING_WORLD). In that case the housing API could also return nil and
+-- write a false negative-cache entry. Clear false entries on DATA_LOADED so those
+-- items get a fresh resolution attempt the next time they're requested.
+addon:RegisterInternalEvent("DATA_LOADED", function()
+    if not addon.fallbackRecords then return end
+    for recordID, cached in pairs(addon.fallbackRecords) do
+        if cached == false then
+            addon.fallbackRecords[recordID] = nil
+        end
+    end
+end)
 
 -- Count cache: invalidated by BuildCollectedIndex (full rebuild) and targeted ownership handler
 addon.countCache = {}
@@ -770,7 +798,10 @@ addon:RegisterWoWEvent("HOUSING_STORAGE_ENTRY_UPDATED", function(entryID)
         record = addon.fallbackRecords[recordID]
         if not record then return end
 
-        local info = C_HousingCatalog.GetCatalogEntryInfo(entryID)
+        -- Use recordID-based query with tryGetOwnedInfo=true so the returned info
+        -- reflects owned state regardless of which stack the event fired for.
+        local info = C_HousingCatalog.GetCatalogEntryInfoByRecordID(
+            entryID.entryType, recordID, true)
         if not info then return end
 
         addon:Debug("Storage entry updated (fallback): " .. tostring(recordID))
@@ -778,10 +809,6 @@ addon:RegisterWoWEvent("HOUSING_STORAGE_ENTRY_UPDATED", function(entryID)
 
         local wasCollected = record.isCollected
         RefreshRecordOwnership(record, info)
-        -- RefreshRecordOwnership uses totalOwned > 0, but fallback items with
-        -- showQuantity=false have totalOwned=0 even when owned (entrySubtype > 1)
-        local entrySubtype = (info.entryID and info.entryID.entrySubtype) or 1
-        record.isCollected = record.totalOwned > 0 or entrySubtype > 1
         local collectionStateChanged = (record.isCollected ~= wasCollected)
 
         -- Skip collected index patch — fallback items are excluded by design
@@ -792,7 +819,10 @@ addon:RegisterWoWEvent("HOUSING_STORAGE_ENTRY_UPDATED", function(entryID)
         return
     end
 
-    local info = C_HousingCatalog.GetCatalogEntryInfo(entryID)
+    -- Use recordID-based query so the returned info reflects the best owned stack
+    -- when a recordID has multiple entryIDs (e.g. OwnedModified + OwnedUnmodified).
+    local info = C_HousingCatalog.GetCatalogEntryInfoByRecordID(
+        entryID.entryType, recordID, true)
     if not info then return end
 
     addon:Debug("Storage entry updated: " .. tostring(recordID))
@@ -832,7 +862,10 @@ addon:RegisterWoWEvent("HOUSING_STORAGE_UPDATED", function()
 
     -- Refresh ownership fields BEFORE rebuilding indexes so collected counts are accurate
     for _, record in pairs(addon.decorRecords) do
-        local info = C_HousingCatalog.GetCatalogEntryInfo(record.entryID)
+        -- Use per-record entryType so both Decor (1) and Room (2) records refresh correctly;
+        -- tryGetOwnedInfo=true ensures showQuantity=false owned items return owned entrySubtype.
+        local info = record.entryID and C_HousingCatalog.GetCatalogEntryInfoByRecordID(
+            record.entryID.entryType, record.recordID, true)
         if info then
             RefreshRecordOwnership(record, info)
         end

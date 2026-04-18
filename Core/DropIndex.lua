@@ -37,14 +37,43 @@ function addon:GetSourceCategoryInfo(category)
     return SOURCE_CATEGORY_INFO[category]
 end
 
+-- Build a flat decorId → localized source-name reverse lookup from DropSourceData.
+-- Runs eagerly on DATA_LOADED so ResolveRecord can backfill sourceText on hidden items
+-- even before the DropsTab/ProgressTab hierarchy is ever built.
+function addon:BuildDropSourceLookup()
+    if not self.DropSourceData then return end
+    self.decorDropSourceText = self.decorDropSourceText or {}
+    wipe(self.decorDropSourceText)
+    for _, sources in pairs(self.DropSourceData) do
+        for _, sourceData in ipairs(sources) do
+            local displayName = self:GetLocalizedSourceName(sourceData.sourceName) or sourceData.sourceName
+            if displayName then
+                for _, decorId in ipairs(sourceData.decorIds or {}) do
+                    self.decorDropSourceText[decorId] = displayName
+                end
+            end
+        end
+    end
+end
+
+function addon:GetDropSourceText(decorId)
+    return self.decorDropSourceText and self.decorDropSourceText[decorId]
+end
+
 function addon:BuildDropIndex()
     if not self.DropSourceData then
         self:Debug("Cannot build drop index: DropSourceData not loaded")
         return
     end
 
+    if not self.dataLoaded then
+        self:Debug("Deferring BuildDropIndex: data not loaded yet")
+        return
+    end
+
     local startTime = debugprofilestop()
 
+    self:BuildDropSourceLookup()
     wipe(self.dropHierarchy)
     wipe(self.dropCategoryProgressCache)
 
@@ -76,23 +105,23 @@ function addon:BuildDropIndex()
         end
     end
 
-    -- Enrich empty sourceText on records with drop source names
+    -- Enrich empty sourceText on both primary records and already-resolved hidden fallback records.
     local enriched = 0
-    if self.decorRecords then
-        for category, sources in pairs(self.DropSourceData) do
-            for _, sourceData in ipairs(sources) do
-                local displayName = self:GetLocalizedSourceName(sourceData.sourceName) or sourceData.sourceName
-                if displayName then
-                    for _, decorId in ipairs(sourceData.decorIds or {}) do
-                        local record = self.decorRecords[decorId]
-                        if record and (not record.sourceText or record.sourceText == "") then
-                            record.sourceText = displayName
-                            enriched = enriched + 1
-                        end
-                    end
-                end
-            end
+    for decorId, displayName in pairs(self.decorDropSourceText) do
+        local primary = self.decorRecords and self.decorRecords[decorId]
+        if primary and (not primary.sourceText or primary.sourceText == "") then
+            primary.sourceText = displayName
+            enriched = enriched + 1
         end
+        local fallback = self.fallbackRecords and self.fallbackRecords[decorId]
+        if fallback and fallback ~= false and (not fallback.sourceText or fallback.sourceText == "") then
+            fallback.sourceText = displayName
+            enriched = enriched + 1
+        end
+    end
+
+    if enriched > 0 then
+        self.byWordIndexBuilt = false
     end
 
     self.dropIndexBuilt = true
@@ -159,3 +188,12 @@ end
 addon:RegisterInternalEvent("RECORD_OWNERSHIP_UPDATED", function()
     wipe(addon.dropCategoryProgressCache)
 end)
+
+-- Build reverse lookup at module parse time so ResolveRecord can backfill hidden-item
+-- sourceText from the very first tab render — including races where the saved tab is
+-- PvP/Vendors and the user opens /hc within the PLAYER_ENTERING_WORLD 0.5s window
+-- before LoadData fires. DropSourceData is static and loaded by DropData.lua, which
+-- precedes DropIndex.lua in the .toc.
+if addon.DropSourceData then
+    addon:BuildDropSourceLookup()
+end

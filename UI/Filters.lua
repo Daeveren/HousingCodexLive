@@ -180,6 +180,14 @@ function Filters:PassesPlacedFilter(record)
     return record.numPlaced and record.numPlaced > 0
 end
 
+-- Returns true if id exists in a numerically-indexed list
+local function ContainsID(list, id)
+    for _, v in ipairs(list) do
+        if v == id then return true end
+    end
+    return false
+end
+
 -- Filter a list of record IDs to only include those passing searcher-level filters
 -- Used to filter client-side text search results that bypass the native searcher
 function Filters:FilterBySearcherRules(recordIDs)
@@ -203,9 +211,21 @@ function Filters:PassesSearcherFilters(record)
                            or (self.showUncollected and not record.isCollected)
     if not matchesCollection then return false end
 
-    -- Indoor/outdoor and dyeable filters (from searcher state)
     local searcher = addon.catalogSearcher
     if searcher then
+        -- Category/subcategory filter: read from the searcher (authoritative state).
+        -- UI state (focusedCategoryID/selectedCategoryID) can diverge — the direct-
+        -- selection path writes the searcher directly without populating focusedCategoryID.
+        local filteredCat = searcher.GetFilteredCategoryID and searcher:GetFilteredCategoryID()
+        if filteredCat and record.categoryIDs and not ContainsID(record.categoryIDs, filteredCat) then
+            return false
+        end
+        local filteredSub = searcher.GetFilteredSubcategoryID and searcher:GetFilteredSubcategoryID()
+        if filteredSub and record.subcategoryIDs and not ContainsID(record.subcategoryIDs, filteredSub) then
+            return false
+        end
+
+        -- Indoor/outdoor and dyeable filters (from searcher state)
         local isIndoorOnly = record.isIndoors and not record.isOutdoors
         local isOutdoorOnly = record.isOutdoors and not record.isIndoors
         if not searcher:IsAllowedIndoorsActive() and isIndoorOnly then return false end
