@@ -410,6 +410,7 @@ function addon:BuildRenownIndex()
     end
 
     self.renownIndexBuilt = true
+    self:InvalidateProgressCache()
 
     self:Debug(string.format("Built Renown index: %d factions (%d with resolved decor) in %d ms",
         factionCount, resolvedCount, math.floor(debugprofilestop() - startTime)))

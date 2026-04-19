@@ -3,9 +3,10 @@
 ## Notes: Decor discovery and inspection addon for WoW Housing
 ## Notes-deDE: Addon zur Entdeckung und Ansicht von Dekorationen für WoW-Behausungen
 ## Notes-frFR: Extension de découverte et d'inspection des décorations pour WoW Logement
+## Notes-ruRU: Аддон для поиска и просмотра предметов декора жилищ WoW
 ## Notes-zhCN: 魔兽世界住宅装饰发现和查看插件
 ## Author: Daev
-## Version: 2.3.2
+## Version: 2.3.3
 ## SavedVariables: HousingCodexDB
 ## IconTexture: Interface\AddOns\HousingCodex\HC
 ## AddonCompartmentFunc: HousingCodex_OnAddonCompartmentClick
@@ -15,6 +16,7 @@
 ## Category-deDE: Behausung
 ## Category-zhCN: 住宅
 ## Category-frFR: Logement
+## Category-ruRU: Жилище
 ## OptionalDeps: Blizzard_POIButton, TomTom
 ## X-Curse-Project-ID: 1444752
 
@@ -36,6 +38,7 @@ Core\Localization.lua
 Locales\enUS.lua
 Locales\deDE.lua
 Locales\frFR.lua
+Locales\ruRU.lua
 Locales\zhCN.lua
 
 # Data layer

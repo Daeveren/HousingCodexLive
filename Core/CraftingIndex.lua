@@ -94,6 +94,7 @@ function addon:BuildCraftingIndex()
     end)
 
     self.craftingIndexBuilt = true
+    self:InvalidateProgressCache()
 
     self:Debug(string.format(
         "Built crafting index: %d professions, %d crafts, %d skipped in %d ms",

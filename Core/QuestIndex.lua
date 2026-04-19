@@ -354,6 +354,7 @@ function addon:BuildQuestHierarchy()
     end
 
     self.questIndexBuilt = true
+    self:InvalidateProgressCache()
 
     local elapsedMs = math.floor(debugprofilestop() - startTime)
     self:Debug(string.format("Built quest hierarchy in %d ms", elapsedMs))

@@ -125,6 +125,7 @@ function addon:BuildDropIndex()
     end
 
     self.dropIndexBuilt = true
+    self:InvalidateProgressCache()
 
     self:Debug(string.format("Built drop index: %d sources, %d decor items (%d sourceText enriched) in %d ms",
         sourceCount, decorCount, enriched, math.floor(debugprofilestop() - startTime)))

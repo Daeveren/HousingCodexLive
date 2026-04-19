@@ -44,6 +44,7 @@ ProgressTab.vendorExpRows = {}
 ProgressTab.almostThereRows = {}
 ProgressTab.questExpRows = {}
 ProgressTab.renownExpRows = {}
+ProgressTab.pvpCategoryRows = {}
 
 -- Override: gray for <100%, green at 100%
 function ProgressTab:GetProgressColor(percent)
@@ -340,7 +341,7 @@ function ProgressTab:BuildDashboard(preserveScroll)
 
     local columnWidth = math.floor((contentWidth - COLUMN_GAP) / 2)
 
-    -- Left column: By Source + Most Progressed + Quest Expansions
+    -- Left column: By Source + Most Progressed + Quest Expansions + PvP Categories
     local leftY = self:BuildSourceSection(0, columnWidth, 0)
     leftY = leftY - SECTION_PADDING
     leftY = self:BuildAlmostThereSection(leftY, columnWidth, 0)
@@ -348,6 +349,11 @@ function ProgressTab:BuildDashboard(preserveScroll)
     if #questExpData > 0 then
         if leftY < 0 then leftY = leftY - SECTION_PADDING end
         leftY = self:BuildExpansionSection(leftY, columnWidth, "questExp", L["PROGRESS_QUEST_EXPANSIONS"], questExpData, self.questExpRows, 0)
+    end
+    local pvpCategoryData = addon:GetProgressByPvPCategory()
+    if #pvpCategoryData > 0 then
+        if leftY < 0 then leftY = leftY - SECTION_PADDING end
+        leftY = self:BuildExpansionSection(leftY, columnWidth, "pvpCategory", L["PROGRESS_PVP_CATEGORIES"], pvpCategoryData, self.pvpCategoryRows, 0)
     end
 
     -- Right column: Professions + Vendor Expansions + Renown Expansions

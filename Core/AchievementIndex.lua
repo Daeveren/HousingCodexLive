@@ -149,6 +149,7 @@ function addon:BuildAchievementHierarchy()
     end
 
     self.achievementIndexBuilt = true
+    self:InvalidateProgressCache()
 
     local elapsedMs = math.floor(debugprofilestop() - startTime)
     self:Debug(string.format("Built achievement hierarchy in %d ms", elapsedMs))

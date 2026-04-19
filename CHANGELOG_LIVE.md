@@ -2,6 +2,19 @@
 
 All notable changes to Housing Codex.
 
+**2.3.3** (2026-04-20)
+
+**Added**
+- ruRU localization support (thanks to ZamestoTV)
+- New "PvP Categories" section in the Progress tab breaking down progress by achievements, vendors, and drops
+- Added missing PvP achievements in the PvP tab
+
+**Fixed**
+- Corrected PvP vendor classification — added a missing Honor vendor
+- Removed two non-PvP drop sources that were incorrectly shown under PvP
+- Improved drop source text reliability when items are viewed from other tabs
+- Updated vendor inventory data
+
 **2.3.2** (2026-04-19)
 
 **Fixed**

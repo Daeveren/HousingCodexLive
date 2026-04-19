@@ -462,7 +462,6 @@ end
 -- write a false negative-cache entry. Clear false entries on DATA_LOADED so those
 -- items get a fresh resolution attempt the next time they're requested.
 addon:RegisterInternalEvent("DATA_LOADED", function()
-    if not addon.fallbackRecords then return end
     for recordID, cached in pairs(addon.fallbackRecords) do
         if cached == false then
             addon.fallbackRecords[recordID] = nil

@@ -253,6 +253,7 @@ function addon:BuildVendorIndex()
     end
 
     self.vendorIndexBuilt = true
+    self:InvalidateProgressCache()
 
     self:Debug(string.format("Built vendor index: %d vendors, %d decor items in %d ms",
         vendorCount, decorCount, math.floor(debugprofilestop() - startTime)))

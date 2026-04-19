@@ -14,6 +14,14 @@ addon.progressCache = {}
 -- Cache Invalidation
 --------------------------------------------------------------------------------
 
+-- Public helper: source-index builders (BuildVendorIndex, BuildAchievementHierarchy,
+-- BuildDropIndex, BuildCraftingIndex, BuildPvPIndex, BuildRenownIndex, BuildQuestHierarchy)
+-- must call this AFTER they repopulate their hierarchy. Otherwise `progressCache.bySource`
+-- and `progressCache.byExpansion_*` can keep returning results built from empty hierarchies.
+function addon:InvalidateProgressCache()
+    wipe(self.progressCache)
+end
+
 addon:RegisterInternalEvent("RECORD_OWNERSHIP_UPDATED", function()
     wipe(addon.progressCache)
 end)
@@ -239,6 +247,38 @@ function addon:GetProgressByExpansion(sourceKind)
     end)
 
     self.progressCache[cacheKey] = result
+    return result
+end
+
+--------------------------------------------------------------------------------
+-- Public: Progress By PvP Subcategory
+--------------------------------------------------------------------------------
+
+-- Returns ordered array of { pvpCategory, labelKey, owned, total, percent, sourceKind = "PVP" }
+-- Used by the Progress tab's dedicated PvP Categories section (one row per subcategory:
+-- achievements, vendors, drops). Subcategories with no tracked decor are omitted.
+function addon:GetProgressByPvPCategory()
+    if self.progressCache.byPvPCategory then
+        return self.progressCache.byPvPCategory
+    end
+
+    local result = {}
+    for _, category in ipairs(self:GetSortedPvPCategories()) do
+        local owned, total = self:GetPvPCategoryCollectionProgress(category)
+        if total > 0 then
+            local info = self:GetPvPSourceCategoryInfo(category)
+            table.insert(result, {
+                pvpCategory = category,
+                labelKey    = info and info.labelKey or category,
+                owned       = owned,
+                total       = total,
+                percent     = owned / total * 100,
+                sourceKind  = "PVP",
+            })
+        end
+    end
+
+    self.progressCache.byPvPCategory = result
     return result
 end
 
