@@ -177,7 +177,7 @@ function TabBaseMixin:CreateStandardToolbar(parent, config)
     end
 
     filterContainer:SetWidth(xOffset - 4)
-    self:SetCompletionFilter(config.defaultFilter or "incomplete")
+    self:SetCompletionFilter(config.defaultFilter or "all")
 
     toolbar:SetScript("OnSizeChanged", function(_, width)
         self:UpdateToolbarLayout(width)
@@ -365,7 +365,7 @@ function TabBaseMixin:Show()
     local saved = self:GetDB()
     if saved then
         self.selectedCategory = saved.selectedCategory
-        self:SetCompletionFilter(saved.completionFilter or "incomplete", skipRefresh)
+        self:SetCompletionFilter(saved.completionFilter or "all", skipRefresh)
     end
 
     self:UpdateEmptyStates()
@@ -393,7 +393,7 @@ function TabBaseMixin:CreateToolbar(parent)
 end
 
 function TabBaseMixin:SetCompletionFilter(filterKey, skipRefresh)
-    if not VALID_FILTERS[filterKey] then filterKey = "incomplete" end
+    if not VALID_FILTERS[filterKey] then filterKey = "all" end
     for key, btn in pairs(self.filterButtons) do
         btn:SetActive(key == filterKey)
     end
@@ -406,14 +406,14 @@ end
 
 function TabBaseMixin:GetCompletionFilter()
     local db = self:GetDB()
-    return db and db.completionFilter or "incomplete"
+    return db and db.completionFilter or "all"
 end
 
 function TabBaseMixin:NavigateFromProgress(category, filter)
     if self.searchBox then
         self.searchBox:SetText("")
     end
-    self:SetCompletionFilter(filter or "incomplete", true)
+    self:SetCompletionFilter(filter or "all", true)
     self:BuildCategoryDisplay()
     if category then
         self:SelectCategory(category)

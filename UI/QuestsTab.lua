@@ -379,14 +379,14 @@ function QuestsTab:Show()
         self.selectedRecordID = saved.selectedRecordID
     end
 
-    self:SetCompletionFilter(saved and saved.completionFilter or "incomplete", skipRefresh)
+    self:SetCompletionFilter(saved and saved.completionFilter or "all", skipRefresh)
 end
 
 function QuestsTab:NavigateFromProgress(expansionKey, filter)
     if self.searchBox then
         self.searchBox:SetText("")
     end
-    self:SetCompletionFilter(filter or "incomplete", true)
+    self:SetCompletionFilter(filter or "all", true)
     self:BuildExpansionDisplay()
     if not expansionKey then
         local expansions = addon:GetSortedExpansions()
@@ -430,7 +430,7 @@ function QuestsTab:RefreshDisplay()
 end
 
 function QuestsTab:SetCompletionFilter(filterKey, skipRefresh)
-    if not VALID_FILTERS[filterKey] then filterKey = "incomplete" end
+    if not VALID_FILTERS[filterKey] then filterKey = "all" end
     for key, btn in pairs(self.filterButtons) do
         btn:SetActive(key == filterKey)
     end
@@ -443,7 +443,7 @@ end
 
 function QuestsTab:GetCompletionFilter()
     local db = GetQuestsDB()
-    return db and db.completionFilter or "incomplete"
+    return db and db.completionFilter or "all"
 end
 
 function QuestsTab:OnSearchTextChanged(text)

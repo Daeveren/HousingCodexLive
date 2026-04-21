@@ -334,7 +334,7 @@ function AchievementsTab:Show()
         self.selectedRecordID = saved.selectedRecordID
     end
 
-    self:SetCompletionFilter(saved and saved.completionFilter or "incomplete", skipRefresh)
+    self:SetCompletionFilter(saved and saved.completionFilter or "all", skipRefresh)
 end
 
 function AchievementsTab:Hide()
@@ -370,7 +370,7 @@ function AchievementsTab:RefreshDisplay()
 end
 
 function AchievementsTab:SetCompletionFilter(filterKey, skipRefresh)
-    if not VALID_FILTERS[filterKey] then filterKey = "incomplete" end
+    if not VALID_FILTERS[filterKey] then filterKey = "all" end
     for key, btn in pairs(self.filterButtons) do
         btn:SetActive(key == filterKey)
     end
@@ -385,7 +385,7 @@ function AchievementsTab:NavigateFromProgress(categoryId, filter)
     if self.searchBox then
         self.searchBox:SetText("")
     end
-    self:SetCompletionFilter(filter or "incomplete", true)
+    self:SetCompletionFilter(filter or "all", true)
     self:BuildCategoryDisplay()
     if categoryId then
         self:SelectCategory(categoryId)
@@ -394,7 +394,7 @@ end
 
 function AchievementsTab:GetCompletionFilter()
     local db = GetAchievementsDB()
-    return db and db.completionFilter or "incomplete"
+    return db and db.completionFilter or "all"
 end
 
 function AchievementsTab:OnSearchTextChanged(text)

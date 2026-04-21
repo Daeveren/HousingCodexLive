@@ -96,7 +96,7 @@ function RenownTab:Show()
         local saved = GetRenownDB()
         if saved then
             self.selectedExpansion = saved.selectedExpansion
-            self:SetCompletionFilter(saved.completionFilter or "incomplete", skipRefresh)
+            self:SetCompletionFilter(saved.completionFilter or "all", skipRefresh)
         end
     end
     self.pendingNavigation = nil
@@ -120,7 +120,7 @@ function RenownTab:NavigateFromProgress(expansionKey, filter)
     if self.searchBox then
         self.searchBox:SetText("")
     end
-    self:SetCompletionFilter(filter or "incomplete", true)
+    self:SetCompletionFilter(filter or "all", true)
     self:BuildExpansionDisplay()
     if not expansionKey then
         local expansions = addon:GetSortedRenownExpansions()
@@ -179,7 +179,7 @@ function RenownTab:CreateToolbar(parent)
 end
 
 function RenownTab:SetCompletionFilter(filterKey, skipRefresh)
-    if not VALID_FILTERS[filterKey] then filterKey = "incomplete" end
+    if not VALID_FILTERS[filterKey] then filterKey = "all" end
     for key, btn in pairs(self.filterButtons) do
         btn:SetActive(key == filterKey)
     end
@@ -192,7 +192,7 @@ end
 
 function RenownTab:GetCompletionFilter()
     local db = GetRenownDB()
-    return db and db.completionFilter or "incomplete"
+    return db and db.completionFilter or "all"
 end
 
 function RenownTab:OnSearchTextChanged(_)

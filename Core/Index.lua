@@ -71,8 +71,7 @@ function addon:BuildWordIndex()
 
     wipe(self.indexes.byWord)
 
-    for recordID, record in pairs(self.decorRecords) do
-        -- Word index for name search
+    local function IndexRecord(recordID, record)
         if record.name then
             local nameLower = string.lower(record.name)
             for word in string.gmatch(nameLower, "%w+") do
@@ -82,7 +81,6 @@ function addon:BuildWordIndex()
             end
         end
 
-        -- Word index for sourceText search (zone, quest, vendor names)
         if record.sourceText and record.sourceText ~= "" then
             local lower = string.lower(StripSourceMarkup(record.sourceText))
             for word in string.gmatch(lower, "%w+") do
@@ -90,6 +88,18 @@ function addon:BuildWordIndex()
                     AddToIndex(self.indexes.byWord, word, recordID)
                 end
             end
+        end
+    end
+
+    for recordID, record in pairs(self.decorRecords) do
+        IndexRecord(recordID, record)
+    end
+
+    -- Also index hidden-catalog items resolved via ResolveRecord (fallbackRecords).
+    -- Skip `false` sentinels (negative cache for confirmed-unresolvable recordIDs).
+    for recordID, record in pairs(self.fallbackRecords) do
+        if record ~= false then
+            IndexRecord(recordID, record)
         end
     end
 
@@ -157,8 +167,9 @@ function addon:SearchByText(searchText)
             if self.indexes.byWord[word] and self.indexes.byWord[word][recordID] then
                 found = true
             else
-                -- Check partial match in name and sourceText
-                local record = self.decorRecords[recordID]
+                -- Check partial match in name and sourceText.
+                -- Use GetRecord so fallbackRecords (hidden-catalog items) are covered.
+                local record = self:GetRecord(recordID)
                 if record then
                     if record.name and string.find(string.lower(record.name), word, 1, true) then
                         found = true

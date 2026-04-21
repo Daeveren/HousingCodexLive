@@ -19,7 +19,7 @@ local defaults = {
         tileSize = 180,
         sortType = 0,  -- Enum.HousingCatalogSortType.DateAdded
         filters = {
-            showCollected = false,
+            showCollected = true,
             showUncollected = true,
             trackableState = "all",
             showWishlistOnly = false,
@@ -37,34 +37,34 @@ local defaults = {
         quests = {
             selectedQuestID = nil,
             selectedExpansionKey = nil,
-            completionFilter = "incomplete",  -- "all" | "incomplete" | "complete"
+            completionFilter = "all",  -- "all" | "incomplete" | "complete"
             expandedZones = {},       -- { ["EXPANSION_TWW:Isle of Dorn"] = true, ... }
         },
         achievements = {
             selectedCategory = nil,
             selectedAchievementID = nil,
             selectedRecordID = nil,
-            completionFilter = "incomplete",  -- "all" | "incomplete" | "complete"
+            completionFilter = "all",  -- "all" | "incomplete" | "complete"
         },
         renown = {
             selectedExpansion = nil,
-            completionFilter = "incomplete",  -- "all" | "incomplete" | "complete"
+            completionFilter = "all",  -- "all" | "incomplete" | "complete"
         },
         drops = {
             selectedCategory = nil,
-            completionFilter = "incomplete",  -- "all" | "incomplete" | "complete"
+            completionFilter = "all",  -- "all" | "incomplete" | "complete"
         },
         pvp = {
             selectedCategory = nil,
-            completionFilter = "incomplete",  -- "all" | "incomplete" | "complete"
+            completionFilter = "all",  -- "all" | "incomplete" | "complete"
         },
         vendors = {
             selectedExpansionKey = nil,
-            completionFilter = "incomplete",  -- "all" | "incomplete" | "complete"
+            completionFilter = "all",  -- "all" | "incomplete" | "complete"
             expandedZones = {},
         },
         professions = {
-            completionFilter = "incomplete",  -- "all" | "incomplete" | "complete"
+            completionFilter = "all",  -- "all" | "incomplete" | "complete"
         },
     },
     whatsNew = {

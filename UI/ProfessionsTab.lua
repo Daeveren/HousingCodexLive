@@ -203,7 +203,7 @@ function ProfessionsTab:Show()
     -- Restore persisted profession
     self.selectedProfession = db and db.selectedProfession
 
-    self:SetCompletionFilter((db and db.completionFilter) or "incomplete", skipRefresh)
+    self:SetCompletionFilter((db and db.completionFilter) or "all", skipRefresh)
     self:UpdateEmptyStates()
 end
 
@@ -229,7 +229,7 @@ function ProfessionsTab:CreateToolbar(parent)
 end
 
 function ProfessionsTab:SetCompletionFilter(filterKey, skipRefresh)
-    if not VALID_FILTERS[filterKey] then filterKey = "incomplete" end
+    if not VALID_FILTERS[filterKey] then filterKey = "all" end
     for key, btn in pairs(self.filterButtons) do
         btn:SetActive(key == filterKey)
     end
@@ -242,7 +242,7 @@ end
 
 function ProfessionsTab:GetCompletionFilter()
     local db = GetProfessionsDB()
-    return db and db.completionFilter or "incomplete"
+    return db and db.completionFilter or "all"
 end
 
 function ProfessionsTab:OnSearchTextChanged(_)
@@ -350,7 +350,7 @@ function ProfessionsTab:NavigateFromProgress(professionName, filter)
     if self.searchBox then
         self.searchBox:SetText("")
     end
-    self:SetCompletionFilter(filter or "incomplete", true)
+    self:SetCompletionFilter(filter or "all", true)
     self:BuildProfessionDisplay()
     if not professionName then
         professionName = addon.craftingHierarchy and addon.craftingHierarchy[1]

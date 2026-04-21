@@ -9,7 +9,7 @@ addon.Filters = {}
 local Filters = addon.Filters
 
 -- Filter states (can be combined: both, one, or none)
-Filters.showCollected = false
+Filters.showCollected = true
 Filters.showUncollected = true
 Filters.trackableState = "all"   -- "all", "trackable", "not_trackable"
 Filters.showWishlistOnly = false
@@ -385,8 +385,8 @@ function Filters:ResetAllFilters()
             end
         end
 
-        -- Reset collection filters (default: show uncollected only)
-        self:SetCollectionDirect(false, true)
+        -- Reset collection filters (default: show both collected and uncollected)
+        self:SetCollectionDirect(true, true)
 
         -- Reset trackable state
         self:SetTrackableState("all")

@@ -192,8 +192,8 @@ function FilterBar:ResetToDefault()
     if not searcher then return end
 
     addon:WithSearcherBatchUpdate("ResetToDefault", function()
-        -- Reset collection filters (default: show uncollected only)
-        addon.Filters:SetCollectionDirect(false, true)
+        -- Reset collection filters (default: show both collected and uncollected)
+        addon.Filters:SetCollectionDirect(true, true)
 
         -- Reset wishlist-only filter (post-search filter)
         addon.Filters:SetWishlistOnly(false)

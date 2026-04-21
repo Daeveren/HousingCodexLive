@@ -452,6 +452,10 @@ function addon:ResolveRecord(recordID)
     end
 
     self.fallbackRecords[recordID] = record
+    -- Growing fallbackRecords must invalidate the GetAllRecordIDs cache (which
+    -- now reads fallbackRecords). Ad-hoc ResolveRecord callers (PreviewFrame,
+    -- WishlistFrame) grow this map outside the BuildCraftingIndex path.
+    self.cachedAllRecordIDs = nil
     self:Debug("Resolved hidden catalog item: " .. (info.name or recordID))
     return record
 end
@@ -580,8 +584,17 @@ end
 function addon:GetAllRecordIDs()
     if self.cachedAllRecordIDs then return self.cachedAllRecordIDs end
     local ids = {}
+    local seen = {}
     for recordID in pairs(self.decorRecords) do
         ids[#ids + 1] = recordID
+        seen[recordID] = true
+    end
+    -- Include hidden-catalog items resolved into fallbackRecords; skip the
+    -- `false` negative-cache sentinel that marks confirmed-unresolvable IDs.
+    for recordID, record in pairs(self.fallbackRecords) do
+        if record ~= false and not seen[recordID] then
+            ids[#ids + 1] = recordID
+        end
     end
     self.cachedAllRecordIDs = ids
     return ids
@@ -859,6 +872,11 @@ addon:RegisterWoWEvent("HOUSING_STORAGE_UPDATED", function()
     wipe(addon.fallbackRecords)
     addon.craftingIndexBuilt = false
 
+    -- Word index and GetAllRecordIDs cache now cover fallbackRecords — invalidate
+    -- both so the post-wipe state doesn't retain stale fallback IDs.
+    addon.byWordIndexBuilt = false
+    addon.cachedAllRecordIDs = nil
+
     -- Refresh ownership fields BEFORE rebuilding indexes so collected counts are accurate
     for _, record in pairs(addon.decorRecords) do
         -- Use per-record entryType so both Decor (1) and Room (2) records refresh correctly;
@@ -872,6 +890,12 @@ addon:RegisterWoWEvent("HOUSING_STORAGE_UPDATED", function()
 
     -- ALWAYS: Lightweight collected index rebuild (needed by LDB, merchant overlay)
     addon:BuildCollectedIndex()
+
+    -- ALWAYS: Re-resolve crafting fallback records (hidden-in-catalog recipes).
+    -- The wipe above cleared fallbackRecords; without this rebuild, hidden-only
+    -- crafting items would drop out of main-search word index and GetAllRecordIDs
+    -- until the user opens Professions/Progress.
+    addon:BuildCraftingIndex()
 
     -- ALWAYS: Fire ownership event (needed by LDB, WishlistFrame, QuestsTab, AchievementsTab)
     addon:FireEvent("RECORD_OWNERSHIP_UPDATED", nil, true, "bulk")

@@ -26,6 +26,7 @@ local function ResolveCraftRecord(owner, decorId)
 end
 
 function addon:BuildCraftingIndex()
+    if self.craftingIndexBuilt then return end
     if not self.CraftingSourceData then
         self:Debug("Cannot build crafting index: CraftingSourceData not loaded")
         return
@@ -96,6 +97,11 @@ function addon:BuildCraftingIndex()
     self.craftingIndexBuilt = true
     self:InvalidateProgressCache()
 
+    -- ResolveRecord calls above may have grown fallbackRecords. Invalidate the
+    -- word index and GetAllRecordIDs cache so next search covers the new entries.
+    self.byWordIndexBuilt = false
+    self.cachedAllRecordIDs = nil
+
     self:Debug(string.format(
         "Built crafting index: %d professions, %d crafts, %d skipped in %d ms",
         professionCount,
@@ -150,4 +156,11 @@ end
 
 addon:RegisterInternalEvent("RECORD_OWNERSHIP_UPDATED", function()
     wipe(addon.craftingProgressCache)
+end)
+
+-- Eagerly resolve crafting-only decorIds at data load so hidden-catalog items
+-- (e.g. HiddenInCatalog-flagged recipes) land in fallbackRecords before the
+-- main search word index is first built.
+addon:RegisterInternalEvent("DATA_LOADED", function()
+    addon:BuildCraftingIndex()
 end)

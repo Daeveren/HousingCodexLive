@@ -103,7 +103,7 @@ function VendorsTab:Show()
     if saved then
         -- Expanded zones persist across sessions
         self.selectedExpansionKey = saved.selectedExpansionKey
-        self:SetCompletionFilter(saved.completionFilter or "incomplete", skipRefresh)
+        self:SetCompletionFilter(saved.completionFilter or "all", skipRefresh)
     end
 
     self:UpdateEmptyStates()
@@ -165,7 +165,7 @@ function VendorsTab:RefreshDisplay()
 end
 
 function VendorsTab:SetCompletionFilter(filterKey, skipRefresh)
-    if not VALID_FILTERS[filterKey] then filterKey = "incomplete" end
+    if not VALID_FILTERS[filterKey] then filterKey = "all" end
     for key, btn in pairs(self.filterButtons) do
         btn:SetActive(key == filterKey)
     end
@@ -178,7 +178,7 @@ end
 
 function VendorsTab:GetCompletionFilter()
     local db = GetVendorsDB()
-    return db and db.completionFilter or "incomplete"
+    return db and db.completionFilter or "all"
 end
 
 function VendorsTab:OnSearchTextChanged(text)
@@ -301,13 +301,11 @@ local function VendorDecorRowOnEnter(row)
         if row.isCollected then
             GameTooltip:AddLine(L["FILTER_COLLECTED"], 0.4, 0.9, 0.4)
         end
-    elseif fallback and fallback.name then
-        GameTooltip:SetText(fallback.name, 1, 1, 1)
-        if fallback.category then
+    else
+        GameTooltip:SetText(addon:ResolveDecorName(decorId, record), 1, 1, 1)
+        if fallback and fallback.category then
             GameTooltip:AddLine(addon:GetLocalizedCategory(fallback.category), 0.7, 0.7, 0.7)
         end
-    else
-        GameTooltip:SetText(string.format(L["VENDORS_DECOR_ID"], decorId), 1, 1, 1)
     end
     GameTooltip:Show()
 end
@@ -860,8 +858,7 @@ function VendorsTab:SetupDecorRows(frame, decorIds)
 
         local textBrightness = row.isCollected and 0.4 or 0.7
         row.textBrightness = textBrightness
-        local displayName = (record and record.name) or (fallback and fallback.name) or string.format(L["VENDORS_DECOR_ID"], decorId)
-        row.name:SetText(displayName)
+        row.name:SetText(addon:ResolveDecorName(decorId, record))
         addon:SetFontSize(row.name, 13, "")
 
         -- Check if this item is currently selected (composite key: vendor + decor)
@@ -1204,7 +1201,7 @@ function VendorsTab:NavigateFromProgress(expansionKey, filter)
         self.currentZoneCheckbox:SetChecked(false)
     end
     self.currentZoneOnly = false
-    self:SetCompletionFilter(filter or "incomplete", true)
+    self:SetCompletionFilter(filter or "all", true)
     self:BuildExpansionDisplay()
     if not expansionKey then
         local expansions = addon:GetSortedVendorExpansions()
@@ -1294,12 +1291,14 @@ local function VendorMatchesSearch(vendorData, searchText, zoneName, expansionKe
     if not result then
         for _, decorId in ipairs(vendorData.decorIds or {}) do
             local record = addon:GetRecord(decorId)
-            if record and record.name and strlower(record.name):find(searchText, 1, true) then
+            local resolvedName = addon:ResolveDecorName(decorId, record)
+            if resolvedName and strlower(resolvedName):find(searchText, 1, true) then
                 result = true
                 break
             end
             local fallback = not record and addon.VendorItemFallback and addon.VendorItemFallback[decorId]
-            if fallback and fallback.name and strlower(fallback.name):find(searchText, 1, true) then
+            if fallback and fallback.name and fallback.name ~= resolvedName
+                and strlower(fallback.name):find(searchText, 1, true) then
                 result = true
                 break
             end

@@ -2,6 +2,12 @@
 
 All notable changes to Housing Codex.
 
+**2.3.4** (2026-04-21)
+
+**Fixed**
+- Fresh installs now show all items by default (collected and uncollected) instead of hiding collected ones
+- Improved localization for vendor decor names and empty-state messages on non-English clients
+
 **2.3.3** (2026-04-20)
 
 **Added**

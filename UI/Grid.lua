@@ -865,15 +865,15 @@ addon:RegisterInternalEvent("SEARCH_RESULTS_UPDATED", function(recordIDs)
     Grid:ClearSelection()
 
     -- Supplement native searcher results with client-side text search matches.
-    -- Skip for native sorts (DateAdded / Alphabetical): MergeResults appends unseen client
-    -- hits after the native head, and native sort order is Blizzard-authoritative (DateAdded
-    -- uses server-side fields not exposed client-side), so appended items would be out of
-    -- order. Client sorts (sortType >= 100) get a post-merge re-sort in Grid:SetData.
+    -- MergeResults preserves the native head order and only appends unseen client
+    -- hits at the tail. Under native sorts (DateAdded / Alphabetical) the appended
+    -- tail is unsorted relative to the head, but fallbackRecords items have no
+    -- valid native position anyway (Blizzard's searcher omits them), so appending
+    -- them is strictly additive — the alternative is invisibility.
+    -- Client sorts (sortType >= 100) get a post-merge re-sort in Grid:SetData.
     local searchText = strtrim(addon.SearchBox and addon.SearchBox:GetText() or "")
-    local sortType = addon.db and addon.db.browser and addon.db.browser.sortType or 0
-    local isNativeSort = sortType < 100
     if #searchText >= 3 and not string.find(searchText, "[^%w%s]") and addon.indexesBuilt
-       and addon.Filters:AreAdvancedFiltersAtDefault() and not isNativeSort
+       and addon.Filters:AreAdvancedFiltersAtDefault()
        and not IS_CJK_LOCALE then
         if not addon.byWordIndexBuilt then
             addon:BuildWordIndex()

@@ -347,6 +347,7 @@ L["VENDORS_CURRENT_ZONE"] = "Aktuelle Zone"
 L["VENDORS_EMPTY_NO_SOURCES"] = "Keine Händlerquellen gefunden"
 L["VENDORS_EMPTY_NO_SOURCES_DESC"] = "Händlerdaten sind möglicherweise nicht verfügbar"
 L["VENDORS_SELECT_EXPANSION"] = "Wähle eine Erweiterung"
+L["VENDORS_EMPTY_NO_RESULTS"] = "Keine Händler entsprechen deinen Filtern"
 L["VENDORS_UNKNOWN_EXPANSION"] = "Andere"
 L["VENDORS_UNKNOWN_ZONE"] = "Unbekannte Zone"
 
