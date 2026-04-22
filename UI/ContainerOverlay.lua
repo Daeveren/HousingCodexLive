@@ -162,6 +162,14 @@ function ContainerOverlay:HideAllOverlays()
     end
 end
 
+-- Refresh visible bank panel buttons via Blizzard's bulk API.
+-- BankFrame.BankPanel hosts both character and account (warband) bank tabs.
+function ContainerOverlay:UpdateVisibleBankPanel()
+    if BankFrame and BankFrame.BankPanel and BankFrame.BankPanel:IsShown() then
+        BankFrame.BankPanel:RefreshAllItemsForSelectedTab()
+    end
+end
+
 local function RefreshAll()
     if not AreBagsVisible() then
         dirty = true
@@ -170,6 +178,7 @@ local function RefreshAll()
     dirty = false
     ClearCache()
     ContainerOverlay:UpdateAllContainerFrames()
+    ContainerOverlay:UpdateVisibleBankPanel()
 end
 
 -- Initialize hooks and events
@@ -208,8 +217,19 @@ function ContainerOverlay:Initialize()
     self.eventFrame = CreateFrame("Frame")
     self.eventFrame:RegisterEvent("BAG_UPDATE_DELAYED")
     self.eventFrame:RegisterEvent("HOUSING_MARKET_AVAILABILITY_UPDATED")
-    self.eventFrame:SetScript("OnEvent", function()
-        RefreshAll()
+    self.eventFrame:RegisterEvent("PLAYER_INTERACTION_MANAGER_FRAME_SHOW")
+    self.eventFrame:SetScript("OnEvent", function(_, event, ...)
+        if event == "PLAYER_INTERACTION_MANAGER_FRAME_SHOW" then
+            local interactionType = ...
+            if interactionType == Enum.PlayerInteractionType.Banker
+               or interactionType == Enum.PlayerInteractionType.CharacterBanker
+               or interactionType == Enum.PlayerInteractionType.AccountBanker then
+                if dirty then RefreshAll() end
+                self:UpdateVisibleBankPanel()
+            end
+        else
+            RefreshAll()
+        end
     end)
 
     -- Internal ownership updates (clear cache — API returns fresh structs per call)

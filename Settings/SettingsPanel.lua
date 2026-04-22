@@ -514,6 +514,7 @@ function addon.Settings:Initialize()
                 if addon.ContainerOverlay then
                     if checked then
                         addon.ContainerOverlay:UpdateAllContainerFrames()
+                        addon.ContainerOverlay:UpdateVisibleBankPanel()
                     else
                         addon.ContainerOverlay:HideAllOverlays()
                     end
@@ -535,6 +536,7 @@ function addon.Settings:Initialize()
                 addon.db.settings.showContainerOwnedCheckmark = checked
                 if addon.ContainerOverlay then
                     addon.ContainerOverlay:UpdateAllContainerFrames()
+                    addon.ContainerOverlay:UpdateVisibleBankPanel()
                 end
             end
         end
