@@ -2,6 +2,14 @@
 
 All notable changes to Housing Codex.
 
+**2.4.0** (2026-04-23)
+
+**Changed**
+- Rewrote the internal database to use the 12.0.5 patch decor API
+- New "Promo: X/Y" line in vendor tooltips showing progress on rotating/event-gated items separately from the main collected count
+- Vendor tooltips now clearly show items as promo (only available during certain promotions) or locked (locked behind an in-game unlockable such as achievement, quest, drop, etc.)
+- Vendor progress counts no longer include rotating promotional items that can't currently be purchased
+
 **2.3.5** (2026-04-22)
 
 **Changed**

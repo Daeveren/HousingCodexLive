@@ -37,8 +37,9 @@ local function OnTooltipUnit(tooltip)
     -- Check vendor index
     if not addon.vendorIndex or not addon.vendorIndex[npcId] then return end
 
-    local owned, total, missingNames = addon:GetVendorPinProgress(npcId)
-    if not owned or not total or total == 0 then return end
+    local owned, total, missingNames, promoOwned, promoTotal = addon:GetVendorPinProgress(npcId)
+    if not owned or not total then return end
+    if total == 0 and (promoTotal or 0) == 0 then return end
 
     local L = addon.L
     local COLORS = addon.CONSTANTS.COLORS
@@ -53,18 +54,32 @@ local function OnTooltipUnit(tooltip)
     local progressText = string.format(L["VENDOR_PIN_COLLECTED"], owned, total)
     tooltip:AddLine(progressText, COLORS.SOURCE_NAME_GOLD[1], COLORS.SOURCE_NAME_GOLD[2], COLORS.SOURCE_NAME_GOLD[3])
 
+    -- Promo (rotated / event-gated) sub-total if this vendor has any
+    if promoTotal and promoTotal > 0 then
+        tooltip:AddLine(string.format(L["VENDOR_PIN_PROMO"], promoOwned, promoTotal), 0.6, 0.6, 0.6)
+    end
+
     -- Missing item names (show up to MISSING_DISPLAY_LIMIT; upstream caps at VENDOR_PIN.TOOLTIP_ITEM_LIMIT)
-    if owned < total and missingNames and #missingNames > 0 then
+    if missingNames and #missingNames > 0 then
         tooltip:AddLine(" ")
         tooltip:AddLine(L["VENDOR_PIN_UNCOLLECTED_HEADER"], 0.85, 0.85, 0.85)
         local shown = math.min(#missingNames, MISSING_DISPLAY_LIMIT)
         for i = 1, shown do
             local entry = missingNames[i]
-            local suffix = entry.locked and (" (|cffcc5a40" .. L["VENDOR_PIN_ITEM_LOCKED"] .. "|r)") or ""
+            -- Promo takes precedence over locked (rotation moots the achievement gate).
+            local suffix
+            if entry.promotional then
+                suffix = " (|cff9090a0" .. L["VENDOR_PIN_ITEM_PROMO"] .. "|r)"
+            elseif entry.locked then
+                suffix = " (|cffcc5a40" .. L["VENDOR_PIN_ITEM_LOCKED"] .. "|r)"
+            else
+                suffix = ""
+            end
             tooltip:AddLine("  " .. entry.name .. suffix, 0.7, 0.7, 0.7)
         end
 
-        local overflow = (total - owned) - shown
+        local missingTotal = (total - owned) + ((promoTotal or 0) - (promoOwned or 0))
+        local overflow = missingTotal - shown
         if overflow > 0 then
             tooltip:AddLine(string.format(L["VENDOR_PIN_MORE"], overflow), 0.6, 0.6, 0.6)
         end

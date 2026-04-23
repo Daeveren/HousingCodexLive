@@ -1263,9 +1263,9 @@ end
 function addon.IsDecorOwned(catalogInfo)
     if type(catalogInfo) ~= "table" then return false end
     if addon.IsInfoCollected and addon.IsInfoCollected(catalogInfo) then return true end
-    -- Fallback: GetCatalogEntryInfoByItem returns "Unowned" subtype (ownership fields = 0)
-    -- before housing ownership data fully loads; cross-reference addon's pre-loaded records
-    local recordID = catalogInfo.entryID and catalogInfo.entryID.recordID
+    -- Fallback: GetCatalogEntryInfoByItem may report zero ownership fields before housing
+    -- ownership data fully loads; cross-reference addon's pre-loaded records by recordID.
+    local recordID = catalogInfo.recordID
     if recordID then
         if addon.indexes and addon.indexes.collected and addon.indexes.collected[recordID] then return true end
         local fallback = addon.fallbackRecords and addon.fallbackRecords[recordID]

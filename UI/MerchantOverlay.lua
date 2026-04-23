@@ -85,7 +85,7 @@ function MerchantOverlay:UpdateMerchantButtons()
             if itemID then
                 local cached = sessionCache[itemID]
                 if cached == nil then
-                    catalogInfo = C_HousingCatalog.GetCatalogEntryInfoByItem(itemID, true)
+                    catalogInfo = C_HousingCatalog.GetCatalogEntryInfoByItem(itemID)
                     sessionCache[itemID] = catalogInfo or false
                 elseif cached then
                     catalogInfo = cached

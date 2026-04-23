@@ -94,8 +94,16 @@ local function GetProjectedCoordinates(vendorData, vendorMapID, targetMapID, cac
     return left + ((vendorData.x / 100) * width), top + ((vendorData.y / 100) * height)
 end
 
-local function IsIncompleteProgress(owned, total)
-    return total > 0 and owned < total
+-- A pin is "incomplete" (and thus worth showing) when the player still has items to
+-- collect. Always-available stock is the primary signal; for the edge case of a vendor
+-- with ONLY promo items (no always-available) the promo gap still keeps the pin visible
+-- so the player can see the vendor exists and visit during the active promo cycle.
+local function IsIncompleteProgress(owned, total, promoOwned, promoTotal)
+    if total > 0 then
+        return owned < total
+    end
+    local pt = promoTotal or 0
+    return pt > 0 and (promoOwned or 0) < pt
 end
 
 local function GetOrCreateZoneCluster(clustersByZone, zoneMapID)
@@ -116,7 +124,7 @@ local function GetOrCreateZoneCluster(clustersByZone, zoneMapID)
     return cluster
 end
 
-local function AddClusterVendor(cluster, vendorData, owned, total, x, y)
+local function AddClusterVendor(cluster, vendorData, owned, total, x, y, promoOwned, promoTotal)
     cluster.xSum = cluster.xSum + x
     cluster.ySum = cluster.ySum + y
     cluster.count = cluster.count + 1
@@ -131,6 +139,11 @@ local function AddClusterVendor(cluster, vendorData, owned, total, x, y)
         faction = vendorData.faction,
         owned = owned,
         total = total,
+        -- Carry promo split through so the cluster tooltip can render a meaningful
+        -- line for promo-only vendors (total == 0). Always-available totals add to
+        -- cluster totals above; promo is per-vendor only — not aggregated cluster-wide.
+        promoOwned = promoOwned or 0,
+        promoTotal = promoTotal or 0,
     }
 end
 
@@ -187,15 +200,15 @@ local function BuildPinEntriesForMap(mapID, mapType)
                 end
                 if x and y then
                     seenNpcIds[dedupKey] = true
-                    local owned, total = addon:GetVendorPinProgress(vendorData.npcId)
-                    if IsIncompleteProgress(owned, total) then
+                    local owned, total, _, promoOwned, promoTotal = addon:GetVendorPinProgress(vendorData.npcId)
+                    if IsIncompleteProgress(owned, total, promoOwned, promoTotal) then
                         if isContinent then
                             local zoneMapID = addon:GetZoneRootMapID(sourceMapID) or sourceMapID
                             local cluster = GetOrCreateZoneCluster(clustersByZone, zoneMapID)
-                            AddClusterVendor(cluster, vendorData, owned, total, x, y)
+                            AddClusterVendor(cluster, vendorData, owned, total, x, y, promoOwned, promoTotal)
                         elseif isZone and vendorData.uiMapId and vendorData.uiMapId ~= mapID then
                             local cluster = GetOrCreateZoneCluster(clustersBySubzone, vendorData.uiMapId)
-                            AddClusterVendor(cluster, vendorData, owned, total, x, y)
+                            AddClusterVendor(cluster, vendorData, owned, total, x, y, promoOwned, promoTotal)
                         else
                             entries[#entries + 1] = {
                                 vendorData = vendorData,
@@ -529,7 +542,14 @@ function HousingCodexVendorPinMixin:OnMouseEnter()
         local shown = math.min(count, C.TOOLTIP_ITEM_LIMIT)
         for i = 1, shown do
             local vendor = vendors[i]
-            local vendorEntry = string.format(L["VENDOR_PIN_VENDOR_ENTRY"], addon:GetLocalizedNPCName(vendor.npcId, vendor.npcName) or L["VENDOR_UNKNOWN"], vendor.owned, vendor.total)
+            local name = addon:GetLocalizedNPCName(vendor.npcId, vendor.npcName) or L["VENDOR_UNKNOWN"]
+            local vendorEntry
+            if (vendor.total or 0) == 0 and (vendor.promoTotal or 0) > 0 then
+                -- Promo-only vendor: the (0/0) form is meaningless, surface the promo state.
+                vendorEntry = string.format(L["VENDOR_PIN_VENDOR_ENTRY_PROMO_ONLY"], name, vendor.promoOwned or 0, vendor.promoTotal)
+            else
+                vendorEntry = string.format(L["VENDOR_PIN_VENDOR_ENTRY"], name, vendor.owned, vendor.total)
+            end
             AddBulletedTooltipLine(tooltip, vendorEntry)
         end
 
@@ -544,7 +564,7 @@ function HousingCodexVendorPinMixin:OnMouseEnter()
     end
 
     local vendorName = addon:GetLocalizedNPCName(self.vendorData.npcId, self.vendorData.npcName) or L["VENDOR_UNKNOWN"]
-    local owned, total, missingNames = addon:GetVendorPinProgress(self.vendorData.npcId)
+    local owned, total, missingNames, promoOwned, promoTotal = addon:GetVendorPinProgress(self.vendorData.npcId)
 
     GameTooltip_SetTitle(tooltip, vendorName, COLOR_GOLD)
 
@@ -558,16 +578,31 @@ function HousingCodexVendorPinMixin:OnMouseEnter()
 
     local progressColor = GetProgressColor(owned, total)
     GameTooltip_AddColoredLine(tooltip, string.format(L["VENDOR_PIN_COLLECTED"], owned, total), progressColor)
+    if promoTotal and promoTotal > 0 then
+        -- Promo line is always muted regardless of completion ratio — rotation is
+        -- out of the player's control, so the color doesn't carry progress signal.
+        GameTooltip_AddColoredLine(tooltip, string.format(L["VENDOR_PIN_PROMO"], promoOwned, promoTotal), COLOR_MEDIUM_GRAY)
+    end
     GameTooltip_AddBlankLineToTooltip(tooltip)
 
-    if owned < total and #missingNames > 0 then
+    if #missingNames > 0 then
         GameTooltip_AddColoredLine(tooltip, L["VENDOR_PIN_UNCOLLECTED_HEADER"], COLOR_LIGHT_GRAY)
         for _, entry in ipairs(missingNames) do
-            local suffix = entry.locked and " (|cffcc5a40" .. L["VENDOR_PIN_ITEM_LOCKED"] .. "|r)" or ""
+            -- Promo takes precedence over locked: if the item isn't currently
+            -- sellable, the achievement gate is academic — avoid stacking both tags.
+            local suffix
+            if entry.promotional then
+                suffix = " (|cff9090a0" .. L["VENDOR_PIN_ITEM_PROMO"] .. "|r)"
+            elseif entry.locked then
+                suffix = " (|cffcc5a40" .. L["VENDOR_PIN_ITEM_LOCKED"] .. "|r)"
+            else
+                suffix = ""
+            end
             GameTooltip_AddColoredLine(tooltip, TOOLTIP_LIST_INDENT .. TOOLTIP_LIST_BULLET .. entry.name .. suffix, COLOR_ITEM_LIST, false)
         end
 
-        local overflow = (total - owned) - #missingNames
+        local missingTotal = (total - owned) + (promoTotal - promoOwned)
+        local overflow = missingTotal - #missingNames
         if overflow > 0 then
             GameTooltip_AddColoredLine(tooltip, string.format(L["VENDOR_PIN_MORE"], overflow), COLOR_MEDIUM_GRAY)
         end

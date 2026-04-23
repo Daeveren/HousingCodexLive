@@ -363,8 +363,10 @@ L["VENDOR_FALLBACK_NAME"] = "vendor"
 
 -- Vendor world map pins
 L["VENDOR_PIN_COLLECTED"] = "Collected: %d/%d"
+L["VENDOR_PIN_PROMO"] = "Promo: %d/%d"
 L["VENDOR_PIN_UNCOLLECTED_HEADER"] = "Decor uncollected:"
 L["VENDOR_PIN_ITEM_LOCKED"] = "locked"
+L["VENDOR_PIN_ITEM_PROMO"] = "promo"
 L["VENDOR_PIN_MORE"] = "+%d more"
 L["VENDOR_PIN_CLICK_WAYPOINT"] = "Click to set waypoint"
 L["VENDOR_PIN_FACTION_ALLIANCE"] = "Alliance Only"
@@ -372,6 +374,8 @@ L["VENDOR_PIN_FACTION_HORDE"] = "Horde Only"
 L["VENDOR_PIN_VENDOR_COUNT"] = "%dx Vendors"
 L["VENDOR_PIN_VENDOR_LIST_HEADER"] = "Vendor list:"
 L["VENDOR_PIN_VENDOR_ENTRY"] = "%s (%d/%d)"
+-- Cluster tooltip entry for promo-only vendors (total == 0, only rotating stock)
+L["VENDOR_PIN_VENDOR_ENTRY_PROMO_ONLY"] = "%s (promo: %d/%d)"
 L["VENDOR_PIN_VENDORS_MORE"] = "+%d more vendors"
 
 -- Vendor tracking messages

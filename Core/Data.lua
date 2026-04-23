@@ -45,18 +45,15 @@ local function IsValidAtlas(atlas)
     return type(atlas) == "string" and atlas ~= ""
 end
 
--- Calculate total owned from all sources (placed + storage + redeemable)
+-- Calculate total owned from all sources (placed + storage + redeemable).
+-- Reads native HousingCatalogEntryInfo fields.
 local function CalculateTotalOwned(info)
-    return (info.numPlaced or 0) + (info.quantity or 0) + (info.remainingRedeemable or 0)
+    return (info.totalNumPlaced or 0) + (info.totalNumStored or 0) + (info.remainingRedeemable or 0)
 end
 
--- entrySubtype 2/3 (OwnedModifiedStack/OwnedUnmodifiedStack) indicate ownership even when
--- showQuantity=false zeroes out quantity fields.
 local function IsInfoCollected(info)
     if type(info) ~= "table" then return false end
-    if CalculateTotalOwned(info) > 0 then return true end
-    local sub = (info.entryID and info.entryID.entrySubtype) or 1
-    return sub > 1
+    return CalculateTotalOwned(info) > 0
 end
 addon.IsInfoCollected = IsInfoCollected
 
@@ -69,10 +66,10 @@ end
 
 -- Update a record's ownership fields from API info
 local function RefreshRecordOwnership(record, info)
-    record.quantity = info.quantity or 0
-    record.numPlaced = info.numPlaced or 0
+    record.quantity = info.totalNumStored or 0
+    record.numPlaced = info.totalNumPlaced or 0
     record.remainingRedeemable = info.remainingRedeemable or 0
-    record.totalOwned = CalculateTotalOwned(record)
+    record.totalOwned = CalculateTotalOwned(info)
     record.isCollected = IsInfoCollected(info)
 end
 
@@ -146,8 +143,8 @@ local function BuildRecordFields(entryID, info, options)
         icon = icon,
         iconType = iconType,
         isModelOnly = isModelOnly or false,
-        quantity = info.quantity or 0,
-        numPlaced = info.numPlaced or 0,
+        quantity = info.totalNumStored or 0,
+        numPlaced = info.totalNumPlaced or 0,
         remainingRedeemable = info.remainingRedeemable or 0,
         totalOwned = totalOwned,
         isCollected = isCollected,
@@ -230,7 +227,7 @@ function addon:LoadData()
 
     -- Configure searcher to include all items (collected and uncollected)
     -- Per Blizzard's HousingCatalogFrameMixin pattern
-    searcher:SetOwnedOnly(false)
+    searcher:SetStoredOnly(false)
     searcher:SetCollected(true)
     searcher:SetUncollected(true)
     searcher:SetAutoUpdateOnParamChanges(false)
@@ -307,11 +304,10 @@ function addon:ProcessSearchResults()
     for _, entryID in ipairs(allEntries) do
         -- Check duplicate first to avoid unnecessary API call
         if not records[entryID.recordID] then
-            -- Use recordID-based query with tryGetOwnedInfo=true so showQuantity=false
-            -- owned items return with the owned entrySubtype regardless of which
-            -- entryID won the dedupe (a recordID can have both Unowned and Owned stacks).
+            -- Use recordID-based query so a dedup winner still reflects aggregate ownership;
+            -- native totalNumStored/totalNumPlaced/remainingRedeemable already sum across variants.
             local info = C_HousingCatalog.GetCatalogEntryInfoByRecordID(
-                entryID.entryType, entryID.recordID, true)
+                entryID.entryType, entryID.recordID)
             if info and not info.isPrefab then
                 local record = BuildRecord(entryID, info)
                 if record then
@@ -430,7 +426,7 @@ function addon:ResolveRecord(recordID)
     end
 
     local info = C_HousingCatalog.GetCatalogEntryInfoByRecordID(
-        Enum.HousingCatalogEntryType.Decor, recordID, true)
+        Enum.HousingCatalogEntryType.Decor, recordID)
     if not info then
         self.fallbackRecords[recordID] = false
         return nil
@@ -440,8 +436,6 @@ function addon:ResolveRecord(recordID)
     local entryID = info.entryID or {
         recordID = recordID,
         entryType = Enum.HousingCatalogEntryType.Decor,
-        entrySubtype = 1,
-        subtypeIdentifier = 0,
     }
 
     record = BuildRecordFields(entryID, info, { resolveTracking = true })
@@ -813,7 +807,7 @@ addon:RegisterWoWEvent("HOUSING_STORAGE_ENTRY_UPDATED", function(entryID)
         -- Use recordID-based query with tryGetOwnedInfo=true so the returned info
         -- reflects owned state regardless of which stack the event fired for.
         local info = C_HousingCatalog.GetCatalogEntryInfoByRecordID(
-            entryID.entryType, recordID, true)
+            entryID.entryType, recordID)
         if not info then return end
 
         addon:Debug("Storage entry updated (fallback): " .. tostring(recordID))
@@ -834,7 +828,7 @@ addon:RegisterWoWEvent("HOUSING_STORAGE_ENTRY_UPDATED", function(entryID)
     -- Use recordID-based query so the returned info reflects the best owned stack
     -- when a recordID has multiple entryIDs (e.g. OwnedModified + OwnedUnmodified).
     local info = C_HousingCatalog.GetCatalogEntryInfoByRecordID(
-        entryID.entryType, recordID, true)
+        entryID.entryType, recordID)
     if not info then return end
 
     addon:Debug("Storage entry updated: " .. tostring(recordID))
@@ -879,10 +873,9 @@ addon:RegisterWoWEvent("HOUSING_STORAGE_UPDATED", function()
 
     -- Refresh ownership fields BEFORE rebuilding indexes so collected counts are accurate
     for _, record in pairs(addon.decorRecords) do
-        -- Use per-record entryType so both Decor (1) and Room (2) records refresh correctly;
-        -- tryGetOwnedInfo=true ensures showQuantity=false owned items return owned entrySubtype.
+        -- Use per-record entryType so both Decor (1) and Room (2) records refresh correctly.
         local info = record.entryID and C_HousingCatalog.GetCatalogEntryInfoByRecordID(
-            record.entryID.entryType, record.recordID, true)
+            record.entryID.entryType, record.recordID)
         if info then
             RefreshRecordOwnership(record, info)
         end

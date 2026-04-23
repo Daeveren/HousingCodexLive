@@ -164,6 +164,13 @@ function addon:BuildVendorIndex()
                 if npcId then
                     local vendorEntry = self.vendorIndex[npcId]
                     if not vendorEntry then
+                        -- promotionalDecorIds: set of decorIds this vendor sells only during
+                        -- rotating promo / event cycles (Diablo/Fanta/Pinterest collabs, holiday
+                        -- items, etc.). Populated from addon.VendorPromotionalDecorIds when the
+                        -- scraper emitted it; nil for vendors with no rotated stock. Consumed by
+                        -- GetVendorPinProgress to split tooltip counts into active-vs-rotated.
+                        local promoSet = addon.VendorPromotionalDecorIds
+                            and addon.VendorPromotionalDecorIds[npcId]
                         vendorEntry = {
                             npcId = npcId,
                             npcName = vendorData.npcName,
@@ -172,6 +179,7 @@ function addon:BuildVendorIndex()
                             itemCosts = vendorData.itemCosts,
                             decorIds = {},
                             decorIdSet = {},
+                            promotionalDecorIds = promoSet,
                         }
                         self.vendorIndex[npcId] = vendorEntry
                         vendorCount = vendorCount + 1

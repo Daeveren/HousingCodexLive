@@ -149,36 +149,57 @@ function addon:GetAllVendorMapVendors()
     return addon.vendorMapVendorsByMapID
 end
 
+-- Returns: owned, total, missingNames, promoOwned, promoTotal
+-- owned / total  - count of ALWAYS-available decors (the ones actively on the merchant frame)
+-- missingNames   - up to TOOLTIP_ITEM_LIMIT entries of {name, locked, promotional} for uncollected items
+-- promoOwned / promoTotal - count of PROMO (rotating / event-gated / collab) decors; 0 for vendors without promo stock
+--
+-- The split lets tooltips render "Collected: X/total" + "Promo: Y/promoTotal" instead of
+-- a misleading single ratio that can never be completed in one promo cycle. Callers that
+-- only unpack the first three returns keep working; the trailing two are optional.
 function addon:GetVendorPinProgress(npcId)
     if not npcId then
-        return 0, 0, {}
+        return 0, 0, {}, 0, 0
     end
 
     local cached = addon.vendorPinProgressCache[npcId]
     if cached then
-        return cached.owned, cached.total, cached.missingNames
+        return cached.owned, cached.total, cached.missingNames, cached.promoOwned, cached.promoTotal
     end
 
     local vendor = addon.vendorIndex and addon.vendorIndex[npcId]
     if not vendor or not vendor.decorIds then
-        return 0, 0, {}
+        return 0, 0, {}, 0, 0
     end
 
-    local owned = 0
-    local total = #vendor.decorIds
+    local promoSet = vendor.promotionalDecorIds
+    local owned, total = 0, 0
+    local promoOwned, promoTotal = 0, 0
     local missingNames = {}
     local limit = addon.CONSTANTS.VENDOR_PIN.TOOLTIP_ITEM_LIMIT
 
-    local L = addon.L
     for _, decorId in ipairs(vendor.decorIds) do
+        local isPromo = promoSet and promoSet[decorId] or false
         local record = addon:ResolveRecord(decorId)
-        if record and record.isCollected then
-            owned = owned + 1
-        elseif #missingNames < limit then
+        local isOwned = record and record.isCollected
+
+        if isPromo then
+            promoTotal = promoTotal + 1
+            if isOwned then promoOwned = promoOwned + 1 end
+        else
+            total = total + 1
+            if isOwned then owned = owned + 1 end
+        end
+
+        if not isOwned and #missingNames < limit then
             local name = addon:ResolveDecorName(decorId, record)
             local achId = addon.DecorToAchievementLookup and addon.DecorToAchievementLookup[decorId]
             local isLocked = achId and not addon:IsAchievementCompleted(achId)
-            missingNames[#missingNames + 1] = { name = name, locked = isLocked and true or false }
+            missingNames[#missingNames + 1] = {
+                name = name,
+                locked = isLocked or false,
+                promotional = isPromo,
+            }
         end
     end
 
@@ -186,9 +207,11 @@ function addon:GetVendorPinProgress(npcId)
         owned = owned,
         total = total,
         missingNames = missingNames,
+        promoOwned = promoOwned,
+        promoTotal = promoTotal,
     }
 
-    return owned, total, missingNames
+    return owned, total, missingNames, promoOwned, promoTotal
 end
 
 function addon:InvalidateVendorPinCache()

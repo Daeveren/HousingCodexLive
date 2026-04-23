@@ -34,7 +34,7 @@ local function GetDecorInfo(itemID)
     end
 
     local catalogInfo = C_HousingCatalog and C_HousingCatalog.GetCatalogEntryInfoByItem
-        and C_HousingCatalog.GetCatalogEntryInfoByItem(itemID, true)
+        and C_HousingCatalog.GetCatalogEntryInfoByItem(itemID)
 
     itemDecorCache[itemID] = catalogInfo or false
     return catalogInfo

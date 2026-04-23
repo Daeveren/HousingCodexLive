@@ -62,8 +62,13 @@ function addon:BuildAchievementIndex()
                         validDecors[decorId] = true
                         decorCount = decorCount + 1
                     end
-                    -- Build reverse lookup (decorId -> achievementId) for all entries
-                    self.DecorToAchievementLookup[decorId] = achievementId
+                    -- Reverse lookup is consumed by vendor-lock inference (VendorMapIndex).
+                    -- Gate on isVendorGate so only achievements that actually gate a vendor
+                    -- contribute — an achievement merely *related* to a decor (e.g., a drop
+                    -- commemoration) must not mark that decor's vendor entry as locked.
+                    if achievementData.isVendorGate then
+                        self.DecorToAchievementLookup[decorId] = achievementId
+                    end
                 end
             end
 
