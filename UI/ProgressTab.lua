@@ -646,6 +646,16 @@ function ProgressTab:BuildSourceSection(yOffset, columnWidth, xOffset)
             elseif data.targetTabKey == "DECOR" then
                 addon.Tabs:SelectTab("DECOR")
                 addon.Filters:ResetAllFilters()
+            elseif data.targetTabKey == "DECOR_PROMO" then
+                -- Reset first so the landing view is a clean "just promo items",
+                -- not an intersection with any stale search text / other filters
+                -- left active on the Decor tab. Then enable promo-only and switch
+                -- tabs — SelectTab fires TAB_CHANGED synchronously which triggers
+                -- RunSearchNow, and by that point showPromoOnly is already true.
+                addon.Filters:ResetAllFilters()
+                addon.Filters:SetPromoOnly(true)
+                addon.Tabs:SelectTab("DECOR")
+                addon.Filters:SaveState()
             end
         end, xOffset)
         yOffset = yOffset - ROW_SPACING

@@ -492,8 +492,15 @@ function Preview:UpdateDetails(record)
     end
 
     -- Source (hyperlink-enabled container handles tooltips automatically)
+    local isPromo = addon:IsPromoDecor(record.recordID)
     if record.sourceText and record.sourceText ~= "" then
-        self.detailsSource:SetText(record.sourceText)
+        if isPromo then
+            self.detailsSource:SetText(record.sourceText .. " — " .. addon.L["SOURCE_PROMOTIONAL"])
+        else
+            self.detailsSource:SetText(record.sourceText)
+        end
+    elseif isPromo then
+        self.detailsSource:SetText(addon.L["SOURCE_PROMOTIONAL"])
     else
         self.detailsSource:SetText(addon.L["DETAILS_SOURCE_UNKNOWN"])
     end

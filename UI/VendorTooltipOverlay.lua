@@ -21,11 +21,13 @@ local function OnTooltipUnit(tooltip)
     -- Early-out if setting disabled
     if not addon.db or not addon.db.settings or not addon.db.settings.showVendorTooltips then return end
 
-    local name, unit, guid = tooltip:GetUnit()
-    if not name or not unit or not guid then return end
-
-    -- Guard against secret values (WoW 12.0+ restricted unit identity)
-    if issecretvalue(guid) then return end
+    -- Avoid tooltip:GetUnit() / TooltipUtil.GetDisplayedUnit — it calls UnitName(unit) on a
+    -- secret unit token, which is disallowed under the addon-tainted PostCall dispatch.
+    if not tooltip:IsTooltipType(Enum.TooltipDataType.Unit) then return end
+    local tooltipData = tooltip:GetPrimaryTooltipData()
+    if not tooltipData then return end
+    local guid = tooltipData.guid
+    if not guid or issecretvalue(guid) then return end
 
     -- Fast prefix check: skip players, pets, battle pets, etc.
     if guid:sub(1, 9) ~= "Creature-" then return end

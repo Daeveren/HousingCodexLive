@@ -94,6 +94,28 @@ function addon:GetProgressBySourceType()
         targetTabKey = "VENDORS",
     })
 
+    -- Promotional (rotating / event-gated vendor stock)
+    if self.PromotionalDecorIds and next(self.PromotionalDecorIds) then
+        local pOwned, pTotal = 0, 0
+        for recordID in pairs(self.PromotionalDecorIds) do
+            local record = self:GetRecord(recordID)
+            if record then
+                pTotal = pTotal + 1
+                if record.isCollected then pOwned = pOwned + 1 end
+            end
+        end
+        if pTotal > 0 then
+            table.insert(result, {
+                key = "PROMOTIONAL",
+                labelKey = "PROGRESS_SOURCE_PROMOTIONAL",
+                owned = pOwned,
+                total = pTotal,
+                percent = pOwned / pTotal * 100,
+                targetTabKey = "DECOR_PROMO",
+            })
+        end
+    end
+
     -- Quests
     local qOwned, qTotal = 0, 0
     for expansionKey in pairs(self.questHierarchy) do

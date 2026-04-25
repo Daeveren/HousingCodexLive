@@ -1140,7 +1140,8 @@ local function CreateEndeavorsFrame()
         local level = data:GetHouseLevel()
         GameTooltip:SetOwner(self, "ANCHOR_NONE")
         GameTooltip:SetPoint("LEFT", self, "RIGHT", 15, 0)
-        GameTooltip:AddLine(L["ENDEAVORS_XP_TOOLTIP_TITLE"], 1, 0.82, 0)
+        local xpIcon = CreateAtlasMarkup("housing-dashboard-icon-xp", 16, 16)
+        GameTooltip:AddLine(xpIcon .. " " .. L["ENDEAVORS_XP_TOOLTIP_TITLE"], 1, 0.82, 0)
         if data:IsMaxLevel() then
             GameTooltip:AddLine(string.format(L["ENDEAVORS_XP_TOOLTIP_LEVEL_MAX"], level), 1, 1, 1)
         else
@@ -1153,6 +1154,11 @@ local function CreateEndeavorsFrame()
                 GameTooltip:AddLine(string.format(L["ENDEAVORS_XP_TOOLTIP_PROGRESS"],
                     BreakUpLargeNumbers(totalFavor), BreakUpLargeNumbers(totalFavorNeeded), pct), 0.7, 0.7, 0.7)
             end
+        end
+        local availableXP = math.floor(data:GetAvailableHouseXP())
+        if availableXP > 0 then
+            GameTooltip:AddLine(string.format(L["ENDEAVORS_XP_TOOLTIP_AVAILABLE"],
+                BreakUpLargeNumbers(availableXP)), 0.5, 1, 0.5)
         end
         GameTooltip:AddLine(" ")
         GameTooltip:AddLine(L["ENDEAVORS_XP_TOOLTIP_CLICK"], 0.5, 0.8, 1)

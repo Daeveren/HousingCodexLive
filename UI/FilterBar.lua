@@ -101,6 +101,16 @@ function FilterBar:SetupMenu(rootDescription)
         end
     )
 
+    -- Promo-only filter (post-search filter via addon.Filters)
+    rootDescription:CreateCheckbox(
+        L["FILTER_PROMO_ONLY"],
+        function() return addon.Filters.showPromoOnly end,
+        function()
+            addon.Filters:SetPromoOnly(not addon.Filters.showPromoOnly)
+            addon.Filters:SaveState()
+        end
+    )
+
     -- NOTE: "Placed in House" filter disabled — Blizzard API returns numPlaced=0
     -- for all items (bug in GetCatalogEntryInfo). Re-enable when Blizzard fixes.
 
@@ -197,6 +207,9 @@ function FilterBar:ResetToDefault()
 
         -- Reset wishlist-only filter (post-search filter)
         addon.Filters:SetWishlistOnly(false)
+
+        -- Reset promo-only filter (post-search filter)
+        addon.Filters:SetPromoOnly(false)
 
         -- Reset trackable filter (post-search filter)
         addon.Filters:SetTrackableState("all")

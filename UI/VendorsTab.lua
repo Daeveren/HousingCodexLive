@@ -1305,6 +1305,17 @@ local function VendorMatchesSearch(vendorData, searchText, zoneName, expansionKe
         end
     end
 
+    -- "promo" / "promotional" keyword surfaces vendors that carry rotating
+    -- promo stock (Diablo/Fanta/Pinterest collabs, holiday items). Parallels
+    -- the Decor-tab word-index injection at Core/Index.lua BuildWordIndex.
+    if not result and (searchText == "promo" or searchText == "promotional") then
+        local promoStock = addon.VendorPromotionalDecorIds
+            and addon.VendorPromotionalDecorIds[vendorData.npcId]
+        if promoStock and next(promoStock) then
+            result = true
+        end
+    end
+
     if searchCache then searchCache[cacheKey] = result end
     return result
 end

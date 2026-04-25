@@ -404,6 +404,11 @@ function WishlistFrame:CreateGrid()
             tile.wishlistStar:Show()
         end
 
+        -- Promo badge
+        if tile.promoBadge then
+            tile.promoBadge:SetShown(addon:IsPromoDecor(recordID))
+        end
+
         -- Selection state
         if self.selectedRecordID == recordID then
             tile:SetBackdropBorderColor(unpack(COLORS.GOLD))

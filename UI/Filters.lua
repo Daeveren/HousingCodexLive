@@ -14,6 +14,7 @@ Filters.showUncollected = true
 Filters.trackableState = "all"   -- "all", "trackable", "not_trackable"
 Filters.showWishlistOnly = false
 Filters.showPlacedOnly = false
+Filters.showPromoOnly = false
 Filters.initialized = false
 
 -- Valid states for trackable filter
@@ -46,6 +47,7 @@ function Filters:Initialize()
         self.trackableState = filters.trackableState or "all"
         self.showWishlistOnly = filters.showWishlistOnly or false
         self.showPlacedOnly = filters.showPlacedOnly or false
+        self.showPromoOnly = filters.showPromoOnly or false
     end
 
     self.initialized = true
@@ -180,6 +182,28 @@ function Filters:PassesPlacedFilter(record)
     return record.numPlaced and record.numPlaced > 0
 end
 
+--------------------------------------------------------------------------------
+-- Promo Filter
+--------------------------------------------------------------------------------
+
+function Filters:SetPromoOnly(enabled)
+    self.showPromoOnly = enabled
+
+    if addon.db and addon.db.browser then
+        addon.db.browser.filters = addon.db.browser.filters or {}
+        addon.db.browser.filters.showPromoOnly = enabled
+    end
+
+    addon:FireEvent("FILTER_CHANGED")
+
+    addon:Debug("Promo-only filter set to: " .. tostring(enabled))
+end
+
+function Filters:PassesPromoFilter(record)
+    if not self.showPromoOnly then return true end
+    return record ~= nil and addon:IsPromoDecor(record.recordID)
+end
+
 -- Returns true if id exists in a numerically-indexed list
 local function ContainsID(list, id)
     for _, v in ipairs(list) do
@@ -272,6 +296,7 @@ function Filters:SaveState()
     db.trackableState = self.trackableState
     db.showWishlistOnly = self.showWishlistOnly
     db.showPlacedOnly = self.showPlacedOnly
+    db.showPromoOnly = self.showPromoOnly
 
     -- Save searcher-based filters
     local searcher = addon.catalogSearcher
@@ -336,6 +361,9 @@ function Filters:RestoreState()
         -- Restore placed-only filter
         self.showPlacedOnly = db.showPlacedOnly or false
 
+        -- Restore promo-only filter
+        self.showPromoOnly = db.showPromoOnly or false
+
         -- Restore searcher-based filters
         if searcher then
             -- Restore sort type (only native sorts go to catalogSearcher)
@@ -396,6 +424,9 @@ function Filters:ResetAllFilters()
 
         -- Reset placed-only filter
         self:SetPlacedOnly(false)
+
+        -- Reset promo-only filter
+        self:SetPromoOnly(false)
 
         -- Reset category/subcategory filters
         if addon.Categories then

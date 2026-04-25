@@ -384,6 +384,17 @@ function EndeavorsData:IsInitiativeEnabled()
     return C_NeighborhoodInitiative.IsInitiativeEnabled()
 end
 
+-- Claimable house XP pool from completed Neighborhood Initiatives.
+-- Separate from the cumulative house-level favor driving the XP bar —
+-- this mirrors Blizzard's HouseXPCapIconMixin "House XP Available" tooltip.
+function EndeavorsData:GetAvailableHouseXP()
+    local fn = C_NeighborhoodInitiative and C_NeighborhoodInitiative.GetAvailableHouseXP
+    if not fn then return 0 end
+    local ok, value = pcall(fn)
+    if not ok or type(value) ~= "number" then return 0 end
+    return value
+end
+
 -- Returns active session tasks sorted by most recent change
 -- Active = delta > 0, not completed, age < TASK_FADE_TIMEOUT
 function EndeavorsData:GetActiveTasks()

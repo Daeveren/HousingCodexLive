@@ -273,7 +273,8 @@ function addon:GetLocalizedNPCName(npcID, fallbackName)
     if not ok or not (tooltipData and tooltipData.lines) then return fallbackName end
 
     local name = tooltipData.lines[1] and tooltipData.lines[1].leftText
-    if not name or name == "" or name == RETRIEVING_DATA then
+    -- When called under addon taint, leftText can be a secret string; comparing it throws.
+    if not name or issecretvalue(name) or name == "" or name == RETRIEVING_DATA then
         return fallbackName
     end
 

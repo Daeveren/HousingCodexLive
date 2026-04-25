@@ -139,6 +139,9 @@ function addon:BuildVendorIndex()
     self.vendorMapVendorsByMapID = nil
     self:InvalidateVendorPinCache()
 
+    self.PromotionalDecorIds = self.PromotionalDecorIds or {}
+    wipe(self.PromotionalDecorIds)
+
     local vendorCount, decorCount = 0, 0
 
     for sourceExpansionKey, zones in pairs(self.VendorSourceData) do
@@ -260,11 +263,40 @@ function addon:BuildVendorIndex()
         end
     end
 
+    -- Flat promo-decor set: decorId -> true when any vendor sells it as promo stock.
+    -- Sidecar to VendorPromotionalDecorIds[npcId][decorId]; consumers that don't care
+    -- which vendor sells it (filter, tile badge, preview, progress row, search) query
+    -- this set via addon:IsPromoDecor(recordID).
+    for _, decorSet in pairs(addon.VendorPromotionalDecorIds or {}) do
+        for decorId in pairs(decorSet) do
+            self.PromotionalDecorIds[decorId] = true
+        end
+    end
+
+    -- Pre-resolve promo items into fallbackRecords so the Decor tab's vendor
+    -- NPC-name search, Promo-only filter augmentation, and Progress "Promotional"
+    -- row all surface them even while off-rotation and hidden from the native
+    -- catalog searcher. ResolveRecord hits the C_HousingCatalog API once per
+    -- decorId then caches; re-entry via /hc retry is free. Invalidate the word
+    -- index afterwards so the next search picks up the newly resolved name and
+    -- sourceText tokens. (cachedAllRecordIDs is cleared per-resolve inside
+    -- ResolveRecord itself.)
+    for decorId in pairs(self.PromotionalDecorIds) do
+        self:ResolveRecord(decorId)
+    end
+    self.byWordIndexBuilt = false
+
     self.vendorIndexBuilt = true
     self:InvalidateProgressCache()
 
     self:Debug(string.format("Built vendor index: %d vendors, %d decor items in %d ms",
         vendorCount, decorCount, math.floor(debugprofilestop() - startTime)))
+end
+
+function addon:IsPromoDecor(recordID)
+    return recordID ~= nil
+        and self.PromotionalDecorIds ~= nil
+        and self.PromotionalDecorIds[recordID] == true
 end
 
 function addon:GetSortedVendorExpansions()

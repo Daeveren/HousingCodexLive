@@ -873,6 +873,15 @@ function addon:SetupTileFrame(tile, tileSize, onLeaveCallback)
     wishlistStar:Hide()
     tile.wishlistStar = wishlistStar
 
+    -- Promo badge (bottom-left corner, orange text, no background)
+    local promoBadge = self:CreateFontString(tile, "OVERLAY", "GameFontHighlight")
+    promoBadge:SetPoint("BOTTOMLEFT", 4, 3)
+    promoBadge:SetTextColor(1.0, 0.6, 0.2, 1.0)
+    self:SetFontSize(promoBadge, 11, "OUTLINE")
+    promoBadge:SetText(addon.L["TILE_BADGE_PROMO"])
+    promoBadge:Hide()
+    tile.promoBadge = promoBadge
+
     -- OnLeave handler (OnEnter is set per-element in initializer)
     tile:SetScript("OnLeave", function(t)
         if onLeaveCallback then

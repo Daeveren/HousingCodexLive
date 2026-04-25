@@ -2,6 +2,19 @@
 
 All notable changes to Housing Codex.
 
+**2.5.0** (2026-04-25)
+
+**Added**
+- New "Promo only" filter in the Decor tab for rotating and event-gated items
+- Orange "PROMO" badge on tiles plus a "Promotional" row in the Progress tab
+- Type "promo" or "promotional" in any search box to find promotional items
+- New "Available: X" line in the XP tooltip showing claimable house XP from Initiatives
+- Updated decor vendor data — added many new vendors and item-to-vendor links
+
+**Fixed**
+- Resolved taint errors when mousing over decor vendors or typing in the Vendors tab search
+- Vendor-name searches now work for names with quotes, apostrophes, or hyphens
+
 **2.4.0** (2026-04-23)
 
 **Changed**

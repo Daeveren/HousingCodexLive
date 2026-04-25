@@ -115,6 +115,9 @@ local function TileOnEnter(self)
     if rec.sourceText and rec.sourceText ~= "" then
         GameTooltip:AddLine(rec.sourceText, 0.8, 0.8, 0.8, true)
     end
+    if addon:IsPromoDecor(self.recordID) then
+        GameTooltip:AddLine(addon.L["TOOLTIP_PROMO_DECOR"], 1.0, 0.6, 0.2)
+    end
     if rec.totalOwned and rec.totalOwned > 0 then
         GameTooltip:AddLine(string.format(addon.L["DETAILS_OWNED"], rec.totalOwned), unpack(COLOR_COLLECTED))
     end
@@ -458,6 +461,11 @@ function Grid:CreateScrollBox(parent, tileSize)
             tile.wishlistStar:SetShown(addon:IsWishlisted(recordID))
         end
 
+        -- Promo badge
+        if tile.promoBadge then
+            tile.promoBadge:SetShown(addon:IsPromoDecor(recordID))
+        end
+
         -- Selection state
         if Grid.selectedRecordID == recordID then
             tile:SetBackdropBorderColor(unpack(COLORS.GOLD))
@@ -553,7 +561,9 @@ function Grid:UpdateResultCount()
     -- Delegate to Categories module for sidebar display
     if addon.Categories then
         local shown = #self.currentRecordIDs
-        local total = #self.unfilteredRecordIDs
+        -- candidateCount reflects augmented total under Promo-only; falls back
+        -- to unfilteredRecordIDs (the pure searcher input) in all other cases.
+        local total = self.candidateCount or #self.unfilteredRecordIDs
         addon.Categories:UpdateResultCount(shown, total)
     end
 end
@@ -630,6 +640,7 @@ function Grid:ApplyPostSearchFilters(recordIDs)
             and addon.Filters:PassesTrackableFilter(record)
             and addon.Filters:PassesWishlistFilter(record)
             and addon.Filters:PassesPlacedFilter(record)
+            and addon.Filters:PassesPromoFilter(record)
         then
             table.insert(filtered, recordID)
         end
@@ -666,7 +677,42 @@ function Grid:SetData(recordIDs)
     -- Store unfiltered IDs for re-filtering
     self.unfilteredRecordIDs = recordIDs or {}
 
-    if not recordIDs or #recordIDs == 0 then
+    -- Under Promo-only with no typed search and advanced filters at default,
+    -- augment the candidate set with all promotional decorIDs. The native
+    -- searcher omits off-rotation promo items (catalog-hidden until their next
+    -- cycle), so without this the filter returns zero whenever no promo is
+    -- currently live. Items are pre-resolved into fallbackRecords by
+    -- BuildVendorIndex. Augmented IDs must pass PassesSearcherFilters — they
+    -- bypassed the upstream searcher's collection-state / category screen. When
+    -- a search IS active, the word index already surfaces matching promo items
+    -- via the upstream MergeResults path. When advanced filters (First
+    -- Acquisition, tag filters) are non-default, skip augmentation: our local
+    -- PassesSearcherFilters doesn't replicate those searcher-side rules, so
+    -- augmented IDs would bypass the user's narrowed scope.
+    local candidates = self.unfilteredRecordIDs
+    local searchText = strtrim(addon.SearchBox and addon.SearchBox:GetText() or "")
+    if addon.Filters.showPromoOnly and addon.PromotionalDecorIds and searchText == ""
+       and addon.Filters:AreAdvancedFiltersAtDefault() then
+        local seen = {}
+        local merged = {}
+        for _, id in ipairs(candidates) do
+            seen[id] = true
+            merged[#merged + 1] = id
+        end
+        for promoId in pairs(addon.PromotionalDecorIds) do
+            if not seen[promoId] then
+                local record = addon:GetRecord(promoId)
+                if record and addon.Filters:PassesSearcherFilters(record) then
+                    seen[promoId] = true
+                    merged[#merged + 1] = promoId
+                end
+            end
+        end
+        candidates = merged
+    end
+    self.candidateCount = #candidates
+
+    if #candidates == 0 then
         self.currentRecordIDs = {}
         self.dataProvider:Flush()
         self:UpdateResultCount()
@@ -683,7 +729,7 @@ function Grid:SetData(recordIDs)
 
     if needsSort then
         -- Sort active: filter first, sort, then wrap (sort needs raw ID array)
-        filteredIDs = self:ApplyPostSearchFilters(recordIDs)
+        filteredIDs = self:ApplyPostSearchFilters(candidates)
         filteredIDs = self:ApplyClientSideSort(filteredIDs, sortType)
         elements = {}
         for _, recordID in ipairs(filteredIDs) do
@@ -693,12 +739,13 @@ function Grid:SetData(recordIDs)
         -- No sort: merge filter + wrap into one pass (saves one O(N) iteration)
         filteredIDs = {}
         elements = {}
-        for _, recordID in ipairs(recordIDs) do
+        for _, recordID in ipairs(candidates) do
             local record = addon:GetRecord(recordID)
             if record
                 and addon.Filters:PassesTrackableFilter(record)
                 and addon.Filters:PassesWishlistFilter(record)
                 and addon.Filters:PassesPlacedFilter(record)
+                and addon.Filters:PassesPromoFilter(record)
             then
                 filteredIDs[#filteredIDs + 1] = recordID
                 elements[#elements + 1] = { recordID = recordID }
@@ -718,14 +765,15 @@ function Grid:SetData(recordIDs)
     self:UpdateResultCount()
     self:UpdateEmptyState()
 
-    addon:Debug("Grid populated with " .. #filteredIDs .. " items (from " .. #recordIDs .. " search results)")
+    addon:Debug("Grid populated with " .. #filteredIDs .. " items (from " .. #candidates .. " candidates)")
 end
 
 function Grid:ReapplyFilters()
-    -- Re-apply post-search filters to the current unfiltered data
-    if self.unfilteredRecordIDs and #self.unfilteredRecordIDs > 0 then
-        self:SetData(self.unfilteredRecordIDs)
-    end
+    -- Re-apply post-search filters. Always call SetData (empty input is a no-op
+    -- via the #candidates == 0 guard); removing the prior short-circuit lets the
+    -- Promo-only augmentation run even when the searcher hasn't delivered
+    -- results yet (e.g., SavedVar-restored filter toggles before first load).
+    self:SetData(self.unfilteredRecordIDs or {})
 end
 
 function Grid:SelectRecord(recordID)
@@ -871,8 +919,14 @@ addon:RegisterInternalEvent("SEARCH_RESULTS_UPDATED", function(recordIDs)
     -- valid native position anyway (Blizzard's searcher omits them), so appending
     -- them is strictly additive — the alternative is invisibility.
     -- Client sorts (sortType >= 100) get a post-merge re-sort in Grid:SetData.
+    -- Allow apostrophes/double-quotes/hyphens through the guard so vendor-name
+    -- searches like `"Len" Splinthoof` or `Maru'sa` still take the word-index
+    -- branch. `BuildWordIndex` tokenizes via `%w+` (Core/Index.lua:75), which
+    -- strips that punctuation during indexing — so the index already contains
+    -- the bare `len`/`splinthoof`/`marusa` tokens; this guard just stopped
+    -- queries containing those characters from reaching SearchByText at all.
     local searchText = strtrim(addon.SearchBox and addon.SearchBox:GetText() or "")
-    if #searchText >= 3 and not string.find(searchText, "[^%w%s]") and addon.indexesBuilt
+    if #searchText >= 3 and not string.find(searchText, "[^%w%s'\"%-]") and addon.indexesBuilt
        and addon.Filters:AreAdvancedFiltersAtDefault()
        and not IS_CJK_LOCALE then
         if not addon.byWordIndexBuilt then

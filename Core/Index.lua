@@ -71,23 +71,26 @@ function addon:BuildWordIndex()
 
     wipe(self.indexes.byWord)
 
+    local function TokenizeIntoIndex(text, recordID)
+        for word in string.gmatch(text, "%w+") do
+            if #word >= 2 then
+                AddToIndex(self.indexes.byWord, word, recordID)
+            end
+        end
+    end
+
     local function IndexRecord(recordID, record)
         if record.name then
-            local nameLower = string.lower(record.name)
-            for word in string.gmatch(nameLower, "%w+") do
-                if #word >= 2 then  -- Skip single-letter words
-                    AddToIndex(self.indexes.byWord, word, recordID)
-                end
-            end
+            TokenizeIntoIndex(string.lower(record.name), recordID)
         end
 
         if record.sourceText and record.sourceText ~= "" then
-            local lower = string.lower(StripSourceMarkup(record.sourceText))
-            for word in string.gmatch(lower, "%w+") do
-                if #word >= 2 then
-                    AddToIndex(self.indexes.byWord, word, recordID)
-                end
-            end
+            TokenizeIntoIndex(string.lower(StripSourceMarkup(record.sourceText)), recordID)
+        end
+
+        if addon:IsPromoDecor(recordID) then
+            AddToIndex(self.indexes.byWord, "promo", recordID)
+            AddToIndex(self.indexes.byWord, "promotional", recordID)
         end
     end
 
@@ -100,6 +103,22 @@ function addon:BuildWordIndex()
     for recordID, record in pairs(self.fallbackRecords) do
         if record ~= false then
             IndexRecord(recordID, record)
+        end
+    end
+
+    -- Vendor NPC name tokens: typing a vendor name in Decor search surfaces every
+    -- decor they sell (not just items whose sourceText happens to name them).
+    -- VendorIndex registers an eager DATA_LOADED handler that builds the vendor
+    -- index and invalidates byWordIndexBuilt, so the flag is always set by the
+    -- time BuildWordIndex runs — whether on first load or /hc retry.
+    if self.vendorIndexBuilt then
+        for _, vendorEntry in pairs(self.vendorIndex) do
+            if vendorEntry.npcName and vendorEntry.decorIds then
+                local nameLower = string.lower(vendorEntry.npcName)
+                for _, decorId in ipairs(vendorEntry.decorIds) do
+                    TokenizeIntoIndex(nameLower, decorId)
+                end
+            end
         end
     end
 

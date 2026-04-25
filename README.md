@@ -27,7 +27,7 @@ A World of Warcraft addon that gives you a better way to browse, track, and coll
 
 ### In-World Integration
 
-- **Vendor Map Pins** - Vendor locations shown directly on the world map with tooltip progress and uncollected item hints
+- **Vendor Map Pins** - Vendor locations shown directly on the world map with tooltip progress, promotional-stock split, and uncollected item hints
 - **Zone Overlay** - World map overlay showing uncollected decor in the current zone, grouped by source with 3D preview on hover
 - **Endeavors Panel** - Floating panel in neighborhood zones showing house level, XP, endeavor progress, and recent task completions
 - **Merchant Overlay** - Marks housing decor at any vendor with an HC icon and green checkmark for owned items
