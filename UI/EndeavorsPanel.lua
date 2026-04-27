@@ -12,6 +12,7 @@ addon.EndeavorsPanel = EP
 local CONST = addon.CONSTANTS.ENDEAVORS
 local COLORS = addon.CONSTANTS.COLORS
 local L = addon.L
+local COLOR_COMPLETION_COUNT = CreateColor(0.55, 0.82, 1, 1)
 
 -- Scale factor tables
 local SCALE_FACTORS = { small = 1.0, normal = 1.25, big = 1.5 }
@@ -82,10 +83,22 @@ local contentBackdropTopOffset = 0  -- 0 = flush with frame top, negative = slid
 -- Post-combat retry state
 local combatDeferFrame = CreateFrame("Frame")
 local pendingCombatShow = false
+local pendingConfigShow = false
+local pendingConfigAnchor = nil
 combatDeferFrame:SetScript("OnEvent", function(self)
     self:UnregisterEvent("PLAYER_REGEN_ENABLED")
+    local shouldShowPanel = pendingCombatShow
+    local shouldShowConfig = pendingConfigShow
+    local configAnchor = pendingConfigAnchor
     pendingCombatShow = false
-    EP:TryShow()
+    pendingConfigShow = false
+    pendingConfigAnchor = nil
+    if shouldShowPanel then
+        EP:TryShow()
+    end
+    if shouldShowConfig then
+        EP:ToggleConfig(configAnchor)
+    end
 end)
 
 -- Shared backdrop for all panel frames
@@ -453,6 +466,125 @@ end
 -- Task Row Pool
 --------------------------------------------------------------------------------
 
+local function IsRepeatableTask(taskType)
+    local taskTypes = Enum and Enum.NeighborhoodInitiativeTaskType
+    return taskTypes and (taskType == taskTypes.RepeatableFinite or taskType == taskTypes.RepeatableInfinite)
+end
+
+local function GetLatestTaskInfo(taskData)
+    local taskID = taskData and taskData.taskID
+    if not (taskID and C_NeighborhoodInitiative and C_NeighborhoodInitiative.GetInitiativeTaskInfo) then
+        return nil
+    end
+
+    local ok, info = pcall(C_NeighborhoodInitiative.GetInitiativeTaskInfo, taskID)
+    if ok and type(info) == "table" then
+        return info
+    end
+    return nil
+end
+
+local function GetTaskField(taskInfo, taskData, key)
+    if taskInfo and taskInfo[key] ~= nil then
+        return taskInfo[key]
+    end
+    return taskData and taskData[key]
+end
+
+local function GetCompletionCount(taskInfo, taskData)
+    local count = tonumber(GetTaskField(taskInfo, taskData, "timesCompleted")) or 0
+    local taskID = GetTaskField(taskInfo, taskData, "ID") or (taskData and taskData.taskID)
+    local taskName = GetTaskField(taskInfo, taskData, "taskName") or (taskData and taskData.taskName)
+    if addon.EndeavorsData and addon.EndeavorsData.GetTaskCompletionCount then
+        local resolvedCount, found = addon.EndeavorsData:GetTaskCompletionCount(taskID, taskName)
+        if found then
+            return resolvedCount
+        end
+    end
+    return count
+end
+
+local function AddTaskTooltipLines(taskData)
+    local taskInfo = GetLatestTaskInfo(taskData)
+    local taskID = GetTaskField(taskInfo, taskData, "ID") or (taskData and taskData.taskID)
+    local taskName = GetTaskField(taskInfo, taskData, "taskName") or ""
+    local taskType = GetTaskField(taskInfo, taskData, "taskType")
+    local timesCompleted = GetCompletionCount(taskInfo, taskData)
+    local description = GetTaskField(taskInfo, taskData, "description")
+    local requirementsList = GetTaskField(taskInfo, taskData, "requirementsList")
+    local rewardQuestID = tonumber(GetTaskField(taskInfo, taskData, "rewardQuestID")) or 0
+    local completed = GetTaskField(taskInfo, taskData, "completed")
+    local tracked = GetTaskField(taskInfo, taskData, "tracked")
+    local isRepeatable = IsRepeatableTask(taskType)
+
+    GameTooltip_SetTitle(GameTooltip, taskName, NORMAL_FONT_COLOR)
+
+    if isRepeatable and HOUSING_ENDEAVOR_REPEATABLE_TASK then
+        GameTooltip_AddNormalLine(GameTooltip, HOUSING_ENDEAVOR_REPEATABLE_TASK)
+    end
+
+    if isRepeatable then
+        GameTooltip_AddColoredLine(GameTooltip, string.format(L["ENDEAVORS_COMPLETED_TIMES"], timesCompleted), COLOR_COMPLETION_COUNT)
+    end
+
+    GameTooltip_AddBlankLineToTooltip(GameTooltip)
+
+    if type(description) == "string" and #description > 0 then
+        GameTooltip_AddHighlightLine(GameTooltip, description)
+        GameTooltip_AddBlankLineToTooltip(GameTooltip)
+    end
+
+    if requirementsList and #requirementsList > 0 then
+        for _, requirement in ipairs(requirementsList) do
+            local tooltipLine = requirement.requirementText
+            if tooltipLine then
+                tooltipLine = string.gsub(tooltipLine, " / ", "/")
+                local color = not requirement.completed and WHITE_FONT_COLOR or DISABLED_FONT_COLOR
+                GameTooltip_AddColoredLine(GameTooltip, tooltipLine, color)
+            end
+        end
+    elseif taskData and taskData.current and taskData.max then
+        GameTooltip_AddColoredLine(GameTooltip, string.format("%d/%d", taskData.current, taskData.max), WHITE_FONT_COLOR)
+    end
+
+    if rewardQuestID > 0 then
+        GameTooltip_AddBlankLineToTooltip(GameTooltip)
+        GameTooltip_AddQuestRewardsToTooltip(GameTooltip, rewardQuestID, TOOLTIP_QUEST_REWARDS_STYLE_INITIATIVE_TASK)
+    end
+
+    if taskID and not completed then
+        local instruction = tracked and MONTHLY_ACTIVITIES_UNTRACK or MONTHLY_ACTIVITIES_TRACK
+        if instruction then
+            GameTooltip_AddBlankLineToTooltip(GameTooltip)
+            GameTooltip_AddInstructionLine(GameTooltip, instruction)
+        end
+    end
+end
+
+local function ShowTaskTooltip(row)
+    local data = row.taskData
+    if not data then return end
+
+    GameTooltip:SetOwner(row, "ANCHOR_RIGHT")
+    AddTaskTooltipLines(data)
+    GameTooltip:Show()
+end
+
+local function ToggleTaskTracking(taskData)
+    local taskInfo = GetLatestTaskInfo(taskData)
+    local taskID = GetTaskField(taskInfo, taskData, "ID") or (taskData and taskData.taskID)
+    if not taskID or GetTaskField(taskInfo, taskData, "completed") then return end
+    if not (C_NeighborhoodInitiative and C_NeighborhoodInitiative.AddTrackedInitiativeTask and C_NeighborhoodInitiative.RemoveTrackedInitiativeTask) then return end
+
+    local fn = GetTaskField(taskInfo, taskData, "tracked")
+        and C_NeighborhoodInitiative.RemoveTrackedInitiativeTask
+        or C_NeighborhoodInitiative.AddTrackedInitiativeTask
+    local ok = pcall(fn, taskID)
+    if ok then
+        PlaySound(SOUNDKIT.IG_MAINMENU_OPTION_CHECKBOX_ON)
+    end
+end
+
 local function CreateTaskRow(parent, index)
     local row = CreateFrame("Frame", nil, parent)
     row:SetHeight(S(CONST.TASK_ROW_HEIGHT))
@@ -477,27 +609,15 @@ local function CreateTaskRow(parent, index)
 
     -- Tooltip on hover
     row:EnableMouse(true)
-    row:SetScript("OnEnter", function(self)
-        local data = self.taskData
-        if not data then return end
-
-        GameTooltip:SetOwner(self, "ANCHOR_NONE")
-        GameTooltip:SetPoint("LEFT", self, "RIGHT", 15, 0)
-        GameTooltip:AddLine(data.taskName or "", 1, 0.82, 0)
-
-        if data.timesCompleted and data.timesCompleted > 0 then
-            GameTooltip:AddLine(string.format(L["ENDEAVORS_COMPLETED_TIMES"], data.timesCompleted), 1, 1, 1)
-        end
-
-        if data.rewardQuestID and data.rewardQuestID > 0 then
-            GameTooltip:AddLine(" ")
-            GameTooltip_AddQuestRewardsToTooltip(GameTooltip, data.rewardQuestID, TOOLTIP_QUEST_REWARDS_STYLE_INITIATIVE_TASK)
-        end
-
-        GameTooltip:Show()
-    end)
+    row:SetScript("OnEnter", ShowTaskTooltip)
     row:SetScript("OnLeave", function()
         GameTooltip:Hide()
+    end)
+    row:SetScript("OnMouseUp", function(self, button)
+        if button == "LeftButton" and IsModifiedClick("QUESTWATCHTOGGLE") then
+            ToggleTaskTracking(self.taskData)
+            ShowTaskTooltip(self)
+        end
     end)
 
     row:Hide()
@@ -600,8 +720,7 @@ local function ShowEndeavorTooltip(self)
     local info = data:GetInitiativeInfo()
     if not info then return end
 
-    GameTooltip:SetOwner(self, "ANCHOR_NONE")
-    GameTooltip:SetPoint("LEFT", self, "RIGHT", 15, 0)
+    GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
     GameTooltip:AddLine(info.title or L["ENDEAVORS_TITLE"], 1, 0.82, 0)
 
     if info.description then
@@ -932,14 +1051,22 @@ local function CreateConfigFrame()
 end
 
 function EP:ToggleConfig(anchorFrame)
-    local cf = CreateConfigFrame()
-    if cf:IsShown() then
-        cf:Hide()
+    if configFrame and configFrame:IsShown() then
+        configFrame:Hide()
         return
     end
 
+    if InCombatLockdown() then
+        pendingConfigShow = true
+        pendingConfigAnchor = anchorFrame
+        combatDeferFrame:RegisterEvent("PLAYER_REGEN_ENABLED")
+        addon:Print(L["COMBAT_LOCKDOWN_MESSAGE"])
+        return
+    end
+
+    local cf = CreateConfigFrame()
     cf:ClearAllPoints()
-    if anchorFrame then
+    if anchorFrame and anchorFrame:IsShown() then
         cf:SetPoint("TOPLEFT", anchorFrame, "BOTTOMRIGHT", 20, 0)
     else
         cf:SetPoint("CENTER")
@@ -1138,8 +1265,7 @@ local function CreateEndeavorsFrame()
         -- Tooltip with detailed House XP info
         local data = addon.EndeavorsData
         local level = data:GetHouseLevel()
-        GameTooltip:SetOwner(self, "ANCHOR_NONE")
-        GameTooltip:SetPoint("LEFT", self, "RIGHT", 15, 0)
+        GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
         local xpIcon = CreateAtlasMarkup("housing-dashboard-icon-xp", 16, 16)
         GameTooltip:AddLine(xpIcon .. " " .. L["ENDEAVORS_XP_TOOLTIP_TITLE"], 1, 0.82, 0)
         if data:IsMaxLevel() then
@@ -1674,8 +1800,10 @@ function EP:TryHide()
     end
 
     -- Cancel pending combat retry
-    if pendingCombatShow then
+    if pendingCombatShow or pendingConfigShow then
         pendingCombatShow = false
+        pendingConfigShow = false
+        pendingConfigAnchor = nil
         combatDeferFrame:UnregisterEvent("PLAYER_REGEN_ENABLED")
     end
 

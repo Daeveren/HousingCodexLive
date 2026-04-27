@@ -1,8 +1,8 @@
 --[[
     Housing Codex - ZoneOverlay.lua
     World map overlay panel showing uncollected decor items for the current zone
-    Parented to WorldMapFrame to inherit its strata and auto-hide with the map
-    Preview popout also parented to WorldMapFrame for consistent layering
+    Addon-owned UIParent frames anchored to the world map and visibility-mirrored
+    from WorldMapFrame.
 ]]
 
 local _, addon = ...
@@ -34,6 +34,43 @@ local COLLAPSED_HEIGHT = TITLE_BAR_HEIGHT - 6
 local TITLE_FONT_SIZE = 11
 local ITEM_FONT_SIZE = 10
 local BACKDROP_ALPHA_FACTOR = 0.95  -- Reduce backdrop alpha slightly vs user setting for visual separation
+
+-- UIParent-owned overlay frames do not inherit WorldMapFrame's scale. Compensate
+-- by scaling dimensions and offsets to match the old WorldMapFrame-child size.
+local mapScaleFactor = 1
+
+local function IsAccessibleScale(value)
+    return type(value) == "number" and value > 0 and not issecretvalue(value)
+end
+
+local function UpdateMapScaleFactor()
+    local nextScale = 1
+    if WorldMapFrame and UIParent then
+        local mapScale = WorldMapFrame:GetEffectiveScale()
+        local uiScale = UIParent:GetEffectiveScale()
+        if IsAccessibleScale(mapScale) and IsAccessibleScale(uiScale) then
+            nextScale = mapScale / uiScale
+        end
+    end
+
+    -- A wildly unexpected ratio means the scale read is not useful; preserve
+    -- usable defaults instead of producing an oversized or tiny overlay.
+    if nextScale < 0.5 or nextScale > 2.0 then
+        nextScale = 1
+    end
+
+    local changed = math.abs(nextScale - mapScaleFactor) > 0.001
+    mapScaleFactor = nextScale
+    return changed
+end
+
+local function S(value)
+    return math.floor((value or 0) * mapScaleFactor + 0.5)
+end
+
+local function SMin(value, minimum)
+    return math.max(minimum or 1, S(value))
+end
 
 -- Model scene constants (same as tile display)
 local MODEL_SCENE_ID = addon.CONSTANTS.MODEL_SCENE_ID
@@ -83,7 +120,11 @@ local CancelAnimation  -- forward declaration (called in OnHide, defined in Anim
 -- Helper: get preview size based on scale setting
 local function GetPreviewSize()
     local scale = addon.db and addon.db.settings.zoneOverlayPreviewScale or 1.0
-    return math.floor(PREVIEW_SIZE * scale)
+    return SMin(PREVIEW_SIZE * scale, 1)
+end
+
+local function GetPreviewIconSize(size)
+    return math.max(1, size - S(16))
 end
 
 -- Helper: place a map pin for a vendor NPC
@@ -117,10 +158,11 @@ end
 local function CreatePreviewFrame()
     if previewFrame then return end
 
+    UpdateMapScaleFactor()
     local size = GetPreviewSize()
-    previewFrame = CreateFrame("Frame", nil, WorldMapFrame, "BackdropTemplate")
+    previewFrame = CreateFrame("Frame", nil, UIParent, "BackdropTemplate")
     previewFrame:SetFrameStrata("TOOLTIP")
-    previewFrame:SetSize(size + 8, size + 8)
+    previewFrame:SetSize(size + S(8), size + S(8))
     previewFrame:SetBackdrop({
         bgFile = "Interface\\Buttons\\WHITE8x8",
         edgeFile = "Interface\\Tooltips\\UI-Tooltip-Border",
@@ -133,13 +175,15 @@ local function CreatePreviewFrame()
 
     -- Icon fallback (for items without models)
     local icon = previewFrame:CreateTexture(nil, "ARTWORK")
-    icon:SetSize(size - 16, size - 16)
+    local iconSize = GetPreviewIconSize(size)
+    icon:SetSize(iconSize, iconSize)
     icon:SetPoint("CENTER")
     icon:SetTexCoord(unpack(addon.CONSTANTS.ICON_CROP_COORDS))
     previewFrame.icon = icon
 end
 
 local function ShowPreview(itemRow, recordID)
+    UpdateMapScaleFactor()
     CreatePreviewFrame()
 
     local record = addon:GetRecord(recordID)
@@ -150,16 +194,17 @@ local function ShowPreview(itemRow, recordID)
 
     -- Apply current preview size
     local size = GetPreviewSize()
-    previewFrame:SetSize(size + 8, size + 8)
-    previewFrame.icon:SetSize(size - 16, size - 16)
+    previewFrame:SetSize(size + S(8), size + S(8))
+    local iconSize = GetPreviewIconSize(size)
+    previewFrame.icon:SetSize(iconSize, iconSize)
 
     -- Position beside the overlay panel
     previewFrame:ClearAllPoints()
     local db = addon.db
     if db and db.settings.zoneOverlayPosition == "bottomRight" then
-        previewFrame:SetPoint("BOTTOMRIGHT", frame, "BOTTOMLEFT", -4, 0)
+        previewFrame:SetPoint("BOTTOMRIGHT", frame, "BOTTOMLEFT", S(-4), 0)
     else
-        previewFrame:SetPoint("TOPLEFT", frame, "TOPRIGHT", 4, 0)
+        previewFrame:SetPoint("TOPLEFT", frame, "TOPRIGHT", S(4), 0)
     end
 
     -- Try 3D model first
@@ -167,8 +212,6 @@ local function ShowPreview(itemRow, recordID)
     if useModel then
         if not previewModelScene then
             previewModelScene = CreateFrame("ModelScene", nil, previewFrame, "NonInteractableModelSceneMixinTemplate")
-            previewModelScene:SetPoint("TOPLEFT", 4, -4)
-            previewModelScene:SetPoint("BOTTOMRIGHT", -4, 4)
             previewModelScene:TransitionToModelSceneID(MODEL_SCENE_ID,
                 addon.CONSTANTS.CAMERA.TRANSITION_IMMEDIATE,
                 addon.CONSTANTS.CAMERA.MODIFICATION_MAINTAIN, true)
@@ -184,6 +227,9 @@ local function ShowPreview(itemRow, recordID)
                 end
             end)
         end
+        previewModelScene:ClearAllPoints()
+        previewModelScene:SetPoint("TOPLEFT", S(4), S(-4))
+        previewModelScene:SetPoint("BOTTOMRIGHT", S(-4), S(4))
 
         local actor = previewModelScene:GetActorByTag("decor") or previewModelScene:GetActorByTag("item")
         if actor then
@@ -214,10 +260,74 @@ end
 --------------------------------------------------------------------------------
 -- Frame creation
 --------------------------------------------------------------------------------
+local function ApplyStaticScale()
+    if not frame then return end
+
+    if frame.titleBar then
+        frame.titleBar:SetHeight(S(TITLE_BAR_HEIGHT))
+    end
+    if frame.titleIcon then
+        frame.titleIcon:SetSize(SMin(16), SMin(16))
+        frame.titleIcon:ClearAllPoints()
+        frame.titleIcon:SetPoint("LEFT", S(8), 0)
+    end
+    if frame.titleText then
+        frame.titleText:ClearAllPoints()
+        frame.titleText:SetPoint("LEFT", frame.titleIcon, "RIGHT", S(6), 0)
+        frame.titleText:SetPoint("RIGHT", S(-28), 0)
+        addon:SetFontSize(frame.titleText, SMin(TITLE_FONT_SIZE), "")
+    end
+    if frame.toggleBtn then
+        frame.toggleBtn:SetSize(SMin(20), SMin(20))
+        frame.toggleBtn:ClearAllPoints()
+        frame.toggleBtn:SetPoint("RIGHT", S(-4), 0)
+    end
+    if frame.toggleArrow then
+        frame.toggleArrow:SetSize(SMin(12), SMin(12))
+        frame.toggleArrow:ClearAllPoints()
+        frame.toggleArrow:SetPoint("CENTER")
+    end
+    if frame.scrollBox then
+        frame.scrollBox:ClearAllPoints()
+        frame.scrollBox:SetPoint("TOPLEFT", 0, 0)
+        frame.scrollBox:SetPoint("BOTTOMRIGHT", S(-10), 0)
+    end
+    if frame.scrollBar and frame.scrollBox then
+        frame.scrollBar:ClearAllPoints()
+        frame.scrollBar:SetPoint("TOPLEFT", frame.scrollBox, "TOPRIGHT", S(-1), 0)
+        frame.scrollBar:SetPoint("BOTTOMLEFT", frame.scrollBox, "BOTTOMRIGHT", S(-1), 0)
+        local track = frame.scrollBar:GetTrack()
+        track:ClearAllPoints()
+        track:SetPoint("TOP", 0, 0)
+        track:SetPoint("BOTTOM", 0, S(5))
+    end
+end
+
+local function ApplyRowScale(row)
+    row.headerArrow:SetSize(SMin(10), SMin(10))
+    row.headerArrow:ClearAllPoints()
+    row.headerArrow:SetPoint("LEFT", S(PADDING), 0)
+
+    row.headerText:ClearAllPoints()
+    row.headerText:SetPoint("LEFT", row.headerArrow, "RIGHT", S(4), 0)
+    row.headerText:SetPoint("RIGHT", S(-PADDING), 0)
+    addon:SetFontSize(row.headerText, SMin(ITEM_FONT_SIZE), "")
+
+    row.icon:SetSize(SMin(ICON_SIZE), SMin(ICON_SIZE))
+    row.icon:ClearAllPoints()
+    row.icon:SetPoint("LEFT", S(4), 0)
+
+    row.name:ClearAllPoints()
+    row.name:SetPoint("LEFT", row.icon, "RIGHT", S(4), 0)
+    row.name:SetPoint("RIGHT", S(-4), 0)
+    addon:SetFontSize(row.name, SMin(ITEM_FONT_SIZE), "")
+end
+
 local function CreateOverlayFrame()
     if frame then return end
 
-    frame = CreateFrame("Frame", "HousingCodexZoneOverlayFrame", WorldMapFrame, "BackdropTemplate")
+    UpdateMapScaleFactor()
+    frame = CreateFrame("Frame", "HousingCodexZoneOverlayFrame", UIParent, "BackdropTemplate")
     frame:SetFrameStrata("TOOLTIP")
     frame:SetClampedToScreen(true)
     frame:SetClipsChildren(true)
@@ -324,7 +434,7 @@ local function CreateOverlayFrame()
 
     -- Mixed heights: headers vs items
     view:SetElementExtentCalculator(function(dataIndex, elementData)
-        return elementData.isHeader and HEADER_HEIGHT or ITEM_ROW_HEIGHT
+        return elementData.isHeader and SMin(HEADER_HEIGHT) or SMin(ITEM_ROW_HEIGHT)
     end)
 
     -- Single frame type, differentiated in initializer
@@ -426,6 +536,7 @@ local function CreateOverlayFrame()
                 end
             end)
         end
+        ApplyRowScale(row)
 
         if elementData.isHeader then
             row.headerArrow:Show()
@@ -470,7 +581,7 @@ local function CreateOverlayFrame()
     local track = scrollBar:GetTrack()
     track:ClearAllPoints()
     track:SetPoint("TOP", 0, 0)
-    track:SetPoint("BOTTOM", 0, 5)
+    track:SetPoint("BOTTOM", 0, S(5))
 
     frame.scrollBox = scrollBox
     frame.scrollBar = scrollBar
@@ -485,6 +596,7 @@ local function CreateOverlayFrame()
         CancelAnimation()
     end)
 
+    ApplyStaticScale()
     ZoneOverlay:UpdatePosition()
     ZoneOverlay:UpdateAlpha()
 end
@@ -503,8 +615,8 @@ end
 -- Write all animated properties forward (never reads from frame)
 local function ApplyLayout(w, h, tbh, ca, aa)
     curWidth, curHeight, curTitleBarHeight, curContentAlpha, curArrowAngle = w, h, tbh, ca, aa
-    frame:SetSize(math.floor(w), math.floor(h))
-    frame.titleBar:SetHeight(math.floor(tbh))
+    frame:SetSize(SMin(w), SMin(h))
+    frame.titleBar:SetHeight(SMin(tbh))
     frame.toggleArrow:SetRotation(aa)
     contentFrame:SetAlpha(ca)
 end
@@ -592,6 +704,12 @@ end
 
 function ZoneOverlay:RefreshLayout()
     if not frame or not addon.db then return end
+
+    local scaleChanged = UpdateMapScaleFactor()
+    if scaleChanged then
+        ApplyStaticScale()
+        self:UpdatePreviewSize()
+    end
 
     local db = addon.db
     local isMinimized = db.settings.zoneOverlayMinimized
@@ -756,7 +874,7 @@ function ZoneOverlay:RefreshLayout()
 
     -- Set content height and populate data before animation
     -- (content renders at target size, clipped by parent during expand)
-    contentFrame:SetHeight(math.max(visibleHeight + PADDING, 1))
+    contentFrame:SetHeight(SMin(visibleHeight + PADDING))
     frame.dataProvider:Flush()
     frame.dataProvider:InsertTable(flatData)
 
@@ -783,12 +901,12 @@ function ZoneOverlay:UpdatePosition()
     frame:ClearAllPoints()
     local pos = addon.db.settings.zoneOverlayPosition
     if pos == "bottomRight" then
-        frame:SetPoint("BOTTOMRIGHT", WorldMapFrame.ScrollContainer, "BOTTOMRIGHT", -35, 5)
+        frame:SetPoint("BOTTOMRIGHT", WorldMapFrame.ScrollContainer, "BOTTOMRIGHT", S(-35), S(5))
     else
         -- Shift down if current map has a floor dropdown (multi-level maps like Dalaran)
         local groupID = currentMapID and C_Map.GetMapGroupID(currentMapID)
         local yOffset = groupID and -31 or -6
-        frame:SetPoint("TOPLEFT", WorldMapFrame.ScrollContainer, "TOPLEFT", 7, yOffset)
+        frame:SetPoint("TOPLEFT", WorldMapFrame.ScrollContainer, "TOPLEFT", S(7), S(yOffset))
     end
 end
 
@@ -801,13 +919,15 @@ function ZoneOverlay:UpdateAlpha()
 end
 
 function ZoneOverlay:UpdatePreviewSize()
+    UpdateMapScaleFactor()
     if not previewFrame then return end
     local size = GetPreviewSize()
-    previewFrame:SetSize(size + 8, size + 8)
-    previewFrame.icon:SetSize(size - 16, size - 16)
+    previewFrame:SetSize(size + S(8), size + S(8))
+    local iconSize = GetPreviewIconSize(size)
+    previewFrame.icon:SetSize(iconSize, iconSize)
 end
 
--- Combat guard: overlay is a WorldMapFrame child; EnableMouse(false) so purely visual
+-- Combat guard: overlay is a top-level addon frame anchored to the map; EnableMouse(false) so purely visual
 function ZoneOverlay:UpdateVisibility()
     if not frame or not addon.db then return end
 
@@ -864,8 +984,7 @@ local function InitializeOverlay()
     -- Hook zone changes
     hooksecurefunc(WorldMapFrame, "OnMapChanged", ScheduleMapUpdate)
 
-    -- Refresh data when map shows (overlay auto-shows as a WorldMapFrame child,
-    -- but we still need to trigger data loading for the current zone)
+    -- Refresh data when map shows and mirror addon-owned overlay visibility.
     hooksecurefunc(WorldMapFrame, "Show", function()
         C_Timer.After(0, function()
             if addon.db and addon.db.settings.showZoneOverlay and WorldMapFrame:IsShown() then
@@ -876,9 +995,14 @@ local function InitializeOverlay()
         end)
     end)
 
-    -- Hide preview popout when map closes (overlay auto-hides as a child frame)
+    -- Hide addon-owned overlay surfaces when map closes.
     hooksecurefunc(WorldMapFrame, "Hide", function()
-        C_Timer.After(0, HidePreview)
+        C_Timer.After(0, function()
+            HidePreview()
+            if frame then
+                HideOverlay()
+            end
+        end)
     end)
 
     -- Refresh on ownership changes (debounced to coalesce rapid updates)

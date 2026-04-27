@@ -236,6 +236,17 @@ end
 local function DiffTaskProgress(info)
     if not info or not info.tasks then return false end
 
+    local function ApplyTaskDetails(entry, task)
+        entry.description = task.description or ""
+        entry.timesCompleted = task.timesCompleted or 0
+        entry.rewardQuestID = task.rewardQuestID or 0
+        entry.taskType = task.taskType
+        entry.requirementsList = task.requirementsList
+        entry.tracked = task.tracked
+        entry.completed = task.completed
+        entry.supersedes = task.supersedes
+    end
+
     local hasChanges = false
     for _, task in ipairs(info.tasks) do
         local taskID = task.ID  -- API field is "ID" per InitiativeTaskInfo
@@ -263,11 +274,8 @@ local function DiffTaskProgress(info)
                             max = max,
                             lastChangedTime = GetTime(),
                             delta = (prevProgress and prevProgress.delta or 0) + math.max(delta, 0),
-                            completed = isCompleted,
-                            timesCompleted = task.timesCompleted or 0,
-                            rewardQuestID = task.rewardQuestID or 0,
-                            taskType = task.taskType,
                         }
+                        ApplyTaskDetails(state.sessionProgress[taskID], task)
 
                         if isCompleted then
                             addon:FireEvent("ENDEAVORS_TASK_COMPLETED", task.taskName or "")
@@ -276,9 +284,7 @@ local function DiffTaskProgress(info)
                         -- Update current/max without touching lastChangedTime
                         prevProgress.current = current
                         prevProgress.max = max
-                        prevProgress.timesCompleted = task.timesCompleted or 0
-                        prevProgress.rewardQuestID = task.rewardQuestID or 0
-                        prevProgress.taskType = task.taskType
+                        ApplyTaskDetails(prevProgress, task)
                     end
                 end
 
@@ -380,6 +386,48 @@ function EndeavorsData:GetInitiativeInfo()
     return state.initiativeInfo
 end
 
+function EndeavorsData:GetTaskCompletionCount(taskID, taskName)
+    local tasksByID = {}
+    local info = state.initiativeInfo
+    if info and info.tasks then
+        for _, task in ipairs(info.tasks) do
+            if task.ID then
+                tasksByID[task.ID] = task
+            end
+        end
+    end
+
+    local task = taskID and (tasksByID[taskID] or state.sessionProgress[taskID])
+    if not task and taskName and info and info.tasks then
+        for _, candidate in ipairs(info.tasks) do
+            if candidate.taskName == taskName and (not candidate.supersedes or candidate.supersedes == 0) then
+                task = candidate
+                break
+            end
+        end
+    end
+
+    if not task then
+        return 0, false
+    end
+
+    local current = task
+    local seen = {}
+    while current and current.supersedes and current.supersedes ~= 0 do
+        local currentID = current.ID or current.taskID
+        if currentID then
+            if seen[currentID] then break end
+            seen[currentID] = true
+        end
+
+        local parent = tasksByID[current.supersedes] or state.sessionProgress[current.supersedes]
+        if not parent then break end
+        current = parent
+    end
+
+    return tonumber((current or task).timesCompleted) or 0, true
+end
+
 function EndeavorsData:IsInitiativeEnabled()
     return C_NeighborhoodInitiative.IsInitiativeEnabled()
 end
@@ -417,6 +465,11 @@ function EndeavorsData:GetActiveTasks()
                 timesCompleted = entry.timesCompleted,
                 rewardQuestID = entry.rewardQuestID,
                 taskType = entry.taskType,
+                description = entry.description,
+                requirementsList = entry.requirementsList,
+                tracked = entry.tracked,
+                completed = entry.completed,
+                supersedes = entry.supersedes,
             }
         end
     end

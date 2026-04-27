@@ -173,13 +173,54 @@ end
 --------------------------------------------------------------------------------
 local buttonCreated = false
 local waitingForWorldMap = false
+local hooksInstalled = false
+local worldMapButtonsLib = nil
+
+local function UpdateWorldMapButtonVisibility()
+    local button = addon.worldMapButton
+    if not button then return end
+
+    if WorldMapFrame and WorldMapFrame:IsShown() then
+        if InCombatLockdown() then return end
+        button:Show()
+        if button.Refresh then
+            button:Refresh()
+        end
+    else
+        button:Hide()
+    end
+    if worldMapButtonsLib and worldMapButtonsLib.SetPoints then
+        worldMapButtonsLib.SetPoints()
+    end
+end
+
+local function InstallWorldMapButtonHooks()
+    if hooksInstalled then return end
+    hooksInstalled = true
+
+    hooksecurefunc(WorldMapFrame, "Show", function()
+        C_Timer.After(0, UpdateWorldMapButtonVisibility)
+    end)
+
+    hooksecurefunc(WorldMapFrame, "Hide", function()
+        C_Timer.After(0, UpdateWorldMapButtonVisibility)
+    end)
+
+    addon:RegisterWoWEvent("PLAYER_REGEN_ENABLED", function()
+        C_Timer.After(0, UpdateWorldMapButtonVisibility)
+    end)
+end
 
 local function CreateWorldMapButton()
     if buttonCreated then return end
     buttonCreated = true
 
     local rwm = LibStub("Krowi_WorldMapButtons-1.4")
+    worldMapButtonsLib = rwm
     addon.worldMapButton = rwm:Add("HousingCodexWorldMapButtonTemplate", "DropdownButton")
+    addon.worldMapButton:Hide()
+    InstallWorldMapButtonHooks()
+    UpdateWorldMapButtonVisibility()
 
     addon:Debug("World map button created")
 end

@@ -22,6 +22,8 @@ local pinRectCache = {}
 local pinRectCacheMapID = nil
 
 function addon:StyleMapTooltip(tooltip)
+    if not tooltip then return end
+    tooltip:SetFrameLevel(1000)
     local nine = tooltip.NineSlice
     if not nine then return end
     nine:SetCenterColor(0.08, 0.08, 0.1, 1)

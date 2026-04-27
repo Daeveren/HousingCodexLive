@@ -2,6 +2,17 @@
 
 All notable changes to Housing Codex.
 
+**2.5.1** (2026-04-27)
+
+**Added**
+- Recent task tooltips in the Endeavors panel now show full task details (description, requirements, rewards, completion count)
+- Shift-click a recent task in the Endeavors panel to track or untrack it
+
+**Fixed**
+- Improved handling when interacting with the world map, Endeavors panel, and minimap button
+- Improved world map button compatibility with other addons that use the same shared library
+- Codebase improvements in order to make the addon run smoother
+
 **2.5.0** (2026-04-25)
 
 **Added**

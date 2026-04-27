@@ -17,7 +17,7 @@ lib.objects = lib.objects or {}
 lib.callbackRegistered = lib.callbackRegistered or nil
 lib.callbacks = lib.callbacks or LibStub("CallbackHandler-1.0"):New(lib)
 lib.radius = lib.radius or 5
-local next, Minimap, CreateFrame, AddonCompartmentFrame = next, Minimap, CreateFrame, AddonCompartmentFrame
+local next, Minimap, CreateFrame, AddonCompartmentFrame, C_Timer = next, Minimap, CreateFrame, AddonCompartmentFrame, C_Timer
 lib.tooltip = lib.tooltip or CreateFrame("GameTooltip", "LibDBIconTooltip", UIParent, "GameTooltipTemplate")
 local isDraggingButton = false
 
@@ -252,7 +252,7 @@ local function updateCoord(self)
 end
 
 local function createButton(name, object, db, customCompartmentIcon)
-	local button = CreateFrame("Button", "LibDBIcon10_"..name, Minimap)
+	local button = CreateFrame("Button", "LibDBIcon10_"..name, UIParent)
 	button.dataObject = object
 	button.db = db
 	button:SetFrameStrata("MEDIUM")
@@ -373,8 +373,12 @@ do
 			end
 		end
 	end
-	Minimap:HookScript("OnEnter", OnMinimapEnter)
-	Minimap:HookScript("OnLeave", OnMinimapLeave)
+	Minimap:HookScript("OnEnter", function()
+		C_Timer.After(0, OnMinimapEnter)
+	end)
+	Minimap:HookScript("OnLeave", function()
+		C_Timer.After(0, OnMinimapLeave)
+	end)
 end
 
 --------------------------------------------------------------------------------

@@ -1,4 +1,4 @@
-## Interface: 120001, 120005
+## Interface: 120005
 ## Title: |cffffd100Housing|r |cffff8000Codex|r
 ## Notes: Decor discovery and inspection addon for WoW Housing
 ## Notes-deDE: Addon zur Entdeckung und Ansicht von Dekorationen für WoW-Behausungen
@@ -6,7 +6,7 @@
 ## Notes-ruRU: Аддон для поиска и просмотра предметов декора жилищ WoW
 ## Notes-zhCN: 魔兽世界住宅装饰发现和查看插件
 ## Author: Daev
-## Version: 2.5.0
+## Version: 2.5.1
 ## SavedVariables: HousingCodexDB
 ## IconTexture: Interface\AddOns\HousingCodex\HC
 ## AddonCompartmentFunc: HousingCodex_OnAddonCompartmentClick
