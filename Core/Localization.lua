@@ -48,6 +48,7 @@ end
 --------------------------------------------------------------------------------
 local CURRENCY_NAME_TO_ID = {
     ["Ancient Mana"] = 1155,
+    ["Angler Pearls"] = 3373,
     ["Apexis Crystal"] = 823,
     ["Brimming Arcana"] = 3379,
     ["Bronze"] = 2778,
@@ -57,6 +58,7 @@ local CURRENCY_NAME_TO_ID = {
     ["Elemental Overflow"] = 2118,
     ["Garrison Resources"] = 824,
     ["Honor"] = 1792,
+    ["Illusionary Coins"] = 3393,
     ["Kej"] = 3056,
     ["Mysterious Fragment"] = 2657,
     ["Order Resources"] = 1220,

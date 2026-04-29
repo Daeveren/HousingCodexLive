@@ -2,6 +2,12 @@
 
 All notable changes to Housing Codex.
 
+**2.5.2** (2026-04-29)
+
+**Changed**
+- Updated vendor data and pricing for 12.0.5 housing event vendors
+- Event currency names now display localized for non-English clients
+
 **2.5.1** (2026-04-27)
 
 **Added**
