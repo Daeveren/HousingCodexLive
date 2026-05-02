@@ -994,7 +994,7 @@ SlashCmdList["HOUSINGCODEX"] = function(msg)
         addon:Print("  " .. L["HELP_HELP"])
         addon:Print("  " .. L["HELP_DEBUG"])
         addon:Print("  " .. L["HELP_STATS"])
-        addon:Print("  |cFFFFD100/hc log|r - Show event trace log (requires debug mode)")
+        addon:Print("  " .. L["HELP_LOG"])
     elseif cmd == "settings" or cmd == "options" then
         if InCombatLockdown() then
             addon:Print(L["COMBAT_LOCKDOWN_MESSAGE"])
@@ -1020,7 +1020,7 @@ SlashCmdList["HOUSINGCODEX"] = function(msg)
         addon:PrintDebugCounters()
     elseif cmd == "log clear" then
         wipe(addon.traceLog)
-        addon:Print("Event trace log cleared")
+        addon:Print(L["EVENT_TRACE_LOG_CLEARED"])
     elseif cmd == "log" then
         addon:PrintTraceLog()
     elseif cmd == "debug" then

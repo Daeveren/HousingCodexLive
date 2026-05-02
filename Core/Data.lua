@@ -225,9 +225,10 @@ function addon:LoadData()
     self.catalogSearcher = searcher
     self.loadingInProgress = true
 
-    -- Configure searcher to include all items (collected and uncollected)
+    -- Configure searcher to include all base entries (collected and uncollected)
     -- Per Blizzard's HousingCatalogFrameMixin pattern
     searcher:SetStoredOnly(false)
+    searcher:SetBaseVariantOnly(true)
     searcher:SetCollected(true)
     searcher:SetUncollected(true)
     searcher:SetAutoUpdateOnParamChanges(false)
@@ -804,7 +805,7 @@ addon:RegisterWoWEvent("HOUSING_STORAGE_ENTRY_UPDATED", function(entryID)
         record = addon.fallbackRecords[recordID]
         if not record then return end
 
-        -- Use recordID-based query with tryGetOwnedInfo=true so the returned info
+        -- Use recordID-based query so the returned info
         -- reflects owned state regardless of which stack the event fired for.
         local info = C_HousingCatalog.GetCatalogEntryInfoByRecordID(
             entryID.entryType, recordID)
@@ -933,4 +934,3 @@ addon:RegisterInternalEvent("SUBCATEGORY_CACHE_INVALIDATED", function(subcategor
         addon:Debug("Subcategory cache invalidated: " .. tostring(subcategoryID))
     end
 end)
-

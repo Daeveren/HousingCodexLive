@@ -234,12 +234,14 @@ L["HELP_RETRY"] = "/hc retry - Retry loading data"
 L["HELP_HELP"] = "/hc help - Show this help"
 L["HELP_DEBUG"] = "/hc debug - Toggle debug mode"
 L["HELP_STATS"] = "/hc stats - Show debug counters"
+L["HELP_LOG"] = "|cFFFFD100/hc log|r - Show event trace log (requires debug mode)"
 
 --------------------------------------------------------------------------------
 -- Slash Commands
 --------------------------------------------------------------------------------
 L["SETTINGS_NOT_AVAILABLE"] = "Settings not yet available"
 L["RETRYING_DATA_LOAD"] = "Retrying data load..."
+L["EVENT_TRACE_LOG_CLEARED"] = "Event trace log cleared"
 L["DEBUG_MODE_STATUS"] = "Debug mode: %s"
 L["FONT_MODE_STATUS"] = "Custom font: %s"
 L["DEBUG_ON"] = "ON"
@@ -558,6 +560,7 @@ L["WELCOME_F6_DESC"] = "The Progress tab shows your collection status by source 
 -- Endeavors Panel
 --------------------------------------------------------------------------------
 L["ENDEAVORS_TITLE"] = "Endeavors"
+L["ENDEAVORS_BAR_ABBREV"] = "E"
 L["ENDEAVORS_OPTIONS"] = "Endeavor Options"
 L["ENDEAVORS_OPTIONS_TOOLTIP"] = "Configure the Endeavors overlay panel"
 L["ENDEAVORS_MAX_LEVEL"] = "MAX"

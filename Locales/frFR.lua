@@ -55,6 +55,7 @@ L["FILTER_OUTDOORS"] = "Extérieur"
 L["FILTER_DYEABLE"] = "Teignable"
 L["FILTER_FIRST_ACQUISITION"] = "Bonus de première acquisition"
 L["FILTER_WISHLIST_ONLY"] = "Liste de souhaits uniquement"
+L["FILTER_PROMO_ONLY"] = "Promo uniquement"
 L["FILTERS"] = "Filtres"
 L["CHECK_ALL"] = "Tout cocher"
 L["UNCHECK_ALL"] = "Tout décocher"
@@ -110,6 +111,9 @@ L["DETAILS_PLACE"] = "Emplacement :"
 L["DETAILS_DYEABLE"] = "Teignable"
 L["DETAILS_NOT_DYEABLE"] = "Non teignable"
 L["DETAILS_SOURCE_UNKNOWN"] = "Source inconnue"
+L["SOURCE_PROMOTIONAL"] = "Promotionnel"
+L["TOOLTIP_PROMO_DECOR"] = "Objet de décor promotionnel"
+L["TILE_BADGE_PROMO"] = "PROMO"
 L["UNKNOWN"] = "Inconnu"
 
 -- Size names
@@ -233,12 +237,14 @@ L["HELP_RETRY"] = "/hc retry - Réessayer le chargement"
 L["HELP_HELP"] = "/hc help - Afficher cette aide"
 L["HELP_DEBUG"] = "/hc debug - Activer/désactiver le mode débogage"
 L["HELP_STATS"] = "/hc stats - Afficher les compteurs de débogage"
+L["HELP_LOG"] = "|cFFFFD100/hc log|r - Afficher le journal des événements (mode débogage requis)"
 
 --------------------------------------------------------------------------------
 -- Slash Commands
 --------------------------------------------------------------------------------
 L["SETTINGS_NOT_AVAILABLE"] = "Options pas encore disponibles"
 L["RETRYING_DATA_LOAD"] = "Nouvelle tentative de chargement..."
+L["EVENT_TRACE_LOG_CLEARED"] = "Journal des événements effacé"
 L["DEBUG_MODE_STATUS"] = "Mode débogage : %s"
 L["FONT_MODE_STATUS"] = "Police personnalisée : %s"
 L["DEBUG_ON"] = "ACTIVÉ"
@@ -364,7 +370,9 @@ L["VENDOR_FALLBACK_NAME"] = "marchand"
 
 -- Vendor world map pins
 L["VENDOR_PIN_COLLECTED"] = "Collectés : %d/%d"
+L["VENDOR_PIN_PROMO"] = "Promo : %d/%d"
 L["VENDOR_PIN_UNCOLLECTED_HEADER"] = "Décors non collectés :"
+L["VENDOR_PIN_ITEM_PROMO"] = "promo"
 L["VENDOR_PIN_ITEM_LOCKED"] = "verrouillé"
 L["VENDOR_PIN_MORE"] = "+%d autres"
 L["VENDOR_PIN_CLICK_WAYPOINT"] = "Cliquez pour placer un repère"
@@ -373,6 +381,7 @@ L["VENDOR_PIN_FACTION_HORDE"] = "Horde uniquement"
 L["VENDOR_PIN_VENDOR_COUNT"] = "%dx Marchands"
 L["VENDOR_PIN_VENDOR_LIST_HEADER"] = "Liste des marchands :"
 L["VENDOR_PIN_VENDOR_ENTRY"] = "%s (%d/%d)"
+L["VENDOR_PIN_VENDOR_ENTRY_PROMO_ONLY"] = "%s (promo : %d/%d)"
 L["VENDOR_PIN_VENDORS_MORE"] = "+%d marchands supplémentaires"
 
 -- Vendor tracking messages
@@ -468,6 +477,7 @@ L["PROGRESS_SOURCE_PROFESSIONS"] = "Métiers"
 L["PROGRESS_SOURCE_PVP"] = "JcJ"
 L["PROGRESS_SOURCE_DROPS"] = "Butins"
 L["PROGRESS_SOURCE_RENOWN"] = "Renom"
+L["PROGRESS_SOURCE_PROMOTIONAL"] = "Promotionnel"
 L["PROGRESS_LOADING"] = "Chargement des données de progression..."
 
 --------------------------------------------------------------------------------
@@ -550,6 +560,7 @@ L["WELCOME_F6_DESC"] = "Des barres de progression montrent votre avancement par 
 -- Endeavors Panel
 --------------------------------------------------------------------------------
 L["ENDEAVORS_TITLE"] = "Endeavors"
+L["ENDEAVORS_BAR_ABBREV"] = "E"
 L["ENDEAVORS_OPTIONS"] = "Options des Endeavors"
 L["ENDEAVORS_OPTIONS_TOOLTIP"] = "Configurer le panneau des Endeavors"
 L["ENDEAVORS_MAX_LEVEL"] = "MAX"

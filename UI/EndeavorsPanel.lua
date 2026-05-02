@@ -1313,10 +1313,10 @@ local function CreateEndeavorsFrame()
     endeavorContainer = CreateFrame("Frame", nil, frame)
     endeavorContainer:SetHeight(S(CONST.ENDEAVOR_BAR_HEIGHT) + S(4))
 
-    -- Endeavor label: "E" inline left of bar
+    -- Endeavor label inline left of bar
     endeavorLabel = addon:CreateFontString(endeavorContainer, "OVERLAY", "GameFontNormalSmall")
     endeavorLabel:SetPoint("LEFT", S(3), 0)
-    endeavorLabel:SetText("E")
+    endeavorLabel:SetText(L["ENDEAVORS_BAR_ABBREV"])
     endeavorLabel:SetTextColor(0.9, 0.9, 0.9, 1)
     addon:SetFontSize(endeavorLabel, S(11))
 

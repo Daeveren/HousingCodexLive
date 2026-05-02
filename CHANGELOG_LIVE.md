@@ -2,6 +2,15 @@
 
 All notable changes to Housing Codex.
 
+**2.5.3** (2026-05-02)
+
+**Changed**
+- Updated decor vendor data
+- Improved localization for promotional decor labels and helper text on non-English clients
+
+**Fixed**
+- Dye variants of decor are now collapsed in the catalog for cleaner item lists
+
 **2.5.2** (2026-04-29)
 
 **Changed**
