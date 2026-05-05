@@ -122,7 +122,7 @@ function Categories:LoadCategories()
 
     -- Get all categories (no editor mode filter, matches searcher scope)
     local categoryIDs = C_HousingCatalog.SearchCatalogCategories({
-        withOwnedEntriesOnly = false,
+        withStoredEntriesOnly = false,
     })
     if not categoryIDs then return end
 

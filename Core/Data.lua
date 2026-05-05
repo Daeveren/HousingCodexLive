@@ -280,39 +280,39 @@ function addon:ProcessSearchResults()
     end
 
     -- Get search results (NOT GetAllSearchItems which returns source collection)
-    local allEntries = self.catalogSearcher:GetCatalogSearchResults()
+    local entryVariantIDs = self.catalogSearcher:GetCatalogSearchResults()
 
     -- If data already loaded, this is a filter/search update
     if self.dataLoaded then
-        self:OnSearchResultsUpdated(allEntries)
+        self:OnSearchResultsUpdated(entryVariantIDs)
         return
     end
 
     -- Initial load: build all records
-    if not allEntries or #allEntries == 0 then
+    if not entryVariantIDs or #entryVariantIDs == 0 then
         self:ScheduleRetry("No entries returned after search")
         return
     end
 
-    self:Debug("Processing " .. #allEntries .. " catalog entries")
+    self:Debug("Processing " .. #entryVariantIDs .. " catalog entries")
 
     -- Build records, deduplicating by recordID
-    -- (Same item can have multiple entryIDs from different stacks;
+    -- (Same item can have multiple entryVariantIDs from different stacks;
     -- ownership fields are per-recordID totals, not per-entry)
     local records = {}
     local recordCount = 0
 
-    for _, entryID in ipairs(allEntries) do
+    for _, entryVariantID in ipairs(entryVariantIDs) do
         -- Check duplicate first to avoid unnecessary API call
-        if not records[entryID.recordID] then
+        if not records[entryVariantID.recordID] then
             -- Use recordID-based query so a dedup winner still reflects aggregate ownership;
             -- native totalNumStored/totalNumPlaced/remainingRedeemable already sum across variants.
             local info = C_HousingCatalog.GetCatalogEntryInfoByRecordID(
-                entryID.entryType, entryID.recordID)
+                entryVariantID.entryType, entryVariantID.recordID)
             if info and not info.isPrefab then
-                local record = BuildRecord(entryID, info)
+                local record = BuildRecord(entryVariantID, info)
                 if record then
-                    records[entryID.recordID] = record
+                    records[entryVariantID.recordID] = record
                     recordCount = recordCount + 1
                 end
             end
@@ -340,12 +340,12 @@ function addon:ProcessSearchResults()
     self:Print(string.format(self.L["LOADED_MESSAGE"], collectedPct))
 end
 
-function addon:OnSearchResultsUpdated(entries)
+function addon:OnSearchResultsUpdated(entryVariantIDs)
     local recordIDs = {}
     local seen = {}
     -- Collect unique IDs from search results
-    for _, entryID in ipairs(entries or {}) do
-        local recordID = entryID.recordID
+    for _, entryVariantID in ipairs(entryVariantIDs or {}) do
+        local recordID = entryVariantID.recordID
         local record = self.decorRecords[recordID]
         if record and not seen[recordID] then
             seen[recordID] = true
@@ -794,10 +794,10 @@ function addon:WithSearcherBatchUpdate(reason, fn)
 end
 
 -- Single-entry storage update (direct record update following Blizzard's pattern)
-addon:RegisterWoWEvent("HOUSING_STORAGE_ENTRY_UPDATED", function(entryID)
-    if not addon.dataLoaded or not entryID then return end
+addon:RegisterWoWEvent("HOUSING_STORAGE_ENTRY_UPDATED", function(entryVariantID)
+    if not addon.dataLoaded or not entryVariantID then return end
 
-    local recordID = entryID.recordID
+    local recordID = entryVariantID.recordID
     local record = addon.decorRecords[recordID]
 
     if not record then
@@ -808,7 +808,7 @@ addon:RegisterWoWEvent("HOUSING_STORAGE_ENTRY_UPDATED", function(entryID)
         -- Use recordID-based query so the returned info
         -- reflects owned state regardless of which stack the event fired for.
         local info = C_HousingCatalog.GetCatalogEntryInfoByRecordID(
-            entryID.entryType, recordID)
+            entryVariantID.entryType, recordID)
         if not info then return end
 
         addon:Debug("Storage entry updated (fallback): " .. tostring(recordID))
@@ -827,9 +827,9 @@ addon:RegisterWoWEvent("HOUSING_STORAGE_ENTRY_UPDATED", function(entryID)
     end
 
     -- Use recordID-based query so the returned info reflects the best owned stack
-    -- when a recordID has multiple entryIDs (e.g. OwnedModified + OwnedUnmodified).
+    -- when a recordID has multiple entryVariantIDs (e.g. dyed and base variants).
     local info = C_HousingCatalog.GetCatalogEntryInfoByRecordID(
-        entryID.entryType, recordID)
+        entryVariantID.entryType, recordID)
     if not info then return end
 
     addon:Debug("Storage entry updated: " .. tostring(recordID))

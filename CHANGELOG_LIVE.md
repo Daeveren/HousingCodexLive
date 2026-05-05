@@ -2,6 +2,14 @@
 
 All notable changes to Housing Codex.
 
+**2.5.4** (2026-05-06)
+
+**Added**
+- Vendor NPC tooltips now show a checkmark when all decor from that vendor is collected
+
+**Changed**
+- Codebase improvements in order to make the addon run smoother
+
 **2.5.3** (2026-05-02)
 
 **Changed**

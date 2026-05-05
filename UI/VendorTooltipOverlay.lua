@@ -11,6 +11,7 @@ addon.VendorTooltipOverlay = VendorTooltipOverlay
 
 local HC_ICON_PATH = "Interface\\AddOns\\HousingCodex\\HC64"
 local MISSING_DISPLAY_LIMIT = 5
+local COMPLETE_CHECKMARK = "|A:common-icon-checkmark:14:14:0:-1|a"
 
 local initialized = false
 local ICON_PREFIX    -- "|Tpath:18:18:0:0|t " (set at Initialize)
@@ -54,6 +55,11 @@ local function OnTooltipUnit(tooltip)
 
     -- Progress line (reuses VENDOR_PIN_COLLECTED format shared with VendorMapPins)
     local progressText = string.format(L["VENDOR_PIN_COLLECTED"], owned, total)
+    local promoCount = promoTotal or 0
+    local isVendorComplete = (total > 0 or promoCount > 0) and owned >= total and (promoOwned or 0) >= promoCount
+    if isVendorComplete then
+        progressText = progressText .. " " .. COMPLETE_CHECKMARK
+    end
     tooltip:AddLine(progressText, COLORS.SOURCE_NAME_GOLD[1], COLORS.SOURCE_NAME_GOLD[2], COLORS.SOURCE_NAME_GOLD[3])
 
     -- Promo (rotated / event-gated) sub-total if this vendor has any

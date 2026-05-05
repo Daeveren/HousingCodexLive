@@ -10,7 +10,7 @@ A World of Warcraft addon that gives you a better way to browse, track, and coll
 
 - **Grid View** - Browse all decorations in a searchable grid with thumbnails
 - **3D Preview** - Docked preview panel with auto-rotating model, source info, size, and dye options
-- **Filters** - Filter by collected/uncollected, indoor/outdoor, dyeable, size, expansion, theme
+- **Filters** - Filter by collected/uncollected, wishlist, promo-only, trackable, indoor/outdoor, dyeable, first-acquisition bonus, and Blizzard catalog tags
 - **Wishlist** - Star items to track, view them in a dedicated window, or filter the catalog to show only wishlisted items
 - **Quick Access** - Left-click to select and preview, shift-click to track on the map, right-click for context menu (chat link, Wowhead, track)
 
@@ -21,7 +21,7 @@ A World of Warcraft addon that gives you a better way to browse, track, and coll
 - **Vendors** - Vendor locations with map waypoints and expansion breakdowns
 - **Drops** - Drop sources including bosses, treasures, and world drops
 - **Professions** - Crafted housing items organized by profession with per-profession progress
-- **PvP** - PvP-sourced decorations from battleground achievements, arena drops, and Honor/Brawler's Guild vendors
+- **PvP** - PvP-sourced decorations from battleground/rated-PvP achievements and curated Honor or Alterac Valley vendors
 - **Renown** - Reputation-sourced decorations organized by expansion and faction, with standing requirements and vendor locations
 - **Progress** - Collection dashboard with per-source and per-expansion breakdowns, plus a most-progressed list that surfaces the closest-to-complete slices across quests, vendors, renown, achievements, drops, PvP, and professions
 
