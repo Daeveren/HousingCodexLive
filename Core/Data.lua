@@ -26,9 +26,14 @@ addon.catalogSearcher = nil
 addon.loadRetryCount = 0
 addon.loadingInProgress = false
 addon.loadStartTime = 0
+addon.searcherGeneration = 0
 addon.categoryCache = {}
 addon.subcategoryCache = {}
 addon.fallbackRecords = {}  -- Cache for items resolved via direct API (HiddenInCatalog)
+
+local function IsCurrentSearcher(self, searcher, generation)
+    return searcher and self.catalogSearcher == searcher and self.searcherGeneration == generation
+end
 
 local function IsValidFileID(id)
     -- File IDs must be positive numbers; 0 and negative are invalid
@@ -215,6 +220,9 @@ function addon:LoadData()
         return
     end
 
+    self.searcherGeneration = (self.searcherGeneration or 0) + 1
+    local searcherGeneration = self.searcherGeneration
+
     -- Create searcher
     local searcher = C_HousingCatalog.CreateCatalogSearcher()
     if not searcher then
@@ -241,11 +249,14 @@ function addon:LoadData()
 
     -- Set up callback for when search results are ready (Blizzard pattern)
     searcher:SetResultsUpdatedCallback(function()
+        if not IsCurrentSearcher(self, searcher, searcherGeneration) then
+            return
+        end
         if self.searchTimeoutTimer then
             self.searchTimeoutTimer:Cancel()
             self.searchTimeoutTimer = nil
         end
-        self:ProcessSearchResults()
+        self:ProcessSearchResults(searcher, searcherGeneration)
     end)
 
     -- CRITICAL: Run the search to populate results (required before GetAllSearchItems)
@@ -254,6 +265,9 @@ function addon:LoadData()
 
     -- Timeout: if callback doesn't fire within 5 seconds, retry
     self.searchTimeoutTimer = C_Timer.NewTimer(5, function()
+        if not IsCurrentSearcher(self, searcher, searcherGeneration) then
+            return
+        end
         self.searchTimeoutTimer = nil
         if self.loadingInProgress and not self.dataLoaded then
             self:Debug("Search callback timeout")
@@ -261,7 +275,7 @@ function addon:LoadData()
             local results = searcher:GetCatalogSearchResults()
             if results and #results > 0 then
                 self:Debug("Timeout fallback: found " .. #results .. " results")
-                self:ProcessSearchResults()
+                self:ProcessSearchResults(searcher, searcherGeneration)
             else
                 self:ScheduleRetry("Search callback never fired")
             end
@@ -269,10 +283,15 @@ function addon:LoadData()
     end)
 end
 
-function addon:ProcessSearchResults()
+function addon:ProcessSearchResults(searcher, generation)
+    searcher = searcher or self.catalogSearcher
+    if generation and not IsCurrentSearcher(self, searcher, generation) then
+        return
+    end
+
     self.loadingInProgress = false
 
-    if not self.catalogSearcher then
+    if not searcher or self.catalogSearcher ~= searcher then
         if not self.dataLoaded then
             self:ScheduleRetry("Searcher was released before results")
         end
@@ -280,7 +299,7 @@ function addon:ProcessSearchResults()
     end
 
     -- Get search results (NOT GetAllSearchItems which returns source collection)
-    local entryVariantIDs = self.catalogSearcher:GetCatalogSearchResults()
+    local entryVariantIDs = searcher:GetCatalogSearchResults()
 
     -- If data already loaded, this is a filter/search update
     if self.dataLoaded then
@@ -906,6 +925,7 @@ end)
 
 -- Reset load state for /hc retry recovery (clears stuck guards and stale refs)
 function addon:ResetLoadState()
+    self.searcherGeneration = (self.searcherGeneration or 0) + 1
     if self.searchTimeoutTimer then
         self.searchTimeoutTimer:Cancel()
         self.searchTimeoutTimer = nil
@@ -913,6 +933,9 @@ function addon:ResetLoadState()
     if self.retryTimer then
         self.retryTimer:Cancel()
         self.retryTimer = nil
+    end
+    if self.CancelPendingSearch then
+        self:CancelPendingSearch()
     end
     self.loadingInProgress = false
     self.catalogSearcher = nil

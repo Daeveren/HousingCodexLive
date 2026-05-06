@@ -96,6 +96,31 @@ local function InsertVendorIntoMap(vendorsByMapID, mapID, mapEntry)
     table.insert(list, mapEntry)
 end
 
+local function InsertVendorLocation(vendorsByMapID, npcId, vendorName, locData, playerFaction)
+    if not locData.uiMapId or not locData.x or not locData.y or locData.x <= 0 or locData.y <= 0 then
+        return
+    end
+    if not ShouldIncludeFaction(locData.faction, playerFaction) then
+        return
+    end
+
+    local mapEntry = {
+        npcId = npcId,
+        npcName = vendorName,
+        uiMapId = locData.uiMapId,
+        x = locData.x,
+        y = locData.y,
+        faction = locData.faction,
+    }
+    InsertVendorIntoMap(vendorsByMapID, locData.uiMapId, mapEntry)
+
+    -- Also index under parent zone for zone overlay aggregation
+    local rootMapID = addon:GetZoneRootMapID(locData.uiMapId)
+    if rootMapID and rootMapID ~= locData.uiMapId then
+        InsertVendorIntoMap(vendorsByMapID, rootMapID, mapEntry)
+    end
+end
+
 local function BuildVendorMapIndex()
     if addon.vendorMapVendorsByMapID then
         return
@@ -104,32 +129,17 @@ local function BuildVendorMapIndex()
     if not addon.vendorIndexBuilt then
         addon:BuildVendorIndex()
     end
+    addon:EnsurePlayerProfessionSkillLines()
 
     local vendorsByMapID = {}
     local playerFaction = UnitFactionGroup("player") or "Neutral"
 
     for npcId, vendorEntry in pairs(addon.vendorIndex or {}) do
-        local locations = addon:GetNPCLocations(npcId)
-        if locations then
-            for _, locData in ipairs(locations) do
-                if locData.uiMapId and locData.x and locData.y and locData.x > 0 and locData.y > 0 then
-                    if ShouldIncludeFaction(locData.faction, playerFaction) then
-                        local mapEntry = {
-                            npcId = npcId,
-                            npcName = vendorEntry.npcName,
-                            uiMapId = locData.uiMapId,
-                            x = locData.x,
-                            y = locData.y,
-                            faction = locData.faction,
-                        }
-                        InsertVendorIntoMap(vendorsByMapID, locData.uiMapId, mapEntry)
-
-                        -- Also index under parent zone for zone overlay aggregation
-                        local rootMapID = addon:GetZoneRootMapID(locData.uiMapId)
-                        if rootMapID and rootMapID ~= locData.uiMapId then
-                            InsertVendorIntoMap(vendorsByMapID, rootMapID, mapEntry)
-                        end
-                    end
+        if addon:ShouldShowVendorForPlayerProfessionFilter(npcId) then
+            local locations = addon:GetNPCLocations(npcId)
+            if locations then
+                for _, locData in ipairs(locations) do
+                    InsertVendorLocation(vendorsByMapID, npcId, vendorEntry.npcName, locData, playerFaction)
                 end
             end
         end
@@ -159,6 +169,10 @@ end
 -- only unpack the first three returns keep working; the trailing two are optional.
 function addon:GetVendorPinProgress(npcId)
     if not npcId then
+        return 0, 0, {}, 0, 0
+    end
+
+    if not addon:ShouldShowVendorForPlayerProfessionFilter(npcId) then
         return 0, 0, {}, 0, 0
     end
 

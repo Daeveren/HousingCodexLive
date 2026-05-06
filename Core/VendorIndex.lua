@@ -65,6 +65,98 @@ local HOUSING_ZONES = {
     ["Razorwind Shores"] = "Horde",
 }
 
+local PROFESSION_ENUM = Enum and Enum.Profession or {}
+
+local SILVERMOON_PROFESSION_VENDOR_ENUMS = {
+    [243359] = PROFESSION_ENUM.Alchemy,        -- Melaris
+    [241451] = PROFESSION_ENUM.Blacksmithing,  -- Eriden
+    [257914] = PROFESSION_ENUM.Cooking,        -- Quelis
+    [243350] = PROFESSION_ENUM.Enchanting,     -- Lyna
+    [241453] = PROFESSION_ENUM.Engineering,    -- Yatheon
+    [256026] = PROFESSION_ENUM.Herbalism,      -- Irodalmin
+    [243531] = PROFESSION_ENUM.Leatherworking, -- Zaralda
+    [243555] = PROFESSION_ENUM.Inscription,    -- Lelorian
+    [243353] = PROFESSION_ENUM.Tailoring,      -- Deynna
+}
+
+local silvermoonProfessionVendorSkillLines = {}
+local silvermoonProfessionRequirementsReady = false
+local learnedProfessionSkillLines = nil
+local learnedProfessionSkillLinesReady = false
+
+local function IsUsableNumber(value)
+    return type(value) == "number"
+        and not (type(issecretvalue) == "function" and issecretvalue(value))
+end
+
+local function SetsEqual(a, b)
+    if a == b then return true end
+    if not a or not b then return false end
+
+    for key, value in pairs(a) do
+        if b[key] ~= value then return false end
+    end
+    for key, value in pairs(b) do
+        if a[key] ~= value then return false end
+    end
+    return true
+end
+
+local function ResolveProfessionSkillLine(profession)
+    if profession == nil then return nil end
+    if not (C_TradeSkillUI and C_TradeSkillUI.GetProfessionSkillLineID) then return nil end
+
+    local ok, skillLineID = pcall(C_TradeSkillUI.GetProfessionSkillLineID, profession)
+    if ok and IsUsableNumber(skillLineID) then
+        return skillLineID
+    end
+    return nil
+end
+
+local function BuildSilvermoonProfessionVendorSkillLines()
+    local result = {}
+    for npcId, profession in pairs(SILVERMOON_PROFESSION_VENDOR_ENUMS) do
+        local skillLineID = ResolveProfessionSkillLine(profession)
+        if not skillLineID then
+            return nil
+        end
+        result[npcId] = skillLineID
+    end
+    return result
+end
+
+local function AddProfessionSkillLine(skillLines, professionIndex)
+    if professionIndex == nil then return true end
+    if type(issecretvalue) == "function" and issecretvalue(professionIndex) then return false end
+    if type(professionIndex) ~= "number" then return false end
+    if type(GetProfessionInfo) ~= "function" then return false end
+
+    local ok, _, _, _, _, _, _, skillLine = pcall(GetProfessionInfo, professionIndex)
+    if not ok or not IsUsableNumber(skillLine) then
+        return false
+    end
+
+    skillLines[skillLine] = true
+    return true
+end
+
+local function BuildPlayerProfessionSkillLines()
+    if type(GetProfessions) ~= "function" or type(GetProfessionInfo) ~= "function" then
+        return nil
+    end
+
+    local ok, prof1, prof2, arch, fish, cook = pcall(GetProfessions)
+    if not ok then return nil end
+
+    local skillLines = {}
+    if not AddProfessionSkillLine(skillLines, prof1) then return nil end
+    if not AddProfessionSkillLine(skillLines, prof2) then return nil end
+    if not AddProfessionSkillLine(skillLines, arch) then return nil end
+    if not AddProfessionSkillLine(skillLines, fish) then return nil end
+    if not AddProfessionSkillLine(skillLines, cook) then return nil end
+    return skillLines
+end
+
 -- Runtime data structures
 addon.vendorIndex = {}
 addon.vendorHierarchy = {}
@@ -120,6 +212,101 @@ function addon:GetLocalizedFactionName(englishFaction)
         return FACTION_HORDE or englishFaction
     end
     return englishFaction
+end
+
+function addon:InvalidateVendorVisibilityCaches()
+    self.vendorMapVendorsByMapID = nil
+    if self.InvalidateVendorPinCache then
+        self:InvalidateVendorPinCache()
+    end
+    if self.InvalidateZoneDecorCache then
+        self:InvalidateZoneDecorCache()
+        self:FireEvent(self.Events.ZONE_DECOR_CACHE_INVALIDATED)
+    end
+end
+
+function addon:RefreshSilvermoonProfessionVendorRequirements()
+    local skillLines = BuildSilvermoonProfessionVendorSkillLines()
+    if not skillLines then
+        local changed = silvermoonProfessionRequirementsReady
+        wipe(silvermoonProfessionVendorSkillLines)
+        silvermoonProfessionRequirementsReady = false
+        return changed
+    end
+
+    local changed = not silvermoonProfessionRequirementsReady
+        or not SetsEqual(silvermoonProfessionVendorSkillLines, skillLines)
+
+    wipe(silvermoonProfessionVendorSkillLines)
+    for npcId, skillLineID in pairs(skillLines) do
+        silvermoonProfessionVendorSkillLines[npcId] = skillLineID
+    end
+    silvermoonProfessionRequirementsReady = true
+    return changed
+end
+
+function addon:RefreshPlayerProfessionSkillLines()
+    local skillLines = BuildPlayerProfessionSkillLines()
+    if not skillLines then
+        local changed = learnedProfessionSkillLinesReady
+        learnedProfessionSkillLines = nil
+        learnedProfessionSkillLinesReady = false
+        return changed
+    end
+
+    local changed = not learnedProfessionSkillLinesReady
+        or not SetsEqual(learnedProfessionSkillLines, skillLines)
+
+    learnedProfessionSkillLines = skillLines
+    learnedProfessionSkillLinesReady = true
+    return changed
+end
+
+function addon:EnsurePlayerProfessionSkillLines()
+    if learnedProfessionSkillLinesReady then
+        return false
+    end
+
+    local changed = self:RefreshPlayerProfessionSkillLines()
+    if changed then
+        self:InvalidateVendorVisibilityCaches()
+    end
+    return changed
+end
+
+function addon:RefreshVendorProfessionVisibilityState(notify)
+    local requirementsChanged = self:RefreshSilvermoonProfessionVendorRequirements()
+    local professionsChanged = self:RefreshPlayerProfessionSkillLines()
+    if requirementsChanged or professionsChanged then
+        self:InvalidateVendorVisibilityCaches()
+        if notify then
+            self:FireEvent(self.Events.PLAYER_PROFESSIONS_CHANGED)
+        end
+    end
+end
+
+function addon:ShouldShowVendorForPlayerProfessionFilter(npcId)
+    if not npcId then return true end
+
+    local settings = self.db and self.db.settings
+    if settings and settings.onlyShowLearnedSilvermoonProfessionVendors == false then
+        return true
+    end
+
+    if not SILVERMOON_PROFESSION_VENDOR_ENUMS[npcId] then
+        return true
+    end
+
+    if not silvermoonProfessionRequirementsReady or not learnedProfessionSkillLinesReady then
+        return true
+    end
+
+    local requiredSkillLine = silvermoonProfessionVendorSkillLines[npcId]
+    if not requiredSkillLine then
+        return true
+    end
+
+    return learnedProfessionSkillLines[requiredSkillLine] == true
 end
 
 function addon:BuildVendorIndex()
@@ -437,4 +624,13 @@ addon:RegisterInternalEvent("DATA_LOADED", function()
     if not addon.vendorIndexBuilt then
         addon:BuildVendorIndex()
     end
+    addon:RefreshVendorProfessionVisibilityState(false)
+end)
+
+addon:RegisterWoWEvent("SKILL_LINES_CHANGED", function()
+    addon:RefreshVendorProfessionVisibilityState(true)
+end)
+
+addon:RegisterWoWEvent("PLAYER_ENTERING_WORLD", function()
+    addon:RefreshVendorProfessionVisibilityState(true)
 end)

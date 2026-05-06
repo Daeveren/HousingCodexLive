@@ -103,6 +103,7 @@ local defaults = {
         autoRotatePreview = true,             -- Auto-rotate 3D preview models
         useTomTom = false,                   -- Use TomTom waypoints instead of native
         showVendorTooltips = true,           -- Show decor progress in vendor NPC tooltips
+        onlyShowLearnedSilvermoonProfessionVendors = true, -- Hide Silvermoon profession vendors unless this character knows that profession
     },
     wishlistUI = {
         tileSize = 152,      -- Separate from browser.tileSize
@@ -317,4 +318,3 @@ function addon:ToggleWishlist(recordID)
     self:SetWishlisted(recordID, isWishlisted)
     return isWishlisted
 end
-

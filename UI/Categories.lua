@@ -475,10 +475,16 @@ end)
 
 -- Load categories when data becomes available (deferred initialization)
 addon:RegisterInternalEvent("DATA_LOADED", function()
-    if Categories.container and not next(Categories.categories) then
+    if not Categories.container then return end
+
+    if not next(Categories.categories) then
         Categories:LoadCategories()
         Categories:BuildDisplay()
-        -- Run initial search to populate the grid
+    end
+
+    local searchText = addon.SearchBox and addon.SearchBox:GetText()
+    local hasSearchText = searchText and searchText:match("%S")
+    if not hasSearchText then
         Categories:ApplyFilter()
     end
 end)

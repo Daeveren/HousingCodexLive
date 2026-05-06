@@ -493,6 +493,24 @@ function addon.Settings:Initialize()
     )
     vendorTooltipsCheck:SetPoint("TOPLEFT", COL1_X, yOffset)
     self.vendorTooltipsCheck = vendorTooltipsCheck
+
+    -- Silvermoon profession vendor filter checkbox
+    local silvermoonProfessionVendorsCheck = CreateCheckbox(
+        panel,
+        L["OPTIONS_SILVERMOON_PROFESSION_VENDOR_FILTER"],
+        L["OPTIONS_SILVERMOON_PROFESSION_VENDOR_FILTER_TOOLTIP"],
+        function() return addon.db and addon.db.settings.onlyShowLearnedSilvermoonProfessionVendors end,
+        function(checked)
+            if addon.db then
+                addon.db.settings.onlyShowLearnedSilvermoonProfessionVendors = checked
+                addon:InvalidateVendorVisibilityCaches()
+                addon:FireEvent(addon.Events.PLAYER_PROFESSIONS_CHANGED)
+                RefreshVendorMapPins()
+            end
+        end
+    )
+    silvermoonProfessionVendorsCheck:SetPoint("TOPLEFT", COL2_X, yOffset)
+    self.silvermoonProfessionVendorsCheck = silvermoonProfessionVendorsCheck
     yOffset = yOffset - 26
 
     --------------------------------------------------------------------------------
@@ -638,6 +656,7 @@ function addon.Settings:Initialize()
         settings.vendorCheck:SetChecked(s.showVendorDecorIndicators)
         settings.vendorOwnedCheck:SetChecked(s.showVendorOwnedCheckmark)
         settings.vendorTooltipsCheck:SetChecked(s.showVendorTooltips)
+        settings.silvermoonProfessionVendorsCheck:SetChecked(s.onlyShowLearnedSilvermoonProfessionVendors)
         settings.containerCheck:SetChecked(s.showContainerDecorIndicators)
         settings.containerOwnedCheck:SetChecked(s.showContainerOwnedCheckmark)
         settings.endeavorsEnabledCheck:SetChecked(db.endeavors and db.endeavors.enabled)
@@ -658,4 +677,3 @@ function addon.Settings:Open()
         Settings.OpenToCategory(self.category:GetID())
     end
 end
-

@@ -39,6 +39,7 @@ local function OnTooltipUnit(tooltip)
 
     -- Check vendor index
     if not addon.vendorIndex or not addon.vendorIndex[npcId] then return end
+    if not addon:ShouldShowVendorForPlayerProfessionFilter(npcId) then return end
 
     local owned, total, missingNames, promoOwned, promoTotal = addon:GetVendorPinProgress(npcId)
     if not owned or not total then return end

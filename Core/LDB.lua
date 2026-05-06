@@ -74,13 +74,17 @@ local function CreateBrokerPopup()
 end
 
 local function ToggleBrokerPopup(anchorFrame)
-    local popup = CreateBrokerPopup()
-
-    if popup:IsShown() then
-        popup:Hide()
+    if brokerPopup and brokerPopup:IsShown() then
+        brokerPopup:Hide()
         return
     end
 
+    if InCombatLockdown() then
+        addon:Print(L["COMBAT_LOCKDOWN_MESSAGE"])
+        return
+    end
+
+    local popup = CreateBrokerPopup()
     -- Refresh checkbox states
     for _, check in ipairs(popup.checks) do
         check:SetChecked(addon.db.settings[check.settingsKey])
@@ -292,4 +296,3 @@ end
 function HousingCodex_OnAddonCompartmentLeave()
     GameTooltip:Hide()
 end
-

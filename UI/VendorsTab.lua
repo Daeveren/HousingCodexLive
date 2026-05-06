@@ -1370,6 +1370,7 @@ local EXPANSION_LEVEL_TO_KEY = {
 
 function VendorsTab:BuildExpansionDisplay()
     if not self.expansionScrollBox or not self.expansionDataProvider then return end
+    addon:EnsurePlayerProfessionSkillLines()
 
     local elements = {}
     local filter = self:GetCompletionFilter()
@@ -1382,7 +1383,8 @@ function VendorsTab:BuildExpansionDisplay()
         for _, zoneName in ipairs(addon:GetSortedVendorZones(expansionKey)) do
             if not zoneFilterActive or VendorZoneMatchesPlayerZone(zoneName) then
                 for _, vendorData in ipairs(addon:GetVendorsForZone(expansionKey, zoneName)) do
-                    if VendorPassesCompletionFilter(vendorData, filter, zoneName, expansionKey)
+                    if addon:ShouldShowVendorForPlayerProfessionFilter(vendorData.npcId)
+                        and VendorPassesCompletionFilter(vendorData, filter, zoneName, expansionKey)
                         and VendorMatchesSearch(vendorData, searchText, zoneName, expansionKey) then
                         hasVisibleContent = true
                         break
@@ -1420,6 +1422,7 @@ end
 
 function VendorsTab:BuildVendorDisplay()
     if not self.vendorScrollBox or not self.vendorDataProvider then return end
+    addon:EnsurePlayerProfessionSkillLines()
 
     local elements = {}
     local expansionKey = self.selectedExpansionKey
@@ -1434,7 +1437,8 @@ function VendorsTab:BuildVendorDisplay()
             if not zoneFilterActive or VendorZoneMatchesPlayerZone(zoneName) then
                 local zoneVendors = {}
                 for _, vendorData in ipairs(addon:GetVendorsForZone(expansionKey, zoneName)) do
-                    if VendorPassesCompletionFilter(vendorData, filter, zoneName, expansionKey)
+                    if addon:ShouldShowVendorForPlayerProfessionFilter(vendorData.npcId)
+                        and VendorPassesCompletionFilter(vendorData, filter, zoneName, expansionKey)
                         and VendorMatchesSearch(vendorData, searchText, zoneName, expansionKey) then
                         table.insert(zoneVendors, vendorData)
                     end
@@ -1537,6 +1541,12 @@ addon:RegisterInternalEvent("DATA_LOADED", function()
 end)
 
 VendorsTab:RegisterOwnershipRefresh(function() VendorsTab:RefreshDisplay() end)
+
+addon:RegisterInternalEvent(addon.Events.PLAYER_PROFESSIONS_CHANGED, function()
+    if VendorsTab:IsShown() then
+        VendorsTab:RefreshDisplay()
+    end
+end)
 
 -- Reconcile vendor tracking after loading screens/teleports/reloads
 addon:RegisterWoWEvent("PLAYER_ENTERING_WORLD", function()

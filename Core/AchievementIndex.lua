@@ -216,8 +216,12 @@ function addon:IsAchievementCompleted(achievementId)
     end
 
     -- Query WoW API: GetAchievementInfo returns: id, name, points, completed, ...
-    local _, _, _, completed = GetAchievementInfo(achievementId)
-    local isComplete = completed or false
+    local achievementInfoID, _, _, completed = GetAchievementInfo(achievementId)
+    if not achievementInfoID and completed == nil then
+        return false -- Valid achievement, but info is not ready yet; do not cache.
+    end
+
+    local isComplete = completed == true
 
     self.achievementCompletionCache[achievementId] = isComplete
     return isComplete

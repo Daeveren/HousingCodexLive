@@ -2,6 +2,18 @@
 
 All notable changes to Housing Codex.
 
+**2.5.5** (2026-05-07)
+
+**Added**
+- Silvermoon now only shows vendors for professions your character has learned (toggle in addon settings)
+
+**Fixed**
+- Endeavors panel now refreshes immediately when tracking or untracking tasks through the in-game UI
+- Improved reliability of addon popups during combat
+
+**Changed**
+- Codebase improvements in order to make the addon run smoother
+
 **2.5.4** (2026-05-06)
 
 **Added**

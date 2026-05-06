@@ -23,6 +23,9 @@ function addon:ResetAllIndexFlags()
     self.craftingIndexBuilt = false
     self.pvpIndexBuilt = false
     self.renownIndexBuilt = false
+    if self.ResetZoneIndex then
+        self:ResetZoneIndex()
+    end
 end
 
 local function AddToIndex(index, key, recordID)

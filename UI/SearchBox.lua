@@ -97,11 +97,11 @@ function SearchBox:CancelDebounce()
     end
 end
 
-function SearchBox:ApplySearch(text)
+function SearchBox:ApplySearch(text, force)
     local searchText = NormalizeSearchText(text)
 
     -- Skip if same as last search
-    if searchText == self.lastSearchText then return end
+    if not force and searchText == self.lastSearchText then return end
 
     -- Save for later if searcher not yet available
     if not addon.catalogSearcher then
@@ -155,6 +155,13 @@ end
 addon:RegisterInternalEvent("DATA_LOADED", function()
     if SearchBox.pendingSearchText then
         addon:Debug("SearchBox: Re-applying pending search after data load")
-        SearchBox:ApplySearch(SearchBox.pendingSearchText)
+        SearchBox:ApplySearch(SearchBox.pendingSearchText, true)
+        return
+    end
+
+    local visibleText = SearchBox:GetText()
+    if visibleText and visibleText ~= "" then
+        addon:Debug("SearchBox: Re-applying visible search after data load")
+        SearchBox:ApplySearch(visibleText, true)
     end
 end)

@@ -339,6 +339,11 @@ local function OnInitiativeUpdated()
     addon:FireEvent("ENDEAVORS_INITIATIVE_UPDATED", hasChanges)
 end
 
+local function ScheduleInitiativeUpdate()
+    if initiativeUpdateTimer then initiativeUpdateTimer:Cancel() end
+    initiativeUpdateTimer = C_Timer.NewTimer(CONST.UPDATE_DEBOUNCE, OnInitiativeUpdated)
+end
+
 local function OnTaskCompleted()
     addon:Debug("Endeavors: INITIATIVE_TASK_COMPLETED fired, isInNeighborhood:", state.isInNeighborhood)
     if not state.isInNeighborhood then return end
@@ -565,9 +570,7 @@ addon:RegisterWoWEvent("HOUSE_LEVEL_FAVOR_UPDATED", OnHouseLevelFavorUpdated)
 addon:RegisterWoWEvent("HOUSE_LEVEL_CHANGED", OnHouseLevelChanged)
 
 -- Initiative events
-addon:RegisterWoWEvent("NEIGHBORHOOD_INITIATIVE_UPDATED", function()
-    if initiativeUpdateTimer then initiativeUpdateTimer:Cancel() end
-    initiativeUpdateTimer = C_Timer.NewTimer(CONST.UPDATE_DEBOUNCE, OnInitiativeUpdated)
-end)
-
+addon:RegisterWoWEvent("NEIGHBORHOOD_INITIATIVE_UPDATED", ScheduleInitiativeUpdate)
+addon:RegisterWoWEvent("INITIATIVE_TASKS_TRACKED_LIST_CHANGED", ScheduleInitiativeUpdate)
+addon:RegisterWoWEvent("INITIATIVE_TASKS_TRACKED_UPDATED", ScheduleInitiativeUpdate)
 addon:RegisterWoWEvent("INITIATIVE_TASK_COMPLETED", OnTaskCompleted)

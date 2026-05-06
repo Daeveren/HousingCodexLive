@@ -294,6 +294,7 @@ addon.Events = {
     ACHIEVEMENT_COMPLETION_CHANGED  = "ACHIEVEMENT_COMPLETION_CHANGED",
     QUEST_ALL_TITLES_LOADED         = "QUEST_ALL_TITLES_LOADED",
     ZONE_DECOR_CACHE_INVALIDATED    = "ZONE_DECOR_CACHE_INVALIDATED",
+    PLAYER_PROFESSIONS_CHANGED      = "PLAYER_PROFESSIONS_CHANGED",
     ENDEAVORS_ZONE_CHANGED          = "ENDEAVORS_ZONE_CHANGED",
     ENDEAVORS_HOUSE_LEVEL_UPDATED   = "ENDEAVORS_HOUSE_LEVEL_UPDATED",
     ENDEAVORS_INITIATIVE_UPDATED    = "ENDEAVORS_INITIATIVE_UPDATED",
@@ -1216,6 +1217,11 @@ end
 
 -- Show URL popup anchored to a button
 function addon:ShowURLPopup(url, anchorButton)
+    if InCombatLockdown() then
+        self:Print(self.L["COMBAT_LOCKDOWN_MESSAGE"])
+        return
+    end
+
     local popup = self:CreateURLPopup()
     popup.editBox:SetText(url)
     popup:ClearAllPoints()

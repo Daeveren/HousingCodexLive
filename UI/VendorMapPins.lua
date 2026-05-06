@@ -335,6 +335,11 @@ local function RegisterProviderListeners(provider)
         addon:RegisterInternalEvent("RECORD_OWNERSHIP_UPDATED", provider.onOwnershipUpdated)
         provider.listeningInternal = true
     end
+
+    if not provider.listeningVendorVisibility and provider.onVendorVisibilityChanged then
+        addon:RegisterInternalEvent(addon.Events.PLAYER_PROFESSIONS_CHANGED, provider.onVendorVisibilityChanged)
+        provider.listeningVendorVisibility = true
+    end
 end
 
 local function UnregisterProviderListeners(provider)
@@ -347,6 +352,11 @@ local function UnregisterProviderListeners(provider)
         addon:UnregisterInternalEvent("RECORD_OWNERSHIP_UPDATED", provider.onOwnershipUpdated)
         provider.listeningInternal = false
     end
+
+    if provider.listeningVendorVisibility and provider.onVendorVisibilityChanged then
+        addon:UnregisterInternalEvent(addon.Events.PLAYER_PROFESSIONS_CHANGED, provider.onVendorVisibilityChanged)
+        provider.listeningVendorVisibility = false
+    end
 end
 
 function HousingCodexVendorDataProviderMixin:OnAdded(owningMap)
@@ -354,8 +364,12 @@ function HousingCodexVendorDataProviderMixin:OnAdded(owningMap)
     self.refreshPending = false
     self.listeningWoW = false
     self.listeningInternal = false
+    self.listeningVendorVisibility = false
     self.onOwnershipUpdated = self.onOwnershipUpdated or function(recordID, collectionStateChanged)
         if not collectionStateChanged then return end
+        ScheduleRefresh(self)
+    end
+    self.onVendorVisibilityChanged = self.onVendorVisibilityChanged or function()
         ScheduleRefresh(self)
     end
 end
