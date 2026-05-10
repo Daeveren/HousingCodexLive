@@ -2,6 +2,14 @@
 
 All notable changes to Housing Codex.
 
+**2.5.6** (2026-05-11)
+
+**Added**
+- Support for addons that modify the vendor UI with expanded merchant layouts
+
+**Changed**
+- Improved how the addon handles green checkmarks on vendor screens
+
 **2.5.5** (2026-05-07)
 
 **Added**

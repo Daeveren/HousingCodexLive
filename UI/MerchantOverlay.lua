@@ -9,12 +9,13 @@ local MerchantOverlay = {}
 addon.MerchantOverlay = MerchantOverlay
 
 -- Constants
-local MERCHANT_ITEMS_PER_PAGE = 10
+local DEFAULT_MERCHANT_PAGE_SIZE = 10
+local MAX_MERCHANT_OVERLAY_SCAN = 200
 local HC_ICON_SIZE = 18
 local CHECKMARK_SIZE = 16
 local HC_ICON_PATH = "Interface\\AddOns\\HousingCodex\\HC64"
 -- Storage for button overlays
-local buttonOverlays = {}
+local trackedButtons = {}
 
 -- Session cache for catalog lookups (cleared on storage updates and merchant close)
 local sessionCache = {}
@@ -22,15 +23,64 @@ local sessionCache = {}
 -- State tracking for market data refresh
 local waitingForMarketData = false
 local initialized = false
+local updateScheduled = false
 
 local function ClearSessionCache()
     wipe(sessionCache)
 end
 
+local function IsSecretValue(value)
+    return type(issecretvalue) == "function" and issecretvalue(value)
+end
+
+local function GetMerchantPageSize()
+    local pageSize = _G.MERCHANT_ITEMS_PER_PAGE
+    if pageSize == nil or IsSecretValue(pageSize) or type(pageSize) ~= "number" or pageSize < 1 then
+        return DEFAULT_MERCHANT_PAGE_SIZE
+    end
+
+    pageSize = math.floor(pageSize)
+
+    return math.min(pageSize, MAX_MERCHANT_OVERLAY_SCAN)
+end
+
+local function HideButtonOverlay(button)
+    if not button or not button.hcOverlay then
+        return
+    end
+
+    button.hcOverlay.hcShadow:Hide()
+    button.hcOverlay.hcIcon:Hide()
+    button.hcOverlay.checkShadow:Hide()
+    button.hcOverlay.checkmark:Hide()
+end
+
+local function GetLookupKey(button, displayIndex, numItems)
+    local itemID
+
+    if displayIndex and displayIndex > 0 and displayIndex <= numItems and type(GetMerchantItemID) == "function" then
+        itemID = GetMerchantItemID(displayIndex)
+    end
+
+    if itemID ~= nil and not IsSecretValue(itemID) and type(itemID) == "number" then
+        return itemID
+    end
+
+    local link = button and button.link
+    if link ~= nil and not IsSecretValue(link) then
+        local linkType = type(link)
+        if linkType == "string" or linkType == "number" then
+            return link
+        end
+    end
+
+    return nil
+end
+
 -- Get or create overlay textures for button
-function MerchantOverlay:GetOverlay(button, index)
-    if buttonOverlays[index] then
-        return buttonOverlays[index]
+function MerchantOverlay:GetOverlay(button)
+    if button.hcOverlay then
+        return button.hcOverlay
     end
 
     -- HC icon with shadow
@@ -48,45 +98,97 @@ function MerchantOverlay:GetOverlay(button, index)
     checkmark:SetAtlas("common-icon-checkmark")
     checkmark:SetVertexColor(0, 1, 0, 1)
 
-    buttonOverlays[index] = {
+    button.hcOverlay = {
         hcIcon = hcIcon,
         hcShadow = hcShadow,
         checkmark = checkmark,
         checkShadow = checkShadow,
     }
-    return buttonOverlays[index]
+    trackedButtons[button] = true
+
+    return button.hcOverlay
 end
 
+function MerchantOverlay:ScheduleUpdateMerchantButtons()
+    if updateScheduled then
+        return
+    end
+
+    updateScheduled = true
+    C_Timer.After(0, function()
+        updateScheduled = false
+        self:UpdateMerchantButtons()
+    end)
+end
 
 -- Update merchant buttons with decor indicators
 function MerchantOverlay:UpdateMerchantButtons()
-    if not MerchantFrame or not MerchantFrame:IsShown() then return end
-    if not addon.db then return end
-    if not C_HousingCatalog or not C_HousingCatalog.GetCatalogEntryInfoByItem then return end
+    if not MerchantFrame or not MerchantFrame:IsShown() then
+        self:HideAllOverlays()
+        return
+    end
+
+    if MerchantFrame.selectedTab and MerchantFrame.selectedTab ~= 1 then
+        self:HideAllOverlays()
+        return
+    end
+
+    if not addon.db or not addon.db.settings then
+        self:HideAllOverlays()
+        return
+    end
+
+    if not C_HousingCatalog or not C_HousingCatalog.GetCatalogEntryInfoByItem then
+        self:HideAllOverlays()
+        return
+    end
 
     local showDecorIcon = addon.db.settings.showVendorDecorIndicators
     local showOwnedCheckmark = addon.db.settings.showVendorOwnedCheckmark
 
     -- Early exit if both settings are off
-    if not showDecorIcon and not showOwnedCheckmark then return end
+    if not showDecorIcon and not showOwnedCheckmark then
+        self:HideAllOverlays()
+        return
+    end
 
-    local numItems = GetMerchantNumItems()
-    local pageOffset = (MerchantFrame.page - 1) * MERCHANT_ITEMS_PER_PAGE
+    self:HideAllOverlays()
 
-    for i = 1, MERCHANT_ITEMS_PER_PAGE do
+    local pageSize = GetMerchantPageSize()
+    local numItems = type(GetMerchantNumItems) == "function" and GetMerchantNumItems() or 0
+    if numItems == nil or IsSecretValue(numItems) or type(numItems) ~= "number" or numItems <= 0 then
+        return
+    end
+
+    local currentPage = MerchantFrame.page
+    if currentPage == nil or IsSecretValue(currentPage) or type(currentPage) ~= "number" or currentPage < 1 then
+        currentPage = 1
+    end
+
+    local pageOffset = (currentPage - 1) * pageSize
+    local remainingItems = math.max(0, numItems - pageOffset)
+    local scanCount = math.min(pageSize, remainingItems, MAX_MERCHANT_OVERLAY_SCAN)
+
+    for i = 1, scanCount do
         local button = _G["MerchantItem"..i.."ItemButton"]
         if button and button:IsShown() then
-            local overlay = self:GetOverlay(button, i)
-            local index = pageOffset + i
-            local itemID = index <= numItems and GetMerchantItemID(index)
+            local buttonID = button:GetID()
+            local displayIndex
+            if buttonID ~= nil and not IsSecretValue(buttonID) and type(buttonID) == "number" and buttonID > 0 and buttonID <= numItems then
+                displayIndex = buttonID
+            else
+                displayIndex = pageOffset + i
+            end
+
+            local lookupKey = GetLookupKey(button, displayIndex, numItems)
 
             -- Session cache: table = decor info, false = queried but not decor, nil = not yet queried
             local catalogInfo
-            if itemID then
-                local cached = sessionCache[itemID]
+            if lookupKey then
+                local cached = sessionCache[lookupKey]
                 if cached == nil then
-                    catalogInfo = C_HousingCatalog.GetCatalogEntryInfoByItem(itemID)
-                    sessionCache[itemID] = catalogInfo or false
+                    catalogInfo = C_HousingCatalog.GetCatalogEntryInfoByItem(lookupKey)
+                    sessionCache[lookupKey] = catalogInfo or false
                 elseif cached then
                     catalogInfo = cached
                 end
@@ -95,6 +197,7 @@ function MerchantOverlay:UpdateMerchantButtons()
             local isDecor = catalogInfo ~= nil
             local isOwned = catalogInfo and addon.IsDecorOwned(catalogInfo)
 
+            local overlay = self:GetOverlay(button)
             overlay.hcShadow:SetShown(isDecor and showDecorIcon)
             overlay.hcIcon:SetShown(isDecor and showDecorIcon)
             overlay.checkShadow:SetShown(isOwned and showOwnedCheckmark)
@@ -105,19 +208,18 @@ end
 
 -- Hide all overlays
 function MerchantOverlay:HideAllOverlays()
-    for _, overlay in pairs(buttonOverlays) do
-        overlay.hcShadow:Hide()
-        overlay.hcIcon:Hide()
-        overlay.checkShadow:Hide()
-        overlay.checkmark:Hide()
+    for button in pairs(trackedButtons) do
+        HideButtonOverlay(button)
     end
 end
 
 -- Hook merchant frame
 function MerchantOverlay:HookMerchantFrame()
-    hooksecurefunc("MerchantFrame_UpdateMerchantInfo", function()
-        self:UpdateMerchantButtons()
-    end)
+    if type(MerchantFrame_UpdateMerchantInfo) == "function" then
+        hooksecurefunc("MerchantFrame_UpdateMerchantInfo", function()
+            self:ScheduleUpdateMerchantButtons()
+        end)
+    end
     addon:Debug("MerchantOverlay: Hooked MerchantFrame_UpdateMerchantInfo")
 end
 
@@ -145,7 +247,7 @@ function MerchantOverlay:Initialize()
                 if waitingForMarketData and MerchantFrame and MerchantFrame:IsShown() then
                     waitingForMarketData = false
                     ClearSessionCache()
-                    self:UpdateMerchantButtons()
+                    self:ScheduleUpdateMerchantButtons()
                 end
             end)
         elseif event == "HOUSING_MARKET_AVAILABILITY_UPDATED" then
@@ -153,7 +255,7 @@ function MerchantOverlay:Initialize()
             waitingForMarketData = false
             if MerchantFrame and MerchantFrame:IsShown() then
                 ClearSessionCache()
-                self:UpdateMerchantButtons()
+                self:ScheduleUpdateMerchantButtons()
             end
         elseif event == "MERCHANT_CLOSED" then
             waitingForMarketData = false
@@ -167,7 +269,7 @@ function MerchantOverlay:Initialize()
         if not MerchantFrame or not MerchantFrame:IsShown() then return end
         -- Clear session cache to force fresh ownership checks
         ClearSessionCache()
-        self:UpdateMerchantButtons()
+        self:ScheduleUpdateMerchantButtons()
     end)
 
     addon:Debug("MerchantOverlay initialized")

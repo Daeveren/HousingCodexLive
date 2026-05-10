@@ -30,7 +30,7 @@ A World of Warcraft addon that gives you a better way to browse, track, and coll
 - **Vendor Map Pins** - Vendor locations shown directly on the world map with tooltip progress, promotional-stock split, and uncollected item hints
 - **Zone Overlay** - World map overlay showing uncollected decor in the current zone, grouped by source with 3D preview on hover
 - **Endeavors Panel** - Floating panel in neighborhood zones showing house level, XP, endeavor progress, and recent task completions
-- **Merchant Overlay** - Marks housing decor at any vendor with an HC icon and green checkmark for owned items
+- **Merchant Overlay** - Marks housing decor at any vendor with an HC icon and green checkmark for owned items, including expanded merchant layouts that expose more visible item slots
 - **Bag & Bank Overlay** - Marks housing decor in bags, character bank, and warband bank with an HC icon and ownership checkmark
 - **Vendor Tooltip** - Hovering over NPC vendors that sell decor shows your collection progress and uncollected item names
 - **Treasure Hunt Waypoints** - Automatically sets a map waypoint when you accept a Decor Treasure Hunt daily quest
