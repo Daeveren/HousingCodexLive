@@ -78,6 +78,35 @@ local function RefreshRecordOwnership(record, info)
     record.isCollected = IsInfoCollected(info)
 end
 
+local function InvalidateFallbackRecordCaches(self)
+    self.cachedAllRecordIDs = nil
+    self.byWordIndexBuilt = false
+end
+
+local function CacheFallbackRecord(self, recordID, record)
+    self.fallbackRecords[recordID] = record
+    InvalidateFallbackRecordCaches(self)
+end
+
+local function CacheFallbackMiss(self, recordID)
+    if self.dataLoaded then
+        self.fallbackRecords[recordID] = false
+    end
+end
+
+local function ClearFallbackMisses(self)
+    for recordID, cached in pairs(self.fallbackRecords) do
+        if cached == false then
+            self.fallbackRecords[recordID] = nil
+        end
+    end
+end
+
+local function ResetFallbackRecords(self)
+    wipe(self.fallbackRecords)
+    InvalidateFallbackRecordCaches(self)
+end
+
 local function GetEntryIcon(info)
     -- Priority 1: iconTexture (FileAsset - number fileID or string path)
     -- Must validate because invalid values render as bright green tiles
@@ -95,23 +124,19 @@ local function GetEntryIcon(info)
     end
 
     -- Priority 3: category or subcategory icon atlas (model-only items with no flat icon)
-    if C_HousingCatalog then
-        local getCatInfo = C_HousingCatalog.GetCatalogCategoryInfo
-        local getSubInfo = C_HousingCatalog.GetCatalogSubcategoryInfo
-        if getCatInfo and info.categoryIDs then
-            for _, catID in ipairs(info.categoryIDs) do
-                local catInfo = getCatInfo(catID)
-                if catInfo and catInfo.icon and IsValidAtlas(catInfo.icon) then
-                    return catInfo.icon, "atlas", true
-                end
+    if info.categoryIDs and addon.GetCategoryInfo then
+        for _, catID in ipairs(info.categoryIDs) do
+            local catInfo = addon:GetCategoryInfo(catID)
+            if catInfo and catInfo.icon and IsValidAtlas(catInfo.icon) then
+                return catInfo.icon, "atlas", true
             end
         end
-        if getSubInfo and info.subcategoryIDs then
-            for _, subID in ipairs(info.subcategoryIDs) do
-                local subInfo = getSubInfo(subID)
-                if subInfo and subInfo.icon and IsValidAtlas(subInfo.icon) then
-                    return subInfo.icon, "atlas", true
-                end
+    end
+    if info.subcategoryIDs and addon.GetSubcategoryInfo then
+        for _, subID in ipairs(info.subcategoryIDs) do
+            local subInfo = addon:GetSubcategoryInfo(subID)
+            if subInfo and subInfo.icon and IsValidAtlas(subInfo.icon) then
+                return subInfo.icon, "atlas", true
             end
         end
     end
@@ -430,7 +455,8 @@ end
 
 -- Resolve a record by trying direct API lookup when not in catalog search results.
 -- Used for items with HiddenInCatalog flag (e.g., boss drops not yet in catalog browser).
--- Successful lookups are cached in fallbackRecords; failures cached as false (negative cache).
+-- Successful lookups are cached in fallbackRecords; failures are negative-cached
+-- only after DATA_LOADED so early API misses remain retryable.
 function addon:ResolveRecord(recordID)
     -- Check primary records first
     local record = self.decorRecords[recordID]
@@ -448,7 +474,7 @@ function addon:ResolveRecord(recordID)
     local info = C_HousingCatalog.GetCatalogEntryInfoByRecordID(
         Enum.HousingCatalogEntryType.Decor, recordID)
     if not info then
-        self.fallbackRecords[recordID] = false
+        CacheFallbackMiss(self, recordID)
         return nil
     end
 
@@ -465,26 +491,18 @@ function addon:ResolveRecord(recordID)
         if dropSource then record.sourceText = dropSource end
     end
 
-    self.fallbackRecords[recordID] = record
-    -- Growing fallbackRecords must invalidate the GetAllRecordIDs cache (which
-    -- now reads fallbackRecords). Ad-hoc ResolveRecord callers (PreviewFrame,
-    -- WishlistFrame) grow this map outside the BuildCraftingIndex path.
-    self.cachedAllRecordIDs = nil
+    -- Growing fallbackRecords must invalidate the GetAllRecordIDs cache and word
+    -- index. Ad-hoc ResolveRecord callers (PreviewFrame, WishlistFrame) grow
+    -- this map outside the BuildCraftingIndex path.
+    CacheFallbackRecord(self, recordID, record)
     self:Debug("Resolved hidden catalog item: " .. (info.name or recordID))
     return record
 end
 
--- Safety net: ResolveRecord may have been called before DATA_LOADED populated
--- decorDropSourceText (e.g., saved non-Drops tab render in the 0.5s window after
--- PLAYER_ENTERING_WORLD). In that case the housing API could also return nil and
--- write a false negative-cache entry. Clear false entries on DATA_LOADED so those
--- items get a fresh resolution attempt the next time they're requested.
+-- Safety net: stale false entries from an earlier load phase should not survive
+-- DATA_LOADED, so unresolved hidden items get a fresh attempt after initialization.
 addon:RegisterInternalEvent("DATA_LOADED", function()
-    for recordID, cached in pairs(addon.fallbackRecords) do
-        if cached == false then
-            addon.fallbackRecords[recordID] = nil
-        end
-    end
+    ClearFallbackMisses(addon)
 end)
 
 -- Count cache: invalidated by BuildCollectedIndex (full rebuild) and targeted ownership handler
@@ -883,13 +901,8 @@ addon:RegisterWoWEvent("HOUSING_STORAGE_UPDATED", function()
 
     -- Wipe fallback records so ResolveRecord re-queries with fresh ownership
     -- Safe: BuildCollectedIndex only iterates decorRecords, fallbackRecords repopulate on demand
-    wipe(addon.fallbackRecords)
+    ResetFallbackRecords(addon)
     addon.craftingIndexBuilt = false
-
-    -- Word index and GetAllRecordIDs cache now cover fallbackRecords — invalidate
-    -- both so the post-wipe state doesn't retain stale fallback IDs.
-    addon.byWordIndexBuilt = false
-    addon.cachedAllRecordIDs = nil
 
     -- Refresh ownership fields BEFORE rebuilding indexes so collected counts are accurate
     for _, record in pairs(addon.decorRecords) do
@@ -939,7 +952,7 @@ function addon:ResetLoadState()
     end
     self.loadingInProgress = false
     self.catalogSearcher = nil
-    wipe(self.fallbackRecords)
+    ResetFallbackRecords(self)
     self:Debug("Load state reset for retry")
 end
 

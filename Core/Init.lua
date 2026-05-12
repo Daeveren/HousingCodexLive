@@ -1059,7 +1059,7 @@ SlashCmdList["HOUSINGCODEX"] = function(msg)
                 addon:Print(string.format(L["INSPECT_FOUND"], record.name, recordID))
                 addon:Print("  icon: " .. tostring(record.icon) .. " (type: " .. type(record.icon) .. ")")
                 addon:Print("  iconType: " .. tostring(record.iconType))
-                addon:Print("  hasModelAsset: " .. tostring(record.hasModelAsset))
+                addon:Print("  modelAssetPresent: " .. tostring(record.modelAsset ~= nil))
                 addon:Print("  isModelOnly: " .. tostring(record.isModelOnly))
                 addon:Print("  modelAsset: " .. tostring(record.modelAsset))
                 -- Also get raw info from API

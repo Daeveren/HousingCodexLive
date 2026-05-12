@@ -2,6 +2,12 @@
 
 All notable changes to Housing Codex.
 
+**2.5.7** (2026-05-13)
+
+**Changed**
+- Improved reliability when loading decor with incomplete catalog data
+- Updated vendor data to remove invalid entries
+
 **2.5.6** (2026-05-11)
 
 **Added**
