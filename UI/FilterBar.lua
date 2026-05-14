@@ -44,8 +44,12 @@ function FilterBar:CreateDropdown(parent)
     local dropdown = CreateFrame("DropdownButton", nil, parent, "WowStyle1FilterDropdownTemplate")
     dropdown.resizeToTextPadding = 36
     dropdown:SetText(L["FILTERS"])
-    dropdown.Text:ClearAllPoints()
-    dropdown.Text:SetPoint("TOP", -6, 0)
+    if dropdown.Text then
+        dropdown.Text:ClearAllPoints()
+        dropdown.Text:SetPoint("TOP", -6, 0)
+        dropdown.Text:SetFontObject(addon:GetFontObject("GameFontNormalSmall"))
+        addon:RegisterFontString(dropdown.Text, "GameFontNormalSmall")
+    end
     self.dropdownButton = dropdown
 
     -- Setup the menu

@@ -60,6 +60,7 @@ local CURRENCY_NAME_TO_ID = {
     ["Honor"] = 1792,
     ["Illusionary Coins"] = 3393,
     ["Kej"] = 3056,
+    ["Luminous Dust"] = 3385,
     ["Mysterious Fragment"] = 2657,
     ["Order Resources"] = 1220,
     ["Remnant of Anguish"] = 3089,

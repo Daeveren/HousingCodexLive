@@ -452,6 +452,7 @@ L["PROFESSIONS_EMPTY_NO_RESULTS"] = "No Results"
 --------------------------------------------------------------------------------
 -- Treasure Hunt Waypoints
 --------------------------------------------------------------------------------
+L["TREASURE_HUNT_WAYPOINT_TITLE"] = "Decor Treasure"
 L["TREASURE_HUNT_WAYPOINT_SET"] = "Marked treasure at"
 
 --------------------------------------------------------------------------------

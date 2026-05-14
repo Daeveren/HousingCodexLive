@@ -58,7 +58,7 @@ local function SetWaypoint(questId)
 
     pendingCombatQuestId = nil
 
-    if not addon.Waypoints:Set(loc.mapID, loc.x, loc.y, "Decor Treasure") then
+    if not addon.Waypoints:Set(loc.mapID, loc.x, loc.y, addon.L["TREASURE_HUNT_WAYPOINT_TITLE"]) then
         addon:Debug(string.format("Treasure Hunt: Cannot set waypoint on map %d", loc.mapID))
         return
     end

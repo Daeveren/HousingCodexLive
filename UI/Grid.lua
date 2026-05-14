@@ -286,6 +286,13 @@ end
 function Grid:CreateSortDropdown(parent)
     local dropdown = CreateFrame("DropdownButton", nil, parent, "WowStyle1DropdownTemplate")
     dropdown:SetSize(100, 22)
+    if dropdown.Text then
+        dropdown.Text:ClearAllPoints()
+        dropdown.Text:SetPoint("LEFT", 8, 1)
+        dropdown.Text:SetPoint("RIGHT", -28, 1)
+        dropdown.Text:SetFontObject(addon:GetFontObject("GameFontNormalSmall"))
+        addon:RegisterFontString(dropdown.Text, "GameFontNormalSmall")
+    end
 
     -- Setup menu generator
     dropdown:SetupMenu(function(dropdownFrame, rootDescription)

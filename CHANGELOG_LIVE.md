@@ -2,6 +2,16 @@
 
 All notable changes to Housing Codex.
 
+**2.5.8** (2026-05-14)
+
+**Changed**
+- Updated decor vendor pricing data
+- Improved localized treasure hunt waypoint names
+- Improved decor toolbar dropdown font consistency
+
+**Fixed**
+- Corrected Decor sort dropdown label alignment
+
 **2.5.7** (2026-05-13)
 
 **Changed**
