@@ -295,9 +295,6 @@ L["QUESTS_UNKNOWN_ZONE"] = "Unknown Zone"
 L["QUESTS_UNKNOWN_EXPANSION"] = "Other"
 
 -- Quest tracking messages
-L["QUESTS_TRACKING_STARTED"] = "Now tracking item"
-L["QUESTS_TRACKING_MAX_REACHED"] = "Cannot track - maximum items reached (15)"
-L["QUESTS_TRACKING_ALREADY"] = "Already tracking this item"
 L["QUESTS_TRACKING_FAILED"] = "Cannot track this item"
 
 -- Expansion names

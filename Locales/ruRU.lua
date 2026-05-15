@@ -295,9 +295,6 @@ L["QUESTS_UNKNOWN_ZONE"] = "Неизвестная зона"
 L["QUESTS_UNKNOWN_EXPANSION"] = "Прочее"
 
 -- Quest tracking messages
-L["QUESTS_TRACKING_STARTED"] = "Предмет отслеживается"
-L["QUESTS_TRACKING_MAX_REACHED"] = "Ошибка: достигнут лимит отслеживания (15)"
-L["QUESTS_TRACKING_ALREADY"] = "Этот предмет уже отслеживается"
 L["QUESTS_TRACKING_FAILED"] = "Не удалось отследить этот предмет"
 
 -- Expansion names

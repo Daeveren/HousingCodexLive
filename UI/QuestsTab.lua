@@ -387,12 +387,15 @@ function QuestsTab:NavigateFromProgress(expansionKey, filter)
         self.searchBox:SetText("")
     end
     self:SetCompletionFilter(filter or "all", true)
-    self:BuildExpansionDisplay()
+    local activeFilter = self:GetCompletionFilter()
+    local searchText = strlower(strtrim(self.searchBox and self.searchBox:GetText() or ""))
+    local visibilityCache = self:BuildQuestVisibilityCache(activeFilter, searchText)
+    self:BuildExpansionDisplay(visibilityCache)
     if not expansionKey then
         local expansions = addon:GetSortedExpansions()
         expansionKey = expansions[1]
     end
-    if expansionKey then self:SelectExpansion(expansionKey) end
+    if expansionKey then self:SelectExpansion(expansionKey, visibilityCache) end
 end
 
 function QuestsTab:Hide()
@@ -424,8 +427,11 @@ end
 -- when that didn't happen.
 function QuestsTab:RefreshDisplay()
     addon:CountDebug("rebuild", "QuestsTab")
-    if not self:BuildExpansionDisplay() then
-        self:BuildZoneQuestDisplay()
+    local filter = self:GetCompletionFilter()
+    local searchText = strlower(strtrim(self.searchBox and self.searchBox:GetText() or ""))
+    local visibilityCache = self:BuildQuestVisibilityCache(filter, searchText)
+    if not self:BuildExpansionDisplay(visibilityCache) then
+        self:BuildZoneQuestDisplay(visibilityCache)
     end
 end
 
@@ -528,7 +534,7 @@ function QuestsTab:SetupExpansionButton(frame, elementData)
     end)
 end
 
-function QuestsTab:SelectExpansion(expansionKey)
+function QuestsTab:SelectExpansion(expansionKey, visibilityCache)
     local prevSelected = self.selectedExpansionKey
     self.selectedExpansionKey = expansionKey
 
@@ -567,7 +573,7 @@ function QuestsTab:SelectExpansion(expansionKey)
     end
 
     -- Rebuild zone/quest panel
-    self:BuildZoneQuestDisplay()
+    self:BuildZoneQuestDisplay(visibilityCache)
 end
 
 --------------------------------------------------------------------------------
@@ -682,7 +688,39 @@ local function QuestPassesCompletionFilter(questKey, filter)
     return not isComplete  -- "incomplete" or unknown defaults to showing incomplete
 end
 
-function QuestsTab:BuildExpansionDisplay()
+local QUEST_VISIBILITY_KEY_SEP = "\0"
+
+local function GetQuestVisibilityKey(expansionKey, zoneName, questKey)
+    return tostring(expansionKey) .. QUEST_VISIBILITY_KEY_SEP
+        .. tostring(zoneName) .. QUEST_VISIBILITY_KEY_SEP
+        .. type(questKey) .. QUEST_VISIBILITY_KEY_SEP
+        .. tostring(questKey)
+end
+
+function QuestsTab:BuildQuestVisibilityCache(filter, searchText)
+    local cache = {}
+    for _, expansionKey in ipairs(addon:GetSortedExpansions()) do
+        for _, zoneName in ipairs(addon:GetSortedZones(expansionKey)) do
+            for _, questKey in ipairs(addon:GetQuestsForZone(expansionKey, zoneName)) do
+                if QuestPassesCompletionFilter(questKey, filter)
+                    and QuestMatchesSearch(questKey, searchText, zoneName, expansionKey) then
+                    cache[GetQuestVisibilityKey(expansionKey, zoneName, questKey)] = true
+                end
+            end
+        end
+    end
+    return cache
+end
+
+function QuestsTab:IsQuestVisible(questKey, filter, searchText, zoneName, expansionKey, visibilityCache)
+    if visibilityCache then
+        return visibilityCache[GetQuestVisibilityKey(expansionKey, zoneName, questKey)] == true
+    end
+    return QuestPassesCompletionFilter(questKey, filter)
+        and QuestMatchesSearch(questKey, searchText, zoneName, expansionKey)
+end
+
+function QuestsTab:BuildExpansionDisplay(visibilityCache)
     if not self.expansionScrollBox or not self.expansionDataProvider then return false end
 
     local elements = {}
@@ -693,8 +731,7 @@ function QuestsTab:BuildExpansionDisplay()
         local hasVisibleContent = false
         for _, zoneName in ipairs(addon:GetSortedZones(expansionKey)) do
             for _, questKey in ipairs(addon:GetQuestsForZone(expansionKey, zoneName)) do
-                if QuestPassesCompletionFilter(questKey, filter)
-                    and QuestMatchesSearch(questKey, searchText, zoneName, expansionKey) then
+                if self:IsQuestVisible(questKey, filter, searchText, zoneName, expansionKey, visibilityCache) then
                     hasVisibleContent = true
                     break
                 end
@@ -722,23 +759,23 @@ function QuestsTab:BuildExpansionDisplay()
     -- Returns true when this function already triggered BuildZoneQuestDisplay internally
     if not self.selectedExpansionKey and #elements > 0 then
         local defaultKey = "EXPANSION_TWW"
-        self:SelectExpansion(visibleExpansions[defaultKey] and defaultKey or elements[1].expansionKey)
+        self:SelectExpansion(visibleExpansions[defaultKey] and defaultKey or elements[1].expansionKey, visibilityCache)
         return true
     elseif self.selectedExpansionKey and not visibleExpansions[self.selectedExpansionKey] then
         -- Current selection no longer visible
         if #elements > 0 then
-            self:SelectExpansion(elements[1].expansionKey)
+            self:SelectExpansion(elements[1].expansionKey, visibilityCache)
             return true
         else
             self.selectedExpansionKey = nil
-            self:BuildZoneQuestDisplay()
+            self:BuildZoneQuestDisplay(visibilityCache)
             return true
         end
     end
     return false
 end
 
-function QuestsTab:BuildZoneQuestDisplay()
+function QuestsTab:BuildZoneQuestDisplay(visibilityCache)
     if not self.zoneQuestScrollBox or not self.zoneQuestDataProvider then return end
 
     local elements = {}
@@ -751,8 +788,7 @@ function QuestsTab:BuildZoneQuestDisplay()
         for _, zoneName in ipairs(addon:GetSortedZones(expansionKey)) do
             local zoneQuests = {}
             for _, questKey in ipairs(addon:GetQuestsForZone(expansionKey, zoneName)) do
-                if QuestPassesCompletionFilter(questKey, filter)
-                    and QuestMatchesSearch(questKey, searchText, zoneName, expansionKey) then
+                if self:IsQuestVisible(questKey, filter, searchText, zoneName, expansionKey, visibilityCache) then
                     -- Multi-reward quests: show one entry per reward
                     local recordIDs = addon:GetRecordsForQuest(questKey)
                     local numRewards = recordIDs and #recordIDs or 0

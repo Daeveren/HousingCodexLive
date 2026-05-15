@@ -296,9 +296,6 @@ L["QUESTS_UNKNOWN_ZONE"] = "Zone inconnue"
 L["QUESTS_UNKNOWN_EXPANSION"] = "Autre"
 
 -- Quest tracking messages
-L["QUESTS_TRACKING_STARTED"] = "Suivi de l'objet activé"
-L["QUESTS_TRACKING_MAX_REACHED"] = "Impossible de suivre - maximum atteint (15)"
-L["QUESTS_TRACKING_ALREADY"] = "Cet objet est déjà suivi"
 L["QUESTS_TRACKING_FAILED"] = "Impossible de suivre cet objet"
 
 -- Expansion names (official French names from Blizzard)

@@ -64,14 +64,17 @@ local function ParseQuestID(sourceText)
 
     -- Strategy 1: Try LinkUtil.ExtractLink for any hyperlink type
     if LinkUtil and LinkUtil.ExtractLink then
-        local linkType, linkID = LinkUtil.ExtractLink(sourceText)
-        if linkType == "quest" and linkID then
-            return tonumber(linkID)
+        local linkType, linkOptions = LinkUtil.ExtractLink(sourceText)
+        if linkType == "quest" and linkOptions then
+            local linkID = linkOptions:match("^(%d+)")
+            if linkID then
+                return tonumber(linkID)
+            end
         end
     end
 
-    -- Strategy 2: Regex pattern for |Hquest:ID|h format
-    local questID = sourceText:match("|Hquest:(%d+)|h")
+    -- Strategy 2: Regex pattern for |Hquest:ID|h and |Hquest:ID:...|h formats
+    local questID = sourceText:match("|Hquest:(%d+)[:|]")
     if questID then
         return tonumber(questID)
     end
@@ -123,8 +126,8 @@ local function RequestQuestTitle(questID)
     if not questID or addon.questTitleCache[questID] or addon.pendingQuestLoads[questID] then
         return
     end
-    addon.pendingQuestLoads[questID] = true
     if C_QuestLog and C_QuestLog.RequestLoadQuestByID then
+        addon.pendingQuestLoads[questID] = true
         C_QuestLog.RequestLoadQuestByID(questID)
     end
 end
@@ -519,4 +522,3 @@ addon:RegisterWoWEvent("QUEST_DATA_LOAD_RESULT", function(questID, success)
         addon:FireEvent("QUEST_ALL_TITLES_LOADED")
     end
 end)
-

@@ -296,9 +296,6 @@ L["QUESTS_UNKNOWN_ZONE"] = "Unbekannte Zone"
 L["QUESTS_UNKNOWN_EXPANSION"] = "Andere"
 
 -- Quest tracking messages
-L["QUESTS_TRACKING_STARTED"] = "Objekt wird jetzt verfolgt"
-L["QUESTS_TRACKING_MAX_REACHED"] = "Kann nicht verfolgt werden - Maximum erreicht (15)"
-L["QUESTS_TRACKING_ALREADY"] = "Dieses Objekt wird bereits verfolgt"
 L["QUESTS_TRACKING_FAILED"] = "Dieses Objekt kann nicht verfolgt werden"
 
 -- Expansion names

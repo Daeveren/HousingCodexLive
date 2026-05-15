@@ -2,6 +2,15 @@
 
 All notable changes to Housing Codex.
 
+**2.5.9** (2026-05-15)
+
+**Changed**
+- Improved Quests tab performance when searching and filtering
+
+**Fixed**
+- Fixed some quest links not resolving correctly
+- Improved reliability when loading quest names
+
 **2.5.8** (2026-05-14)
 
 **Changed**
