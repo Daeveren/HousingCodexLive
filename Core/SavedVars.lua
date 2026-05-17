@@ -5,7 +5,24 @@
 
 local _, addon = ...
 
-local CURRENT_DB_VERSION = 7
+local CURRENT_DB_VERSION = 8
+
+local LOCALES_USING_SYSTEM_FONT_BY_DEFAULT = {
+    zhCN = true,
+}
+
+local function ShouldUseSystemFontByDefault()
+    return LOCALES_USING_SYSTEM_FONT_BY_DEFAULT[GetLocale()] == true
+end
+
+local function ApplyLocaleFontDefault(db)
+    if type(db.settings) ~= "table" then
+        db.settings = {}
+    end
+    if ShouldUseSystemFontByDefault() then
+        db.settings.useCustomFont = false
+    end
+end
 
 local defaults = {
     version = CURRENT_DB_VERSION,
@@ -204,6 +221,14 @@ local function MigrateDB(db)
         db.version = 7
     end
 
+    -- v7 -> v8: Default Chinese clients to the system font because Roboto Condensed
+    -- does not include Chinese glyph coverage. This is one-time only; later user
+    -- changes through Settings or /hc font are preserved.
+    if db.version < 8 then
+        ApplyLocaleFontDefault(db)
+        db.version = 8
+    end
+
     return db
 end
 
@@ -244,6 +269,7 @@ end
 function addon:InitializeDB()
     if not HousingCodexDB then
         HousingCodexDB = CopyTable(defaults)
+        ApplyLocaleFontDefault(HousingCodexDB)
     else
         -- Coerce version first (nil/non-numeric → 0 so migrations fire correctly)
         if type(HousingCodexDB.version) ~= "number" then

@@ -1,7 +1,8 @@
 package-as: HousingCodex
 
-manual-changelog: .release_changelog.md
-manual-changelog-markup: markdown
+manual-changelog:
+  filename: .release_changelog.md
+  markup-type: markdown
 
 ignore:
   - .github

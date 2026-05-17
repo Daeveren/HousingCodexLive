@@ -53,7 +53,8 @@ local function CreateCheckbox(parent, label, tooltip, getValue, setValue)
 
     check:SetScript("OnEnter", function(self)
         GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
-        GameTooltip:SetText(tooltip)
+        GameTooltip:SetText(label, 1, 0.82, 0)
+        GameTooltip:AddLine(tooltip, 1, 1, 1, true)
         GameTooltip:Show()
     end)
 
@@ -607,6 +608,22 @@ function addon.Settings:Initialize()
     CreateSectionHeader(panel, L["OPTIONS_SECTION_TROUBLESHOOTING"], yOffset)
     yOffset = yOffset - 20
 
+    -- Disable custom font checkbox
+    local disableCustomFontCheck = CreateCheckbox(
+        panel,
+        L["OPTIONS_DISABLE_CUSTOM_FONT"],
+        L["OPTIONS_DISABLE_CUSTOM_FONT_TOOLTIP"],
+        function() return addon.db and addon.db.settings and not addon.db.settings.useCustomFont end,
+        function(checked)
+            if addon.db then
+                addon:SetCustomFontEnabled(not checked)
+            end
+        end
+    )
+    disableCustomFontCheck:SetPoint("TOPLEFT", COL1_X, yOffset)
+    self.disableCustomFontCheck = disableCustomFontCheck
+    yOffset = yOffset - 26
+
     -- Reset Position button
     local resetPosBtn = CreateResetButton(panel, "OPTIONS_RESET_POSITION", "OPTIONS_RESET_POSITION_TOOLTIP", function()
         if addon.MainFrame then
@@ -660,6 +677,7 @@ function addon.Settings:Initialize()
         settings.containerCheck:SetChecked(s.showContainerDecorIndicators)
         settings.containerOwnedCheck:SetChecked(s.showContainerOwnedCheckmark)
         settings.endeavorsEnabledCheck:SetChecked(db.endeavors and db.endeavors.enabled)
+        settings.disableCustomFontCheck:SetChecked(not s.useCustomFont)
         UpdateKeybindButtonText()
     end
 

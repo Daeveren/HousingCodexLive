@@ -2,6 +2,17 @@
 
 All notable changes to Housing Codex.
 
+**2.5.10** (2026-05-17)
+
+**Changed**
+- Added a Settings option to disable the Housing Codex custom font
+- Improved font support for Chinese clients
+- Added `/hc font` to the in-game help list
+
+**Fixed**
+- Fixed stale Wishlist previews after removing hovered items
+- Improved long tooltip wrapping in addon settings
+
 **2.5.9** (2026-05-15)
 
 **Changed**

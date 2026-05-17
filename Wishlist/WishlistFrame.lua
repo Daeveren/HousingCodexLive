@@ -1149,8 +1149,10 @@ addon:RegisterInternalEvent("WISHLIST_CHANGED", function(recordID, isWishlisted)
     if WishlistFrame:IsShown() then
         WishlistFrame:RefreshData()
 
-        -- Clear selection if selected item was removed
-        if not isWishlisted and WishlistFrame.selectedRecordID == recordID then
+        local removedSelectedRecord = not isWishlisted and WishlistFrame.selectedRecordID == recordID
+        local removedCurrentPreview = not isWishlisted and WishlistFrame.currentRecordID == recordID
+
+        if removedSelectedRecord or removedCurrentPreview then
             WishlistFrame.selectedRecordID = nil
             WishlistFrame.currentRecordID = nil
             WishlistFrame:ClearPreview()

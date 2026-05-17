@@ -61,6 +61,15 @@ function addon:GetFontObject(templateName)
     return _G[templateName] or GameFontNormal
 end
 
+function addon:SetCustomFontEnabled(enabled)
+    if not (self.db and self.db.settings) then return end
+    self.db.settings.useCustomFont = enabled == true
+    self:ApplyFontSettings()
+    if self.Settings and self.Settings.disableCustomFontCheck then
+        self.Settings.disableCustomFontCheck:SetChecked(not self.db.settings.useCustomFont)
+    end
+end
+
 function addon:CreateFontString(parent, layer, templateName)
     templateName = templateName or "GameFontNormal"
     local fontString = parent:CreateFontString(nil, layer or "OVERLAY")

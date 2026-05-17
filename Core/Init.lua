@@ -996,6 +996,7 @@ SlashCmdList["HOUSINGCODEX"] = function(msg)
         addon:Print("  " .. L["HELP_DEBUG"])
         addon:Print("  " .. L["HELP_STATS"])
         addon:Print("  " .. L["HELP_LOG"])
+        addon:Print("  " .. L["HELP_FONT"])
     elseif cmd == "settings" or cmd == "options" then
         if InCombatLockdown() then
             addon:Print(L["COMBAT_LOCKDOWN_MESSAGE"])
@@ -1032,10 +1033,7 @@ SlashCmdList["HOUSINGCODEX"] = function(msg)
         end
     elseif cmd == "font" then
         if addon.db then
-            addon.db.settings.useCustomFont = not addon.db.settings.useCustomFont
-            if addon.ApplyFontSettings then
-                addon:ApplyFontSettings()
-            end
+            addon:SetCustomFontEnabled(not addon.db.settings.useCustomFont)
             local status = addon.db.settings.useCustomFont and L["DEBUG_ON"] or L["DEBUG_OFF"]
             addon:Print(string.format(L["FONT_MODE_STATUS"], status))
         end

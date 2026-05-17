@@ -219,6 +219,8 @@ L["SIZE_RESET"] = "Taille de la fenêtre réinitialisée."
 
 L["OPTIONS_SECTION_KEYBIND"] = "Raccourci"
 L["OPTIONS_SECTION_TROUBLESHOOTING"] = "Dépannage"
+L["OPTIONS_DISABLE_CUSTOM_FONT"] = "Désactiver la police personnalisée de Housing Codex"
+L["OPTIONS_DISABLE_CUSTOM_FONT_TOOLTIP"] = "Utilisez cette option si la police personnalisée provoque des caractères manquants ou des problèmes de lisibilité. Housing Codex est développé et testé avec sa police personnalisée intégrée ; les autres remplacements de police ne sont pas pris en charge."
 L["OPTIONS_TOGGLE_KEYBIND"] = "Afficher/Masquer :"
 L["OPTIONS_NOT_BOUND"] = "Non assigné"
 L["OPTIONS_PRESS_KEY"] = "Appuyez sur une touche..."
@@ -238,6 +240,7 @@ L["HELP_HELP"] = "/hc help - Afficher cette aide"
 L["HELP_DEBUG"] = "/hc debug - Activer/désactiver le mode débogage"
 L["HELP_STATS"] = "/hc stats - Afficher les compteurs de débogage"
 L["HELP_LOG"] = "|cFFFFD100/hc log|r - Afficher le journal des événements (mode débogage requis)"
+L["HELP_FONT"] = "/hc font - Activer/désactiver la police personnalisée de Housing Codex"
 
 --------------------------------------------------------------------------------
 -- Slash Commands

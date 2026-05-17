@@ -219,6 +219,8 @@ L["SIZE_RESET"] = "Fenstergröße auf Standard zurückgesetzt."
 
 L["OPTIONS_SECTION_KEYBIND"] = "Tastenbelegung"
 L["OPTIONS_SECTION_TROUBLESHOOTING"] = "Fehlerbehebung"
+L["OPTIONS_DISABLE_CUSTOM_FONT"] = "Housing Codex-Schrift deaktivieren"
+L["OPTIONS_DISABLE_CUSTOM_FONT_TOOLTIP"] = "Verwende dies, wenn die benutzerdefinierte Schrift fehlende Zeichen oder Lesbarkeitsprobleme verursacht. Housing Codex wird mit der mitgelieferten benutzerdefinierten Schrift entwickelt und getestet; andere Schrift-Ersetzungen werden nicht unterstützt."
 L["OPTIONS_TOGGLE_KEYBIND"] = "Fenster umschalten:"
 L["OPTIONS_NOT_BOUND"] = "Nicht belegt"
 L["OPTIONS_PRESS_KEY"] = "Taste drücken..."
@@ -238,6 +240,7 @@ L["HELP_HELP"] = "/hc help - Diese Hilfe anzeigen"
 L["HELP_DEBUG"] = "/hc debug - Debug-Modus umschalten"
 L["HELP_STATS"] = "/hc stats - Debug-Zähler anzeigen"
 L["HELP_LOG"] = "|cFFFFD100/hc log|r - Ereignisprotokoll anzeigen (erfordert Debug-Modus)"
+L["HELP_FONT"] = "/hc font - Benutzerdefinierte Housing Codex-Schrift umschalten"
 
 --------------------------------------------------------------------------------
 -- Slash Commands

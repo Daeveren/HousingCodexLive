@@ -218,6 +218,8 @@ L["SIZE_RESET"] = "Window size reset to default."
 
 L["OPTIONS_SECTION_KEYBIND"] = "Keybind"
 L["OPTIONS_SECTION_TROUBLESHOOTING"] = "Troubleshooting"
+L["OPTIONS_DISABLE_CUSTOM_FONT"] = "Disable Housing Codex custom font"
+L["OPTIONS_DISABLE_CUSTOM_FONT_TOOLTIP"] = "Use this if the custom font causes missing characters or readability issues. Housing Codex is developed and tested with its bundled custom font; other font replacements are not supported."
 L["OPTIONS_TOGGLE_KEYBIND"] = "Toggle Window:"
 L["OPTIONS_NOT_BOUND"] = "Not Bound"
 L["OPTIONS_PRESS_KEY"] = "Press a key..."
@@ -237,6 +239,7 @@ L["HELP_HELP"] = "/hc help - Show this help"
 L["HELP_DEBUG"] = "/hc debug - Toggle debug mode"
 L["HELP_STATS"] = "/hc stats - Show debug counters"
 L["HELP_LOG"] = "|cFFFFD100/hc log|r - Show event trace log (requires debug mode)"
+L["HELP_FONT"] = "/hc font - Toggle the Housing Codex custom font"
 
 --------------------------------------------------------------------------------
 -- Slash Commands

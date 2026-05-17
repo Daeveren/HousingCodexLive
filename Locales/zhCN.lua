@@ -218,6 +218,8 @@ L["SIZE_RESET"] = "窗口大小已重置为默认值。"
 
 L["OPTIONS_SECTION_KEYBIND"] = "按键绑定"
 L["OPTIONS_SECTION_TROUBLESHOOTING"] = "故障排除"
+L["OPTIONS_DISABLE_CUSTOM_FONT"] = "禁用 Housing Codex 自定义字体"
+L["OPTIONS_DISABLE_CUSTOM_FONT_TOOLTIP"] = "如果自定义字体导致字符缺失或可读性问题，请使用此选项。Housing Codex 的开发和测试均使用内置自定义字体；不支持替换为其他字体。"
 L["OPTIONS_TOGGLE_KEYBIND"] = "切换窗口："
 L["OPTIONS_NOT_BOUND"] = "未绑定"
 L["OPTIONS_PRESS_KEY"] = "请按一个键..."
@@ -237,6 +239,7 @@ L["HELP_HELP"] = "/hc help - 显示此帮助"
 L["HELP_DEBUG"] = "/hc debug - 切换调试模式"
 L["HELP_STATS"] = "/hc stats - 显示调试计数器"
 L["HELP_LOG"] = "|cFFFFD100/hc log|r - 显示事件追踪日志（需要调试模式）"
+L["HELP_FONT"] = "/hc font - 切换 Housing Codex 自定义字体"
 
 --------------------------------------------------------------------------------
 -- Slash Commands
