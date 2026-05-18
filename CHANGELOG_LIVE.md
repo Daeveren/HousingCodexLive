@@ -2,12 +2,24 @@
 
 All notable changes to Housing Codex.
 
+**2.6.0** (2026-05-19)
+
+**Changed**
+- Improved the troubleshooting area in addon settings
+- Improved `/hc help` to make it more useful
+- Improved Achievements tab refresh reliability
+- Improved achievement tooltip fallback text
+- Improved shift-click achievement tracking behavior
+
+**Fixed**
+- Fixed achievement tracking limit messages
+
 **2.5.10** (2026-05-17)
 
 **Changed**
 - Added a Settings option to disable the Housing Codex custom font
 - Improved font support for Chinese clients
-- Added `/hc font` to the in-game help list
+- Added <code>/hc font</code> to the in-game help list
 
 **Fixed**
 - Fixed stale Wishlist previews after removing hovered items

@@ -169,11 +169,12 @@ AchievementRowOnMouseDown = function(frame, button)
 
     if C_ContentTracking and IsShiftKeyDown() and elementData.achievementID then
         local achievementID = elementData.achievementID
-        if C_ContentTracking.IsTracking(Enum.ContentTrackingType.Achievement, achievementID) then
-            C_ContentTracking.StopTracking(Enum.ContentTrackingType.Achievement, achievementID, Enum.ContentTrackingStopType.Manual)
+        local trackingType = Enum.ContentTrackingType.Achievement
+        if C_ContentTracking.IsTracking(trackingType, achievementID) then
+            C_ContentTracking.StopTracking(trackingType, achievementID, Enum.ContentTrackingStopType.Manual)
             addon:Print(addon.L["ACHIEVEMENTS_TRACKING_STOPPED"])
         else
-            local err = C_ContentTracking.StartTracking(Enum.ContentTrackingType.Achievement, achievementID)
+            local err = C_ContentTracking.StartTracking(trackingType, achievementID)
             addon:PrintTrackingResult(err, "ACHIEVEMENTS_TRACKING_STARTED_ACHIEVEMENT", "ACHIEVEMENTS_TRACKING_FAILED", "ACHIEVEMENTS_TRACKING_MAX_REACHED", "ACHIEVEMENTS_TRACKING_ALREADY")
         end
     elseif IsControlKeyDown() and elementData.recordID then
@@ -200,10 +201,11 @@ AchievementRowOnEnter = function(frame)
     addon:AnchorTooltipToCursor(frame)
 
     local _, name, _, completed, month, day, year, description = GetAchievementInfo(frame.achievementID)
+    local achievementName = name or addon:GetAchievementName(frame.achievementID)
 
     local r, g, b = 1, 1, 1
     if completed then r, g, b = 1, 0.82, 0 end
-    GameTooltip:AddLine(name, r, g, b)
+    GameTooltip:AddLine(achievementName, r, g, b)
 
     if description then
         GameTooltip:AddLine(description, 1, 1, 1, true)
@@ -219,8 +221,15 @@ AchievementRowOnEnter = function(frame)
                 if criteriaCompleted then
                     GameTooltip:AddLine("  |cff00ff00" .. criteriaString .. "|r")
                 elseif reqQuantity and reqQuantity > 1 then
-                    local progressText = quantityString or (quantity .. "/" .. reqQuantity)
-                    GameTooltip:AddLine("  |cff808080- " .. criteriaString .. " (" .. progressText .. ")|r")
+                    local progressText = quantityString
+                    if not progressText and quantity then
+                        progressText = quantity .. "/" .. reqQuantity
+                    end
+                    if progressText then
+                        GameTooltip:AddLine("  |cff808080- " .. criteriaString .. " (" .. progressText .. ")|r")
+                    else
+                        GameTooltip:AddLine("  |cff808080- " .. criteriaString .. "|r")
+                    end
                 else
                     GameTooltip:AddLine("  |cff808080- " .. criteriaString .. "|r")
                 end
@@ -313,7 +322,7 @@ function AchievementsTab:Show()
     self.ownershipRefreshedThisShow = nil
 
     -- Build index if not done
-    if addon.dataLoaded and not addon.achievementIndexBuilt then
+    if addon.dataLoaded and not addon.achievementHierarchyBuilt then
         addon:BuildAchievementIndex()
         addon:BuildAchievementHierarchy()
     end
@@ -364,8 +373,13 @@ end
 -- when that didn't happen.
 function AchievementsTab:RefreshDisplay()
     addon:CountDebug("rebuild", "AchievementsTab")
-    if not self:BuildCategoryDisplay() then
-        self:BuildAchievementDisplay()
+
+    local filter = self:GetCompletionFilter()
+    local searchText = strlower(strtrim(self.searchBox and self.searchBox:GetText() or ""))
+    local visCache = self:BuildAchievementVisibilityCache(filter, searchText)
+
+    if not self:BuildCategoryDisplay(visCache, filter, searchText) then
+        self:BuildAchievementDisplay(visCache, filter, searchText)
     end
 end
 
@@ -600,18 +614,38 @@ local function AchievementPassesCompletionFilter(achievementID, filter)
     return not isComplete
 end
 
-function AchievementsTab:BuildCategoryDisplay()
+function AchievementsTab:BuildAchievementVisibilityCache(filter, searchText)
+    local cache = {}
+    for _, categoryId in ipairs(addon:GetSortedAchievementCategories()) do
+        for _, achievementID in ipairs(addon:GetAchievementsForCategory(categoryId)) do
+            if AchievementPassesCompletionFilter(achievementID, filter)
+                and AchievementMatchesSearch(achievementID, searchText, categoryId) then
+                cache[achievementID] = true
+            end
+        end
+    end
+    return cache
+end
+
+function AchievementsTab:IsAchievementVisible(achievementID, filter, searchText, categoryId, visCache)
+    if visCache then
+        return visCache[achievementID] or false
+    end
+    return AchievementPassesCompletionFilter(achievementID, filter)
+        and AchievementMatchesSearch(achievementID, searchText, categoryId)
+end
+
+function AchievementsTab:BuildCategoryDisplay(visCache, filter, searchText)
     if not self.categoryScrollBox or not self.categoryDataProvider then return false end
 
     local elements = {}
-    local filter = self:GetCompletionFilter()
-    local searchText = strlower(strtrim(self.searchBox and self.searchBox:GetText() or ""))
+    filter = filter or self:GetCompletionFilter()
+    searchText = searchText or strlower(strtrim(self.searchBox and self.searchBox:GetText() or ""))
 
     for _, categoryId in ipairs(addon:GetSortedAchievementCategories()) do
         local hasVisibleContent = false
         for _, achievementID in ipairs(addon:GetAchievementsForCategory(categoryId)) do
-            if AchievementPassesCompletionFilter(achievementID, filter)
-                and AchievementMatchesSearch(achievementID, searchText, categoryId) then
+            if self:IsAchievementVisible(achievementID, filter, searchText, categoryId, visCache) then
                 hasVisibleContent = true
                 break
             end
@@ -660,19 +694,18 @@ function AchievementsTab:BuildCategoryDisplay()
     return false
 end
 
-function AchievementsTab:BuildAchievementDisplay()
+function AchievementsTab:BuildAchievementDisplay(visCache, filter, searchText)
     if not self.achievementScrollBox or not self.achievementDataProvider then return end
 
     local elements = {}
     local categoryId = self.selectedCategory
 
     if categoryId then
-        local filter = self:GetCompletionFilter()
-        local searchText = strlower(strtrim(self.searchBox and self.searchBox:GetText() or ""))
+        filter = filter or self:GetCompletionFilter()
+        searchText = searchText or strlower(strtrim(self.searchBox and self.searchBox:GetText() or ""))
 
         for _, achievementID in ipairs(addon:GetAchievementsForCategory(categoryId)) do
-            if AchievementPassesCompletionFilter(achievementID, filter)
-                and AchievementMatchesSearch(achievementID, searchText, categoryId) then
+            if self:IsAchievementVisible(achievementID, filter, searchText, categoryId, visCache) then
                 -- Multi-reward achievements: show one entry per reward
                 local recordIDs = addon:GetRecordsForAchievement(achievementID)
                 local numRewards = recordIDs and #recordIDs or 0

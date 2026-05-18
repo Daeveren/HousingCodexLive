@@ -17,6 +17,7 @@ function addon:ResetAllIndexFlags()
     self.indexesBuilt = false
     self.byWordIndexBuilt = false
     self.achievementIndexBuilt = false
+    self.achievementHierarchyBuilt = false
     self.questIndexBuilt = false
     self.vendorIndexBuilt = false
     self.dropIndexBuilt = false

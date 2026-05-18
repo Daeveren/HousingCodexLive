@@ -982,21 +982,25 @@ SLASH_HOUSINGCODEX1 = "/hc"
 SLASH_HOUSINGCODEX2 = "/hcodex"
 SLASH_HOUSINGCODEX3 = "/housingcodex"
 
+function addon:PrintSlashCommandHelp()
+    local L = self.L
+
+    self:Print("|cFFFFD100" .. L["HELP_TITLE"] .. "|r")
+    self:Print("  " .. L["HELP_ALIASES"])
+    self:Print("  " .. L["HELP_TOGGLE"])
+    self:Print("  " .. L["HELP_SETTINGS"])
+    self:Print("  " .. L["HELP_RESET"])
+    self:Print("  " .. L["HELP_RETRY"])
+    self:Print("  " .. L["HELP_FONT"])
+    self:Print("  " .. L["HELP_HELP"])
+end
+
 SlashCmdList["HOUSINGCODEX"] = function(msg)
     local cmd = strlower(strtrim(msg or ""))
     local L = addon.L
 
     if cmd == "help" or cmd == "?" then
-        addon:Print("|cFFFFD100" .. L["HELP_TITLE"] .. "|r")
-        addon:Print("  " .. L["HELP_TOGGLE"])
-        addon:Print("  " .. L["HELP_SETTINGS"])
-        addon:Print("  " .. L["HELP_RESET"])
-        addon:Print("  " .. L["HELP_RETRY"])
-        addon:Print("  " .. L["HELP_HELP"])
-        addon:Print("  " .. L["HELP_DEBUG"])
-        addon:Print("  " .. L["HELP_STATS"])
-        addon:Print("  " .. L["HELP_LOG"])
-        addon:Print("  " .. L["HELP_FONT"])
+        addon:PrintSlashCommandHelp()
     elseif cmd == "settings" or cmd == "options" then
         if InCombatLockdown() then
             addon:Print(L["COMBAT_LOCKDOWN_MESSAGE"])

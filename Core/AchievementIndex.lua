@@ -30,7 +30,8 @@ addon.achievementIndex = {}           -- achievementId -> { [recordID] = true, .
 addon.achievementSortedRecords = {}   -- achievementId -> sorted { recordID, ... } (cached at build time)
 addon.achievementHierarchy = {}       -- categoryId -> { achievements[] }
 addon.achievementCompletionCache = {} -- achievementId -> boolean
-addon.achievementIndexBuilt = false   -- true only after BuildAchievementHierarchy completes
+addon.achievementIndexBuilt = false
+addon.achievementHierarchyBuilt = false
 
 -- Build achievement index from scraped AchievementSourceData
 function addon:BuildAchievementIndex()
@@ -90,6 +91,8 @@ function addon:BuildAchievementIndex()
         self.achievementSortedRecords[achievementId] = sorted
     end
 
+    self.achievementIndexBuilt = true
+
     local elapsedMs = math.floor(debugprofilestop() - startTime)
     self:Debug(string.format("Built achievement index: %d achievements, %d decors in %d ms",
         achievementCount, decorCount, elapsedMs))
@@ -120,6 +123,12 @@ end
 
 -- Build achievement hierarchy (categoryId -> achievements)
 function addon:BuildAchievementHierarchy()
+    if self.achievementHierarchyBuilt then return end
+    if not self.achievementIndexBuilt then
+        self:BuildAchievementIndex()
+    end
+    if not self.achievementIndexBuilt then return end
+
     local startTime = debugprofilestop()
 
     -- Clear existing hierarchy
@@ -153,7 +162,7 @@ function addon:BuildAchievementHierarchy()
         end)
     end
 
-    self.achievementIndexBuilt = true
+    self.achievementHierarchyBuilt = true
     self:InvalidateProgressCache()
 
     local elapsedMs = math.floor(debugprofilestop() - startTime)
@@ -170,6 +179,9 @@ function addon:GetSortedAchievementCategories()
     table.sort(categoryIds, function(a, b)
         local orderA = CATEGORY_ORDER[a] or 999
         local orderB = CATEGORY_ORDER[b] or 999
+        if orderA == orderB then
+            return a < b
+        end
         return orderA < orderB
     end)
 

@@ -36,6 +36,20 @@ StaticPopupDialogs["HOUSINGCODEX_KEYBIND_CONFLICT"] = {
     preferredIndex = 3,
 }
 
+StaticPopupDialogs["HOUSINGCODEX_CUSTOM_FONT_CONFIRM"] = {
+    text = "%s",
+    button1 = YES,
+    button2 = NO,
+    OnAccept = function(dialog, data)
+        if not data then return end
+        addon:SetCustomFontEnabled(data.enabled)
+    end,
+    timeout = 0,
+    whileDead = true,
+    hideOnEscape = true,
+    preferredIndex = 3,
+}
+
 --------------------------------------------------------------------------------
 -- Helper: Create checkbox with tooltip
 --------------------------------------------------------------------------------
@@ -109,6 +123,40 @@ local function CreateResetButton(parent, labelKey, tooltipKey, onClick)
         GameTooltip:Hide()
     end)
     return btn
+end
+
+local function CreateSettingsActionButton(parent, label, tooltipTitle, tooltipText, onClick)
+    return addon:CreateActionButton(parent, label, onClick, function(btn)
+        GameTooltip:SetOwner(btn, "ANCHOR_RIGHT")
+        GameTooltip:SetText(tooltipTitle, 1, 0.82, 0)
+        if tooltipText then
+            GameTooltip:AddLine(tooltipText, 1, 1, 1, true)
+        end
+        GameTooltip:Show()
+    end)
+end
+
+local function CreateCommandHelpButton(parent)
+    return addon:CreateActionButton(parent, L["OPTIONS_COMMAND_HELP"], function()
+        addon:PrintSlashCommandHelp()
+    end, function(btn)
+        GameTooltip:SetOwner(btn, "ANCHOR_RIGHT")
+        GameTooltip:SetText(L["OPTIONS_COMMAND_HELP_TOOLTIP_TITLE"], 1, 0.82, 0)
+        GameTooltip:AddLine(L["OPTIONS_COMMAND_HELP_TOOLTIP_DESC"], 1, 1, 1, true)
+        GameTooltip:AddLine(" ", 1, 1, 1, true)
+        GameTooltip:AddLine(L["HELP_ALIASES"], 0.85, 0.85, 0.85, true)
+        GameTooltip:AddLine(L["HELP_TOGGLE"], 0.85, 0.85, 0.85, true)
+        GameTooltip:AddLine(L["HELP_SETTINGS"], 0.85, 0.85, 0.85, true)
+        GameTooltip:AddLine(L["HELP_RESET"], 0.85, 0.85, 0.85, true)
+        GameTooltip:AddLine(L["HELP_RETRY"], 0.85, 0.85, 0.85, true)
+        GameTooltip:AddLine(L["HELP_FONT"], 0.85, 0.85, 0.85, true)
+        GameTooltip:AddLine(L["HELP_HELP"], 0.85, 0.85, 0.85, true)
+        GameTooltip:Show()
+    end)
+end
+
+local function AnchorButtonAfter(button, previousButton)
+    button:SetPoint("LEFT", previousButton, "RIGHT", addon.CONSTANTS.ACTION_BUTTON.SPACING + 6, 0)
 end
 
 --------------------------------------------------------------------------------
@@ -602,51 +650,61 @@ function addon.Settings:Initialize()
     yOffset = yOffset - 26
 
     --------------------------------------------------------------------------------
-    -- TROUBLESHOOTING SECTION
+    -- TROUBLESHOOTING & DEBUGGING SECTION
     --------------------------------------------------------------------------------
     yOffset = yOffset - SECTION_GAP
     CreateSectionHeader(panel, L["OPTIONS_SECTION_TROUBLESHOOTING"], yOffset)
     yOffset = yOffset - 20
 
-    -- Disable custom font checkbox
-    local disableCustomFontCheck = CreateCheckbox(
-        panel,
-        L["OPTIONS_DISABLE_CUSTOM_FONT"],
-        L["OPTIONS_DISABLE_CUSTOM_FONT_TOOLTIP"],
-        function() return addon.db and addon.db.settings and not addon.db.settings.useCustomFont end,
-        function(checked)
-            if addon.db then
-                addon:SetCustomFontEnabled(not checked)
-            end
-        end
-    )
-    disableCustomFontCheck:SetPoint("TOPLEFT", COL1_X, yOffset)
-    self.disableCustomFontCheck = disableCustomFontCheck
-    yOffset = yOffset - 26
-
-    -- Reset Position button
-    local resetPosBtn = CreateResetButton(panel, "OPTIONS_RESET_POSITION", "OPTIONS_RESET_POSITION_TOOLTIP", function()
+    -- Reset Window button
+    local resetWindowBtn = CreateSettingsActionButton(panel, L["OPTIONS_RESET_WINDOW"], L["OPTIONS_RESET_WINDOW"], L["OPTIONS_RESET_WINDOW_TOOLTIP"], function()
         if addon.MainFrame then
             addon.MainFrame:ResetPosition()
-        end
-    end)
-    resetPosBtn:SetPoint("TOPLEFT", 16, yOffset)
-
-    -- Reset Size button
-    local resetSizeBtn = CreateResetButton(panel, "OPTIONS_RESET_SIZE", "OPTIONS_RESET_SIZE_TOOLTIP", function()
-        if addon.MainFrame then
             addon.MainFrame:ResetSize()
         end
     end)
-    resetSizeBtn:SetPoint("LEFT", resetPosBtn, "RIGHT", 10, 0)
+    resetWindowBtn:SetPoint("TOPLEFT", COL1_X, yOffset)
+
+    -- Command Help button
+    local commandHelpBtn = CreateCommandHelpButton(panel)
+    AnchorButtonAfter(commandHelpBtn, resetWindowBtn)
 
     -- Welcome Screen button
-    local welcomeBtn = CreateResetButton(panel, "OPTIONS_SHOW_WELCOME", "OPTIONS_SHOW_WELCOME_TOOLTIP", function()
+    local welcomeBtn = CreateSettingsActionButton(panel, L["OPTIONS_SHOW_WELCOME"], L["OPTIONS_SHOW_WELCOME"], L["OPTIONS_SHOW_WELCOME_TOOLTIP"], function()
         if addon.WhatsNew then
             addon.WhatsNew:ForceShow("welcome")
         end
     end)
-    welcomeBtn:SetPoint("TOPRIGHT", panel, "TOPRIGHT", -16, yOffset)
+    AnchorButtonAfter(welcomeBtn, commandHelpBtn)
+
+    -- Custom Font toggle button
+    local customFontBtn
+    local function UpdateCustomFontButtonText()
+        if not customFontBtn then return end
+        local useCustomFont = addon.db and addon.db.settings and addon.db.settings.useCustomFont
+        customFontBtn:SetText(useCustomFont and L["OPTIONS_DISABLE_CUSTOM_FONT"] or L["OPTIONS_ENABLE_CUSTOM_FONT"])
+    end
+
+    customFontBtn = addon:CreateActionButton(panel, L["OPTIONS_DISABLE_CUSTOM_FONT"], function()
+        if not (addon.db and addon.db.settings) then return end
+        local enableCustomFont = not addon.db.settings.useCustomFont
+        local label = enableCustomFont and L["OPTIONS_ENABLE_CUSTOM_FONT"] or L["OPTIONS_DISABLE_CUSTOM_FONT"]
+        local message = string.format(L["OPTIONS_CUSTOM_FONT_CONFIRM"], label, L["OPTIONS_DISABLE_CUSTOM_FONT_TOOLTIP"])
+        StaticPopup_Show("HOUSINGCODEX_CUSTOM_FONT_CONFIRM", message, nil, {
+            enabled = enableCustomFont,
+        })
+    end, function(btn)
+        local useCustomFont = addon.db and addon.db.settings and addon.db.settings.useCustomFont
+        local label = useCustomFont and L["OPTIONS_DISABLE_CUSTOM_FONT"] or L["OPTIONS_ENABLE_CUSTOM_FONT"]
+        GameTooltip:SetOwner(btn, "ANCHOR_RIGHT")
+        GameTooltip:SetText(label, 1, 0.82, 0)
+        GameTooltip:AddLine(L["OPTIONS_DISABLE_CUSTOM_FONT_TOOLTIP"], 1, 1, 1, true)
+        GameTooltip:Show()
+    end)
+    AnchorButtonAfter(customFontBtn, welcomeBtn)
+    self.customFontBtn = customFontBtn
+    self.UpdateCustomFontButtonText = UpdateCustomFontButtonText
+    UpdateCustomFontButtonText()
 
     --------------------------------------------------------------------------------
     -- Register with WoW Settings system
@@ -677,7 +735,7 @@ function addon.Settings:Initialize()
         settings.containerCheck:SetChecked(s.showContainerDecorIndicators)
         settings.containerOwnedCheck:SetChecked(s.showContainerOwnedCheckmark)
         settings.endeavorsEnabledCheck:SetChecked(db.endeavors and db.endeavors.enabled)
-        settings.disableCustomFontCheck:SetChecked(not s.useCustomFont)
+        settings.UpdateCustomFontButtonText()
         UpdateKeybindButtonText()
     end
 
