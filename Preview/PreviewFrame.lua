@@ -491,7 +491,8 @@ function Preview:UpdateDetails(record)
         self.detailsPlaced:Hide()
     end
 
-    -- Source (hyperlink-enabled container handles tooltips automatically)
+    -- Source (hyperlink-enabled container handles tooltips automatically).
+    -- Vendors tab selections show selected-item cost here instead of duplicating it in rows.
     local isPromo = addon:IsPromoDecor(record.recordID)
     if record.sourceText and record.sourceText ~= "" then
         if isPromo then

@@ -10,6 +10,8 @@ local _, addon = ...
 
 addon.TreasureHuntWaypoints = {}
 
+local WAYPOINT_OWNER_TREASURE_HUNT = addon.CONSTANTS.WAYPOINT_OWNER_TREASURE_HUNT
+
 -- State
 local activeQuestId = nil
 local eventsRegistered = false
@@ -58,7 +60,9 @@ local function SetWaypoint(questId)
 
     pendingCombatQuestId = nil
 
-    if not addon.Waypoints:Set(loc.mapID, loc.x, loc.y, addon.L["TREASURE_HUNT_WAYPOINT_TITLE"]) then
+    if not addon.Waypoints:Set(loc.mapID, loc.x, loc.y, addon.L["TREASURE_HUNT_WAYPOINT_TITLE"], {
+        owner = WAYPOINT_OWNER_TREASURE_HUNT,
+    }) then
         addon:Debug(string.format("Treasure Hunt: Cannot set waypoint on map %d", loc.mapID))
         return
     end
@@ -77,8 +81,16 @@ end
 
 local function ClearWaypoint()
     if activeQuestId then
-        addon.Waypoints:Clear()
+        addon.Waypoints:Clear({ owner = WAYPOINT_OWNER_TREASURE_HUNT })
         addon:Debug("Treasure Hunt waypoint cleared")
+        activeQuestId = nil
+    end
+end
+
+local function OnWaypointChanged(action, owner)
+    if owner == WAYPOINT_OWNER_TREASURE_HUNT then return end
+    if activeQuestId then
+        addon:Debug("Treasure Hunt waypoint ownership replaced by " .. tostring(owner or "unknown"))
         activeQuestId = nil
     end
 end
@@ -148,6 +160,7 @@ local function Initialize()
     addon:RegisterWoWEvent("QUEST_ACCEPTED", OnQuestAccepted)
     addon:RegisterWoWEvent("QUEST_TURNED_IN", OnQuestEnded)
     addon:RegisterWoWEvent("QUEST_REMOVED", OnQuestEnded)
+    addon:RegisterInternalEvent(addon.Events.WAYPOINT_CHANGED, OnWaypointChanged)
 
     -- Reconcile on subsequent loading screens (instance transitions, teleports)
     addon:RegisterWoWEvent("PLAYER_ENTERING_WORLD", function()

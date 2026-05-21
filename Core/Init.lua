@@ -112,6 +112,9 @@ addon.CONSTANTS = {
     TRACKING_TYPE_DECOR = Enum.ContentTrackingType.Decor,
     MAX_TRACKED = Constants.ContentTrackingConsts.MaxTrackedCollectableSources,
     WAYPOINT_MATCH_EPSILON = 0.0001, -- Tolerance for comparing waypoint coordinates
+    WAYPOINT_OWNER_GENERIC = "generic",
+    WAYPOINT_OWNER_TREASURE_HUNT = "treasure-hunt",
+    WAYPOINT_OWNER_VENDOR_TRACKING = "vendor-tracking",
 
     -- Housing sizes (Enum.HousingCatalogEntrySize values → localization keys)
     -- Use these instead of magic numbers for patch-proof code
@@ -295,6 +298,7 @@ addon.Events = {
     QUEST_ALL_TITLES_LOADED         = "QUEST_ALL_TITLES_LOADED",
     ZONE_DECOR_CACHE_INVALIDATED    = "ZONE_DECOR_CACHE_INVALIDATED",
     PLAYER_PROFESSIONS_CHANGED      = "PLAYER_PROFESSIONS_CHANGED",
+    WAYPOINT_CHANGED                = "WAYPOINT_CHANGED",
     ENDEAVORS_ZONE_CHANGED          = "ENDEAVORS_ZONE_CHANGED",
     ENDEAVORS_HOUSE_LEVEL_UPDATED   = "ENDEAVORS_HOUSE_LEVEL_UPDATED",
     ENDEAVORS_INITIATIVE_UPDATED    = "ENDEAVORS_INITIATIVE_UPDATED",

@@ -527,20 +527,7 @@ function addon:GetVendorZoneCollectionProgress(expansionKey, zoneName)
     local cached = self.vendorZoneProgressCache[cacheKey]
     if cached then return cached.owned, cached.total end
 
-    local owned, total = 0, 0
-    local seen = {}
-    for _, vendor in ipairs(self:GetVendorsForZone(expansionKey, zoneName)) do
-        for _, decorId in ipairs(vendor.decorIds) do
-            if not seen[decorId] then
-                seen[decorId] = true
-                local record = self:ResolveRecord(decorId)
-                if record then
-                    total = total + 1
-                    if record.isCollected then owned = owned + 1 end
-                end
-            end
-        end
-    end
+    local owned, total = self:GetVendorScopeCollectionProgress(self:GetVendorsForZone(expansionKey, zoneName), true)
 
     self.vendorZoneProgressCache[cacheKey] = { owned = owned, total = total }
     return owned, total
@@ -553,22 +540,13 @@ function addon:GetVendorExpansionCollectionProgress(expansionKey)
     local expData = self.vendorHierarchy[expansionKey]
     if not expData then return 0, 0 end
 
-    local owned, total = 0, 0
-    local seen = {}
+    local vendors = {}
     for zoneName in pairs(expData.zones) do
         for _, vendor in ipairs(self:GetVendorsForZone(expansionKey, zoneName)) do
-            for _, decorId in ipairs(vendor.decorIds) do
-                if not seen[decorId] then
-                    seen[decorId] = true
-                    local record = self:ResolveRecord(decorId)
-                    if record then
-                        total = total + 1
-                        if record.isCollected then owned = owned + 1 end
-                    end
-                end
-            end
+            vendors[#vendors + 1] = vendor
         end
     end
+    local owned, total = self:GetVendorScopeCollectionProgress(vendors, true)
 
     self.vendorExpansionProgressCache[expansionKey] = { owned = owned, total = total }
     return owned, total
@@ -585,6 +563,76 @@ end
 function addon:IsDecorCollected(decorId)
     local record = self:ResolveRecord(decorId)
     return record and record.isCollected or false
+end
+
+function addon:IsVendorDecorResolvable(decorId, requireRecord)
+    if self:ResolveRecord(decorId) then return true end
+    if requireRecord then return false end
+    if C_HousingDecor and C_HousingDecor.GetDecorIcon then
+        local icon = C_HousingDecor.GetDecorIcon(decorId)
+        if icon then return true end
+    end
+    local fallback = self.VendorItemFallback and self.VendorItemFallback[decorId]
+    return fallback and fallback.name ~= nil
+end
+
+local function GetVendorPromoSet(vendorData)
+    if not vendorData or not vendorData.npcId then return nil end
+    return addon.VendorPromotionalDecorIds and addon.VendorPromotionalDecorIds[vendorData.npcId]
+end
+
+local function AddDecorToProgressSet(progressSet, decorId)
+    if decorId then
+        progressSet[decorId] = true
+    end
+end
+
+local function CountDecorSet(progressSet, requireRecord)
+    local owned, total = 0, 0
+    for decorId in pairs(progressSet) do
+        if addon:IsVendorDecorResolvable(decorId, requireRecord) then
+            total = total + 1
+            if addon:IsDecorCollected(decorId) then owned = owned + 1 end
+        end
+    end
+    return owned, total
+end
+
+local function SplitVendorDecorSets(vendorData)
+    local regularSet = {}
+    local promoSet = {}
+    local sourcePromoSet = GetVendorPromoSet(vendorData)
+
+    for _, decorId in ipairs(vendorData and vendorData.decorIds or {}) do
+        if sourcePromoSet and sourcePromoSet[decorId] then
+            AddDecorToProgressSet(promoSet, decorId)
+        else
+            AddDecorToProgressSet(regularSet, decorId)
+        end
+    end
+
+    return regularSet, promoSet
+end
+
+function addon:GetVendorCollectionProgress(vendorData)
+    local regularSet, promoSet = SplitVendorDecorSets(vendorData)
+    local owned, total = CountDecorSet(regularSet)
+    local promoOwned, promoTotal = CountDecorSet(promoSet)
+
+    return owned, total, promoOwned, promoTotal
+end
+
+function addon:GetVendorScopeCollectionProgress(vendors, requireRecord)
+    local regularSet = {}
+
+    for _, vendorData in ipairs(vendors or {}) do
+        local vendorRegularSet = SplitVendorDecorSets(vendorData)
+        for decorId in pairs(vendorRegularSet) do
+            regularSet[decorId] = true
+        end
+    end
+
+    return CountDecorSet(regularSet, requireRecord)
 end
 
 function addon:GetNPCLocations(npcId)

@@ -2,6 +2,17 @@
 
 All notable changes to Housing Codex.
 
+**2.6.1** (2026-05-21)
+
+**Changed**
+- Updated vendor waypoint data
+- Improved vendor progress counts for promotional items
+- Improved vendor waypoint tracking with TomTom
+
+**Fixed**
+- Fixed stale vendor tracking after waypoint changes
+- Fixed vendor navigation when Current Zone is selected
+
 **2.6.0** (2026-05-19)
 
 **Changed**

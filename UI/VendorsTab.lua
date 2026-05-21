@@ -18,6 +18,7 @@ local ZONE_HEADER_HEIGHT = 28
 local DECOR_ICON_SIZE = 22
 local WAYPOINT_BUTTON_SIZE = 20
 local WAYPOINT_MATCH_EPSILON = CONSTS.WAYPOINT_MATCH_EPSILON or 0.0001
+local WAYPOINT_OWNER_VENDOR_TRACKING = CONSTS.WAYPOINT_OWNER_VENDOR_TRACKING
 
 addon.VendorsTab = {}
 local VendorsTab = addon.VendorsTab
@@ -142,6 +143,13 @@ function VendorsTab:CreateToolbar(parent)
         self:RefreshDisplay()
     end)
     self.currentZoneCheckbox = check
+end
+
+function VendorsTab:ClearCurrentZoneFilter()
+    if self.currentZoneCheckbox then
+        self.currentZoneCheckbox:SetChecked(false)
+    end
+    self.currentZoneOnly = false
 end
 
 -- Rebuild the expansion list and, if needed, the vendor list.
@@ -712,14 +720,7 @@ end
 
 -- Check if a decorId can be resolved by any game API or fallback data
 local function IsDecorResolvable(decorId)
-    if addon:ResolveRecord(decorId) then return true end
-    if C_HousingDecor and C_HousingDecor.GetDecorIcon then
-        local icon = C_HousingDecor.GetDecorIcon(decorId)
-        if icon then return true end
-    end
-    local fallback = addon.VendorItemFallback and addon.VendorItemFallback[decorId]
-    if fallback and fallback.name then return true end
-    return false
+    return addon:IsVendorDecorResolvable(decorId)
 end
 
 function VendorsTab:SetupVendorRow(frame, elementData)
@@ -757,12 +758,9 @@ function VendorsTab:SetupVendorRow(frame, elementData)
         frame.factionIcon:SetAtlas(atlas)
     end
 
-    local owned = 0
-    for _, decorId in ipairs(decorIds) do
-        if addon:IsDecorCollected(decorId) then owned = owned + 1 end
-    end
-    frame.vendorProgress:SetText(string.format("%d/%d", owned, decorCount))
-    local progressComplete = owned == decorCount and decorCount > 0
+    local owned, total = addon:GetVendorCollectionProgress(elementData)
+    frame.vendorProgress:SetText(string.format("%d/%d", owned, total))
+    local progressComplete = owned == total and total > 0
     frame.vendorProgress:SetTextColor(unpack(progressComplete and COLORS.PROGRESS_COMPLETE or COLORS.TEXT_TERTIARY))
     addon:SetFontSize(frame.vendorProgress, 11, "")
 
@@ -858,6 +856,7 @@ function VendorsTab:SetupDecorRows(frame, decorIds)
 
         local textBrightness = row.isCollected and 0.4 or 0.7
         row.textBrightness = textBrightness
+        -- Keep rows compact: selecting an item shows source/cost details in PreviewFrame.
         row.name:SetText(addon:ResolveDecorName(decorId, record))
         addon:SetFontSize(row.name, 13, "")
 
@@ -1017,6 +1016,13 @@ function VendorsTab:OnUserWaypointUpdated()
     self:ReconcileVendorTrackingWithWaypoint()
 end
 
+function VendorsTab:OnWaypointChanged(action, owner)
+    if owner == WAYPOINT_OWNER_VENDOR_TRACKING then return end
+    if self:HasActiveVendorTracking() then
+        self:ClearVendorTrackedState()
+    end
+end
+
 function VendorsTab:EnsureWaypointListenerState()
     local shouldListen = self:HasActiveVendorTracking()
 
@@ -1061,7 +1067,7 @@ function VendorsTab:ToggleVendorDecorTracking(npcId, decorId, zoneName)
     self:ReconcileVendorTrackingWithWaypoint()
 
     if self:IsVendorDecorTracked(npcId, decorId) then
-        addon.Waypoints:Clear()
+        addon.Waypoints:Clear({ owner = WAYPOINT_OWNER_VENDOR_TRACKING })
         self:ClearVendorTrackedState()
         PrintVendorTrackingMessage("VENDORS_TRACKING_STOPPED", npcId)
         return
@@ -1075,7 +1081,10 @@ function VendorsTab:ToggleVendorDecorTracking(npcId, decorId, zoneName)
 
     local vendorEntry = addon.vendorIndex and addon.vendorIndex[npcId]
     local vendorName = vendorEntry and addon:GetLocalizedNPCName(npcId, vendorEntry.npcName) or L["VENDOR_FALLBACK_NAME"]
-    if not addon.Waypoints:Set(locData.uiMapId, locData.x / 100, locData.y / 100, vendorName) then
+    if not addon.Waypoints:Set(locData.uiMapId, locData.x / 100, locData.y / 100, vendorName, {
+        owner = WAYPOINT_OWNER_VENDOR_TRACKING,
+    }) then
+        self:ReconcileVendorTrackingWithWaypoint()
         return
     end
 
@@ -1160,6 +1169,7 @@ function VendorsTab:NavigateToVendor(npcId)
     if self.searchBox then
         self.searchBox:SetText("")
     end
+    self:ClearCurrentZoneFilter()
     self:SetCompletionFilter("all")
 
     -- Select the expansion (rebuilds display internally)
@@ -1197,10 +1207,7 @@ function VendorsTab:NavigateFromProgress(expansionKey, filter)
         self.searchBox:SetText("")
     end
     -- Clear "Current Zone" filter so all vendors in the expansion are visible
-    if self.currentZoneCheckbox then
-        self.currentZoneCheckbox:SetChecked(false)
-    end
-    self.currentZoneOnly = false
+    self:ClearCurrentZoneFilter()
     self:SetCompletionFilter(filter or "all", true)
     self:BuildExpansionDisplay()
     if not expansionKey then
@@ -1326,13 +1333,7 @@ local function VendorPassesCompletionFilter(vendorData, filter, zoneName, expans
     local cacheKey = vendorData.npcId .. ":" .. zoneName .. ":" .. expansionKey
     if filterCache and filterCache[cacheKey] ~= nil then return filterCache[cacheKey] end
 
-    local owned, total = 0, 0
-    for _, decorId in ipairs(vendorData.decorIds or {}) do
-        if IsDecorResolvable(decorId) then
-            total = total + 1
-            if addon:IsDecorCollected(decorId) then owned = owned + 1 end
-        end
-    end
+    local owned, total = addon:GetVendorCollectionProgress(vendorData)
 
     local isComplete = total > 0 and owned == total
     local result = (filter == "complete") == isComplete
@@ -1541,6 +1542,10 @@ addon:RegisterInternalEvent("DATA_LOADED", function()
 end)
 
 VendorsTab:RegisterOwnershipRefresh(function() VendorsTab:RefreshDisplay() end)
+
+addon:RegisterInternalEvent(addon.Events.WAYPOINT_CHANGED, function(action, owner)
+    VendorsTab:OnWaypointChanged(action, owner)
+end)
 
 addon:RegisterInternalEvent(addon.Events.PLAYER_PROFESSIONS_CHANGED, function()
     if VendorsTab:IsShown() then

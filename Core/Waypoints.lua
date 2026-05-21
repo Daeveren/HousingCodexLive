@@ -8,13 +8,24 @@ local _, addon = ...
 local Waypoints = {}
 addon.Waypoints = Waypoints
 
+local WAYPOINT_OWNER_GENERIC = addon.CONSTANTS.WAYPOINT_OWNER_GENERIC
+
 -- State
 local tomtomAvailable = false
 local activeTomTomUid = nil
-local activeWaypoint = nil  -- { mapID, x, y, title }
+local activeWaypoint = nil  -- { mapID, x, y, title, owner }
 local ownsNativeWaypoint = false  -- true when this addon placed the native waypoint
 local isSettingWaypoint = false  -- guards against self-triggered USER_WAYPOINT_UPDATED
+local isClearingWaypoint = false  -- guards against self-triggered USER_WAYPOINT_UPDATED
 local waypointEventRegistered = false  -- never reset: survives DATA_LOADED re-fires on /hc retry
+
+local function GetWaypointOwner(options)
+    return type(options) == "table" and options.owner or WAYPOINT_OWNER_GENERIC
+end
+
+local function FireWaypointChanged(action, owner)
+    addon:FireEvent(addon.Events.WAYPOINT_CHANGED, action, owner or WAYPOINT_OWNER_GENERIC, activeWaypoint)
+end
 
 function Waypoints:IsTomTomAvailable()
     return tomtomAvailable
@@ -27,20 +38,24 @@ function Waypoints:IsTomTomActive()
         and addon.db.settings.useTomTom
 end
 
-function Waypoints:Set(mapID, normX, normY, title)
+function Waypoints:Set(mapID, normX, normY, title, options)
+    local owner = GetWaypointOwner(options)
+
     if self:IsTomTomActive() then
         -- Clear previous addon waypoint first, then attempt TomTom
-        self:Clear()
+        self:Clear(options)
         local ok, uid = pcall(TomTom.AddWaypoint, TomTom, mapID, normX, normY, {
             title = title,
             persistent = false,
             minimap = true,
             world = true,
+            crazy = true,
             from = "HousingCodex",
         })
         if ok and uid then
             activeTomTomUid = uid
-            activeWaypoint = { mapID = mapID, x = normX, y = normY, title = title }
+            activeWaypoint = { mapID = mapID, x = normX, y = normY, title = title, owner = owner }
+            FireWaypointChanged("set", owner)
             return true
         end
         -- TomTom failed, fall through to native
@@ -53,31 +68,42 @@ function Waypoints:Set(mapID, normX, normY, title)
     end
 
     -- Validation passed — safe to clear previous addon waypoint and place new one
-    self:Clear()
+    self:Clear(options)
     local point = UiMapPoint.CreateFromCoordinates(mapID, normX, normY)
     isSettingWaypoint = true
     C_Map.SetUserWaypoint(point)
     isSettingWaypoint = false
     C_SuperTrack.SetSuperTrackedUserWaypoint(true)
     ownsNativeWaypoint = true
-    activeWaypoint = { mapID = mapID, x = normX, y = normY, title = title }
+    activeWaypoint = { mapID = mapID, x = normX, y = normY, title = title, owner = owner }
+    FireWaypointChanged("set", owner)
     return true
 end
 
-function Waypoints:Clear()
+function Waypoints:Clear(options)
+    local owner = GetWaypointOwner(options)
+    local hadWaypoint = activeTomTomUid ~= nil or ownsNativeWaypoint or activeWaypoint ~= nil
+
     if activeTomTomUid then
         pcall(TomTom.RemoveWaypoint, TomTom, activeTomTomUid)
         activeTomTomUid = nil
     end
 
     -- Only clear native waypoint if this addon placed it
-    if ownsNativeWaypoint and C_Map.HasUserWaypoint() then
+    local shouldClearNative = ownsNativeWaypoint and C_Map.HasUserWaypoint()
+    ownsNativeWaypoint = false
+    if shouldClearNative then
+        isClearingWaypoint = true
         C_Map.ClearUserWaypoint()
+        isClearingWaypoint = false
         C_SuperTrack.SetSuperTrackedUserWaypoint(false)
     end
-    ownsNativeWaypoint = false
 
     activeWaypoint = nil
+
+    if hadWaypoint then
+        FireWaypointChanged("clear", owner)
+    end
 end
 
 function Waypoints:GetActive()
@@ -91,11 +117,12 @@ end
 
 -- Drop native ownership when external changes occur
 local function ReconcileOwnership()
-    if isSettingWaypoint or not ownsNativeWaypoint then return end
+    if isSettingWaypoint or isClearingWaypoint or not ownsNativeWaypoint then return end
 
     local function DropOwnership()
         ownsNativeWaypoint = false
         activeWaypoint = nil
+        FireWaypointChanged("clear", WAYPOINT_OWNER_GENERIC)
     end
 
     if not C_Map.HasUserWaypoint() then return DropOwnership() end
