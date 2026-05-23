@@ -723,6 +723,30 @@ local function IsDecorResolvable(decorId)
     return addon:IsVendorDecorResolvable(decorId)
 end
 
+local function SortDecorIdsByName(decorIds)
+    local sortNames = {}
+
+    local function GetDecorSortName(decorId)
+        local cached = sortNames[decorId]
+        if cached then return cached end
+
+        local record = addon:ResolveRecord(decorId)
+        local name = addon:ResolveDecorName(decorId, record)
+        cached = strlower(tostring(name or decorId))
+        sortNames[decorId] = cached
+        return cached
+    end
+
+    table.sort(decorIds, function(a, b)
+        local nameA = GetDecorSortName(a)
+        local nameB = GetDecorSortName(b)
+        if nameA == nameB then
+            return tostring(a) < tostring(b)
+        end
+        return nameA < nameB
+    end)
+end
+
 function VendorsTab:SetupVendorRow(frame, elementData)
     local L = addon.L
     local decorIds = elementData.decorIds or {}
@@ -1455,6 +1479,7 @@ function VendorsTab:BuildVendorDisplay()
                                     table.insert(filteredDecorIds, decorId)
                                 end
                             end
+                            SortDecorIdsByName(filteredDecorIds)
                             table.insert(elements, {
                                 npcId = vendor.npcId,
                                 npcName = vendor.npcName,

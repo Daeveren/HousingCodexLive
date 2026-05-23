@@ -4,6 +4,7 @@
 ]]
 
 local _, addon = ...
+local L = addon.L
 
 local Waypoints = {}
 addon.Waypoints = Waypoints
@@ -27,6 +28,36 @@ local function FireWaypointChanged(action, owner)
     addon:FireEvent(addon.Events.WAYPOINT_CHANGED, action, owner or WAYPOINT_OWNER_GENERIC, activeWaypoint)
 end
 
+local function ShowInvalidMapFeedback()
+    local message = _G.MAP_PIN_INVALID_MAP or L["VENDOR_MAP_RESTRICTED"]
+    local errorsFrame = _G.UIErrorsFrame
+    if errorsFrame and type(errorsFrame.AddMessage) == "function" then
+        local ok = pcall(errorsFrame.AddMessage, errorsFrame, message)
+        if ok then return end
+    end
+    addon:Print(message)
+end
+
+local function ClearExistingWaypointState()
+    if activeTomTomUid then
+        if TomTom and type(TomTom.RemoveWaypoint) == "function" then
+            pcall(TomTom.RemoveWaypoint, TomTom, activeTomTomUid)
+        end
+        activeTomTomUid = nil
+    end
+
+    local shouldClearNative = ownsNativeWaypoint and C_Map.HasUserWaypoint()
+    ownsNativeWaypoint = false
+    if shouldClearNative then
+        isClearingWaypoint = true
+        C_Map.ClearUserWaypoint()
+        isClearingWaypoint = false
+        C_SuperTrack.SetSuperTrackedUserWaypoint(false)
+    end
+
+    activeWaypoint = nil
+end
+
 function Waypoints:IsTomTomAvailable()
     return tomtomAvailable
 end
@@ -42,8 +73,6 @@ function Waypoints:Set(mapID, normX, normY, title, options)
     local owner = GetWaypointOwner(options)
 
     if self:IsTomTomActive() then
-        -- Clear previous addon waypoint first, then attempt TomTom
-        self:Clear(options)
         local ok, uid = pcall(TomTom.AddWaypoint, TomTom, mapID, normX, normY, {
             title = title,
             persistent = false,
@@ -53,6 +82,7 @@ function Waypoints:Set(mapID, normX, normY, title, options)
             from = "HousingCodex",
         })
         if ok and uid then
+            ClearExistingWaypointState()
             activeTomTomUid = uid
             activeWaypoint = { mapID = mapID, x = normX, y = normY, title = title, owner = owner }
             FireWaypointChanged("set", owner)
@@ -64,6 +94,7 @@ function Waypoints:Set(mapID, normX, normY, title, options)
 
     -- Native path: validate BEFORE clearing old waypoint
     if not C_Map.CanSetUserWaypointOnMap(mapID) then
+        ShowInvalidMapFeedback()
         return false
     end
 
@@ -84,22 +115,7 @@ function Waypoints:Clear(options)
     local owner = GetWaypointOwner(options)
     local hadWaypoint = activeTomTomUid ~= nil or ownsNativeWaypoint or activeWaypoint ~= nil
 
-    if activeTomTomUid then
-        pcall(TomTom.RemoveWaypoint, TomTom, activeTomTomUid)
-        activeTomTomUid = nil
-    end
-
-    -- Only clear native waypoint if this addon placed it
-    local shouldClearNative = ownsNativeWaypoint and C_Map.HasUserWaypoint()
-    ownsNativeWaypoint = false
-    if shouldClearNative then
-        isClearingWaypoint = true
-        C_Map.ClearUserWaypoint()
-        isClearingWaypoint = false
-        C_SuperTrack.SetSuperTrackedUserWaypoint(false)
-    end
-
-    activeWaypoint = nil
+    ClearExistingWaypointState()
 
     if hadWaypoint then
         FireWaypointChanged("clear", owner)

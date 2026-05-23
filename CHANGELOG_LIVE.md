@@ -2,6 +2,14 @@
 
 All notable changes to Housing Codex.
 
+**2.6.2** (2026-05-23)
+
+**Changed**
+- Updated decor vendor data
+- Improved vendor waypoint failure handling
+- Improved vendor map pin setting refresh behavior
+- Sorted vendor decor rows alphabetically
+
 **2.6.1** (2026-05-21)
 
 **Changed**

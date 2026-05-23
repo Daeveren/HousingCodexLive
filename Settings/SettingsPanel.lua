@@ -79,7 +79,7 @@ local function CreateCheckbox(parent, label, tooltip, getValue, setValue)
     return check
 end
 
-local function RefreshVendorMapPins()
+local function RefreshVisibleVendorMapPins()
     local provider = addon.vendorMapProvider
     if not provider then return end
 
@@ -87,6 +87,12 @@ local function RefreshVendorMapPins()
     if map and map:IsShown() then
         provider:RefreshAllData()
     end
+end
+
+local function RefreshVendorVisibility()
+    addon:InvalidateVendorVisibilityCaches()
+    addon:FireEvent(addon.Events.PLAYER_PROFESSIONS_CHANGED)
+    RefreshVisibleVendorMapPins()
 end
 
 --------------------------------------------------------------------------------
@@ -401,7 +407,7 @@ function addon.Settings:Initialize()
         function(checked)
             if addon.db then
                 addon.db.settings.showVendorMapPins = checked
-                RefreshVendorMapPins()
+                RefreshVisibleVendorMapPins()
             end
         end
     )
@@ -552,9 +558,7 @@ function addon.Settings:Initialize()
         function(checked)
             if addon.db then
                 addon.db.settings.onlyShowLearnedSilvermoonProfessionVendors = checked
-                addon:InvalidateVendorVisibilityCaches()
-                addon:FireEvent(addon.Events.PLAYER_PROFESSIONS_CHANGED)
-                RefreshVendorMapPins()
+                RefreshVendorVisibility()
             end
         end
     )
