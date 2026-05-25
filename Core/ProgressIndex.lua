@@ -199,12 +199,7 @@ function addon:GetProgressBySourceType()
     })
 
     -- PvP
-    local pvpOwned, pvpTotal = 0, 0
-    for _, category in ipairs(self:GetSortedPvPCategories()) do
-        local cOwned, cTotal = self:GetPvPCategoryCollectionProgress(category)
-        pvpOwned = pvpOwned + cOwned
-        pvpTotal = pvpTotal + cTotal
-    end
+    local pvpOwned, pvpTotal = self:GetPvPUniqueCollectionProgress()
     if pvpTotal > 0 then
         table.insert(result, {
             key = "PVP",

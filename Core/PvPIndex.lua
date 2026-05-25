@@ -197,6 +197,25 @@ function addon:GetPvPCategoryCollectionProgress(category)
     return owned, total
 end
 
+function addon:GetPvPUniqueCollectionProgress()
+    local owned, total = 0, 0
+    local seen = {}
+
+    for _, category in ipairs(self:GetSortedPvPCategories()) do
+        for _, source in ipairs(self:GetPvPSourcesForCategory(category)) do
+            for _, decorId in ipairs(source.decorIds or {}) do
+                if not seen[decorId] then
+                    seen[decorId] = true
+                    total = total + 1
+                    if self:IsDecorCollected(decorId) then owned = owned + 1 end
+                end
+            end
+        end
+    end
+
+    return owned, total
+end
+
 function addon:GetPvPSourceCount()
     local count = 0
     for _, catData in pairs(self.pvpHierarchy) do

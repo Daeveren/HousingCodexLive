@@ -7,6 +7,8 @@
 
 local _, addon = ...
 local L = addon.L
+local SOURCE_PREFIX_COLOR = "|cffeac100"
+local COLOR_RESET = "|r"
 
 -- Source category display info
 local SOURCE_CATEGORY_INFO = {
@@ -37,6 +39,19 @@ function addon:GetSourceCategoryInfo(category)
     return SOURCE_CATEGORY_INFO[category]
 end
 
+local function FormatDropSourceText(category, sourceName)
+    local displayName = addon:GetLocalizedSourceName(sourceName) or sourceName
+    if not displayName then return nil end
+
+    local categoryInfo = SOURCE_CATEGORY_INFO[category]
+    local label = categoryInfo and categoryInfo.labelKey and L[categoryInfo.labelKey]
+    if label and label ~= "" then
+        return SOURCE_PREFIX_COLOR .. label .. ": " .. COLOR_RESET .. displayName
+    end
+
+    return displayName
+end
+
 -- Build a flat decorId → localized source-name reverse lookup from DropSourceData.
 -- Runs eagerly on DATA_LOADED so ResolveRecord can backfill sourceText on hidden items
 -- even before the DropsTab/ProgressTab hierarchy is ever built.
@@ -44,12 +59,12 @@ function addon:BuildDropSourceLookup()
     if not self.DropSourceData then return end
     self.decorDropSourceText = self.decorDropSourceText or {}
     wipe(self.decorDropSourceText)
-    for _, sources in pairs(self.DropSourceData) do
+    for category, sources in pairs(self.DropSourceData) do
         for _, sourceData in ipairs(sources) do
-            local displayName = self:GetLocalizedSourceName(sourceData.sourceName) or sourceData.sourceName
-            if displayName then
+            local sourceText = FormatDropSourceText(category, sourceData.sourceName)
+            if sourceText then
                 for _, decorId in ipairs(sourceData.decorIds or {}) do
-                    self.decorDropSourceText[decorId] = displayName
+                    self.decorDropSourceText[decorId] = sourceText
                 end
             end
         end
@@ -58,6 +73,30 @@ end
 
 function addon:GetDropSourceText(decorId)
     return self.decorDropSourceText and self.decorDropSourceText[decorId]
+end
+
+function addon:EnrichDropSourceText()
+    if not self.decorDropSourceText then return 0 end
+
+    local enriched = 0
+    for decorId, sourceText in pairs(self.decorDropSourceText) do
+        local primary = self.decorRecords and self.decorRecords[decorId]
+        if primary and (not primary.sourceText or primary.sourceText == "") then
+            primary.sourceText = sourceText
+            enriched = enriched + 1
+        end
+        local fallback = self.fallbackRecords and self.fallbackRecords[decorId]
+        if fallback and fallback ~= false and (not fallback.sourceText or fallback.sourceText == "") then
+            fallback.sourceText = sourceText
+            enriched = enriched + 1
+        end
+    end
+
+    if enriched > 0 then
+        self.byWordIndexBuilt = false
+    end
+
+    return enriched
 end
 
 function addon:BuildDropIndex()
@@ -105,24 +144,7 @@ function addon:BuildDropIndex()
         end
     end
 
-    -- Enrich empty sourceText on both primary records and already-resolved hidden fallback records.
-    local enriched = 0
-    for decorId, displayName in pairs(self.decorDropSourceText) do
-        local primary = self.decorRecords and self.decorRecords[decorId]
-        if primary and (not primary.sourceText or primary.sourceText == "") then
-            primary.sourceText = displayName
-            enriched = enriched + 1
-        end
-        local fallback = self.fallbackRecords and self.fallbackRecords[decorId]
-        if fallback and fallback ~= false and (not fallback.sourceText or fallback.sourceText == "") then
-            fallback.sourceText = displayName
-            enriched = enriched + 1
-        end
-    end
-
-    if enriched > 0 then
-        self.byWordIndexBuilt = false
-    end
+    local enriched = self:EnrichDropSourceText()
 
     self.dropIndexBuilt = true
     self:InvalidateProgressCache()
@@ -188,6 +210,11 @@ end
 
 addon:RegisterInternalEvent("RECORD_OWNERSHIP_UPDATED", function()
     wipe(addon.dropCategoryProgressCache)
+end)
+
+addon:RegisterInternalEvent("DATA_LOADED", function()
+    addon:BuildDropSourceLookup()
+    addon:EnrichDropSourceText()
 end)
 
 -- Build reverse lookup at module parse time so ResolveRecord can backfill hidden-item

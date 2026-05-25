@@ -2,6 +2,16 @@
 
 All notable changes to Housing Codex.
 
+**2.6.3** (2026-05-25)
+
+**Changed**
+- Updated drop source data
+- Improved source labels for drop-only decor previews
+- Added preliminary preparations for patch 12.0.7
+
+**Fixed**
+- Adjusted how PvP totals are calculated in the Progress tab
+
 **2.6.2** (2026-05-23)
 
 **Changed**
