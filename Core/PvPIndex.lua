@@ -58,6 +58,11 @@ function addon:GetPvPSourceCategoryInfo(category)
 end
 
 function addon:BuildPvPIndex()
+    if not self.dataLoaded then
+        self:Debug("Deferring BuildPvPIndex: data not loaded yet")
+        return
+    end
+
     if not self.AchievementSourceData then
         self:Debug("Cannot build PvP index: AchievementSourceData not loaded")
         return

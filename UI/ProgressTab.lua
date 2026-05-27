@@ -304,7 +304,15 @@ function ProgressTab:ShowLoadingState()
 end
 
 function ProgressTab:ClearDashboard()
-    local pools = { self.sourceRows, self.professionRows, self.vendorExpRows, self.questExpRows, self.renownExpRows, self.almostThereRows }
+    local pools = {
+        self.sourceRows,
+        self.professionRows,
+        self.vendorExpRows,
+        self.questExpRows,
+        self.renownExpRows,
+        self.pvpCategoryRows,
+        self.almostThereRows,
+    }
     for _, pool in ipairs(pools) do
         for _, frame in ipairs(pool) do
             frame:Hide()
@@ -315,7 +323,16 @@ function ProgressTab:ClearDashboard()
         element:Hide()
     end
 
-    local headers = { "loadingMsg", "sourceHeader", "professionsHeader", "vendorExpHeader", "questExpHeader", "renownExpHeader", "almostThereHeader" }
+    local headers = {
+        "loadingMsg",
+        "sourceHeader",
+        "professionsHeader",
+        "vendorExpHeader",
+        "questExpHeader",
+        "renownExpHeader",
+        "pvpCategoryHeader",
+        "almostThereHeader",
+    }
     for _, key in ipairs(headers) do
         if self[key] then self[key]:Hide() end
     end

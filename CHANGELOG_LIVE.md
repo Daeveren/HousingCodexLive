@@ -2,6 +2,12 @@
 
 All notable changes to Housing Codex.
 
+**2.6.4** (2026-05-27)
+
+**Fixed**
+- Improved PvP tab progress reliability after login
+- Fixed stale PvP category bars in the Progress tab
+
 **2.6.3** (2026-05-25)
 
 **Changed**
