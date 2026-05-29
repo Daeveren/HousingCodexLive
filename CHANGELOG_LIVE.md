@@ -2,6 +2,11 @@
 
 All notable changes to Housing Codex.
 
+**2.6.5** (2026-05-29)
+
+**Fixed**
+- Fixed stale Endeavors tooltip text when initiative data is unavailable
+
 **2.6.4** (2026-05-27)
 
 **Fixed**

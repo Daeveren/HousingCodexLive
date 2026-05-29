@@ -718,7 +718,10 @@ end
 local function ShowEndeavorTooltip(self)
     local data = addon.EndeavorsData
     local info = data:GetInitiativeInfo()
-    if not info then return end
+    if not info then
+        GameTooltip:Hide()
+        return
+    end
 
     GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
     GameTooltip:AddLine(info.title or L["ENDEAVORS_TITLE"], 1, 0.82, 0)
@@ -779,6 +782,9 @@ local function ShowEndeavorTooltip(self)
             end
         end
     end
+
+    GameTooltip:AddLine(" ")
+    GameTooltip:AddLine(L["ENDEAVORS_TOOLTIP_CLICK"], 0.5, 0.8, 1)
 
     GameTooltip:Show()
 end
@@ -1352,10 +1358,6 @@ local function CreateEndeavorsFrame()
     endeavorContainer:SetScript("OnEnter", function(self)
         ShowTitleBar()
         ShowEndeavorTooltip(self)
-        -- Add click hint at end of tooltip
-        GameTooltip:AddLine(" ")
-        GameTooltip:AddLine(L["ENDEAVORS_TOOLTIP_CLICK"], 0.5, 0.8, 1)
-        GameTooltip:Show()
         if not db.showEndeavorText and endeavorValueText.storedText then
             endeavorValueText:SetText(endeavorValueText.storedText)
             endeavorValueText:Show()
