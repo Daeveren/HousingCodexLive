@@ -325,6 +325,11 @@ function addon:BuildVendorIndex()
     wipe(self.vendorZoneToMapId)
     self.vendorMapVendorsByMapID = nil
     self:InvalidateVendorPinCache()
+    if self.Filters then
+        self.Filters.currencyLookupBuilt = false
+        self.Filters.decorCurrencyKeys = nil
+        self.Filters.currencyFilterOptions = nil
+    end
 
     self.PromotionalDecorIds = self.PromotionalDecorIds or {}
     wipe(self.PromotionalDecorIds)

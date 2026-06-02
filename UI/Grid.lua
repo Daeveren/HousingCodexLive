@@ -648,6 +648,7 @@ function Grid:ApplyPostSearchFilters(recordIDs)
             and addon.Filters:PassesWishlistFilter(record)
             and addon.Filters:PassesPlacedFilter(record)
             and addon.Filters:PassesPromoFilter(record)
+            and addon.Filters:PassesCurrencyFilter(record)
         then
             table.insert(filtered, recordID)
         end
@@ -753,6 +754,7 @@ function Grid:SetData(recordIDs)
                 and addon.Filters:PassesWishlistFilter(record)
                 and addon.Filters:PassesPlacedFilter(record)
                 and addon.Filters:PassesPromoFilter(record)
+                and addon.Filters:PassesCurrencyFilter(record)
             then
                 filteredIDs[#filteredIDs + 1] = recordID
                 elements[#elements + 1] = { recordID = recordID }

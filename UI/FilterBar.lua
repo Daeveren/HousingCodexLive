@@ -115,6 +115,41 @@ function FilterBar:SetupMenu(rootDescription)
         end
     )
 
+    local currencySubmenu = rootDescription:CreateButton(L["FILTER_CURRENCY_HEADER"])
+    currencySubmenu:CreateRadio(
+        L["FILTER_ALL_CURRENCIES"],
+        function()
+            return not addon.Filters:HasActiveCurrencyFilter()
+        end,
+        function()
+            addon.Filters:ClearCurrencyFilter()
+            addon.Filters:SaveState()
+            return MenuResponse.Refresh
+        end
+    )
+    currencySubmenu:CreateSpacer()
+
+    local currencyOptions = addon.Filters:GetCurrencyFilterOptions()
+    if #currencyOptions == 0 then
+        currencySubmenu:CreateTitle(L["FILTER_NO_CURRENCIES"])
+    else
+        for _, option in ipairs(currencyOptions) do
+            local currencyKey = option.key
+            local label = option.label
+            currencySubmenu:CreateCheckbox(
+                label,
+                function()
+                    return addon.Filters:IsCurrencyFilterSelected(currencyKey)
+                end,
+                function()
+                    addon.Filters:SetCurrencyFilterEnabled(currencyKey, not addon.Filters:IsCurrencyFilterSelected(currencyKey))
+                    addon.Filters:SaveState()
+                    return MenuResponse.Refresh
+                end
+            )
+        end
+    end
+
     -- NOTE: "Placed in House" filter disabled — Blizzard API returns numPlaced=0
     -- for all items (bug in GetCatalogEntryInfo). Re-enable when Blizzard fixes.
 
@@ -214,6 +249,9 @@ function FilterBar:ResetToDefault()
 
         -- Reset promo-only filter (post-search filter)
         addon.Filters:SetPromoOnly(false)
+
+        -- Reset vendor currency filter (post-search filter)
+        addon.Filters:ClearCurrencyFilter(true)
 
         -- Reset trackable filter (post-search filter)
         addon.Filters:SetTrackableState("all")

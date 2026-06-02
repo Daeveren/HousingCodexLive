@@ -19,6 +19,12 @@ local DECOR_ICON_SIZE = 22
 local WAYPOINT_BUTTON_SIZE = 20
 local WAYPOINT_MATCH_EPSILON = CONSTS.WAYPOINT_MATCH_EPSILON or 0.0001
 local WAYPOINT_OWNER_VENDOR_TRACKING = CONSTS.WAYPOINT_OWNER_VENDOR_TRACKING
+local VENDOR_CURRENCY_GOLD_KEY = "__gold"
+
+local VENDOR_SEARCH_MAX_WIDTH = 250
+local VENDOR_SEARCH_MIN_WIDTH = 80
+local VENDOR_TOOLBAR_LEFT_OFFSET = CONSTS.GRID_OUTER_PAD + 40
+local VENDOR_TOOLBAR_FILTER_GAP = 16
 
 addon.VendorsTab = {}
 local VendorsTab = addon.VendorsTab
@@ -29,6 +35,14 @@ VendorsTab.tabName = "VendorsTab"
 
 local function GetVendorsDB()
     return addon.db and addon.db.browser and addon.db.browser.vendors
+end
+
+local function GetVendorCurrencyKey(vendorData)
+    local currencyName = vendorData and vendorData.currencyName
+    if currencyName and currencyName ~= "" then
+        return currencyName
+    end
+    return VENDOR_CURRENCY_GOLD_KEY
 end
 
 VendorsTab.frame = nil
@@ -54,6 +68,7 @@ VendorsTab.onUserWaypointUpdated = nil
 
 VendorsTab.toolbarLayout = nil
 VendorsTab.filterContainer = nil
+VendorsTab.currencyFilterDropdown = nil
 VendorsTab.currentZoneOnly = false
 VendorsTab.currentZoneCheckbox = nil
 VendorsTab.playerZoneRootMapID = nil
@@ -130,8 +145,27 @@ function VendorsTab:CreateToolbar(parent)
         filterPrefix = "VENDORS",
     })
 
-    local check = CreateFrame("CheckButton", nil, self.toolbar, "UICheckButtonTemplate")
-    check:SetPoint("LEFT", self.filterContainer, "RIGHT", 12, 0)
+    local xOffset = (self.filterContainer and self.filterContainer:GetWidth() or 0) + 8
+
+    local dropdown = CreateFrame("DropdownButton", nil, self.filterContainer, "WowStyle1FilterDropdownTemplate")
+    dropdown.resizeToTextPadding = 36
+    dropdown:SetPoint("LEFT", self.filterContainer, "LEFT", xOffset, 0)
+    dropdown:SetSize(88, 22)
+    dropdown:SetText(addon.L["FILTERS"])
+    if dropdown.Text then
+        dropdown.Text:ClearAllPoints()
+        dropdown.Text:SetPoint("TOP", -6, 0)
+        dropdown.Text:SetFontObject(addon:GetFontObject("GameFontNormalSmall"))
+        addon:RegisterFontString(dropdown.Text, "GameFontNormalSmall")
+    end
+    dropdown:SetupMenu(function(_, rootDescription)
+        self:SetupCurrencyFilterMenu(rootDescription)
+    end)
+    self.currencyFilterDropdown = dropdown
+    xOffset = xOffset + dropdown:GetWidth() + 8
+
+    local check = CreateFrame("CheckButton", nil, self.filterContainer, "UICheckButtonTemplate")
+    check:SetPoint("LEFT", self.filterContainer, "LEFT", xOffset, 0)
     check:SetSize(22, 22)
     check.Text:SetFontObject(addon:GetFontObject("GameFontNormalSmall"))
     addon:RegisterFontString(check.Text, "GameFontNormalSmall")
@@ -143,6 +177,17 @@ function VendorsTab:CreateToolbar(parent)
         self:RefreshDisplay()
     end)
     self.currentZoneCheckbox = check
+
+    local currentZoneWidth = 22
+    if check.Text and check.Text:GetStringWidth() then
+        currentZoneWidth = currentZoneWidth + check.Text:GetStringWidth() + 6
+    end
+    self.filterContainer:SetWidth(xOffset + currentZoneWidth)
+
+    local toolbarWidth = self.toolbar and self.toolbar:GetWidth()
+    if toolbarWidth and toolbarWidth > 0 then
+        self:UpdateToolbarLayout(toolbarWidth)
+    end
 end
 
 function VendorsTab:ClearCurrentZoneFilter()
@@ -150,6 +195,176 @@ function VendorsTab:ClearCurrentZoneFilter()
         self.currentZoneCheckbox:SetChecked(false)
     end
     self.currentZoneOnly = false
+end
+
+function VendorsTab:GetCurrencyFilter()
+    local db = GetVendorsDB()
+    if not db then return nil end
+    if type(db.currencyFilter) ~= "table" then
+        db.currencyFilter = {}
+    end
+    return db.currencyFilter
+end
+
+function VendorsTab:GetActiveCurrencyFilterCount()
+    local filters = self:GetCurrencyFilter()
+    if not filters then return 0 end
+
+    local count = 0
+    for _, selected in pairs(filters) do
+        if selected then
+            count = count + 1
+        end
+    end
+    return count
+end
+
+function VendorsTab:HasActiveCurrencyFilter()
+    return self:GetActiveCurrencyFilterCount() > 0
+end
+
+function VendorsTab:SetCurrencyFilterEnabled(currencyKey, enabled)
+    if not currencyKey then return end
+
+    local filters = self:GetCurrencyFilter()
+    if not filters then return end
+
+    if enabled then
+        filters[currencyKey] = true
+    else
+        filters[currencyKey] = nil
+    end
+
+    self:RefreshDisplay()
+end
+
+function VendorsTab:ClearCurrencyFilter(skipRefresh)
+    local filters = self:GetCurrencyFilter()
+    if filters then
+        wipe(filters)
+    end
+
+    if not skipRefresh then
+        self:RefreshDisplay()
+    end
+end
+
+function VendorsTab:GetCurrencyFilterOptions()
+    local seen = {}
+    local options = {}
+
+    for _, expansionKey in ipairs(addon:GetSortedVendorExpansions()) do
+        for _, zoneName in ipairs(addon:GetSortedVendorZones(expansionKey)) do
+            for _, vendorData in ipairs(addon:GetVendorsForZone(expansionKey, zoneName)) do
+                local currencyKey = GetVendorCurrencyKey(vendorData)
+                if not seen[currencyKey] then
+                    seen[currencyKey] = true
+                    table.insert(options, {
+                        key = currencyKey,
+                        label = self:GetCurrencyLabel(currencyKey),
+                    })
+                end
+            end
+        end
+    end
+
+    table.sort(options, function(a, b)
+        return strlower(a.label) < strlower(b.label)
+    end)
+    return options
+end
+
+function VendorsTab:GetCurrencyLabel(currencyKey)
+    if currencyKey == VENDOR_CURRENCY_GOLD_KEY then
+        return addon.L["CURRENCY_GOLD"]
+    end
+    return addon:GetLocalizedCurrencyName(currencyKey)
+end
+
+function VendorsTab:SetupCurrencyFilterMenu(rootDescription)
+    local L = addon.L
+    local filters = self:GetCurrencyFilter()
+    local currencySubmenu = rootDescription:CreateButton(L["VENDORS_FILTER_CURRENCY"])
+
+    currencySubmenu:CreateRadio(
+        L["VENDORS_FILTER_ALL_CURRENCIES"],
+        function()
+            return not self:HasActiveCurrencyFilter()
+        end,
+        function()
+            self:ClearCurrencyFilter(true)
+            self:RefreshDisplay()
+            return MenuResponse.Refresh
+        end
+    )
+
+    currencySubmenu:CreateSpacer()
+
+    local options = self:GetCurrencyFilterOptions()
+    if #options == 0 then
+        currencySubmenu:CreateTitle(L["VENDORS_FILTER_NO_CURRENCIES"])
+        return
+    end
+
+    for _, option in ipairs(options) do
+        local currencyKey = option.key
+        local label = option.label
+        currencySubmenu:CreateCheckbox(
+            label,
+            function()
+                return filters and filters[currencyKey] == true
+            end,
+            function()
+                self:SetCurrencyFilterEnabled(currencyKey, not (filters and filters[currencyKey] == true))
+                return MenuResponse.Refresh
+            end
+        )
+    end
+end
+
+function VendorsTab:UpdateToolbarLayout(toolbarWidth)
+    if not toolbarWidth then return end
+
+    local filterWidth = self.filterContainer and self.filterContainer:GetWidth() or 0
+    local newLayout
+    local searchWidth = VENDOR_SEARCH_MAX_WIDTH
+    local showFilter = true
+
+    local availableWithFilter = toolbarWidth - VENDOR_TOOLBAR_LEFT_OFFSET - VENDOR_TOOLBAR_FILTER_GAP - filterWidth
+    if availableWithFilter >= VENDOR_SEARCH_MAX_WIDTH then
+        newLayout = "full"
+    elseif availableWithFilter >= VENDOR_SEARCH_MIN_WIDTH then
+        newLayout = "full"
+        searchWidth = availableWithFilter
+    else
+        showFilter = false
+        local availableWithoutFilter = toolbarWidth - VENDOR_TOOLBAR_LEFT_OFFSET
+        if availableWithoutFilter >= VENDOR_SEARCH_MAX_WIDTH then
+            newLayout = "noFilter"
+        elseif availableWithoutFilter >= VENDOR_SEARCH_MIN_WIDTH then
+            newLayout = "noFilter"
+            searchWidth = availableWithoutFilter
+        else
+            newLayout = "minimal"
+        end
+    end
+
+    if self.searchBox then
+        if newLayout == "minimal" then
+            self.searchBox:Hide()
+        else
+            self.searchBox:SetWidth(searchWidth)
+            self.searchBox:Show()
+        end
+    end
+
+    if self.filterContainer then
+        self.filterContainer:SetShown(showFilter)
+    end
+
+    if self.toolbarLayout == newLayout then return end
+    self.toolbarLayout = newLayout
+    addon:Debug((self.tabName or "VendorsTab") .. " toolbar layout: " .. newLayout .. " (width: " .. math.floor(toolbarWidth) .. ")")
 end
 
 -- Rebuild the expansion list and, if needed, the vendor list.
@@ -1194,6 +1409,7 @@ function VendorsTab:NavigateToVendor(npcId)
         self.searchBox:SetText("")
     end
     self:ClearCurrentZoneFilter()
+    self:ClearCurrencyFilter(true)
     self:SetCompletionFilter("all")
 
     -- Select the expansion (rebuilds display internally)
@@ -1232,6 +1448,7 @@ function VendorsTab:NavigateFromProgress(expansionKey, filter)
     end
     -- Clear "Current Zone" filter so all vendors in the expansion are visible
     self:ClearCurrentZoneFilter()
+    self:ClearCurrencyFilter(true)
     self:SetCompletionFilter(filter or "all", true)
     self:BuildExpansionDisplay()
     if not expansionKey then
@@ -1290,6 +1507,20 @@ end
 -- Search/Filter Logic (with per-refresh memoization)
 --------------------------------------------------------------------------------
 
+local function VendorCurrencyMatchesSearch(vendorData, searchText)
+    local currencyKey = GetVendorCurrencyKey(vendorData)
+    local rawCurrency = currencyKey == VENDOR_CURRENCY_GOLD_KEY and addon.L["CURRENCY_GOLD"] or currencyKey
+
+    if rawCurrency and strlower(rawCurrency):find(searchText, 1, true) then
+        return true
+    end
+
+    local localizedCurrency = VendorsTab:GetCurrencyLabel(currencyKey)
+    return localizedCurrency
+        and localizedCurrency ~= rawCurrency
+        and strlower(localizedCurrency):find(searchText, 1, true) ~= nil
+end
+
 local function VendorMatchesSearch(vendorData, searchText, zoneName, expansionKey)
     if searchText == "" then return true end
 
@@ -1310,13 +1541,8 @@ local function VendorMatchesSearch(vendorData, searchText, zoneName, expansionKe
         result = true
     elseif strlower(addon.L[expansionKey] or expansionKey):find(searchText, 1, true) then
         result = true
-    elseif strlower(vendorData.currencyName or addon.L["CURRENCY_GOLD"]):find(searchText, 1, true) then
+    elseif VendorCurrencyMatchesSearch(vendorData, searchText) then
         result = true
-    elseif vendorData.currencyName then
-        local localizedCurrency = addon:GetLocalizedCurrencyName(vendorData.currencyName)
-        if localizedCurrency ~= vendorData.currencyName and strlower(localizedCurrency):find(searchText, 1, true) then
-            result = true
-        end
     end
 
     if not result then
@@ -1366,6 +1592,13 @@ local function VendorPassesCompletionFilter(vendorData, filter, zoneName, expans
     return result
 end
 
+local function VendorPassesCurrencyFilter(vendorData)
+    local filters = VendorsTab:GetCurrencyFilter()
+    if not filters or not VendorsTab:HasActiveCurrencyFilter() then return true end
+
+    return filters[GetVendorCurrencyKey(vendorData)] == true
+end
+
 --------------------------------------------------------------------------------
 -- Display Building
 --------------------------------------------------------------------------------
@@ -1410,6 +1643,7 @@ function VendorsTab:BuildExpansionDisplay()
                 for _, vendorData in ipairs(addon:GetVendorsForZone(expansionKey, zoneName)) do
                     if addon:ShouldShowVendorForPlayerProfessionFilter(vendorData.npcId)
                         and VendorPassesCompletionFilter(vendorData, filter, zoneName, expansionKey)
+                        and VendorPassesCurrencyFilter(vendorData)
                         and VendorMatchesSearch(vendorData, searchText, zoneName, expansionKey) then
                         hasVisibleContent = true
                         break
@@ -1456,7 +1690,7 @@ function VendorsTab:BuildVendorDisplay()
         local filter = self:GetCompletionFilter()
         local searchText = strlower(strtrim(self.searchBox and self.searchBox:GetText() or ""))
         local zoneFilterActive = self.currentZoneOnly
-        local isForceExpanded = zoneFilterActive or searchText ~= ""
+        local isForceExpanded = zoneFilterActive or searchText ~= "" or self:HasActiveCurrencyFilter()
 
         for _, zoneName in ipairs(addon:GetSortedVendorZones(expansionKey)) do
             if not zoneFilterActive or VendorZoneMatchesPlayerZone(zoneName) then
@@ -1464,6 +1698,7 @@ function VendorsTab:BuildVendorDisplay()
                 for _, vendorData in ipairs(addon:GetVendorsForZone(expansionKey, zoneName)) do
                     if addon:ShouldShowVendorForPlayerProfessionFilter(vendorData.npcId)
                         and VendorPassesCompletionFilter(vendorData, filter, zoneName, expansionKey)
+                        and VendorPassesCurrencyFilter(vendorData)
                         and VendorMatchesSearch(vendorData, searchText, zoneName, expansionKey) then
                         table.insert(zoneVendors, vendorData)
                     end
@@ -1538,7 +1773,10 @@ function VendorsTab:UpdateEmptyStates()
     local hasSelection = self.selectedExpansionKey ~= nil
     local hasResults = self.vendorDataProvider and self.vendorDataProvider:GetSize() > 0
     local searchText = self:GetActiveSearchText()
-    local hasActiveFilter = (searchText ~= "") or (self:GetCompletionFilter() ~= "all") or self.currentZoneOnly
+    local hasActiveFilter = (searchText ~= "")
+        or (self:GetCompletionFilter() ~= "all")
+        or self.currentZoneOnly
+        or self:HasActiveCurrencyFilter()
 
     -- Clear preview when vendor list is empty (consistent with QuestsTab/AchievementsTab)
     if hasVendors and hasSelection and not hasResults then

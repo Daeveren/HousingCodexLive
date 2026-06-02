@@ -15,7 +15,13 @@ Filters.trackableState = "all"   -- "all", "trackable", "not_trackable"
 Filters.showWishlistOnly = false
 Filters.showPlacedOnly = false
 Filters.showPromoOnly = false
+Filters.currencyFilter = {}
 Filters.initialized = false
+Filters.decorCurrencyKeys = nil
+Filters.currencyFilterOptions = nil
+Filters.currencyLookupBuilt = false
+
+local FILTER_CURRENCY_GOLD_KEY = "__gold"
 
 -- Valid states for trackable filter
 local TRACKABLE_STATES = { all = true, trackable = true, not_trackable = true }
@@ -48,6 +54,7 @@ function Filters:Initialize()
         self.showWishlistOnly = filters.showWishlistOnly or false
         self.showPlacedOnly = filters.showPlacedOnly or false
         self.showPromoOnly = filters.showPromoOnly or false
+        self.currencyFilter = type(filters.currencyFilter) == "table" and filters.currencyFilter or {}
     end
 
     self.initialized = true
@@ -204,6 +211,148 @@ function Filters:PassesPromoFilter(record)
     return record ~= nil and addon:IsPromoDecor(record.recordID)
 end
 
+--------------------------------------------------------------------------------
+-- Vendor Currency Filter
+--------------------------------------------------------------------------------
+
+local function GetVendorCurrencyKey(vendorData)
+    local currencyName = vendorData and vendorData.currencyName
+    if currencyName and currencyName ~= "" then
+        return currencyName
+    end
+    return FILTER_CURRENCY_GOLD_KEY
+end
+
+function Filters:GetCurrencyLabel(currencyKey)
+    if currencyKey == FILTER_CURRENCY_GOLD_KEY then
+        return addon.L["CURRENCY_GOLD"]
+    end
+    return addon:GetLocalizedCurrencyName(currencyKey)
+end
+
+function Filters:GetCurrencyFilter()
+    if type(self.currencyFilter) ~= "table" then
+        self.currencyFilter = {}
+    end
+
+    if addon.db and addon.db.browser then
+        addon.db.browser.filters = addon.db.browser.filters or {}
+        if type(addon.db.browser.filters.currencyFilter) ~= "table" then
+            addon.db.browser.filters.currencyFilter = self.currencyFilter
+        end
+    end
+
+    return self.currencyFilter
+end
+
+function Filters:GetActiveCurrencyFilterCount()
+    local filters = self:GetCurrencyFilter()
+    local count = 0
+    for _, selected in pairs(filters) do
+        if selected then
+            count = count + 1
+        end
+    end
+    return count
+end
+
+function Filters:HasActiveCurrencyFilter()
+    return self:GetActiveCurrencyFilterCount() > 0
+end
+
+function Filters:IsCurrencyFilterSelected(currencyKey)
+    local filters = self:GetCurrencyFilter()
+    return currencyKey ~= nil and filters[currencyKey] == true
+end
+
+function Filters:SetCurrencyFilterEnabled(currencyKey, enabled, skipApply)
+    if not currencyKey then return end
+
+    local filters = self:GetCurrencyFilter()
+    if enabled then
+        filters[currencyKey] = true
+    else
+        filters[currencyKey] = nil
+    end
+
+    if addon.db and addon.db.browser and addon.db.browser.filters then
+        addon.db.browser.filters.currencyFilter = filters
+    end
+
+    if not skipApply then
+        addon:FireEvent("FILTER_CHANGED")
+    end
+end
+
+function Filters:ClearCurrencyFilter(skipApply)
+    wipe(self:GetCurrencyFilter())
+    if not skipApply then
+        addon:FireEvent("FILTER_CHANGED")
+    end
+end
+
+function Filters:EnsureCurrencyLookup()
+    if self.currencyLookupBuilt then return end
+
+    if not addon.vendorIndexBuilt and addon.BuildVendorIndex then
+        addon:BuildVendorIndex()
+    end
+
+    local byDecorID = {}
+    local seenCurrencies = {}
+    local options = {}
+
+    for _, expansionData in pairs(addon.vendorHierarchy or {}) do
+        for _, vendors in pairs(expansionData.zones or {}) do
+            for _, vendorData in ipairs(vendors) do
+                local currencyKey = GetVendorCurrencyKey(vendorData)
+                if not seenCurrencies[currencyKey] then
+                    seenCurrencies[currencyKey] = true
+                    table.insert(options, {
+                        key = currencyKey,
+                        label = self:GetCurrencyLabel(currencyKey),
+                    })
+                end
+
+                for _, decorId in ipairs(vendorData.decorIds or {}) do
+                    byDecorID[decorId] = byDecorID[decorId] or {}
+                    byDecorID[decorId][currencyKey] = true
+                end
+            end
+        end
+    end
+
+    table.sort(options, function(a, b)
+        return strlower(a.label) < strlower(b.label)
+    end)
+
+    self.decorCurrencyKeys = byDecorID
+    self.currencyFilterOptions = options
+    self.currencyLookupBuilt = true
+end
+
+function Filters:GetCurrencyFilterOptions()
+    self:EnsureCurrencyLookup()
+    return self.currencyFilterOptions or {}
+end
+
+function Filters:PassesCurrencyFilter(record)
+    if not self:HasActiveCurrencyFilter() then return true end
+    if not record or not record.recordID then return false end
+
+    self:EnsureCurrencyLookup()
+    local currencies = self.decorCurrencyKeys and self.decorCurrencyKeys[record.recordID]
+    if not currencies then return false end
+
+    local selected = self:GetCurrencyFilter()
+    for currencyKey in pairs(currencies) do
+        if selected[currencyKey] == true then
+            return true
+        end
+    end
+    return false
+end
+
 -- Returns true if id exists in a numerically-indexed list
 local function ContainsID(list, id)
     for _, v in ipairs(list) do
@@ -297,6 +446,7 @@ function Filters:SaveState()
     db.showWishlistOnly = self.showWishlistOnly
     db.showPlacedOnly = self.showPlacedOnly
     db.showPromoOnly = self.showPromoOnly
+    db.currencyFilter = self:GetCurrencyFilter()
 
     -- Save searcher-based filters
     local searcher = addon.catalogSearcher
@@ -364,6 +514,9 @@ function Filters:RestoreState()
         -- Restore promo-only filter
         self.showPromoOnly = db.showPromoOnly or false
 
+        -- Restore vendor currency filter
+        self.currencyFilter = type(db.currencyFilter) == "table" and db.currencyFilter or {}
+
         -- Restore searcher-based filters
         if searcher then
             -- Restore sort type (only native sorts go to catalogSearcher)
@@ -427,6 +580,9 @@ function Filters:ResetAllFilters()
 
         -- Reset promo-only filter
         self:SetPromoOnly(false)
+
+        -- Reset vendor currency filter
+        self:ClearCurrencyFilter(true)
 
         -- Reset category/subcategory filters
         if addon.Categories then

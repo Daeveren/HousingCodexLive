@@ -2,6 +2,15 @@
 
 All notable changes to Housing Codex.
 
+**2.7.0** (2026-06-02)
+
+**Added**
+- New - search by the currency names (ie: directly search and filter by Community Coupons or Voidlight Marl etc)
+- Added the filter by currency submenu in Decor and Vendors tabs Filter menu
+
+**Fixed**
+- Fixed the Current Zone checkbox stretching in the Vendors toolbar
+
 **2.6.5** (2026-05-29)
 
 **Fixed**

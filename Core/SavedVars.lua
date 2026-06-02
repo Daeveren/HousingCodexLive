@@ -41,6 +41,7 @@ local defaults = {
             trackableState = "all",
             showWishlistOnly = false,
             showPlacedOnly = false,
+            currencyFilter = {},  -- currency name keys selected in Decor Filters menu; empty = all
             indoors = true,
             outdoors = true,
             dyeable = false,
@@ -78,6 +79,7 @@ local defaults = {
         vendors = {
             selectedExpansionKey = nil,
             completionFilter = "all",  -- "all" | "incomplete" | "complete"
+            currencyFilter = {},        -- currency name keys selected in Vendors Filters menu; empty = all
             expandedZones = {},
         },
         professions = {
