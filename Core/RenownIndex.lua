@@ -26,11 +26,56 @@ local FRIENDSHIP_STANDING_KEYS = {
 -- in the shared standard/renown/friendship ID space, even for factions the
 -- player has never interacted with (when the client has the faction data).
 -- Returns nil if the API is unavailable or the faction ID is unknown.
-local function ResolveFactionLocalizedName(factionID)
+local function GetFactionDataByID(factionID)
     if not factionID then return nil end
     if not C_Reputation or not C_Reputation.GetFactionDataByID then return nil end
-    local data = C_Reputation.GetFactionDataByID(factionID)
+    return C_Reputation.GetFactionDataByID(factionID)
+end
+
+local function GetMajorFactionData(factionID)
+    if not factionID then return nil end
+    if not C_MajorFactions or not C_MajorFactions.GetMajorFactionData then return nil end
+    return C_MajorFactions.GetMajorFactionData(factionID)
+end
+
+local function HasMaximumRenown(factionID)
+    if not factionID then return false end
+    if not C_MajorFactions or not C_MajorFactions.HasMaximumRenown then return false end
+    return C_MajorFactions.HasMaximumRenown(factionID) == true
+end
+
+local function GetFriendshipReputation(factionID)
+    if not factionID then return nil end
+    if not C_GossipInfo or not C_GossipInfo.GetFriendshipReputation then return nil end
+    return C_GossipInfo.GetFriendshipReputation(factionID)
+end
+
+local function GetFriendshipReputationRanks(friendshipFactionID)
+    if not friendshipFactionID then return nil end
+    if not C_GossipInfo or not C_GossipInfo.GetFriendshipReputationRanks then return nil end
+    return C_GossipInfo.GetFriendshipReputationRanks(friendshipFactionID)
+end
+
+local function ResolveFactionLocalizedName(factionID)
+    if not factionID then return nil end
+    local data = GetFactionDataByID(factionID)
     return data and data.name
+end
+
+local function FormatRenownLevel(level)
+    local value = tonumber(level) or 0
+    if type(RENOWN_LEVEL_LABEL) == "string" then
+        return RENOWN_LEVEL_LABEL:format(value)
+    end
+    return string.format(L["RENOWN_RANK_FORMAT"] or "Rank %d", value)
+end
+
+local function ClampProgress(value, maxValue)
+    value = value or 0
+    maxValue = maxValue or 0
+    if value < 0 then return 0 end
+    if maxValue > 0 and value > maxValue then return maxValue end
+    return value
 end
 
 local function StandingLabel(reactionIdx)
@@ -135,7 +180,7 @@ end
 --------------------------------------------------------------------------------
 
 local function GetStandardStanding(factionID)
-    local data = C_Reputation.GetFactionDataByID(factionID)
+    local data = GetFactionDataByID(factionID)
     if not data then return nil end
 
     local reaction = data.reaction  -- luaIndex 1-8
@@ -146,7 +191,7 @@ local function GetStandardStanding(factionID)
     local isMaxed = reaction == 8  -- Exalted
     local range = maxValue - minValue
     local progressMax = isMaxed and 1 or (range > 0 and range or 1)
-    local progress = isMaxed and 1 or (range > 0 and (currentValue - minValue) or 0)
+    local progress = isMaxed and 1 or (range > 0 and ClampProgress(currentValue - minValue, progressMax) or 0)
     local progressPct = isMaxed and 100 or math.floor(progress / progressMax * 100)
 
     return {
@@ -163,7 +208,7 @@ local function GetStandardStanding(factionID)
 end
 
 local function GetRenownStanding(factionID)
-    local data = C_MajorFactions.GetMajorFactionData(factionID)
+    local data = GetMajorFactionData(factionID)
     if not data then return nil end
 
     if not data.isUnlocked then
@@ -179,14 +224,14 @@ local function GetRenownStanding(factionID)
         }
     end
 
-    local hasMax = C_MajorFactions.HasMaximumRenown(factionID)
+    local hasMax = HasMaximumRenown(factionID)
     local earned = data.renownReputationEarned or 0
     local rawThreshold = data.renownLevelThreshold or 0
     local threshold = rawThreshold > 0 and rawThreshold or 1
     local progressPct = hasMax and 100 or math.floor(earned / threshold * 100)
 
     return {
-        standingText = RENOWN_LEVEL_LABEL:format(data.renownLevel or 0),
+        standingText = FormatRenownLevel(data.renownLevel),
         renownLevel = data.renownLevel or 0,
         currentValue = earned,
         maxValue = threshold,
@@ -199,10 +244,10 @@ local function GetRenownStanding(factionID)
 end
 
 local function GetFriendshipStanding(factionID)
-    local repInfo = C_GossipInfo.GetFriendshipReputation(factionID)
+    local repInfo = GetFriendshipReputation(factionID)
     if not repInfo or repInfo.friendshipFactionID == 0 then return nil end
 
-    local rankInfo = C_GossipInfo.GetFriendshipReputationRanks(repInfo.friendshipFactionID)
+    local rankInfo = GetFriendshipReputationRanks(repInfo.friendshipFactionID)
     local standingText = repInfo.reaction or StandingLabel(4)
     local currentValue = repInfo.standing or 0
 
@@ -216,11 +261,11 @@ local function GetFriendshipStanding(factionID)
         or (rankInfo and rankInfo.currentLevel ~= nil and rankInfo.currentLevel == rankInfo.maxLevel)
     -- Match Blizzard FriendshipStatusBar.lua:50-51 bar values at max rank
     local range = isMaxed and 1 or (maxValue > 0 and (maxValue - minValue) or 1)
-    local progress = isMaxed and 1 or (maxValue > 0 and (currentValue - minValue) or 0)
+    local progress = isMaxed and 1 or (maxValue > 0 and ClampProgress(currentValue - minValue, range) or 0)
     local progressPct = isMaxed and 100 or math.floor(progress / range * 100)
 
     -- Friendship API doesn't include faction name; piggyback on GetFactionDataByID
-    local factionData = C_Reputation.GetFactionDataByID(factionID)
+    local factionData = GetFactionDataByID(factionID)
     local factionName = factionData and factionData.name
 
     return {
@@ -320,7 +365,7 @@ function addon:LocalizeRequiredStanding(requiredStanding, kind, factionID)
         if idx then return StandingLabel(idx) end
     elseif kind == "renown" then
         local level = tonumber(requiredStanding:match("%d+"))
-        if level then return RENOWN_LEVEL_LABEL:format(level) end
+        if level then return FormatRenownLevel(level) end
     elseif kind == "friendship" then
         local key = FRIENDSHIP_STANDING_KEYS[requiredStanding]
         if key and L[key] then return L[key] end

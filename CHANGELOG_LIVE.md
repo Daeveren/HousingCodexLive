@@ -2,6 +2,12 @@
 
 All notable changes to Housing Codex.
 
+**2.7.1** (2026-06-04)
+
+**Fixed**
+- Fixed Renown standing progress text for unusual reputation values
+- Improved Renown tab refresh reliability after data reloads
+
 **2.7.0** (2026-06-02)
 
 **Added**

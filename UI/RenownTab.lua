@@ -967,9 +967,11 @@ end
 RenownTab:RegisterTabVisibility("RENOWN")
 
 addon:RegisterInternalEvent("DATA_LOADED", function()
-    addon.renownIndexBuilt = false
     if RenownTab:IsShown() then
-        addon:BuildRenownIndex()
+        -- /hc retry invalidates index flags through ResetAllIndexFlags().
+        if not addon.renownIndexBuilt then
+            addon:BuildRenownIndex()
+        end
         RenownTab:RefreshDisplay()
     end
 end)
