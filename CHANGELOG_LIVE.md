@@ -2,6 +2,13 @@
 
 All notable changes to Housing Codex.
 
+**2.7.2** (2026-06-06)
+
+**Fixed**
+- Fixed missing source text for some vendor-sourced decor
+- Updated Harandar decor vendor data
+- Improved vendor, achievement, and Progress tab reliability after data reloads
+
 **2.7.1** (2026-06-04)
 
 **Fixed**

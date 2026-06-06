@@ -46,6 +46,7 @@ function addon:BuildAchievementIndex()
     -- Clear existing data
     wipe(self.achievementIndex)
     wipe(self.achievementSortedRecords)
+    wipe(self.achievementCompletionCache)
     self.DecorToAchievementLookup = {}
 
     local achievementCount = 0
@@ -252,6 +253,26 @@ function addon:GetAchievementCollectionProgress(achievementId)
             owned = owned + 1
         end
     end
+    return owned, total
+end
+
+function addon:GetAchievementUniqueCollectionProgress()
+    local owned, total = 0, 0
+    local seen = {}
+
+    for _, records in pairs(self.achievementIndex) do
+        for recordID in pairs(records) do
+            if not seen[recordID] then
+                seen[recordID] = true
+                total = total + 1
+                local record = self:GetRecord(recordID)
+                if record and record.isCollected then
+                    owned = owned + 1
+                end
+            end
+        end
+    end
+
     return owned, total
 end
 

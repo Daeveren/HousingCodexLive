@@ -490,6 +490,10 @@ function addon:ResolveRecord(recordID)
         local dropSource = self:GetDropSourceText(recordID)
         if dropSource then record.sourceText = dropSource end
     end
+    if not record.sourceText or record.sourceText == "" then
+        local vendorSource = self.GetVendorSourceText and self:GetVendorSourceText(recordID)
+        if vendorSource then record.sourceText = vendorSource end
+    end
 
     -- Growing fallbackRecords must invalidate the GetAllRecordIDs cache and word
     -- index. Ad-hoc ResolveRecord callers (PreviewFrame, WishlistFrame) grow

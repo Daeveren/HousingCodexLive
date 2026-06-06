@@ -4,11 +4,14 @@
 ]]
 
 local _, addon = ...
+local L = addon.L
 
 local ZONE_TO_EXPANSION = addon.ZONE_TO_EXPANSION
 
 -- Shared expansion order; module-specific unknowns fall back to 0 at usage sites
 local EXPANSION_ORDER = addon.CONSTANTS.EXPANSION_ORDER
+local SOURCE_PREFIX_COLOR = "|cffeac100"
+local COLOR_RESET = "|r"
 
 -- Legion Class Hall zone annotations
 local CLASS_HALL_ZONES = {
@@ -102,6 +105,16 @@ local function SetsEqual(a, b)
     return true
 end
 
+local function CopyItemCosts(itemCosts)
+    if not itemCosts then return nil end
+
+    local copy = {}
+    for decorId, cost in pairs(itemCosts) do
+        copy[decorId] = cost
+    end
+    return copy
+end
+
 local function ResolveProfessionSkillLine(profession)
     if profession == nil then return nil end
     if not (C_TradeSkillUI and C_TradeSkillUI.GetProfessionSkillLineID) then return nil end
@@ -165,6 +178,76 @@ addon.vendorZoneCache = {}
 addon.vendorExpansionProgressCache = {}
 addon.vendorZoneProgressCache = {}
 addon.vendorZoneToMapId = {}  -- zoneName -> uiMapId (for localized zone name lookup)
+
+local function FormatVendorSourceText(vendorName)
+    if not vendorName or vendorName == "" then return nil end
+
+    local label = L["PROGRESS_SOURCE_VENDORS"]
+    if label and label ~= "" then
+        return SOURCE_PREFIX_COLOR .. label .. ": " .. COLOR_RESET .. vendorName
+    end
+
+    return vendorName
+end
+
+function addon:BuildVendorSourceLookup()
+    if not self.VendorSourceData then return end
+
+    local vendorNamesByDecor = {}
+    self.decorVendorSourceText = self.decorVendorSourceText or {}
+    wipe(self.decorVendorSourceText)
+
+    for _, zones in pairs(self.VendorSourceData) do
+        for _, vendors in pairs(zones) do
+            for _, vendorData in ipairs(vendors) do
+                local vendorName = vendorData.npcName
+                if vendorName and vendorData.decorIds then
+                    for _, decorId in ipairs(vendorData.decorIds) do
+                        vendorNamesByDecor[decorId] = vendorNamesByDecor[decorId] or {}
+                        vendorNamesByDecor[decorId][vendorName] = true
+                    end
+                end
+            end
+        end
+    end
+
+    for decorId, vendorNames in pairs(vendorNamesByDecor) do
+        local sortedNames = {}
+        for vendorName in pairs(vendorNames) do
+            sortedNames[#sortedNames + 1] = vendorName
+        end
+        table.sort(sortedNames)
+        self.decorVendorSourceText[decorId] = FormatVendorSourceText(sortedNames[1])
+    end
+end
+
+function addon:GetVendorSourceText(decorId)
+    return self.decorVendorSourceText and self.decorVendorSourceText[decorId]
+end
+
+function addon:EnrichVendorSourceText()
+    if not self.decorVendorSourceText then return 0 end
+
+    local enriched = 0
+    for decorId, sourceText in pairs(self.decorVendorSourceText) do
+        local primary = self.decorRecords and self.decorRecords[decorId]
+        if primary and (not primary.sourceText or primary.sourceText == "") then
+            primary.sourceText = sourceText
+            enriched = enriched + 1
+        end
+        local fallback = self.fallbackRecords and self.fallbackRecords[decorId]
+        if fallback and fallback ~= false and (not fallback.sourceText or fallback.sourceText == "") then
+            fallback.sourceText = sourceText
+            enriched = enriched + 1
+        end
+    end
+
+    if enriched > 0 then
+        self.byWordIndexBuilt = false
+    end
+
+    return enriched
+end
 
 function addon:GetClassHallAnnotation(zoneName)
     return zoneName and CLASS_HALL_ZONES[zoneName]
@@ -317,6 +400,7 @@ function addon:BuildVendorIndex()
 
     local startTime = debugprofilestop()
 
+    self:BuildVendorSourceLookup()
     wipe(self.vendorIndex)
     wipe(self.vendorHierarchy)
     wipe(self.vendorZoneCache)
@@ -371,7 +455,7 @@ function addon:BuildVendorIndex()
                             npcName = vendorData.npcName,
                             cost = vendorData.cost,
                             currencyName = vendorData.currencyName,
-                            itemCosts = vendorData.itemCosts,
+                            itemCosts = CopyItemCosts(vendorData.itemCosts),
                             decorIds = {},
                             decorIdSet = {},
                             promotionalDecorIds = promoSet,
@@ -382,7 +466,7 @@ function addon:BuildVendorIndex()
 
                     -- Merge itemCosts from subsequent zone entries for same vendor
                     if vendorData.itemCosts and not vendorEntry.itemCosts then
-                        vendorEntry.itemCosts = vendorData.itemCosts
+                        vendorEntry.itemCosts = CopyItemCosts(vendorData.itemCosts)
                     elseif vendorData.itemCosts and vendorEntry.itemCosts then
                         for did, c in pairs(vendorData.itemCosts) do
                             if not vendorEntry.itemCosts[did] then
@@ -476,13 +560,14 @@ function addon:BuildVendorIndex()
     for decorId in pairs(self.PromotionalDecorIds) do
         self:ResolveRecord(decorId)
     end
+    local enriched = self:EnrichVendorSourceText()
     self.byWordIndexBuilt = false
 
     self.vendorIndexBuilt = true
     self:InvalidateProgressCache()
 
-    self:Debug(string.format("Built vendor index: %d vendors, %d decor items in %d ms",
-        vendorCount, decorCount, math.floor(debugprofilestop() - startTime)))
+    self:Debug(string.format("Built vendor index: %d vendors, %d decor items (%d sourceText enriched) in %d ms",
+        vendorCount, decorCount, enriched, math.floor(debugprofilestop() - startTime)))
 end
 
 function addon:IsPromoDecor(recordID)
@@ -677,6 +762,8 @@ addon:RegisterInternalEvent("DATA_LOADED", function()
     if not addon.vendorIndexBuilt then
         addon:BuildVendorIndex()
     end
+    addon:BuildVendorSourceLookup()
+    addon:EnrichVendorSourceText()
     addon:RefreshVendorProfessionVisibilityState(false)
 end)
 
@@ -687,3 +774,7 @@ end)
 addon:RegisterWoWEvent("PLAYER_ENTERING_WORLD", function()
     addon:RefreshVendorProfessionVisibilityState(true)
 end)
+
+if addon.VendorSourceData then
+    addon:BuildVendorSourceLookup()
+end

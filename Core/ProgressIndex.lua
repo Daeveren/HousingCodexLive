@@ -151,12 +151,7 @@ function addon:GetProgressBySourceType()
     end
 
     -- Achievements
-    local aOwned, aTotal = 0, 0
-    for achievementId in pairs(self.achievementIndex) do
-        local eOwned, eTotal = self:GetAchievementCollectionProgress(achievementId)
-        aOwned = aOwned + eOwned
-        aTotal = aTotal + eTotal
-    end
+    local aOwned, aTotal = self:GetAchievementUniqueCollectionProgress()
     table.insert(result, {
         key = "ACHIEVEMENTS",
         labelKey = "PROGRESS_SOURCE_ACHIEVEMENTS",
