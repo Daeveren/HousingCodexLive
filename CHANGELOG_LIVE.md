@@ -2,6 +2,13 @@
 
 All notable changes to Housing Codex.
 
+**2.7.3** (2026-06-08)
+
+**Fixed**
+- Improved direct vendor navigation reliability
+- Improved data retry recovery reliability
+- Improved mouse behavior around disabled tab placeholders
+
 **2.7.2** (2026-06-06)
 
 **Fixed**

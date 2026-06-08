@@ -943,6 +943,7 @@ end)
 -- Reset load state for /hc retry recovery (clears stuck guards and stale refs)
 function addon:ResetLoadState()
     self.searcherGeneration = (self.searcherGeneration or 0) + 1
+    self.loadRetryCount = 0
     if self.searchTimeoutTimer then
         self.searchTimeoutTimer:Cancel()
         self.searchTimeoutTimer = nil

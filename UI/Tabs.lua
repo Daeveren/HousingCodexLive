@@ -109,7 +109,8 @@ local function TruncateText(fullText, charLimit)
 end
 
 local function CreateTabButton(parent, tabConfig, index)
-    local btn = CreateFrame("Button", nil, parent)
+    local frameType = tabConfig.enabled and "Button" or "Frame"
+    local btn = CreateFrame(frameType, nil, parent)
     btn:SetHeight(HTAB_HEIGHT)
 
     -- Background texture
@@ -181,12 +182,10 @@ local function CreateTabButton(parent, tabConfig, index)
 
     -- Visual states
     if not tabConfig.enabled then
-        -- Disabled state (visual-only, keep button enabled for OnEnter/OnLeave)
+        -- Disabled state (visual-only; plain frame so it does not swallow mouse input)
         icon:SetDesaturated(true)
         icon:SetAlpha(0.5)
         label:SetTextColor(0.35, 0.35, 0.35, 1)  -- Dimmer than TEXT_DISABLED
-        -- No tooltip or interaction for disabled tabs
-        -- No OnClick = clicking does nothing
     else
         -- Enabled but not selected - set initial color (dimmed from TEXT_TERTIARY)
         label:SetTextColor(unpack(COLORS.TAB_TEXT_INACTIVE))

@@ -1017,7 +1017,6 @@ SlashCmdList["HOUSINGCODEX"] = function(msg)
         end
     elseif cmd == "retry" or cmd == "reload" then
         addon:Print(L["RETRYING_DATA_LOAD"])
-        addon.loadRetryCount = 0
         addon.dataLoaded = false
         addon:ResetAllIndexFlags()
         addon:ResetLoadState()

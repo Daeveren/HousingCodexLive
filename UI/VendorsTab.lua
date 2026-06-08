@@ -1417,7 +1417,7 @@ function VendorsTab:NavigateToVendor(npcId)
 
     -- Expand the target zone
     local db = GetVendorsDB()
-    if db then
+    if db and db.expandedZones then
         local key = expansionKey .. ":" .. zoneName
         db.expandedZones[key] = true
     end
