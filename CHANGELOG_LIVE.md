@@ -2,6 +2,11 @@
 
 All notable changes to Housing Codex.
 
+**2.7.4** (2026-06-10)
+
+**Fixed**
+- Improved tooltip source info for some Drops and PvP items
+
 **2.7.3** (2026-06-08)
 
 **Fixed**

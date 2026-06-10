@@ -664,6 +664,7 @@ function TabBaseMixin:ResetSourceFrame(frame)
     frame.sourceContainer:Hide()
     frame.decorContainer:Hide()
     frame.sourceNameKey = nil
+    frame.sourceTooltipHint = nil
     frame.decorIds = nil
 
     for _, row in ipairs(frame.decorRows) do
@@ -814,6 +815,9 @@ function TabBaseMixin:SetupDecorRows(frame, decorIds)
                 if r.isCollected then
                     GameTooltip:AddLine(addon.L["FILTER_COLLECTED"], 0.4, 0.9, 0.4)
                 end
+                if not r.record and r.sourceTooltipHint and r.sourceTooltipHint ~= "" then
+                    GameTooltip:AddLine(r.sourceTooltipHint, 0.7, 0.7, 0.7, true)
+                end
                 GameTooltip:Show()
             end)
             row:SetScript("OnLeave", function(r)
@@ -838,6 +842,7 @@ function TabBaseMixin:SetupDecorRows(frame, decorIds)
         row.record = record
         row.isCollected = record and record.isCollected
         row.sourceNameKey = frame.sourceNameKey
+        row.sourceTooltipHint = frame.sourceTooltipHint
 
         if record then
             if record.iconType == "atlas" then

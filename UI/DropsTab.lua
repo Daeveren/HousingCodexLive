@@ -84,6 +84,7 @@ function DropsTab:SetupSourceRow(frame, elementData)
     frame.decorContainer:SetHeight(decorCount * DECOR_ROW_HEIGHT)
 
     local displayName = addon:GetLocalizedSourceName(elementData.sourceName) or L["UNKNOWN"]
+    frame.sourceTooltipHint = displayName
     frame.sourceName:SetText(displayName)
     frame.sourceName:SetTextColor(unpack(COLORS.SOURCE_NAME_GOLD))
     addon:SetFontSize(frame.sourceName, 14, "")

@@ -92,6 +92,7 @@ function PvPTab:SetupSourceRow(frame, elementData)
     else
         displayName = addon:GetLocalizedSourceName(elementData.sourceName) or L["UNKNOWN"]
     end
+    local tooltipHint = displayName
 
     if elementData.sourceCategory == "achievements" and elementData.achievementID then
         local isCompleted = addon:IsAchievementCompleted(elementData.achievementID)
@@ -99,9 +100,12 @@ function PvPTab:SetupSourceRow(frame, elementData)
             displayName = displayName .. "  |cFF66EE66[X]|r"
         end
     elseif elementData.sourceCategory == "vendors" and elementData.zoneName then
-        displayName = displayName .. "  |cFF888888(" .. addon:GetLocalizedVendorZoneName(elementData.zoneName) .. ")|r"
+        local localizedZone = addon:GetLocalizedVendorZoneName(elementData.zoneName)
+        tooltipHint = tooltipHint .. " (" .. localizedZone .. ")"
+        displayName = displayName .. "  |cFF888888(" .. localizedZone .. ")|r"
     end
 
+    frame.sourceTooltipHint = tooltipHint
     frame.sourceName:SetText(displayName)
     frame.sourceName:SetTextColor(unpack(COLORS.SOURCE_NAME_GOLD))
     addon:SetFontSize(frame.sourceName, 14, "")
