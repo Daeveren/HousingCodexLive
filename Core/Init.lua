@@ -212,6 +212,7 @@ addon.CONSTANTS = {
         INPUT_DEBOUNCE = 0.15,            -- User input debounce (search, slider, resize)
         OWNERSHIP_REFRESH_DEBOUNCE = 0.1, -- Collection state change coalescing
         QUEST_REFRESH_DEBOUNCE = 0.1,     -- Quest event coalescing (completion + cache invalidation)
+        STORAGE_UPDATE_DEBOUNCE = 0.5,    -- Housing storage event coalescing
     },
 
     -- What's New / Welcome popup

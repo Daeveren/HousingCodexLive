@@ -189,6 +189,8 @@ L["OPTIONS_VENDOR_INDICATORS"] = "Dekorobjekte bei Händlern markieren"
 L["OPTIONS_VENDOR_INDICATORS_TOOLTIP"] = "Housing-Codex-Symbol auf Händlerobjekten anzeigen, die Housing-Dekor sind"
 L["OPTIONS_VENDOR_OWNED_CHECKMARK"] = "Häkchen für besessenes Dekor anzeigen"
 L["OPTIONS_VENDOR_OWNED_CHECKMARK_TOOLTIP"] = "Grünes Häkchen auf Händler-Dekorobjekten anzeigen, die du bereits besitzt"
+L["OPTIONS_SILVERMOON_PROFESSION_VENDOR_FILTER"] = "Filter Silvermoon profession vendors"
+L["OPTIONS_SILVERMOON_PROFESSION_VENDOR_FILTER_TOOLTIP"] = "Only show Silvermoon profession vendors for professions this character has learned"
 L["OPTIONS_SECTION_CONTAINERS"] = "Taschen & Bank"
 L["OPTIONS_CONTAINER_INDICATORS"] = "Dekorobjekte in Taschen und Bank markieren"
 L["OPTIONS_CONTAINER_INDICATORS_TOOLTIP"] = "Housing-Codex-Symbol auf Dekorobjekten in deinen Taschen und deiner Bank anzeigen"
@@ -534,7 +536,7 @@ L["OPTIONS_ZONE_OVERLAY_TOOLTIP"] = "Ein Panel auf der Weltkarte anzeigen, das v
 L["WHATSNEW_TITLE"] = "Neu in Housing Codex"
 L["WHATSNEW_DONT_SHOW"] = "Für v%s nicht erneut anzeigen"
 L["WHATSNEW_EXPLORE"] = "Housing Codex entdecken"
-L["WHATS_NEW_NO_IMAGE"] = "Screenshot"
+L["WHATSNEW_NO_IMAGE"] = "Screenshot"
 
 --------------------------------------------------------------------------------
 -- Welcome Popup
@@ -625,6 +627,7 @@ L["ENDEAVORS_OPT_SCALE_SMALL"] = "Klein"
 L["ENDEAVORS_OPT_SCALE_NORMAL"] = "Normal"
 L["ENDEAVORS_OPT_SCALE_BIG"] = "Groß"
 L["ENDEAVORS_MILESTONE_COMPLETED"] = "abgeschlossen"
+L["ENDEAVORS_MILESTONE_INCOMPLETE"] = "[-]"
 
 --------------------------------------------------------------------------------
 -- PvP Tab

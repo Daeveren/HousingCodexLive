@@ -108,7 +108,7 @@ local function TruncateText(fullText, charLimit)
     return fullText:sub(1, charLimit) .. "..."
 end
 
-local function CreateTabButton(parent, tabConfig, index)
+local function CreateTabButton(parent, tabConfig)
     local frameType = tabConfig.enabled and "Button" or "Frame"
     local btn = CreateFrame(frameType, nil, parent)
     btn:SetHeight(HTAB_HEIGHT)
@@ -236,7 +236,7 @@ function Tabs:Create(titleBar, anchorAfter)
     local levelSums = {}
 
     for i, config in ipairs(TAB_CONFIG) do
-        local btn = CreateTabButton(container, config, i)
+        local btn = CreateTabButton(container, config)
         btn:SetPoint("LEFT", container, "LEFT", xOffset, 0)
         btn.xOffset = xOffset
 

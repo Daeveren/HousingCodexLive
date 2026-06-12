@@ -52,8 +52,25 @@ RenownTab.selectedDecorId = nil
 RenownTab.toolbarLayout = nil
 RenownTab.filterContainer = nil
 
--- WoW event frame for standing updates (registered on Show, unregistered on Hide)
-local standingEventFrame = nil
+local standingEventsRegistered = false
+
+local function HandleStandingUpdate(majorFactionID)
+    wipe(addon.renownStandingCache)
+    if majorFactionID then
+        addon:RefreshFactionLocalizedLabel(majorFactionID)
+    end
+    if RenownTab:IsShown() then
+        RenownTab:RefreshDisplay()
+    end
+end
+
+local function OnStandingChanged()
+    HandleStandingUpdate()
+end
+
+local function OnMajorFactionChanged(majorFactionID)
+    HandleStandingUpdate(majorFactionID)
+end
 
 --------------------------------------------------------------------------------
 -- Main Frame
@@ -71,7 +88,6 @@ function RenownTab:Create(parent)
     self:CreateExpansionPanel(frame)
     self:CreateFactionPanel(frame)
     self:CreateEmptyStates()
-    self:CreateStandingEventFrame()
 
     addon:Debug("RenownTab created")
 end
@@ -135,36 +151,20 @@ end
 -- Standing Event Registration (Show/Hide pattern per Blizzard)
 --------------------------------------------------------------------------------
 
-function RenownTab:CreateStandingEventFrame()
-    if standingEventFrame then return end
-    standingEventFrame = CreateFrame("Frame")
-    standingEventFrame:SetScript("OnEvent", function(_, event, ...)
-        wipe(addon.renownStandingCache)
-        -- Refresh the cached localized label for the specific faction whose
-        -- state just changed. MAJOR_FACTION_RENOWN_LEVEL_CHANGED payload is
-        -- (majorFactionID, newRenownLevel, oldRenownLevel); MAJOR_FACTION_UNLOCKED
-        -- payload is (majorFactionID). UPDATE_FACTION has no payload and does
-        -- not indicate a rename, so we skip the label refresh for it.
-        if event == "MAJOR_FACTION_RENOWN_LEVEL_CHANGED" or event == "MAJOR_FACTION_UNLOCKED" then
-            local majorFactionID = ...
-            addon:RefreshFactionLocalizedLabel(majorFactionID)
-        end
-        if RenownTab:IsShown() then
-            RenownTab:RefreshDisplay()
-        end
-    end)
-end
-
 function RenownTab:RegisterStandingEvents()
-    if not standingEventFrame then return end
-    standingEventFrame:RegisterEvent("UPDATE_FACTION")
-    standingEventFrame:RegisterEvent("MAJOR_FACTION_RENOWN_LEVEL_CHANGED")
-    standingEventFrame:RegisterEvent("MAJOR_FACTION_UNLOCKED")
+    if standingEventsRegistered then return end
+    standingEventsRegistered = true
+    addon:RegisterWoWEvent("UPDATE_FACTION", OnStandingChanged)
+    addon:RegisterWoWEvent("MAJOR_FACTION_RENOWN_LEVEL_CHANGED", OnMajorFactionChanged)
+    addon:RegisterWoWEvent("MAJOR_FACTION_UNLOCKED", OnMajorFactionChanged)
 end
 
 function RenownTab:UnregisterStandingEvents()
-    if not standingEventFrame then return end
-    standingEventFrame:UnregisterAllEvents()
+    if not standingEventsRegistered then return end
+    addon:UnregisterWoWEvent("UPDATE_FACTION", OnStandingChanged)
+    addon:UnregisterWoWEvent("MAJOR_FACTION_RENOWN_LEVEL_CHANGED", OnMajorFactionChanged)
+    addon:UnregisterWoWEvent("MAJOR_FACTION_UNLOCKED", OnMajorFactionChanged)
+    standingEventsRegistered = false
 end
 
 --------------------------------------------------------------------------------

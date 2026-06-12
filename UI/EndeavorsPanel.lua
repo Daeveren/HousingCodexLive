@@ -778,7 +778,7 @@ local function ShowEndeavorTooltip(self)
                 -- Gray text with green "completed" marker
                 GameTooltip:AddLine(label .. " |cFF22BB22" .. L["ENDEAVORS_MILESTONE_COMPLETED"] .. "|r", 0.7, 0.7, 0.7)
             else
-                GameTooltip:AddLine("[-] " .. label, 0.5, 0.5, 0.5)
+                GameTooltip:AddLine(L["ENDEAVORS_MILESTONE_INCOMPLETE"] .. " " .. label, 0.5, 0.5, 0.5)
             end
         end
     end

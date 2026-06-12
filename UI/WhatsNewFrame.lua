@@ -88,7 +88,8 @@ end
 --------------------------------------------------------------------------------
 
 -- Returns the variant to auto-show ("welcome"), or nil if nothing should show.
--- Slash commands (/hc whatsnew, /hc welcome) bypass this via ForceShow.
+-- Automatic "What's New" upgrade surfacing is intentionally disabled for now;
+-- slash commands (/hc whatsnew, /hc welcome) bypass this via ForceShow.
 function WhatsNew:ShouldShow()
     local wn = addon.db and addon.db.whatsNew
     if wn and not wn.hasSeenWelcome then
@@ -481,7 +482,7 @@ local function CreateShowcase(frame)
     -- Placeholder text (when no image available)
     local placeholder = addon:CreateFontString(showcase, "OVERLAY", "GameFontNormal")
     placeholder:SetPoint("CENTER")
-    placeholder:SetText(L["WHATS_NEW_NO_IMAGE"])
+    placeholder:SetText(L["WHATSNEW_NO_IMAGE"])
     placeholder:SetTextColor(0.4, 0.4, 0.4, 1)
     frame.showcasePlaceholder = placeholder
 
@@ -998,6 +999,7 @@ end
 --------------------------------------------------------------------------------
 
 local autoShowPending = false
+local autoShowScheduled = false
 
 addon:RegisterInternalEvent("DATA_LOADED", function()
     -- Reset dismiss count when version changes
@@ -1009,7 +1011,8 @@ addon:RegisterInternalEvent("DATA_LOADED", function()
         end
     end
 
-    if autoShowPending then return end
+    if autoShowScheduled then return end
+    autoShowScheduled = true
     autoShowPending = true
 
     C_Timer.After(WN.SHOW_DELAY, function()

@@ -898,8 +898,10 @@ addon:RegisterWoWEvent("HOUSING_STORAGE_ENTRY_UPDATED", function(entryVariantID)
     end
 end)
 
--- Bulk storage update (refresh record data and re-run searcher)
-addon:RegisterWoWEvent("HOUSING_STORAGE_UPDATED", function()
+local storageUpdateTimer = nil
+
+local function ProcessStorageUpdate()
+    storageUpdateTimer = nil
     if not addon.dataLoaded then return end
     addon:CountDebug("ownership", "bulk")
 
@@ -938,6 +940,15 @@ addon:RegisterWoWEvent("HOUSING_STORAGE_UPDATED", function()
         addon:Debug("Storage updated (hidden), deferring search")
         addon.needsFullRefresh = true
     end
+end
+
+-- Bulk storage update (refresh record data and re-run searcher)
+addon:RegisterWoWEvent("HOUSING_STORAGE_UPDATED", function()
+    if not addon.dataLoaded then return end
+    if storageUpdateTimer then
+        storageUpdateTimer:Cancel()
+    end
+    storageUpdateTimer = C_Timer.NewTimer(addon.CONSTANTS.TIMER.STORAGE_UPDATE_DEBOUNCE, ProcessStorageUpdate)
 end)
 
 -- Reset load state for /hc retry recovery (clears stuck guards and stale refs)
@@ -951,6 +962,10 @@ function addon:ResetLoadState()
     if self.retryTimer then
         self.retryTimer:Cancel()
         self.retryTimer = nil
+    end
+    if storageUpdateTimer then
+        storageUpdateTimer:Cancel()
+        storageUpdateTimer = nil
     end
     if self.CancelPendingSearch then
         self:CancelPendingSearch()

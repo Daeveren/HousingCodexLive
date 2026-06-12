@@ -24,6 +24,11 @@ local function ClearCache()
     wipe(itemDecorCache)
 end
 
+local function ShouldShowAnyContainerOverlay()
+    local settings = addon.db and addon.db.settings
+    return settings and (settings.showContainerDecorIndicators or settings.showContainerOwnedCheckmark)
+end
+
 -- Look up decor info for an itemID (with caching)
 local function GetDecorInfo(itemID)
     if not itemID then return nil end
@@ -91,7 +96,7 @@ function ContainerOverlay:UpdateButton(button, itemID)
     local showOwnedCheckmark = addon.db.settings.showContainerOwnedCheckmark
 
     -- Early exit if both settings are off
-    if not showDecorIcon and not showOwnedCheckmark then
+    if not ShouldShowAnyContainerOverlay() then
         HideButtonOverlay(button)
         return
     end
@@ -171,6 +176,13 @@ function ContainerOverlay:UpdateVisibleBankPanel()
 end
 
 local function RefreshAll()
+    if not ShouldShowAnyContainerOverlay() then
+        dirty = false
+        ClearCache()
+        ContainerOverlay:HideAllOverlays()
+        return
+    end
+
     if not AreBagsVisible() then
         dirty = true
         return

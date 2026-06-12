@@ -24,9 +24,17 @@ local sessionCache = {}
 local waitingForMarketData = false
 local initialized = false
 local updateScheduled = false
+local marketFallbackTimer = nil
 
 local function ClearSessionCache()
     wipe(sessionCache)
+end
+
+local function CancelMarketFallbackTimer()
+    if marketFallbackTimer then
+        marketFallbackTimer:Cancel()
+        marketFallbackTimer = nil
+    end
 end
 
 local function IsSecretValue(value)
@@ -237,13 +245,15 @@ function MerchantOverlay:Initialize()
     self.eventFrame:RegisterEvent("HOUSING_MARKET_AVAILABILITY_UPDATED")
     self.eventFrame:SetScript("OnEvent", function(_, event)
         if event == "MERCHANT_SHOW" then
+            CancelMarketFallbackTimer()
             -- Request housing market data refresh when merchant opens
             if C_HousingCatalog and C_HousingCatalog.RequestHousingMarketInfoRefresh then
                 C_HousingCatalog.RequestHousingMarketInfoRefresh()
             end
             waitingForMarketData = true
             -- Fallback timer in case event doesn't fire
-            C_Timer.After(0.5, function()
+            marketFallbackTimer = C_Timer.NewTimer(0.5, function()
+                marketFallbackTimer = nil
                 if waitingForMarketData and MerchantFrame and MerchantFrame:IsShown() then
                     waitingForMarketData = false
                     ClearSessionCache()
@@ -253,12 +263,14 @@ function MerchantOverlay:Initialize()
         elseif event == "HOUSING_MARKET_AVAILABILITY_UPDATED" then
             -- Market data is now ready - always clear flag, refresh if merchant open
             waitingForMarketData = false
+            CancelMarketFallbackTimer()
             if MerchantFrame and MerchantFrame:IsShown() then
                 ClearSessionCache()
                 self:ScheduleUpdateMerchantButtons()
             end
         elseif event == "MERCHANT_CLOSED" then
             waitingForMarketData = false
+            CancelMarketFallbackTimer()
             ClearSessionCache()
             self:HideAllOverlays()
         end

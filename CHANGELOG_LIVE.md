@@ -2,6 +2,15 @@
 
 All notable changes to Housing Codex.
 
+**2.7.5** (2026-06-12)
+
+**Changed**
+- Improved background refresh performance across popups, vendors, and bag/bank indicators
+
+**Fixed**
+- Fixed untranslated Silvermoon profession vendor settings on non-English clients
+- Improved Renown tab refresh reliability
+
 **2.7.4** (2026-06-10)
 
 **Fixed**
