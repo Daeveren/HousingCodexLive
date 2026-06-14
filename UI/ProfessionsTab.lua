@@ -102,6 +102,7 @@ local function CraftPassesCompletionFilter(craft, filter, record)
 end
 
 local function CraftMatchesActiveFilters(craft, filter, searchText)
+    if not addon:ShouldDisplayDecor(craft.decorId) then return false end
     local record = ResolveCraftRecord(craft.decorId)
     return CraftPassesCompletionFilter(craft, filter, record) and CraftMatchesSearch(craft, searchText, record)
 end
@@ -707,6 +708,12 @@ ProfessionsTab:RegisterOwnershipRefresh(function()
         addon:BuildCraftingIndex()
     end
     ProfessionsTab:RefreshDisplay()
+end)
+
+addon:RegisterInternalEvent(addon.Events.DECOR_VISIBILITY_CHANGED, function()
+    if ProfessionsTab:IsShown() then
+        ProfessionsTab:RefreshDisplay()
+    end
 end)
 
 addon.MainFrame:RegisterContentAreaInitializer("ProfessionsTab", function(contentArea)

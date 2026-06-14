@@ -681,6 +681,14 @@ function addon.Settings:Initialize()
     end)
     AnchorButtonAfter(welcomeBtn, commandHelpBtn)
 
+    -- Hidden Items manager button
+    local hiddenItemsBtn = CreateSettingsActionButton(panel, L["OPTIONS_SEE_HIDDEN_ITEMS"], L["OPTIONS_SEE_HIDDEN_ITEMS"], L["OPTIONS_SEE_HIDDEN_ITEMS_TOOLTIP"], function()
+        if addon.HiddenItemsFrame then
+            addon.HiddenItemsFrame:ShowFrame()
+        end
+    end)
+    hiddenItemsBtn:SetPoint("TOPLEFT", COL1_X, yOffset - 28)
+
     -- Custom Font toggle button
     local customFontBtn
     local function UpdateCustomFontButtonText()

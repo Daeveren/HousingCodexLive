@@ -10,8 +10,8 @@ A World of Warcraft addon that gives you a better way to browse, track, and coll
 
 - **Grid View** - Browse all decorations in a searchable grid with thumbnails
 - **3D Preview** - Docked preview panel with auto-rotating model, source info, size, and dye options
-- **Filters** - Filter by collected/uncollected, wishlist, promo-only, trackable, indoor/outdoor, dyeable, first-acquisition bonus, and Blizzard catalog tags
-- **Wishlist** - Star items to track, view them in a dedicated window, or filter the catalog to show only wishlisted items
+- **Filters** - Filter by collected/uncollected, wishlist, promo-only, hide shop items, trackable, indoor/outdoor, dyeable, first-acquisition bonus, and Blizzard catalog tags
+- **Wishlist & Hidden Items** - Star items to track, view them in a dedicated window, filter the catalog to show only wishlisted items, or right-click items to hide them from all views
 - **Quick Access** - Left-click to select and preview, shift-click to track on the map, right-click for context menu (chat link, Wowhead, track)
 
 ### Source Tabs
@@ -23,7 +23,7 @@ A World of Warcraft addon that gives you a better way to browse, track, and coll
 - **Professions** - Crafted housing items organized by profession with per-profession progress
 - **PvP** - PvP-sourced decorations from battleground/rated-PvP achievements and curated Honor or Alterac Valley vendors
 - **Renown** - Reputation-sourced decorations organized by expansion and faction, with standing requirements and vendor locations
-- **Progress** - Collection dashboard with per-source and per-expansion breakdowns, plus a most-progressed list that surfaces the closest-to-complete slices across quests, vendors, renown, achievements, drops, PvP, and professions
+- **Progress** - Collection dashboard with per-source and per-expansion breakdowns, plus a most-progressed list that surfaces the closest-to-complete slices across quests, vendors, renown, achievements, drops, PvP, and professions; hidden/shop-filtered items are excluded from totals
 
 ### In-World Integration
 

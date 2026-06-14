@@ -370,9 +370,13 @@ local function FactionCardOnClick(frame, button)
 end
 
 -- Named handlers for decor rows
-local function DecorRowOnClick(row)
+local function DecorRowOnClick(row, button)
     local decorId = row.decorId
     if not decorId then return end
+    if button == "RightButton" then
+        addon.ContextMenu:ShowForDecor(row, decorId)
+        return
+    end
     if IsShiftKeyDown() then
         addon:ToggleTracking(decorId)
         return
@@ -641,6 +645,7 @@ function RenownTab:SetupDecorRows(frame, entries, factionID, vendors)
             row.selectionHighlight = selHighlight
 
             row:EnableMouse(true)
+            row:RegisterForClicks("LeftButtonUp", "RightButtonUp")
             row:SetScript("OnClick", DecorRowOnClick)
             row:SetScript("OnEnter", DecorRowOnEnter)
             row:SetScript("OnLeave", DecorRowOnLeave)
@@ -758,8 +763,10 @@ local function FactionMatchesSearch(factionData, searchText)
     -- Match decor item names
     if factionData.resolvedDecorIds then
         for _, decorId in ipairs(factionData.resolvedDecorIds) do
-            local name = addon:ResolveDecorName(decorId, addon:GetRecord(decorId))
-            if name and strlower(name):find(searchText, 1, true) then
+            local record = addon:GetRecord(decorId)
+            local name = addon:ResolveDecorName(decorId, record)
+            if addon:ShouldDisplayDecor(decorId, record)
+                and name and strlower(name):find(searchText, 1, true) then
                 return true
             end
         end
@@ -788,7 +795,7 @@ local function GetVisibleDecorEntries(resolvedDecorIds, filter)
         local decorId = isTable and entry.decorId or entry
 
         -- Skip items that can't be resolved by the housing catalog (? icon, no preview)
-        if addon:ResolveRecord(decorId) then
+        if addon:ShouldDisplayDecor(decorId) and addon:ResolveRecord(decorId) then
             local isCollected = addon:IsDecorCollected(decorId)
             if not (filter == "incomplete" and isCollected) then
                 table.insert(visible, {
@@ -810,7 +817,9 @@ local function BuildFactionVisibilityCache(filter, searchText)
     local cache = {}
     for _, expKey in ipairs(addon:GetSortedRenownExpansions()) do
         for _, faction in ipairs(addon:GetFactionsForExpansion(expKey)) do
-            if FactionPassesCompletionFilter(faction.factionID, filter)
+            local visibleEntries = GetVisibleDecorEntries(faction.resolvedDecorEntries or faction.resolvedDecorIds, filter)
+            if #visibleEntries > 0
+                and FactionPassesCompletionFilter(faction.factionID, filter)
                 and FactionMatchesSearch(faction, searchText) then
                 cache[expKey .. "\0" .. faction.factionID] = true
             end
@@ -977,6 +986,12 @@ addon:RegisterInternalEvent("DATA_LOADED", function()
 end)
 
 RenownTab:RegisterOwnershipRefresh(function() RenownTab:RefreshDisplay() end)
+
+addon:RegisterInternalEvent(addon.Events.DECOR_VISIBILITY_CHANGED, function()
+    if RenownTab:IsShown() then
+        RenownTab:RefreshDisplay()
+    end
+end)
 
 addon.MainFrame:RegisterContentAreaInitializer("RenownTab", function(contentArea)
     RenownTab:Create(contentArea)

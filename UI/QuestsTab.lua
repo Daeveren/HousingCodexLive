@@ -669,7 +669,8 @@ local function QuestMatchesSearch(questKey, searchText, zoneName, expansionKey)
     local records = addon:GetRecordsForQuest(questKey)
     for _, recordID in ipairs(records or {}) do
         local record = addon:GetRecord(recordID)
-        if record and record.name and strlower(record.name):find(searchText, 1, true) then
+        if addon:ShouldDisplayDecor(recordID, record)
+            and record and record.name and strlower(record.name):find(searchText, 1, true) then
             return true
         end
     end
@@ -697,14 +698,20 @@ local function GetQuestVisibilityKey(expansionKey, zoneName, questKey)
         .. tostring(questKey)
 end
 
+local function GetVisibleQuestRecords(questKey)
+    return addon:FilterVisibleDecorIds(addon:GetRecordsForQuest(questKey))
+end
+
 function QuestsTab:BuildQuestVisibilityCache(filter, searchText)
     local cache = {}
     for _, expansionKey in ipairs(addon:GetSortedExpansions()) do
         for _, zoneName in ipairs(addon:GetSortedZones(expansionKey)) do
             for _, questKey in ipairs(addon:GetQuestsForZone(expansionKey, zoneName)) do
-                if QuestPassesCompletionFilter(questKey, filter)
+                local visibleRecords = GetVisibleQuestRecords(questKey)
+                if #visibleRecords > 0
+                    and QuestPassesCompletionFilter(questKey, filter)
                     and QuestMatchesSearch(questKey, searchText, zoneName, expansionKey) then
-                    cache[GetQuestVisibilityKey(expansionKey, zoneName, questKey)] = true
+                    cache[GetQuestVisibilityKey(expansionKey, zoneName, questKey)] = visibleRecords
                 end
             end
         end
@@ -712,12 +719,21 @@ function QuestsTab:BuildQuestVisibilityCache(filter, searchText)
     return cache
 end
 
-function QuestsTab:IsQuestVisible(questKey, filter, searchText, zoneName, expansionKey, visibilityCache)
+function QuestsTab:GetVisibleQuestRecordIDs(questKey, filter, searchText, zoneName, expansionKey, visibilityCache)
     if visibilityCache then
-        return visibilityCache[GetQuestVisibilityKey(expansionKey, zoneName, questKey)] == true
+        return visibilityCache[GetQuestVisibilityKey(expansionKey, zoneName, questKey)]
     end
-    return QuestPassesCompletionFilter(questKey, filter)
-        and QuestMatchesSearch(questKey, searchText, zoneName, expansionKey)
+    local visibleRecords = GetVisibleQuestRecords(questKey)
+    if #visibleRecords > 0
+        and QuestPassesCompletionFilter(questKey, filter)
+        and QuestMatchesSearch(questKey, searchText, zoneName, expansionKey) then
+        return visibleRecords
+    end
+    return nil
+end
+
+function QuestsTab:IsQuestVisible(questKey, filter, searchText, zoneName, expansionKey, visibilityCache)
+    return self:GetVisibleQuestRecordIDs(questKey, filter, searchText, zoneName, expansionKey, visibilityCache) ~= nil
 end
 
 function QuestsTab:BuildExpansionDisplay(visibilityCache)
@@ -788,9 +804,9 @@ function QuestsTab:BuildZoneQuestDisplay(visibilityCache)
         for _, zoneName in ipairs(addon:GetSortedZones(expansionKey)) do
             local zoneQuests = {}
             for _, questKey in ipairs(addon:GetQuestsForZone(expansionKey, zoneName)) do
-                if self:IsQuestVisible(questKey, filter, searchText, zoneName, expansionKey, visibilityCache) then
+                local recordIDs = self:GetVisibleQuestRecordIDs(questKey, filter, searchText, zoneName, expansionKey, visibilityCache)
+                if recordIDs then
                     -- Multi-reward quests: show one entry per reward
-                    local recordIDs = addon:GetRecordsForQuest(questKey)
                     local numRewards = recordIDs and #recordIDs or 0
                     if numRewards > 1 then
                         for i, recordID in ipairs(recordIDs) do
@@ -975,6 +991,12 @@ addon:RegisterInternalEvent("DATA_LOADED", function()
     if QuestsTab:IsShown() and not addon.questIndexBuilt then
         addon:BuildQuestIndex()
         addon:BuildQuestHierarchy()
+        QuestsTab:RefreshDisplay()
+    end
+end)
+
+addon:RegisterInternalEvent(addon.Events.DECOR_VISIBILITY_CHANGED, function()
+    if QuestsTab:IsShown() then
         QuestsTab:RefreshDisplay()
     end
 end)

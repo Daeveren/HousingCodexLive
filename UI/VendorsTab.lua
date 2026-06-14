@@ -459,9 +459,12 @@ end
 
 -- Named handlers for vendor rows (bound once, read data from frame fields)
 local function VendorRowOnClick(frame, button)
-    if button == "RightButton" then return end
     local decorIds = frame.decorIds
     if not decorIds or #decorIds == 0 then return end
+    if button == "RightButton" then
+        addon.ContextMenu:ShowForDecor(frame, decorIds[1])
+        return
+    end
     VendorsTab:HandleItemSelection({
         decorId = decorIds[1],
         npcId = frame.npcId,
@@ -493,8 +496,12 @@ local function VendorWaypointBtnOnClick(btn)
 end
 
 -- Named handlers for decor rows (bound once, read data from row fields)
-local function VendorDecorRowOnClick(row)
+local function VendorDecorRowOnClick(row, button)
     local decorId = row.decorId
+    if button == "RightButton" then
+        addon.ContextMenu:ShowForDecor(row, decorId)
+        return
+    end
     if IsShiftKeyDown() then
         VendorsTab:ToggleVendorDecorTracking(row.npcId, decorId, row.zoneName)
         return
@@ -772,6 +779,7 @@ function VendorsTab:InitializeVendorFrame(frame)
 
     frame.decorRows = {}
     frame:EnableMouse(true)
+    frame:RegisterForClicks("LeftButtonUp", "RightButtonUp")
 end
 
 function VendorsTab:ResetVendorFrame(frame)
@@ -962,6 +970,25 @@ local function SortDecorIdsByName(decorIds)
     end)
 end
 
+local function GetVisibleVendorDecorIds(vendorData)
+    local visible = {}
+    for _, decorId in ipairs(vendorData and vendorData.decorIds or {}) do
+        if IsDecorResolvable(decorId) and addon:ShouldDisplayDecor(decorId) then
+            visible[#visible + 1] = decorId
+        end
+    end
+    return visible
+end
+
+local function CopyVendorWithDecorIds(vendorData, decorIds)
+    local copy = {}
+    for key, value in pairs(vendorData) do
+        copy[key] = value
+    end
+    copy.decorIds = decorIds
+    return copy
+end
+
 function VendorsTab:SetupVendorRow(frame, elementData)
     local L = addon.L
     local decorIds = elementData.decorIds or {}
@@ -1059,6 +1086,7 @@ function VendorsTab:SetupDecorRows(frame, decorIds)
             row.selectionHighlight = selHighlight
 
             row:EnableMouse(true)
+            row:RegisterForClicks("LeftButtonUp", "RightButtonUp")
             row:SetScript("OnClick", VendorDecorRowOnClick)
             row:SetScript("OnEnter", VendorDecorRowOnEnter)
             row:SetScript("OnLeave", VendorDecorRowOnLeave)
@@ -1425,7 +1453,8 @@ function VendorsTab:NavigateToVendor(npcId)
 
     -- Select the vendor's first decor item to show 3D preview
     local vendorData = addon.vendorIndex and addon.vendorIndex[npcId]
-    local firstDecorId = vendorData and vendorData.decorIds and vendorData.decorIds[1]
+    local visibleDecorIds = vendorData and GetVisibleVendorDecorIds(vendorData)
+    local firstDecorId = visibleDecorIds and visibleDecorIds[1]
     if firstDecorId then
         self.selectedVendorNpcId = npcId
         self.selectedVendorZoneName = zoneName
@@ -1546,7 +1575,7 @@ local function VendorMatchesSearch(vendorData, searchText, zoneName, expansionKe
     end
 
     if not result then
-        for _, decorId in ipairs(vendorData.decorIds or {}) do
+        for _, decorId in ipairs(GetVisibleVendorDecorIds(vendorData)) do
             local record = addon:GetRecord(decorId)
             local resolvedName = addon:ResolveDecorName(decorId, record)
             if resolvedName and strlower(resolvedName):find(searchText, 1, true) then
@@ -1569,7 +1598,12 @@ local function VendorMatchesSearch(vendorData, searchText, zoneName, expansionKe
         local promoStock = addon.VendorPromotionalDecorIds
             and addon.VendorPromotionalDecorIds[vendorData.npcId]
         if promoStock and next(promoStock) then
-            result = true
+            for decorId in pairs(promoStock) do
+                if addon:ShouldDisplayDecor(decorId) then
+                    result = true
+                    break
+                end
+            end
         end
     end
 
@@ -1641,7 +1675,9 @@ function VendorsTab:BuildExpansionDisplay()
         for _, zoneName in ipairs(addon:GetSortedVendorZones(expansionKey)) do
             if not zoneFilterActive or VendorZoneMatchesPlayerZone(zoneName) then
                 for _, vendorData in ipairs(addon:GetVendorsForZone(expansionKey, zoneName)) do
+                    local visibleDecorIds = GetVisibleVendorDecorIds(vendorData)
                     if addon:ShouldShowVendorForPlayerProfessionFilter(vendorData.npcId)
+                        and #visibleDecorIds > 0
                         and VendorPassesCompletionFilter(vendorData, filter, zoneName, expansionKey)
                         and VendorPassesCurrencyFilter(vendorData)
                         and VendorMatchesSearch(vendorData, searchText, zoneName, expansionKey) then
@@ -1696,11 +1732,13 @@ function VendorsTab:BuildVendorDisplay()
             if not zoneFilterActive or VendorZoneMatchesPlayerZone(zoneName) then
                 local zoneVendors = {}
                 for _, vendorData in ipairs(addon:GetVendorsForZone(expansionKey, zoneName)) do
+                    local visibleDecorIds = GetVisibleVendorDecorIds(vendorData)
                     if addon:ShouldShowVendorForPlayerProfessionFilter(vendorData.npcId)
+                        and #visibleDecorIds > 0
                         and VendorPassesCompletionFilter(vendorData, filter, zoneName, expansionKey)
                         and VendorPassesCurrencyFilter(vendorData)
                         and VendorMatchesSearch(vendorData, searchText, zoneName, expansionKey) then
-                        table.insert(zoneVendors, vendorData)
+                        table.insert(zoneVendors, CopyVendorWithDecorIds(vendorData, visibleDecorIds))
                     end
                 end
 
@@ -1708,12 +1746,7 @@ function VendorsTab:BuildVendorDisplay()
                     table.insert(elements, { isZoneHeader = true, expansionKey = expansionKey, zoneName = zoneName, isForceExpanded = isForceExpanded })
                     if isForceExpanded or self:IsZoneExpanded(expansionKey, zoneName) then
                         for _, vendor in ipairs(zoneVendors) do
-                            local filteredDecorIds = {}
-                            for _, decorId in ipairs(vendor.decorIds or {}) do
-                                if IsDecorResolvable(decorId) then
-                                    table.insert(filteredDecorIds, decorId)
-                                end
-                            end
+                            local filteredDecorIds = vendor.decorIds or {}
                             SortDecorIdsByName(filteredDecorIds)
                             table.insert(elements, {
                                 npcId = vendor.npcId,
@@ -1805,6 +1838,12 @@ addon:RegisterInternalEvent("DATA_LOADED", function()
 end)
 
 VendorsTab:RegisterOwnershipRefresh(function() VendorsTab:RefreshDisplay() end)
+
+addon:RegisterInternalEvent(addon.Events.DECOR_VISIBILITY_CHANGED, function()
+    if VendorsTab:IsShown() then
+        VendorsTab:RefreshDisplay()
+    end
+end)
 
 addon:RegisterInternalEvent(addon.Events.WAYPOINT_CHANGED, function(action, owner)
     VendorsTab:OnWaypointChanged(action, owner)

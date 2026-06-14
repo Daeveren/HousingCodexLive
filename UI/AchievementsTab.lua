@@ -593,7 +593,8 @@ local function AchievementMatchesSearch(achievementID, searchText, categoryId)
     local records = addon:GetRecordsForAchievement(achievementID)
     for _, recordID in ipairs(records or {}) do
         local record = addon:GetRecord(recordID)
-        if record and record.name and strlower(record.name):find(searchText, 1, true) then
+        if addon:ShouldDisplayDecor(recordID, record)
+            and record and record.name and strlower(record.name):find(searchText, 1, true) then
             return true
         end
     end
@@ -614,25 +615,40 @@ local function AchievementPassesCompletionFilter(achievementID, filter)
     return not isComplete
 end
 
+local function GetVisibleAchievementRecords(achievementID)
+    return addon:FilterVisibleDecorIds(addon:GetRecordsForAchievement(achievementID))
+end
+
 function AchievementsTab:BuildAchievementVisibilityCache(filter, searchText)
     local cache = {}
     for _, categoryId in ipairs(addon:GetSortedAchievementCategories()) do
         for _, achievementID in ipairs(addon:GetAchievementsForCategory(categoryId)) do
-            if AchievementPassesCompletionFilter(achievementID, filter)
+            local visibleRecords = GetVisibleAchievementRecords(achievementID)
+            if #visibleRecords > 0
+                and AchievementPassesCompletionFilter(achievementID, filter)
                 and AchievementMatchesSearch(achievementID, searchText, categoryId) then
-                cache[achievementID] = true
+                cache[achievementID] = visibleRecords
             end
         end
     end
     return cache
 end
 
-function AchievementsTab:IsAchievementVisible(achievementID, filter, searchText, categoryId, visCache)
+function AchievementsTab:GetVisibleAchievementRecordIDs(achievementID, filter, searchText, categoryId, visCache)
     if visCache then
-        return visCache[achievementID] or false
+        return visCache[achievementID]
     end
-    return AchievementPassesCompletionFilter(achievementID, filter)
-        and AchievementMatchesSearch(achievementID, searchText, categoryId)
+    local visibleRecords = GetVisibleAchievementRecords(achievementID)
+    if #visibleRecords > 0
+        and AchievementPassesCompletionFilter(achievementID, filter)
+        and AchievementMatchesSearch(achievementID, searchText, categoryId) then
+        return visibleRecords
+    end
+    return nil
+end
+
+function AchievementsTab:IsAchievementVisible(achievementID, filter, searchText, categoryId, visCache)
+    return self:GetVisibleAchievementRecordIDs(achievementID, filter, searchText, categoryId, visCache) ~= nil
 end
 
 function AchievementsTab:BuildCategoryDisplay(visCache, filter, searchText)
@@ -705,9 +721,9 @@ function AchievementsTab:BuildAchievementDisplay(visCache, filter, searchText)
         searchText = searchText or strlower(strtrim(self.searchBox and self.searchBox:GetText() or ""))
 
         for _, achievementID in ipairs(addon:GetAchievementsForCategory(categoryId)) do
-            if self:IsAchievementVisible(achievementID, filter, searchText, categoryId, visCache) then
+            local recordIDs = self:GetVisibleAchievementRecordIDs(achievementID, filter, searchText, categoryId, visCache)
+            if recordIDs then
                 -- Multi-reward achievements: show one entry per reward
-                local recordIDs = addon:GetRecordsForAchievement(achievementID)
                 local numRewards = recordIDs and #recordIDs or 0
                 if numRewards > 1 then
                     for i, recordID in ipairs(recordIDs) do
@@ -872,6 +888,7 @@ local function RefreshAchievementDisplays()
 end
 
 addon:RegisterInternalEvent("ACHIEVEMENT_COMPLETION_CHANGED", RefreshAchievementDisplays)
+addon:RegisterInternalEvent(addon.Events.DECOR_VISIBILITY_CHANGED, RefreshAchievementDisplays)
 
 AchievementsTab:RegisterOwnershipRefresh(function() AchievementsTab:RefreshDisplay() end)
 

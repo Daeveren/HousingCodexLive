@@ -115,6 +115,15 @@ function FilterBar:SetupMenu(rootDescription)
         end
     )
 
+    rootDescription:CreateCheckbox(
+        L["FILTER_HIDE_SHOP_ITEMS"],
+        function() return addon.Filters.hideShopItems end,
+        function()
+            addon.Filters:SetHideShopItems(not addon.Filters.hideShopItems)
+            addon.Filters:SaveState()
+        end
+    )
+
     local currencySubmenu = rootDescription:CreateButton(L["FILTER_CURRENCY_HEADER"])
     currencySubmenu:CreateRadio(
         L["FILTER_ALL_CURRENCIES"],
@@ -236,7 +245,8 @@ function FilterBar:SetupMenu(rootDescription)
     end
 end
 
-function FilterBar:ResetToDefault()
+function FilterBar:ResetToDefault(options)
+    options = options or {}
     local searcher = addon.catalogSearcher
     if not searcher then return end
 
@@ -249,6 +259,10 @@ function FilterBar:ResetToDefault()
 
         -- Reset promo-only filter (post-search filter)
         addon.Filters:SetPromoOnly(false)
+
+        if not options.preserveGlobalVisibility then
+            addon.Filters:SetHideShopItems(false)
+        end
 
         -- Reset vendor currency filter (post-search filter)
         addon.Filters:ClearCurrencyFilter(true)

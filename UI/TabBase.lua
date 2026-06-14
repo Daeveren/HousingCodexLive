@@ -790,8 +790,13 @@ function TabBaseMixin:SetupDecorRows(frame, decorIds)
             row.selectionHighlight = selHighlight
 
             row:EnableMouse(true)
-            row:SetScript("OnClick", function(r)
+            row:RegisterForClicks("LeftButtonUp", "RightButtonUp")
+            row:SetScript("OnClick", function(r, button)
                 local did = r.decorId
+                if button == "RightButton" then
+                    addon.ContextMenu:ShowForDecor(r, did)
+                    return
+                end
                 if IsShiftKeyDown() then
                     addon:ToggleTracking(did)
                     return
@@ -899,6 +904,21 @@ function TabBaseMixin:SourceMatchesSearch(sourceData, searchText, category)
     return false
 end
 
+function TabBaseMixin:GetVisibleSourceData(sourceData)
+    local visibleDecorIds = addon:FilterVisibleDecorIds(sourceData.decorIds)
+    if #visibleDecorIds == 0 then return nil end
+    if #visibleDecorIds == #(sourceData.decorIds or {}) then
+        return sourceData
+    end
+
+    local copy = {}
+    for key, value in pairs(sourceData) do
+        copy[key] = value
+    end
+    copy.decorIds = visibleDecorIds
+    return copy
+end
+
 function TabBaseMixin:SourcePassesCompletionFilter(sourceData, filter)
     if filter == "all" then return true end
 
@@ -923,9 +943,11 @@ function TabBaseMixin:BuildSourceVisibilityCache(filter, searchText)
     local cache = {}
     for _, category in ipairs(self.cfg.getSortedCategories()) do
         for _, sourceData in ipairs(self.cfg.getSourcesForCategory(category)) do
-            if self:SourcePassesCompletionFilter(sourceData, filter)
-                and self:SourceMatchesSearch(sourceData, searchText, category) then
-                cache[category .. "\0" .. sourceData.sourceName] = true
+            local visibleSourceData = self:GetVisibleSourceData(sourceData)
+            if visibleSourceData
+                and self:SourcePassesCompletionFilter(visibleSourceData, filter)
+                and self:SourceMatchesSearch(visibleSourceData, searchText, category) then
+                cache[category .. "\0" .. sourceData.sourceName] = visibleSourceData
             end
         end
     end
@@ -933,11 +955,20 @@ function TabBaseMixin:BuildSourceVisibilityCache(filter, searchText)
 end
 
 function TabBaseMixin:IsSourceVisible(sourceData, category, filter, searchText, visCache)
+    return self:GetVisibleSourceElement(sourceData, category, filter, searchText, visCache) ~= nil
+end
+
+function TabBaseMixin:GetVisibleSourceElement(sourceData, category, filter, searchText, visCache)
     if visCache then
-        return visCache[category .. "\0" .. sourceData.sourceName] or false
+        return visCache[category .. "\0" .. sourceData.sourceName]
     end
-    return self:SourcePassesCompletionFilter(sourceData, filter)
-        and self:SourceMatchesSearch(sourceData, searchText, category)
+    local visibleSourceData = self:GetVisibleSourceData(sourceData)
+    if visibleSourceData
+        and self:SourcePassesCompletionFilter(visibleSourceData, filter)
+        and self:SourceMatchesSearch(visibleSourceData, searchText, category) then
+        return visibleSourceData
+    end
+    return nil
 end
 
 --------------------------------------------------------------------------------
@@ -996,8 +1027,9 @@ function TabBaseMixin:BuildSourceDisplay(visCache)
         local searchText = strlower(strtrim(self.searchBox and self.searchBox:GetText() or ""))
 
         for _, sourceData in ipairs(self.cfg.getSourcesForCategory(category)) do
-            if self:IsSourceVisible(sourceData, category, filter, searchText, visCache) then
-                table.insert(elements, sourceData)
+            local visibleSourceData = self:GetVisibleSourceElement(sourceData, category, filter, searchText, visCache)
+            if visibleSourceData then
+                table.insert(elements, visibleSourceData)
             end
         end
     end
@@ -1026,6 +1058,14 @@ function TabBaseMixin:RefreshDisplay()
     local rebuilt = self:BuildCategoryDisplay(visCache)
     if not rebuilt then self:BuildSourceDisplay(visCache) end
 end
+
+addon:RegisterInternalEvent(addon.Events.DECOR_VISIBILITY_CHANGED, function()
+    for _, tab in ipairs({ addon.DropsTab, addon.PvPTab }) do
+        if tab and tab.IsShown and tab:IsShown() then
+            tab:RefreshDisplay()
+        end
+    end
+end)
 
 --------------------------------------------------------------------------------
 -- Empty States

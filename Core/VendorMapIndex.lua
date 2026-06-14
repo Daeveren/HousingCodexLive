@@ -193,27 +193,29 @@ function addon:GetVendorPinProgress(npcId)
     local limit = addon.CONSTANTS.VENDOR_PIN.TOOLTIP_ITEM_LIMIT
 
     for _, decorId in ipairs(vendor.decorIds) do
-        local isPromo = promoSet and promoSet[decorId] or false
-        local record = addon:ResolveRecord(decorId)
-        local isOwned = record and record.isCollected
+        if addon:ShouldDisplayDecor(decorId) then
+            local isPromo = promoSet and promoSet[decorId] or false
+            local record = addon:ResolveRecord(decorId)
+            local isOwned = record and record.isCollected
 
-        if isPromo then
-            promoTotal = promoTotal + 1
-            if isOwned then promoOwned = promoOwned + 1 end
-        else
-            total = total + 1
-            if isOwned then owned = owned + 1 end
-        end
+            if isPromo then
+                promoTotal = promoTotal + 1
+                if isOwned then promoOwned = promoOwned + 1 end
+            else
+                total = total + 1
+                if isOwned then owned = owned + 1 end
+            end
 
-        if not isOwned and #missingNames < limit then
-            local name = addon:ResolveDecorName(decorId, record)
-            local achId = addon.DecorToAchievementLookup and addon.DecorToAchievementLookup[decorId]
-            local isLocked = achId and not addon:IsAchievementCompleted(achId)
-            missingNames[#missingNames + 1] = {
-                name = name,
-                locked = isLocked or false,
-                promotional = isPromo,
-            }
+            if not isOwned and #missingNames < limit then
+                local name = addon:ResolveDecorName(decorId, record)
+                local achId = addon.DecorToAchievementLookup and addon.DecorToAchievementLookup[decorId]
+                local isLocked = achId and not addon:IsAchievementCompleted(achId)
+                missingNames[#missingNames + 1] = {
+                    name = name,
+                    locked = isLocked or false,
+                    promotional = isPromo,
+                }
+            end
         end
     end
 
@@ -238,5 +240,9 @@ addon:RegisterInternalEvent("RECORD_OWNERSHIP_UPDATED", function(recordID, colle
 end)
 
 addon:RegisterInternalEvent("ACHIEVEMENT_COMPLETION_CHANGED", function()
+    addon:InvalidateVendorPinCache()
+end)
+
+addon:RegisterInternalEvent(addon.Events.DECOR_VISIBILITY_CHANGED, function()
     addon:InvalidateVendorPinCache()
 end)

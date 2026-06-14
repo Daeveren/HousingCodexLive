@@ -15,6 +15,7 @@ Filters.trackableState = "all"   -- "all", "trackable", "not_trackable"
 Filters.showWishlistOnly = false
 Filters.showPlacedOnly = false
 Filters.showPromoOnly = false
+Filters.hideShopItems = false
 Filters.currencyFilter = {}
 Filters.initialized = false
 Filters.decorCurrencyKeys = nil
@@ -54,6 +55,7 @@ function Filters:Initialize()
         self.showWishlistOnly = filters.showWishlistOnly or false
         self.showPlacedOnly = filters.showPlacedOnly or false
         self.showPromoOnly = filters.showPromoOnly or false
+        self.hideShopItems = filters.hideShopItems or false
         self.currencyFilter = type(filters.currencyFilter) == "table" and filters.currencyFilter or {}
     end
 
@@ -209,6 +211,25 @@ end
 function Filters:PassesPromoFilter(record)
     if not self.showPromoOnly then return true end
     return record ~= nil and addon:IsPromoDecor(record.recordID)
+end
+
+--------------------------------------------------------------------------------
+-- Global Visibility Filters
+--------------------------------------------------------------------------------
+
+function Filters:SetHideShopItems(enabled)
+    local value = enabled == true
+    if self.hideShopItems == value then return end
+
+    self.hideShopItems = value
+
+    if addon.db and addon.db.browser then
+        addon.db.browser.filters = addon.db.browser.filters or {}
+        addon.db.browser.filters.hideShopItems = value
+    end
+
+    addon:NotifyDecorVisibilityChanged(nil, "hide-shop-items")
+    addon:Debug("Hide shop items filter set to: " .. tostring(value))
 end
 
 --------------------------------------------------------------------------------
@@ -446,6 +467,7 @@ function Filters:SaveState()
     db.showWishlistOnly = self.showWishlistOnly
     db.showPlacedOnly = self.showPlacedOnly
     db.showPromoOnly = self.showPromoOnly
+    db.hideShopItems = self.hideShopItems
     db.currencyFilter = self:GetCurrencyFilter()
 
     -- Save searcher-based filters
@@ -480,6 +502,7 @@ function Filters:RestoreState()
 
     local db = addon.db.browser.filters
     local searcher = addon.catalogSearcher
+    local restoredHideShopItems = db.hideShopItems == true
 
     -- Ensure FilterBar is initialized before tag restore (Filters loads before FilterBar in TOC)
     if addon.FilterBar then
@@ -513,6 +536,9 @@ function Filters:RestoreState()
 
         -- Restore promo-only filter
         self.showPromoOnly = db.showPromoOnly or false
+
+        -- Restore global shop visibility filter
+        self.hideShopItems = restoredHideShopItems
 
         -- Restore vendor currency filter
         self.currencyFilter = type(db.currencyFilter) == "table" and db.currencyFilter or {}
@@ -548,6 +574,13 @@ function Filters:RestoreState()
         end
     end)
 
+    -- Earlier DATA_LOADED listeners (for example LDB) can compute visible-count
+    -- caches before Filters restores this global filter. Refresh once after
+    -- restore so persisted Hide Shop Items is reflected immediately on login.
+    if restoredHideShopItems then
+        addon:NotifyDecorVisibilityChanged(nil, "restore-hide-shop-items")
+    end
+
     addon:Debug("Filter state restored")
 end
 
@@ -556,7 +589,8 @@ end
 --------------------------------------------------------------------------------
 
 -- Reset all filters to defaults
-function Filters:ResetAllFilters()
+function Filters:ResetAllFilters(options)
+    options = options or {}
     addon:WithSearcherBatchUpdate("ResetAllFilters", function()
         -- Clear search box
         if addon.SearchBox then
@@ -581,6 +615,12 @@ function Filters:ResetAllFilters()
         -- Reset promo-only filter
         self:SetPromoOnly(false)
 
+        -- Explicit reset clears global visibility filters; programmatic tab
+        -- navigation can preserve them with preserveGlobalVisibility.
+        if not options.preserveGlobalVisibility then
+            self:SetHideShopItems(false)
+        end
+
         -- Reset vendor currency filter
         self:ClearCurrencyFilter(true)
 
@@ -595,7 +635,7 @@ function Filters:ResetAllFilters()
 
         -- Reset FilterBar (special filters + tags)
         if addon.FilterBar then
-            addon.FilterBar:ResetToDefault()
+            addon.FilterBar:ResetToDefault(options)
         elseif addon.catalogSearcher then
             -- Manual reset if FilterBar not available
             addon.catalogSearcher:SetCustomizableOnly(false)

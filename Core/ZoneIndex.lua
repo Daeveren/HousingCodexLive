@@ -328,6 +328,7 @@ function addon:GetZoneDecorItems(mapID)
         if seenRecords[recordID] then return end
         seenRecords[recordID] = true
         local record = self:GetRecord(recordID) or self:ResolveRecord(recordID)
+        if not self:ShouldDisplayDecor(recordID, record) then return end
         table.insert(targetList, {
             recordID = recordID,
             decorName = self:ResolveDecorName(recordID, record),

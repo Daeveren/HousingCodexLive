@@ -41,6 +41,7 @@ local defaults = {
             trackableState = "all",
             showWishlistOnly = false,
             showPlacedOnly = false,
+            hideShopItems = false,
             currencyFilter = {},  -- currency name keys selected in Decor Filters menu; empty = all
             indoors = true,
             outdoors = true,
@@ -93,6 +94,7 @@ local defaults = {
         hasSeenWelcome = false,
     },
     wishlist = {},
+    hiddenDecor = {},
     settings = {
         showCollectedIndicator = true,
         useCustomFont = true,

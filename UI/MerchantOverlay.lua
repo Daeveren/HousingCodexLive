@@ -203,7 +203,10 @@ function MerchantOverlay:UpdateMerchantButtons()
             end
 
             local isDecor = catalogInfo ~= nil
-            local isOwned = catalogInfo and addon.IsDecorOwned(catalogInfo)
+            if isDecor and catalogInfo.entryID and not addon:ShouldDisplayDecor(catalogInfo.entryID.recordID) then
+                isDecor = false
+            end
+            local isOwned = isDecor and catalogInfo and addon.IsDecorOwned(catalogInfo)
 
             local overlay = self:GetOverlay(button)
             overlay.hcShadow:SetShown(isDecor and showDecorIcon)
@@ -290,4 +293,9 @@ end
 -- Register for DATA_LOADED
 addon:RegisterInternalEvent("DATA_LOADED", function()
     MerchantOverlay:Initialize()
+end)
+
+addon:RegisterInternalEvent(addon.Events.DECOR_VISIBILITY_CHANGED, function()
+    ClearSessionCache()
+    MerchantOverlay:ScheduleUpdateMerchantButtons()
 end)

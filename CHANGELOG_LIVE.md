@@ -2,6 +2,19 @@
 
 All notable changes to Housing Codex.
 
+**2.8.0** (2026-06-14)
+
+**Added**
+- NEW feature! Hide all Shop items throughout the addon with a Filter menu checkbox that persists through sessions
+- NEW feature! Right-click decor items to hide them throughout the addon
+- NEW feature! Hidden Items manager in addon options lets you view and manage items you chose to hide
+
+**Changed**
+- Updated Shop decor source data and visibility behavior
+
+**Fixed**
+- Improved Progress tab counting for items shared across multiple categories
+
 **2.7.5** (2026-06-12)
 
 **Changed**

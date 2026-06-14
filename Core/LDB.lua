@@ -141,8 +141,8 @@ local function ShowTooltip(tooltip)
     tooltip:AddLine(L["ADDON_NAME"])
 
     if addon.indexesBuilt then
-        local decorCollected = addon:GetDecorCollectedCount()
-        local decorTotal = addon:GetDecorRecordCount()
+        local decorCollected = addon:GetVisibleDecorCollectedCount()
+        local decorTotal = addon:GetVisibleDecorRecordCount()
         local decorPct = decorTotal > 0 and (decorCollected / decorTotal * 100) or 0
         local roomsCollected = addon:GetRoomCollectedCount()
         local roomsTotal = addon:GetRoomRecordCount()
@@ -151,7 +151,7 @@ local function ShowTooltip(tooltip)
         tooltip:AddLine(L["LDB_TOOLTIP_DECOR_HEADER"], 1, 0.82, 0, 1)
         tooltip:AddDoubleLine(L["LDB_POPUP_UNIQUE"], string.format("%d / %d (%.1f%%)", decorCollected, decorTotal, decorPct), 0.8, 0.8, 0.8, 0.4, 0.9, 0.4)
         tooltip:AddDoubleLine(L["LDB_POPUP_ROOMS"], string.format("%d / %d", roomsCollected, roomsTotal), 0.8, 0.8, 0.8, 0.5, 0.8, 1.0)
-        tooltip:AddDoubleLine(L["LDB_POPUP_TOTAL_OWNED"], tostring(addon:GetTotalDecorOwnedCount()), 0.8, 0.8, 0.8, 0.95, 0.85, 0.3)
+        tooltip:AddDoubleLine(L["LDB_POPUP_TOTAL_OWNED"], tostring(addon:GetVisibleTotalDecorOwnedCount()), 0.8, 0.8, 0.8, 0.95, 0.85, 0.3)
 
         local wishlistCount = 0
         if addon.db and addon.db.wishlist then
@@ -233,7 +233,7 @@ function LDB:UpdateText()
 
     if addon.indexesBuilt then
         if settings.ldbShowUnique then
-            segments[#segments + 1] = tostring(addon:GetDecorCollectedCount())
+            segments[#segments + 1] = tostring(addon:GetVisibleDecorCollectedCount())
         end
 
         if settings.ldbShowRooms then
@@ -241,16 +241,16 @@ function LDB:UpdateText()
         end
 
         if settings.ldbShowTotalOwned then
-            segments[#segments + 1] = tostring(addon:GetTotalDecorOwnedCount())
+            segments[#segments + 1] = tostring(addon:GetVisibleTotalDecorOwnedCount())
         end
 
         if settings.ldbShowTotal then
-            segments[#segments + 1] = tostring(addon:GetRecordCount())
+            segments[#segments + 1] = tostring(addon:GetVisibleRecordCount())
         end
 
         if settings.ldbShowPercent then
-            local collected = addon:GetDecorCollectedCount()
-            local total = addon:GetDecorRecordCount()
+            local collected = addon:GetVisibleDecorCollectedCount()
+            local total = addon:GetVisibleDecorRecordCount()
             local pct = total > 0 and (collected / total * 100) or 0
             segments[#segments + 1] = string.format("%.1f%%", pct)
         end
@@ -276,6 +276,10 @@ addon:RegisterInternalEvent("DATA_LOADED", function()
 end)
 
 addon:RegisterInternalEvent("RECORD_OWNERSHIP_UPDATED", function()
+    DebouncedRefresh(0.1)
+end)
+
+addon:RegisterInternalEvent(addon.Events.DECOR_VISIBILITY_CHANGED, function()
     DebouncedRefresh(0.1)
 end)
 

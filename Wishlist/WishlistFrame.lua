@@ -760,7 +760,8 @@ function WishlistFrame:RefreshData()
     local recordIDs = {}
     if addon.db and addon.db.wishlist then
         for recordID, isWishlisted in pairs(addon.db.wishlist) do
-            if isWishlisted and addon:ResolveRecord(recordID) then
+            local record = addon:ResolveRecord(recordID)
+            if isWishlisted and record and addon:ShouldDisplayDecor(recordID, record) then
                 table.insert(recordIDs, recordID)
             end
         end
@@ -1159,6 +1160,17 @@ addon:RegisterInternalEvent("WISHLIST_CHANGED", function(recordID, isWishlisted)
         elseif WishlistFrame.currentRecordID == recordID then
             -- Update wishlist button state
             WishlistFrame:UpdateWishlistButton()
+        end
+    end
+end)
+
+addon:RegisterInternalEvent(addon.Events.DECOR_VISIBILITY_CHANGED, function(recordID)
+    if WishlistFrame:IsShown() then
+        WishlistFrame:RefreshData()
+        if WishlistFrame.currentRecordID
+            and (not recordID or WishlistFrame.currentRecordID == recordID)
+            and not addon:ShouldDisplayDecor(WishlistFrame.currentRecordID) then
+            WishlistFrame:SelectRecord(nil)
         end
     end
 end)

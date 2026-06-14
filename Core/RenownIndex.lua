@@ -535,7 +535,7 @@ function addon:GetFactionRewardProgress(factionID)
     local owned, total = 0, 0
     for _, decorId in ipairs(decorIds) do
         -- Only count items that the housing catalog can resolve
-        if self:ResolveRecord(decorId) then
+        if self:ShouldDisplayDecor(decorId) and self:ResolveRecord(decorId) then
             total = total + 1
             if self:IsDecorCollected(decorId) then
                 owned = owned + 1
@@ -554,7 +554,7 @@ function addon:GetRenownExpansionProgress(expKey)
         local decorIds = faction.resolvedDecorIds
         if decorIds then
             for _, decorId in ipairs(decorIds) do
-                if not seen[decorId] and self:ResolveRecord(decorId) then
+                if not seen[decorId] and self:ShouldDisplayDecor(decorId) and self:ResolveRecord(decorId) then
                     seen[decorId] = true
                     total = total + 1
                     if self:IsDecorCollected(decorId) then
@@ -580,5 +580,9 @@ end
 --------------------------------------------------------------------------------
 
 addon:RegisterInternalEvent("RECORD_OWNERSHIP_UPDATED", function()
+    wipe(addon.renownProgressCache)
+end)
+
+addon:RegisterInternalEvent(addon.Events.DECOR_VISIBILITY_CHANGED, function()
     wipe(addon.renownProgressCache)
 end)

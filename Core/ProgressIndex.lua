@@ -26,6 +26,10 @@ addon:RegisterInternalEvent("RECORD_OWNERSHIP_UPDATED", function()
     wipe(addon.progressCache)
 end)
 
+addon:RegisterInternalEvent(addon.Events.DECOR_VISIBILITY_CHANGED, function()
+    wipe(addon.progressCache)
+end)
+
 addon:RegisterInternalEvent("DATA_LOADED", function()
     wipe(addon.progressCache)
 end)
@@ -40,8 +44,8 @@ function addon:GetProgressOverview()
         return self.progressCache.overview
     end
 
-    local collected = self:GetUniqueCollectedCount()
-    local total = self:GetRecordCount()
+    local collected = self:GetVisibleUniqueCollectedCount()
+    local total = self:GetVisibleRecordCount()
     local percent = total > 0 and (collected / total * 100) or 0
     local remaining = total - collected
 
@@ -79,12 +83,7 @@ function addon:GetProgressBySourceType()
     })
 
     -- Vendors
-    local vOwned, vTotal = 0, 0
-    for expansionKey in pairs(self.vendorHierarchy) do
-        local eOwned, eTotal = self:GetVendorExpansionCollectionProgress(expansionKey)
-        vOwned = vOwned + eOwned
-        vTotal = vTotal + eTotal
-    end
+    local vOwned, vTotal = self:GetVendorUniqueCollectionProgress()
     table.insert(result, {
         key = "VENDORS",
         labelKey = "PROGRESS_SOURCE_VENDORS",
@@ -99,7 +98,7 @@ function addon:GetProgressBySourceType()
         local pOwned, pTotal = 0, 0
         for recordID in pairs(self.PromotionalDecorIds) do
             local record = self:GetRecord(recordID)
-            if record then
+            if record and self:ShouldDisplayDecor(recordID, record) then
                 pTotal = pTotal + 1
                 if record.isCollected then pOwned = pOwned + 1 end
             end
@@ -117,12 +116,7 @@ function addon:GetProgressBySourceType()
     end
 
     -- Quests
-    local qOwned, qTotal = 0, 0
-    for expansionKey in pairs(self.questHierarchy) do
-        local eOwned, eTotal = self:GetExpansionCollectionProgress(expansionKey)
-        qOwned = qOwned + eOwned
-        qTotal = qTotal + eTotal
-    end
+    local qOwned, qTotal = self:GetQuestUniqueCollectionProgress()
     table.insert(result, {
         key = "QUESTS",
         labelKey = "PROGRESS_SOURCE_QUESTS",

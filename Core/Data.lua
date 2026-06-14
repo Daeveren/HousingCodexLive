@@ -378,8 +378,8 @@ function addon:ProcessSearchResults(searcher, generation)
     -- Fire loaded event
     self:FireEvent("DATA_LOADED", recordCount)
 
-    local decorTotal = self:GetDecorRecordCount()
-    local decorCollected = self:GetDecorCollectedCount()
+    local decorTotal = self:GetVisibleDecorRecordCount()
+    local decorCollected = self:GetVisibleDecorCollectedCount()
     local collectedPct = decorTotal > 0 and (decorCollected / decorTotal * 100) or 0
     self:Print(string.format(self.L["LOADED_MESSAGE"], collectedPct))
 end

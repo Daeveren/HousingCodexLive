@@ -27,6 +27,18 @@ local SOURCE_CATEGORY_INFO = {
         labelKey = "DROPS_CATEGORY_TREASURE",
         order = 3,
     },
+    ["shop"] = {
+        icon = "Interface\\Icons\\INV_Misc_Coin_17",
+        labelKey = "DROPS_CATEGORY_SHOP",
+        order = 4,
+    },
+}
+
+local SOURCE_TEXT_PRIORITY = {
+    ["encounter"] = 1,
+    ["treasure"] = 2,
+    ["drop"] = 3,
+    ["shop"] = 4,
 }
 
 -- Runtime data structures
@@ -59,12 +71,17 @@ function addon:BuildDropSourceLookup()
     if not self.DropSourceData then return end
     self.decorDropSourceText = self.decorDropSourceText or {}
     wipe(self.decorDropSourceText)
+    local sourceTextPriority = {}
     for category, sources in pairs(self.DropSourceData) do
         for _, sourceData in ipairs(sources) do
             local sourceText = FormatDropSourceText(category, sourceData.sourceName)
             if sourceText then
+                local priority = SOURCE_TEXT_PRIORITY[category] or 99
                 for _, decorId in ipairs(sourceData.decorIds or {}) do
-                    self.decorDropSourceText[decorId] = sourceText
+                    if not sourceTextPriority[decorId] or priority < sourceTextPriority[decorId] then
+                        self.decorDropSourceText[decorId] = sourceText
+                        sourceTextPriority[decorId] = priority
+                    end
                 end
             end
         end
@@ -174,9 +191,11 @@ end
 function addon:GetDropSourceCollectionProgress(source)
     local owned, total = 0, 0
     for _, decorId in ipairs(source.decorIds or {}) do
-        total = total + 1
-        if self:IsDecorCollected(decorId) then
-            owned = owned + 1
+        if self:ShouldDisplayDecor(decorId) then
+            total = total + 1
+            if self:IsDecorCollected(decorId) then
+                owned = owned + 1
+            end
         end
     end
     return owned, total
@@ -187,9 +206,17 @@ function addon:GetDropCategoryCollectionProgress(category)
     if cached then return cached.owned, cached.total end
 
     local owned, total = 0, 0
+    local seenDecorIds = {}
     for _, source in ipairs(self:GetDropsForCategory(category)) do
-        local sOwned, sTotal = self:GetDropSourceCollectionProgress(source)
-        owned, total = owned + sOwned, total + sTotal
+        for _, decorId in ipairs(source.decorIds or {}) do
+            if not seenDecorIds[decorId] and self:ShouldDisplayDecor(decorId) then
+                seenDecorIds[decorId] = true
+                total = total + 1
+                if self:IsDecorCollected(decorId) then
+                    owned = owned + 1
+                end
+            end
+        end
     end
 
     self.dropCategoryProgressCache[category] = { owned = owned, total = total }

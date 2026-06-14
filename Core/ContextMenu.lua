@@ -26,6 +26,12 @@ local function AddDecorOptions(rootDescription, record, recordID)
         addon:ToggleWishlist(recordID)
     end)
 
+    local isHidden = addon:IsDecorHidden(recordID)
+    local hiddenText = isHidden and L["CONTEXT_MENU_UNHIDE_ITEM"] or L["CONTEXT_MENU_HIDE_ITEM"]
+    rootDescription:CreateButton(hiddenText, function()
+        addon:SetDecorHidden(recordID, not isHidden)
+    end)
+
     -- Track toggle (only if trackable)
     if record.isTrackable then
         local isTracked = addon:IsRecordTracked(recordID)

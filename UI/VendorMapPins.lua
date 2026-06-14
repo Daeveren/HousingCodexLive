@@ -338,6 +338,7 @@ local function RegisterProviderListeners(provider)
 
     if not provider.listeningVendorVisibility and provider.onVendorVisibilityChanged then
         addon:RegisterInternalEvent(addon.Events.PLAYER_PROFESSIONS_CHANGED, provider.onVendorVisibilityChanged)
+        addon:RegisterInternalEvent(addon.Events.DECOR_VISIBILITY_CHANGED, provider.onVendorVisibilityChanged)
         provider.listeningVendorVisibility = true
     end
 end
@@ -355,6 +356,7 @@ local function UnregisterProviderListeners(provider)
 
     if provider.listeningVendorVisibility and provider.onVendorVisibilityChanged then
         addon:UnregisterInternalEvent(addon.Events.PLAYER_PROFESSIONS_CHANGED, provider.onVendorVisibilityChanged)
+        addon:UnregisterInternalEvent(addon.Events.DECOR_VISIBILITY_CHANGED, provider.onVendorVisibilityChanged)
         provider.listeningVendorVisibility = false
     end
 end

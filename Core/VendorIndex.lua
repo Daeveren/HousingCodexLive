@@ -642,6 +642,19 @@ function addon:GetVendorExpansionCollectionProgress(expansionKey)
     return owned, total
 end
 
+function addon:GetVendorUniqueCollectionProgress()
+    local vendors = {}
+    for expansionKey, expData in pairs(self.vendorHierarchy) do
+        for zoneName in pairs(expData.zones) do
+            for _, vendor in ipairs(self:GetVendorsForZone(expansionKey, zoneName)) do
+                vendors[#vendors + 1] = vendor
+            end
+        end
+    end
+
+    return self:GetVendorScopeCollectionProgress(vendors, true)
+end
+
 function addon:GetVendorCount()
     local count = 0
     for _ in pairs(self.vendorIndex) do
@@ -672,7 +685,7 @@ local function GetVendorPromoSet(vendorData)
 end
 
 local function AddDecorToProgressSet(progressSet, decorId)
-    if decorId then
+    if decorId and addon:ShouldDisplayDecor(decorId) then
         progressSet[decorId] = true
     end
 end
@@ -752,6 +765,11 @@ function addon:GetVendorFaction(npcId)
 end
 
 addon:RegisterInternalEvent("RECORD_OWNERSHIP_UPDATED", function()
+    wipe(addon.vendorExpansionProgressCache)
+    wipe(addon.vendorZoneProgressCache)
+end)
+
+addon:RegisterInternalEvent(addon.Events.DECOR_VISIBILITY_CHANGED, function()
     wipe(addon.vendorExpansionProgressCache)
     wipe(addon.vendorZoneProgressCache)
 end)

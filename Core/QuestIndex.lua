@@ -416,10 +416,12 @@ function addon:GetQuestCollectionProgress(questKey)
 
     local owned, total = 0, 0
     for recordID in pairs(records) do
-        total = total + 1
-        local record = self:GetRecord(recordID)
-        if record and record.isCollected then
-            owned = owned + 1
+        if self:ShouldDisplayDecor(recordID) then
+            total = total + 1
+            local record = self:GetRecord(recordID)
+            if record and record.isCollected then
+                owned = owned + 1
+            end
         end
     end
     return owned, total
@@ -453,6 +455,26 @@ function addon:GetExpansionCollectionProgress(expansionKey)
                 local qOwned, qTotal = self:GetQuestCollectionProgress(questKey)
                 owned = owned + qOwned
                 total = total + qTotal
+            end
+        end
+    end
+
+    return owned, total
+end
+
+function addon:GetQuestUniqueCollectionProgress()
+    local owned, total = 0, 0
+    local seenDecorIds = {}
+
+    for _, records in pairs(self.questIndex) do
+        for recordID in pairs(records) do
+            if not seenDecorIds[recordID] and self:ShouldDisplayDecor(recordID) then
+                seenDecorIds[recordID] = true
+                total = total + 1
+                local record = self:GetRecord(recordID)
+                if record and record.isCollected then
+                    owned = owned + 1
+                end
             end
         end
     end

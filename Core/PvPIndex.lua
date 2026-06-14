@@ -190,7 +190,7 @@ function addon:GetPvPCategoryCollectionProgress(category)
     local seen = {}
     for _, source in ipairs(self:GetPvPSourcesForCategory(category)) do
         for _, decorId in ipairs(source.decorIds or {}) do
-            if not seen[decorId] then
+            if not seen[decorId] and self:ShouldDisplayDecor(decorId) then
                 seen[decorId] = true
                 total = total + 1
                 if self:IsDecorCollected(decorId) then owned = owned + 1 end
@@ -209,7 +209,7 @@ function addon:GetPvPUniqueCollectionProgress()
     for _, category in ipairs(self:GetSortedPvPCategories()) do
         for _, source in ipairs(self:GetPvPSourcesForCategory(category)) do
             for _, decorId in ipairs(source.decorIds or {}) do
-                if not seen[decorId] then
+                if not seen[decorId] and self:ShouldDisplayDecor(decorId) then
                     seen[decorId] = true
                     total = total + 1
                     if self:IsDecorCollected(decorId) then owned = owned + 1 end
@@ -234,5 +234,9 @@ end
 --------------------------------------------------------------------------------
 
 addon:RegisterInternalEvent("RECORD_OWNERSHIP_UPDATED", function()
+    wipe(addon.pvpCategoryProgressCache)
+end)
+
+addon:RegisterInternalEvent(addon.Events.DECOR_VISIBILITY_CHANGED, function()
     wipe(addon.pvpCategoryProgressCache)
 end)

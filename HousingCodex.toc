@@ -6,7 +6,7 @@
 ## Notes-ruRU: Аддон для поиска и просмотра предметов декора жилищ WoW
 ## Notes-zhCN: 魔兽世界住宅装饰发现和查看插件
 ## Author: Daev
-## Version: 2.7.5
+## Version: 2.8.0
 ## SavedVariables: HousingCodexDB
 ## IconTexture: Interface\AddOns\HousingCodex\HC
 ## AddonCompartmentFunc: HousingCodex_OnAddonCompartmentClick
@@ -31,6 +31,7 @@ Libs\Krowi_WorldMapButtons-1.4\Krowi_WorldMapButtons-1.4.xml
 Core\Init.lua
 Core\ContextMenu.lua
 Core\SavedVars.lua
+Core\Visibility.lua
 Core\Fonts.lua
 
 # Localization (before UI — enUS base loads first, then locale overrides)
@@ -103,4 +104,5 @@ Preview\PreviewFrame.lua
 Wishlist\WishlistFrame.lua
 
 # Settings
+Settings\HiddenItemsFrame.lua
 Settings\SettingsPanel.lua

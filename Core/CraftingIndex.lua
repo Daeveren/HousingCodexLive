@@ -140,10 +140,12 @@ function addon:GetCraftingProgress(professionName)
 
     local owned, total = 0, 0
     for _, craft in ipairs(self:GetCraftsForProfession(professionName)) do
-        total = total + 1
-        local record = ResolveCraftRecord(self, craft.decorId)
-        if record and record.isCollected then
-            owned = owned + 1
+        if self:ShouldDisplayDecor(craft.decorId) then
+            total = total + 1
+            local record = ResolveCraftRecord(self, craft.decorId)
+            if record and record.isCollected then
+                owned = owned + 1
+            end
         end
     end
 
@@ -155,6 +157,10 @@ function addon:GetCraftingProgress(professionName)
 end
 
 addon:RegisterInternalEvent("RECORD_OWNERSHIP_UPDATED", function()
+    wipe(addon.craftingProgressCache)
+end)
+
+addon:RegisterInternalEvent(addon.Events.DECOR_VISIBILITY_CHANGED, function()
     wipe(addon.craftingProgressCache)
 end)
 

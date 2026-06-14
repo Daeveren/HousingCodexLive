@@ -108,6 +108,11 @@ function ContainerOverlay:UpdateButton(button, itemID)
         return
     end
 
+    if catalogInfo.entryID and not addon:ShouldDisplayDecor(catalogInfo.entryID.recordID) then
+        HideButtonOverlay(button)
+        return
+    end
+
     local isOwned = addon.IsDecorOwned(catalogInfo)
 
     local overlay = self:GetOrCreateOverlay(button)
@@ -255,4 +260,12 @@ end
 -- Register for DATA_LOADED
 addon:RegisterInternalEvent("DATA_LOADED", function()
     ContainerOverlay:Initialize()
+end)
+
+addon:RegisterInternalEvent(addon.Events.DECOR_VISIBILITY_CHANGED, function()
+    dirty = true
+    if AreBagsVisible() or (BankPanel and BankPanel:IsShown()) or (AccountBankPanel and AccountBankPanel:IsShown()) then
+        ContainerOverlay:UpdateAllContainerFrames()
+        ContainerOverlay:UpdateVisibleBankPanel()
+    end
 end)

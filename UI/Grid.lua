@@ -644,6 +644,7 @@ function Grid:ApplyPostSearchFilters(recordIDs)
     for _, recordID in ipairs(recordIDs) do
         local record = addon:GetRecord(recordID)
         if record
+            and addon:ShouldDisplayDecor(recordID, record)
             and addon.Filters:PassesTrackableFilter(record)
             and addon.Filters:PassesWishlistFilter(record)
             and addon.Filters:PassesPlacedFilter(record)
@@ -750,6 +751,7 @@ function Grid:SetData(recordIDs)
         for _, recordID in ipairs(candidates) do
             local record = addon:GetRecord(recordID)
             if record
+                and addon:ShouldDisplayDecor(recordID, record)
                 and addon.Filters:PassesTrackableFilter(record)
                 and addon.Filters:PassesWishlistFilter(record)
                 and addon.Filters:PassesPlacedFilter(record)
@@ -973,6 +975,15 @@ addon:RegisterInternalEvent("FILTER_CHANGED", function()
     if addon.Tabs and addon.Tabs:GetCurrentTab() == "DECOR" then
         Grid:ClearSelection()
         Grid:ReapplyFilters()
+    end
+end)
+
+addon:RegisterInternalEvent(addon.Events.DECOR_VISIBILITY_CHANGED, function()
+    if addon.Tabs and addon.Tabs:GetCurrentTab() == "DECOR" then
+        Grid:ClearSelection()
+        Grid:ReapplyFilters()
+    else
+        addon.needsGridRefresh = true
     end
 end)
 

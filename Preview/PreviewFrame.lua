@@ -945,6 +945,14 @@ addon:RegisterInternalEvent("WISHLIST_CHANGED", function(recordID, isWishlisted)
     end
 end)
 
+addon:RegisterInternalEvent(addon.Events.DECOR_VISIBILITY_CHANGED, function(recordID)
+    if not Preview:IsShown() or not Preview.currentRecordID then return end
+    if recordID ~= nil and recordID ~= Preview.currentRecordID then return end
+    if not addon:ShouldDisplayDecor(Preview.currentRecordID) then
+        Preview:ClearModel()
+    end
+end)
+
 -- Update preview details when ownership changes (owned/placed counts)
 addon:RegisterInternalEvent("RECORD_OWNERSHIP_UPDATED", function(recordID)
     if not Preview:IsShown() or not Preview.currentRecordID then return end

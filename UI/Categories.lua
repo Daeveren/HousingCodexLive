@@ -71,8 +71,8 @@ function Categories:Initialize(sidebar)
         if not addon.indexesBuilt then return end
         local L = addon.L
 
-        local decorCollected = addon:GetDecorCollectedCount()
-        local decorTotal = addon:GetDecorRecordCount()
+        local decorCollected = addon:GetVisibleDecorCollectedCount()
+        local decorTotal = addon:GetVisibleDecorRecordCount()
         local roomsCollected = addon:GetRoomCollectedCount()
         local roomsTotal = addon:GetRoomRecordCount()
 
@@ -80,7 +80,7 @@ function Categories:Initialize(sidebar)
         GameTooltip:AddLine(L["LDB_TOOLTIP_DECOR_HEADER"], 1, 0.82, 0)
         GameTooltip:AddLine(string.format(L["RESULT_COUNT_TOOLTIP_UNIQUE"], decorCollected, decorTotal, decorTotal > 0 and (decorCollected / decorTotal * 100) or 0), 0.78, 0.95, 0.78)
         GameTooltip:AddLine(string.format(L["RESULT_COUNT_TOOLTIP_ROOMS"], roomsCollected, roomsTotal), 0.78, 0.88, 1.0)
-        GameTooltip:AddLine(string.format(L["RESULT_COUNT_TOOLTIP_OWNED"], addon:GetTotalDecorOwnedCount()), 1.0, 0.9, 0.72)
+        GameTooltip:AddLine(string.format(L["RESULT_COUNT_TOOLTIP_OWNED"], addon:GetVisibleTotalDecorOwnedCount()), 1.0, 0.9, 0.72)
         GameTooltip:AddLine(string.format(L["RESULT_COUNT_TOOLTIP_TOTAL"], decorTotal + roomsTotal, decorTotal, roomsTotal), 0.75, 0.75, 0.75)
         GameTooltip:Show()
     end)

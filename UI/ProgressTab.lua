@@ -662,14 +662,14 @@ function ProgressTab:BuildSourceSection(yOffset, columnWidth, xOffset)
                 NavigateToSourceTab(addon.ProfessionsTab, "PROFESSIONS", nil, filter)
             elseif data.targetTabKey == "DECOR" then
                 addon.Tabs:SelectTab("DECOR")
-                addon.Filters:ResetAllFilters()
+                addon.Filters:ResetAllFilters({ preserveGlobalVisibility = true })
             elseif data.targetTabKey == "DECOR_PROMO" then
                 -- Reset first so the landing view is a clean "just promo items",
                 -- not an intersection with any stale search text / other filters
                 -- left active on the Decor tab. Then enable promo-only and switch
                 -- tabs — SelectTab fires TAB_CHANGED synchronously which triggers
                 -- RunSearchNow, and by that point showPromoOnly is already true.
-                addon.Filters:ResetAllFilters()
+                addon.Filters:ResetAllFilters({ preserveGlobalVisibility = true })
                 addon.Filters:SetPromoOnly(true)
                 addon.Tabs:SelectTab("DECOR")
                 addon.Filters:SaveState()
@@ -817,6 +817,13 @@ end)
 ProgressTab:RegisterOwnershipRefresh(function()
     ProgressTab:EnsureIndexes()
     ProgressTab:RefreshDisplay(true)
+end)
+
+addon:RegisterInternalEvent(addon.Events.DECOR_VISIBILITY_CHANGED, function()
+    if ProgressTab:IsShown() then
+        ProgressTab:EnsureIndexes()
+        ProgressTab:RefreshDisplay(true)
+    end
 end)
 
 addon.MainFrame:RegisterContentAreaInitializer("ProgressTab", function(contentArea)
