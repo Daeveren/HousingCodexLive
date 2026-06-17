@@ -332,12 +332,8 @@ function WishlistFrame:CreateGrid()
         GRID_CELL_GAP
     )
 
-    -- Uses self.tileSize so in-place tile-size changes take effect without rebuild
-    view:SetElementSizeCalculator(function()
-        return self.tileSize, self.tileSize
-    end)
-
-    view:SetElementExtent(self.tileSize)
+    -- Tell the biaxial grid view the tile size (BackdropTemplate has no defined size)
+    view:SetElementSize(self.tileSize, self.tileSize)
     view:SetStrideExtent(self.tileSize)
 
     -- Element resetter
@@ -828,7 +824,7 @@ function WishlistFrame:SelectRecord(recordID)
     self.currentRecordID = recordID  -- For action buttons context
 
     -- Update selection visuals
-    if self.scrollBox then
+    if self.scrollBox and self.view then
         self.scrollBox:ForEachFrame(function(tile)
             if not tile.recordID then return end
 
@@ -1180,7 +1176,7 @@ addon:RegisterInternalEvent("RECORD_OWNERSHIP_UPDATED", function(recordID)
     if not WishlistFrame:IsShown() then return end
 
     -- Always refresh tiles (owned state affects all visible items)
-    if WishlistFrame.scrollBox then
+    if WishlistFrame.scrollBox and WishlistFrame.view then
         WishlistFrame.scrollBox:FullUpdate(ScrollBoxConstants.UpdateImmediately)
     end
 

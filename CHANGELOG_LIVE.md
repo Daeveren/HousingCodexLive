@@ -2,6 +2,16 @@
 
 All notable changes to Housing Codex.
 
+**2.8.1** (2026-06-17)
+
+**Changed**
+- Updated for patch 12.0.7
+- Updated decor vendor, drop, and achievement source data
+
+**Fixed**
+- Improved reliability of collection counts while data is loading
+- Improved Hidden Items text for non-English clients
+
 **2.8.0** (2026-06-14)
 
 **Added**

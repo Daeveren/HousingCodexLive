@@ -93,21 +93,29 @@ end
 
 function addon:GetHiddenDecorIDs()
     local hidden = self.db and self.db.hiddenDecor
-    local ids = {}
+    local items = {}
     if type(hidden) == "table" then
         for recordID, isHidden in pairs(hidden) do
             local id = NormalizeDecorID(recordID)
             if id and isHidden == true then
-                ids[#ids + 1] = id
+                local record = self:GetRecord(id)
+                local name = self:ResolveDecorName(id, record)
+                items[#items + 1] = {
+                    id = id,
+                    sortName = strlower(name or ""),
+                }
             end
         end
     end
-    table.sort(ids, function(a, b)
-        local nameA = self:ResolveDecorName(a, self:GetRecord(a))
-        local nameB = self:ResolveDecorName(b, self:GetRecord(b))
-        if nameA == nameB then return a < b end
-        return strlower(nameA or "") < strlower(nameB or "")
+    table.sort(items, function(a, b)
+        if a.sortName == b.sortName then return a.id < b.id end
+        return a.sortName < b.sortName
     end)
+
+    local ids = {}
+    for _, item in ipairs(items) do
+        ids[#ids + 1] = item.id
+    end
     return ids
 end
 
@@ -204,6 +212,7 @@ local function GetCountCache(owner)
 end
 
 function addon:GetVisibleRecordCount()
+    if not self.indexesBuilt then return 0 end
     local cache = GetCountCache(self)
     if cache.visibleRecordCount ~= nil then return cache.visibleRecordCount end
     cache.visibleRecordCount = CountVisibleRecords(self, false, false, false)
@@ -211,6 +220,7 @@ function addon:GetVisibleRecordCount()
 end
 
 function addon:GetVisibleUniqueCollectedCount()
+    if not self.indexesBuilt then return 0 end
     local cache = GetCountCache(self)
     if cache.visibleUniqueCollected ~= nil then return cache.visibleUniqueCollected end
     cache.visibleUniqueCollected = CountVisibleRecords(self, true, false, false)
@@ -218,6 +228,7 @@ function addon:GetVisibleUniqueCollectedCount()
 end
 
 function addon:GetVisibleDecorCollectedCount()
+    if not self.indexesBuilt then return 0 end
     local cache = GetCountCache(self)
     if cache.visibleDecorCollected ~= nil then return cache.visibleDecorCollected end
     cache.visibleDecorCollected = CountVisibleRecords(self, true, true, false)
@@ -225,6 +236,7 @@ function addon:GetVisibleDecorCollectedCount()
 end
 
 function addon:GetVisibleDecorRecordCount()
+    if not self.indexesBuilt then return 0 end
     local cache = GetCountCache(self)
     if cache.visibleDecorRecordCount ~= nil then return cache.visibleDecorRecordCount end
     cache.visibleDecorRecordCount = CountVisibleRecords(self, false, true, false)
@@ -232,6 +244,7 @@ function addon:GetVisibleDecorRecordCount()
 end
 
 function addon:GetVisibleTotalDecorOwnedCount()
+    if not self.indexesBuilt then return 0 end
     local cache = GetCountCache(self)
     if cache.visibleTotalDecorOwned ~= nil then return cache.visibleTotalDecorOwned end
     cache.visibleTotalDecorOwned = CountVisibleRecords(self, true, true, true)

@@ -407,14 +407,8 @@ function Grid:CreateScrollBox(parent, tileSize)
         GRID_CELL_GAP
     )
 
-    -- Tell the view element sizes (BackdropTemplate has no defined size)
-    -- Uses self.tileSize so in-place tile-size changes take effect without rebuild
-    view:SetElementSizeCalculator(function()
-        return self.tileSize, self.tileSize
-    end)
-
-    -- Set element extent for scroll calculations
-    view:SetElementExtent(tileSize)
+    -- Tell the biaxial grid view the tile size (BackdropTemplate has no defined size)
+    view:SetElementSize(tileSize, tileSize)
     view:SetStrideExtent(tileSize)
 
     -- Element resetter for frame recycling
@@ -792,7 +786,7 @@ function Grid:SelectRecord(recordID)
     self.selectedRecordID = recordID
 
     -- Update selection visuals on visible frames only
-    if self.scrollBox then
+    if self.scrollBox and self.view then
         self.scrollBox:ForEachFrame(function(tile)
             if not tile.recordID then return end
 
@@ -816,7 +810,7 @@ function Grid:ClearSelection()
     self.selectedRecordID = nil
 
     -- Remove gold border from previously selected tile
-    if self.scrollBox then
+    if self.scrollBox and self.view then
         self.scrollBox:ForEachFrame(function(tile)
             if tile.recordID == prevSelected then
                 tile:SetBackdropBorderColor(unpack(COLOR_BORDER_NORMAL))
@@ -828,7 +822,7 @@ function Grid:ClearSelection()
 end
 
 function Grid:Refresh()
-    if self.scrollBox then
+    if self.scrollBox and self.view then
         self.scrollBox:FullUpdate(ScrollBoxConstants.UpdateImmediately)
     end
 end
@@ -1001,7 +995,7 @@ addon:RegisterInternalEvent("RECORD_OWNERSHIP_UPDATED", function(recordID, colle
             return
         end
         -- Quantity-only change: update just the matching tile
-        if Grid.scrollBox and recordID then
+        if Grid.scrollBox and Grid.view and recordID then
             Grid.scrollBox:ForEachFrame(function(tile)
                 if not tile.recordID then return end
                 if tile.recordID == recordID then
@@ -1020,7 +1014,7 @@ end)
 -- Update wishlist badges when wishlist changes
 addon:RegisterInternalEvent("WISHLIST_CHANGED", function(recordID, isWishlisted)
     -- Only update visible frames for performance
-    if Grid.scrollBox then
+    if Grid.scrollBox and Grid.view then
         Grid.scrollBox:ForEachFrame(function(tile)
             if tile.recordID == recordID and tile.wishlistStar then
                 tile.wishlistStar:SetShown(isWishlisted)

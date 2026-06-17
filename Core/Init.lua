@@ -778,20 +778,20 @@ function addon:AttachTileSizeSlider(slider, valueText, owner)
 end
 
 -- Attaches debounced OnSizeChanged to a grid container.
--- owner must have .scrollBox field and .resizeTimer field.
+-- owner must have .scrollBox, .view, and .resizeTimer fields.
 function addon:AttachGridResizeHandler(container, owner)
     container:SetScript("OnSizeChanged", function()
         if owner.resizeTimer then owner.resizeTimer:Cancel() end
         owner.resizeTimer = C_Timer.NewTimer(self.CONSTANTS.TIMER.INPUT_DEBOUNCE, function()
             owner.resizeTimer = nil
-            if owner.scrollBox then
+            if owner.scrollBox and owner.view then
                 owner.scrollBox:FullUpdate(ScrollBoxConstants.UpdateImmediately)
             end
         end)
     end)
 end
 
--- Applies tile size change to a grid view (cancel resize timer, update extents, rebuild).
+-- Applies tile size change to a grid view (cancel resize timer, update tile metrics, rebuild).
 -- owner must have .tileSize, .view, .scrollBox, and .resizeTimer fields.
 function addon:ApplyTileSizeToView(owner)
     if not owner.view or not owner.scrollBox then return end
@@ -801,11 +801,8 @@ function addon:ApplyTileSizeToView(owner)
         owner.resizeTimer = nil
     end
 
-    owner.view:SetElementExtent(owner.tileSize)
+    owner.view:SetElementSize(owner.tileSize, owner.tileSize)
     owner.view:SetStrideExtent(owner.tileSize)
-    owner.view:SetElementSizeCalculator(function()
-        return owner.tileSize, owner.tileSize
-    end)
 
     owner.scrollBox:Rebuild(ScrollBoxConstants.RetainScrollPosition)
 end

@@ -35,7 +35,6 @@ local function RowUnhideOnClick(button)
     local row = button:GetParent()
     if row and row.recordID then
         addon:SetDecorHidden(row.recordID, false)
-        HiddenItemsFrame:Refresh()
     end
 end
 
@@ -115,9 +114,7 @@ function HiddenItemsFrame:Create()
     frame.closeButton = close
 
     local clearAll = addon:CreateActionButton(frame, L["HIDDEN_ITEMS_CLEAR_ALL"], function()
-        if addon:ClearHiddenDecor() then
-            self:Refresh()
-        end
+        addon:ClearHiddenDecor()
     end, function(btn)
         GameTooltip:SetOwner(btn, "ANCHOR_RIGHT")
         GameTooltip:SetText(L["HIDDEN_ITEMS_CLEAR_ALL"], 1, 0.82, 0)
