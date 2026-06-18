@@ -190,21 +190,74 @@ local function FormatVendorSourceText(vendorName)
     return vendorName
 end
 
+local function GetVendorDecorCost(vendorData, decorId)
+    local itemCosts = vendorData and vendorData.itemCosts
+    if itemCosts then
+        return itemCosts[decorId], itemCosts[decorId] ~= nil
+    end
+    return vendorData and vendorData.cost, false
+end
+
+local function BuildVendorDecorDetails(vendorData, zoneName, decorId)
+    local cost, hasItemCost = GetVendorDecorCost(vendorData, decorId)
+    local promoSet = addon.VendorPromotionalDecorIds
+        and addon.VendorPromotionalDecorIds[vendorData.npcId]
+
+    return {
+        contextKind = "default",
+        npcId = vendorData.npcId,
+        vendorName = vendorData.npcName,
+        zoneName = zoneName,
+        cost = cost,
+        currencyName = vendorData.currencyName,
+        isPromotional = promoSet and promoSet[decorId] == true,
+        hasItemCost = hasItemCost,
+    }
+end
+
+local function IsBetterVendorDecorDetails(candidate, current)
+    if not current then return true end
+
+    if candidate.isPromotional ~= current.isPromotional then
+        return not candidate.isPromotional
+    end
+
+    local candidateHasCost = candidate.cost ~= nil
+    local currentHasCost = current.cost ~= nil
+    if candidateHasCost ~= currentHasCost then
+        return candidateHasCost
+    end
+
+    if candidate.hasItemCost ~= current.hasItemCost then
+        return candidate.hasItemCost
+    end
+
+    return (candidate.vendorName or "") < (current.vendorName or "")
+end
+
 function addon:BuildVendorSourceLookup()
     if not self.VendorSourceData then return end
 
     local vendorNamesByDecor = {}
+    local vendorDetailsByDecor = {}
     self.decorVendorSourceText = self.decorVendorSourceText or {}
+    self.decorVendorDetails = self.decorVendorDetails or {}
     wipe(self.decorVendorSourceText)
+    wipe(self.decorVendorDetails)
 
     for _, zones in pairs(self.VendorSourceData) do
-        for _, vendors in pairs(zones) do
+        for zoneName, vendors in pairs(zones) do
             for _, vendorData in ipairs(vendors) do
                 local vendorName = vendorData.npcName
                 if vendorName and vendorData.decorIds then
                     for _, decorId in ipairs(vendorData.decorIds) do
                         vendorNamesByDecor[decorId] = vendorNamesByDecor[decorId] or {}
                         vendorNamesByDecor[decorId][vendorName] = true
+
+                        local details = BuildVendorDecorDetails(vendorData, zoneName, decorId)
+                        if IsBetterVendorDecorDetails(details, vendorDetailsByDecor[decorId]) then
+                            vendorDetailsByDecor[decorId] = details
+                        end
                     end
                 end
             end
@@ -217,12 +270,38 @@ function addon:BuildVendorSourceLookup()
             sortedNames[#sortedNames + 1] = vendorName
         end
         table.sort(sortedNames)
-        self.decorVendorSourceText[decorId] = FormatVendorSourceText(sortedNames[1])
+        local details = vendorDetailsByDecor[decorId]
+        self.decorVendorDetails[decorId] = details
+        self.decorVendorSourceText[decorId] = FormatVendorSourceText(
+            details and details.vendorName or sortedNames[1]
+        )
     end
 end
 
 function addon:GetVendorSourceText(decorId)
     return self.decorVendorSourceText and self.decorVendorSourceText[decorId]
+end
+
+function addon:GetDefaultVendorDecorDetails(decorId)
+    if not decorId then return nil end
+    if not self.decorVendorDetails and self.BuildVendorSourceLookup then
+        self:BuildVendorSourceLookup()
+    end
+
+    local details = self.decorVendorDetails and self.decorVendorDetails[decorId]
+    if not details then return nil end
+
+    return {
+        contextKind = details.contextKind,
+        npcId = details.npcId,
+        vendorName = addon:GetLocalizedNPCName(details.npcId, details.vendorName)
+            or details.vendorName
+            or addon.L["VENDOR_UNKNOWN"],
+        zoneName = details.zoneName and addon:GetLocalizedVendorZoneName(details.zoneName) or nil,
+        cost = details.cost,
+        currencyName = details.currencyName,
+        isPromotional = details.isPromotional,
+    }
 end
 
 function addon:EnrichVendorSourceText()

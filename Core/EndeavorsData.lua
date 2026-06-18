@@ -195,8 +195,11 @@ local function OnHouseLevelFavorUpdated(houseLevelFavor)
 
     state.houseLevel = houseLevelFavor.houseLevel or 0
     state.houseFavor = houseLevelFavor.houseFavor or 0
-    state.maxHouseLevel = C_Housing.GetMaxHouseLevel() or state.maxHouseLevel
-    state.isMaxLevel = state.houseLevel >= state.maxHouseLevel
+    local maxHouseLevel = C_Housing.GetMaxHouseLevel()
+    if maxHouseLevel and maxHouseLevel > 0 then
+        state.maxHouseLevel = maxHouseLevel
+    end
+    state.isMaxLevel = state.maxHouseLevel > 0 and state.houseLevel >= state.maxHouseLevel
 
     -- Cumulative values for text display (matches Blizzard tooltip); set before bar math mutates houseFavor
     state.houseFavorTotal = state.houseFavor
@@ -378,6 +381,9 @@ end
 function EndeavorsData:GetHouseXPProgress()
     if state.isMaxLevel then
         return 1, 1, true
+    end
+    if not state.houseFavorNeeded or state.houseFavorNeeded <= 0 then
+        return 0, 1, false
     end
     return state.houseFavor, state.houseFavorNeeded, false
 end

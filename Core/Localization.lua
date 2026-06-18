@@ -81,6 +81,12 @@ local ITEM_CURRENCY_TO_ID = {
 }
 
 local currencyNameCache = {}  -- englishName -> localized name (positive only)
+local currencyDisplayInfoCache = {}  -- englishName -> { name, iconFileID, currencyID/itemID } (positive only)
+
+local function IsUsableValue(value)
+    return value ~= nil
+        and not (type(issecretvalue) == "function" and issecretvalue(value))
+end
 
 function addon:GetLocalizedCurrencyName(englishName)
     if not englishName then return englishName end
@@ -109,6 +115,64 @@ function addon:GetLocalizedCurrencyName(englishName)
 
     -- No localization available -- return English name without caching
     return englishName
+end
+
+local function GetItemCurrencyIcon(itemID)
+    if not itemID or not C_Item then return nil end
+
+    if C_Item.GetItemIconByID then
+        local ok, icon = pcall(C_Item.GetItemIconByID, itemID)
+        if ok and IsUsableValue(icon) and type(icon) == "number" then
+            return icon
+        end
+    end
+
+    if C_Item.GetItemInfoInstant then
+        local ok, itemIDResult, itemType, itemSubType, itemEquipLoc, icon = pcall(C_Item.GetItemInfoInstant, itemID)
+        if ok and IsUsableValue(icon) and type(icon) == "number" then
+            return icon
+        end
+    end
+
+    return nil
+end
+
+function addon:GetCurrencyDisplayInfo(englishName)
+    if not englishName then return nil end
+
+    local cached = currencyDisplayInfoCache[englishName]
+    if cached then return cached end
+
+    local displayInfo = {
+        name = self:GetLocalizedCurrencyName(englishName) or englishName,
+    }
+
+    local currencyID = CURRENCY_NAME_TO_ID[englishName]
+    if currencyID then
+        displayInfo.currencyID = currencyID
+        if C_CurrencyInfo and C_CurrencyInfo.GetCurrencyInfo then
+            local ok, info = pcall(C_CurrencyInfo.GetCurrencyInfo, currencyID)
+            if ok and info then
+                if IsUsableValue(info.name) and info.name ~= "" then
+                    displayInfo.name = info.name
+                end
+                if IsUsableValue(info.iconFileID) and type(info.iconFileID) == "number" then
+                    displayInfo.iconFileID = info.iconFileID
+                end
+            end
+        end
+    else
+        local itemID = ITEM_CURRENCY_TO_ID[englishName]
+        if itemID then
+            displayInfo.itemID = itemID
+            displayInfo.iconFileID = GetItemCurrencyIcon(itemID)
+        end
+    end
+
+    if displayInfo.iconFileID then
+        currencyDisplayInfoCache[englishName] = displayInfo
+    end
+    return displayInfo
 end
 
 --------------------------------------------------------------------------------

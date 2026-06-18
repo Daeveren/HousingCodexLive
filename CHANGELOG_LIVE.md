@@ -2,6 +2,17 @@
 
 All notable changes to Housing Codex.
 
+**2.8.2** (2026-06-18)
+
+**Changed**
+- Updated neighborhood decor vendor data
+- Improved vendor cost details in Preview
+- Improved generated source data reliability
+
+**Fixed**
+- Improved Endeavors progress reliability while data is loading
+- Improved localization support for non-English clients
+
 **2.8.1** (2026-06-17)
 
 **Changed**

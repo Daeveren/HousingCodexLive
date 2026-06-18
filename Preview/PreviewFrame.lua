@@ -40,9 +40,150 @@ local COLOR_PRESET_ACTIVE = { 0.9, 0.75, 0.3, 1 }  -- Gold
 
 -- Category text color (light purple)
 local COLOR_CATEGORY = { 0.75, 0.65, 0.9 }
+local SOURCE_PREFIX_COLOR = "|cffeac100"
+local COLOR_RESET = "|r"
+local COPPER_PER_GOLD = 10000
+local COIN_TEXTURE_FONT_HEIGHT = 14
+local CURRENCY_ICON_SIZE = 14
+local SOURCE_LINE_SPACING = 2
 
 addon.Preview = {}
 local Preview = addon.Preview
+
+local function GetSelectedVendorDecorDetails(recordID)
+    if addon.Tabs and addon.Tabs:IsSelected("VENDORS") then
+        local vendorsTab = addon.VendorsTab
+        if vendorsTab
+            and vendorsTab.IsShown
+            and vendorsTab:IsShown()
+            and vendorsTab.GetSelectedVendorDecorDetails
+        then
+            local vendorDetails = vendorsTab:GetSelectedVendorDecorDetails(recordID)
+            if vendorDetails then return vendorDetails end
+        end
+    end
+
+    if addon.GetDefaultVendorDecorDetails then
+        return addon:GetDefaultVendorDecorDetails(recordID)
+    end
+
+    return nil
+end
+
+local function FormatTextureMarkup(iconFileID)
+    if not iconFileID
+        or type(iconFileID) ~= "number"
+        or (type(issecretvalue) == "function" and issecretvalue(iconFileID))
+    then
+        return nil
+    end
+
+    return string.format("|T%d:%d:%d:0:0|t", iconFileID, CURRENCY_ICON_SIZE, CURRENCY_ICON_SIZE)
+end
+
+local function GetVendorsTrackingContext()
+    if not addon.Tabs or not addon.Tabs:IsSelected("VENDORS") then
+        return nil, nil
+    end
+
+    local vendorsTab = addon.VendorsTab
+    if not vendorsTab or not vendorsTab.IsShown or not vendorsTab:IsShown() then
+        return nil, nil
+    end
+
+    local npcId = vendorsTab.selectedVendorNpcId
+    if not npcId then
+        return nil, nil
+    end
+
+    return vendorsTab, npcId, vendorsTab.selectedVendorZoneName
+end
+
+local function FormatSelectedVendorCost(vendorDetails)
+    local cost = vendorDetails and vendorDetails.cost
+    if not cost then return nil end
+
+    local currencyName = vendorDetails.currencyName
+    if currencyName and currencyName ~= "" then
+        local currencyInfo = addon.GetCurrencyDisplayInfo and addon:GetCurrencyDisplayInfo(currencyName)
+        local currencyLabel = currencyInfo and currencyInfo.name or addon:GetLocalizedCurrencyName(currencyName)
+        if not currencyLabel or currencyLabel == "" then return tostring(cost) end
+
+        local currencyIcon = FormatTextureMarkup(currencyInfo and currencyInfo.iconFileID)
+        if currencyIcon then
+            return tostring(cost) .. " " .. currencyIcon .. " " .. currencyLabel
+        end
+        return tostring(cost) .. " " .. currencyLabel
+    end
+
+    local goldAmount = type(cost) == "number" and cost or tonumber(cost)
+    local isSecret = goldAmount and type(issecretvalue) == "function" and issecretvalue(goldAmount)
+    if goldAmount and not isSecret and goldAmount > 0 then
+        local coinTextureString = C_CurrencyInfo and C_CurrencyInfo.GetCoinTextureString
+        if coinTextureString then
+            local ok, coinText = pcall(coinTextureString, goldAmount * COPPER_PER_GOLD, COIN_TEXTURE_FONT_HEIGHT)
+            if ok and coinText and coinText ~= "" then
+                return coinText
+            end
+        end
+    end
+
+    local currencyLabel = addon.L["CURRENCY_GOLD"] or "gold"
+    return tostring(cost) .. " " .. currencyLabel
+end
+
+local function FormatSelectedVendorSourceLine(label, value)
+    if not label or label == "" or not value or value == "" then return nil end
+    return SOURCE_PREFIX_COLOR .. label .. ": " .. COLOR_RESET .. value
+end
+
+local function FormatSelectedVendorSource(vendorDetails)
+    if not vendorDetails or not vendorDetails.vendorName then return nil end
+
+    local lines = {}
+    local category = addon.L["PROGRESS_SOURCE_VENDORS"] or "Vendors"
+    if vendorDetails.isPromotional then
+        category = category .. " - " .. (addon.L["SOURCE_PROMOTIONAL"] or "Promotional")
+    end
+
+    local categoryLine = FormatSelectedVendorSourceLine(addon.L["DETAILS_SOURCE_CATEGORY"], category)
+    if categoryLine then table.insert(lines, categoryLine) end
+
+    local vendorLine = FormatSelectedVendorSourceLine(addon.L["DETAILS_SOURCE_VENDOR"], vendorDetails.vendorName)
+    if vendorLine then table.insert(lines, vendorLine) end
+
+    local zoneLine = FormatSelectedVendorSourceLine(addon.L["DETAILS_SOURCE_ZONE"], vendorDetails.zoneName)
+    if zoneLine then table.insert(lines, zoneLine) end
+
+    local costText = FormatSelectedVendorCost(vendorDetails)
+    local costLine = FormatSelectedVendorSourceLine(addon.L["DETAILS_SOURCE_COST"], costText)
+    if costLine then table.insert(lines, costLine) end
+
+    return #lines > 0 and table.concat(lines, "\n") or nil
+end
+
+local function ShouldUseVendorSource(vendorDetails, record, isPromo)
+    if not vendorDetails then return false end
+    if vendorDetails.contextKind ~= "default" then return true end
+
+    return vendorDetails.cost ~= nil
+        or not record.sourceText
+        or record.sourceText == ""
+        or isPromo
+end
+
+function Preview:GetSelectionContextKey(recordID)
+    local vendorDetails = GetSelectedVendorDecorDetails(recordID)
+    if vendorDetails then
+        return "VENDORS:"
+            .. tostring(vendorDetails.contextKind or "unknown")
+            .. ":"
+            .. tostring(vendorDetails.npcId)
+            .. ":"
+            .. tostring(recordID)
+    end
+    return "RECORD:" .. tostring(recordID)
+end
 
 -- Helper: Format category path as "Category > Subcategory"
 function Preview:FormatCategoryPath(record)
@@ -408,6 +549,9 @@ function Preview:CreateIdentityBlock()
     source:SetJustifyH("LEFT")
     source:SetJustifyV("TOP")
     source:SetWordWrap(true)
+    if source.SetSpacing then
+        source:SetSpacing(SOURCE_LINE_SPACING)
+    end
     source:SetTextColor(0.8, 0.8, 0.8)
     self.detailsSource = source
 
@@ -492,18 +636,25 @@ function Preview:UpdateDetails(record)
     end
 
     -- Source (hyperlink-enabled container handles tooltips automatically).
-    -- Vendors tab selections show selected-item cost here instead of duplicating it in rows.
+    -- Vendors tab selections show selected-vendor source/cost here instead of duplicating it in rows.
+    local vendorDetails = GetSelectedVendorDecorDetails(record.recordID)
     local isPromo = addon:IsPromoDecor(record.recordID)
-    if record.sourceText and record.sourceText ~= "" then
-        if isPromo then
-            self.detailsSource:SetText(record.sourceText .. " — " .. addon.L["SOURCE_PROMOTIONAL"])
-        else
-            self.detailsSource:SetText(record.sourceText)
-        end
-    elseif isPromo then
-        self.detailsSource:SetText(addon.L["SOURCE_PROMOTIONAL"])
+    local useVendorSource = ShouldUseVendorSource(vendorDetails, record, isPromo)
+    local selectedVendorSource = useVendorSource and FormatSelectedVendorSource(vendorDetails) or nil
+    if selectedVendorSource then
+        self.detailsSource:SetText(selectedVendorSource)
     else
-        self.detailsSource:SetText(addon.L["DETAILS_SOURCE_UNKNOWN"])
+        if record.sourceText and record.sourceText ~= "" then
+            if isPromo then
+                self.detailsSource:SetText(record.sourceText .. " — " .. addon.L["SOURCE_PROMOTIONAL"])
+            else
+                self.detailsSource:SetText(record.sourceText)
+            end
+        elseif isPromo then
+            self.detailsSource:SetText(addon.L["SOURCE_PROMOTIONAL"])
+        else
+            self.detailsSource:SetText(addon.L["DETAILS_SOURCE_UNKNOWN"])
+        end
     end
     self.sourceContainer:SetHeight(self.detailsSource:GetStringHeight() or 20)
 
@@ -535,24 +686,6 @@ function Preview:UpdateDetails(record)
 
     -- Recalculate height after content is set
     self:RecalculateDetailsHeight()
-end
-
-local function GetVendorsTrackingContext()
-    if not addon.Tabs or not addon.Tabs:IsSelected("VENDORS") then
-        return nil, nil
-    end
-
-    local vendorsTab = addon.VendorsTab
-    if not vendorsTab or not vendorsTab.IsShown or not vendorsTab:IsShown() then
-        return nil, nil
-    end
-
-    local npcId = vendorsTab.selectedVendorNpcId
-    if not npcId then
-        return nil, nil
-    end
-
-    return vendorsTab, npcId, vendorsTab.selectedVendorZoneName
 end
 
 function Preview:ClearDetails()
@@ -766,6 +899,7 @@ function Preview:ShowDecor(recordID)
         -- Item not in catalog (HiddenInCatalog flag) - show name via shared fallback chain
         self.placeholderText:Hide()
         self.currentRecordID = recordID
+        self.currentContextKey = self:GetSelectionContextKey(recordID)
         self:ClearDetails()
         self:UpdateActionButtons(nil)
         self.detailsName:SetText(addon:ResolveDecorName(recordID, nil))
@@ -777,6 +911,7 @@ function Preview:ShowDecor(recordID)
 
     self.placeholderText:Hide()
     self.currentRecordID = recordID
+    self.currentContextKey = self:GetSelectionContextKey(recordID)
 
     -- Update details panel (1C.6 + 1C.7)
     self:UpdateDetails(record)
@@ -842,6 +977,7 @@ function Preview:ClearModel()
     if self.modelScene then self.modelScene:Hide() end
 
     self.currentRecordID = nil
+    self.currentContextKey = nil
     self.currentSceneID = nil  -- Reset scene tracking for fresh state
     self:ClearDetails()
     self.fallbackContainer:Hide()
@@ -902,7 +1038,8 @@ addon:RegisterInternalEvent("RECORD_SELECTED", function(recordID)
 
     -- Update preview content when selection changes (skip if already showing this record)
     if Preview:IsShown() then
-        if recordID == Preview.currentRecordID then return end
+        local contextKey = Preview:GetSelectionContextKey(recordID)
+        if recordID == Preview.currentRecordID and contextKey == Preview.currentContextKey then return end
         Preview:ShowDecor(recordID)
     end
 end)

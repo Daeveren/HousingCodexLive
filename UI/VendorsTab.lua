@@ -61,6 +61,9 @@ VendorsTab.selectedExpansionKey = nil
 VendorsTab.selectedVendorNpcId = nil
 VendorsTab.selectedVendorZoneName = nil
 VendorsTab.selectedDecorId = nil
+VendorsTab.hoverVendorNpcId = nil
+VendorsTab.hoverVendorZoneName = nil
+VendorsTab.hoverDecorId = nil
 VendorsTab.activeTrackedNpcId = nil
 VendorsTab.activeTrackedDecorId = nil
 VendorsTab.waypointListenerRegistered = false
@@ -281,6 +284,85 @@ function VendorsTab:GetCurrencyLabel(currencyKey)
     return addon:GetLocalizedCurrencyName(currencyKey)
 end
 
+function VendorsTab:GetSelectedVendorDecorDetails(recordID)
+    if not recordID then return nil end
+
+    local npcId, contextKind
+    if self.hoverVendorNpcId and self.hoverDecorId == recordID then
+        npcId = self.hoverVendorNpcId
+        if self.selectedVendorNpcId == npcId and self.selectedDecorId == recordID then
+            contextKind = "selected"
+        else
+            contextKind = "hover"
+        end
+    elseif self.selectedVendorNpcId and self.selectedDecorId == recordID then
+        npcId = self.selectedVendorNpcId
+        contextKind = "selected"
+    else
+        return nil
+    end
+
+    local vendorData = addon.vendorIndex and addon.vendorIndex[npcId]
+    if not vendorData or not vendorData.decorIds then return nil end
+
+    local hasDecor = false
+    for _, decorId in ipairs(vendorData.decorIds) do
+        if decorId == recordID then
+            hasDecor = true
+            break
+        end
+    end
+    if not hasDecor then return nil end
+
+    local zoneName
+    if contextKind == "hover" then
+        zoneName = self.hoverVendorZoneName
+    else
+        zoneName = self.selectedVendorZoneName
+    end
+    local zoneCache = addon.vendorZoneCache and addon.vendorZoneCache[npcId]
+    if not zoneName and zoneCache then
+        zoneName = zoneCache.zoneName
+    end
+
+    local itemCosts = vendorData.itemCosts
+    local cost = itemCosts and itemCosts[recordID] or vendorData.cost
+    if itemCosts and itemCosts[recordID] == nil then
+        cost = nil
+    end
+
+    local promoSet = addon.VendorPromotionalDecorIds
+        and addon.VendorPromotionalDecorIds[vendorData.npcId]
+
+    return {
+        contextKind = contextKind,
+        npcId = vendorData.npcId,
+        vendorName = addon:GetLocalizedNPCName(vendorData.npcId, vendorData.npcName)
+            or vendorData.npcName
+            or addon.L["VENDOR_UNKNOWN"],
+        zoneName = zoneName and addon:GetLocalizedVendorZoneName(zoneName) or nil,
+        cost = cost,
+        currencyName = vendorData.currencyName,
+        isPromotional = promoSet and promoSet[recordID] == true,
+    }
+end
+
+function VendorsTab:SetHoverVendorDecor(npcId, zoneName, decorId)
+    self.hoverVendorNpcId = npcId
+    self.hoverVendorZoneName = zoneName
+    self.hoverDecorId = decorId
+end
+
+function VendorsTab:ClearHoverVendorDecor(npcId, decorId)
+    if (not npcId and not decorId)
+        or (self.hoverVendorNpcId == npcId and self.hoverDecorId == decorId)
+    then
+        self.hoverVendorNpcId = nil
+        self.hoverVendorZoneName = nil
+        self.hoverDecorId = nil
+    end
+end
+
 function VendorsTab:SetupCurrencyFilterMenu(rootDescription)
     local L = addon.L
     local filters = self:GetCurrencyFilter()
@@ -480,6 +562,7 @@ local function VendorRowOnEnter(frame)
     end
     local decorIds = frame.decorIds
     if decorIds and #decorIds > 0 then
+        VendorsTab:SetHoverVendorDecor(frame.npcId, frame.zoneName, decorIds[1])
         addon:FireEvent("RECORD_SELECTED", decorIds[1])
     end
 end
@@ -487,6 +570,10 @@ end
 local function VendorRowOnLeave(frame)
     if VendorsTab.selectedVendorNpcId ~= frame.npcId then
         frame.bg:SetColorTexture(unpack(COLORS.ROW_BG))
+    end
+    local decorIds = frame.decorIds
+    if decorIds and #decorIds > 0 then
+        VendorsTab:ClearHoverVendorDecor(frame.npcId, decorIds[1])
     end
     VendorsTab:RestoreSelectionOnLeave()
 end
@@ -520,6 +607,7 @@ local function VendorDecorRowOnEnter(row)
     if not (VendorsTab.selectedVendorNpcId == row.npcId and VendorsTab.selectedDecorId == decorId) then
         row.name:SetTextColor(1, 1, 1, 1)
     end
+    VendorsTab:SetHoverVendorDecor(row.npcId, row.zoneName, decorId)
     addon:FireEvent("RECORD_SELECTED", decorId)
 
     local L = addon.L
@@ -545,6 +633,7 @@ local function VendorDecorRowOnLeave(row)
     if not (VendorsTab.selectedVendorNpcId == row.npcId and VendorsTab.selectedDecorId == decorId) then
         row.name:SetTextColor(row.textBrightness, row.textBrightness, row.textBrightness, 1)
     end
+    VendorsTab:ClearHoverVendorDecor(row.npcId, decorId)
     GameTooltip:Hide()
     VendorsTab:RestoreSelectionOnLeave()
 end
@@ -627,6 +716,7 @@ function VendorsTab:SelectExpansion(expansionKey)
         self.selectedVendorNpcId = nil
         self.selectedVendorZoneName = nil
         self.selectedDecorId = nil
+        self:ClearHoverVendorDecor()
         addon:FireEvent("RECORD_SELECTED", nil)
     end
 end
@@ -849,6 +939,7 @@ function VendorsTab:HandleItemSelection(params)
         self.selectedVendorNpcId = nil
         self.selectedVendorZoneName = nil
         self.selectedDecorId = nil
+        self:ClearHoverVendorDecor()
         addon:FireEvent("RECORD_SELECTED", nil)
     else
         -- Clear previous vendor highlight
@@ -876,6 +967,7 @@ function VendorsTab:HandleItemSelection(params)
         self.selectedVendorNpcId = params.npcId
         self.selectedVendorZoneName = params.zoneName
         self.selectedDecorId = params.decorId
+        self:SetHoverVendorDecor(params.npcId, params.zoneName, params.decorId)
         if params.isVendorRow then
             self:UpdateVendorSelectionVisual(params.vendorFrame, true)
         else
@@ -1459,6 +1551,7 @@ function VendorsTab:NavigateToVendor(npcId)
         self.selectedVendorNpcId = npcId
         self.selectedVendorZoneName = zoneName
         self.selectedDecorId = firstDecorId
+        self:ClearHoverVendorDecor()
         addon:FireEvent("RECORD_SELECTED", firstDecorId)
     end
 
@@ -1775,6 +1868,7 @@ function VendorsTab:BuildVendorDisplay()
             self.selectedVendorNpcId = nil
             self.selectedVendorZoneName = nil
             self.selectedDecorId = nil
+            self:ClearHoverVendorDecor()
             addon:FireEvent("RECORD_SELECTED", nil)
         end
     end
