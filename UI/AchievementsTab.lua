@@ -18,6 +18,7 @@ local CATEGORY_BUTTON_HEIGHT = CONSTS.HIERARCHY_HEADER_HEIGHT
 -- Category IDs are used for logic, GetCategoryInfo(id) gets localized names for display
 
 -- Forward declarations for named handlers (defined after AchievementsTab singleton)
+local AchievementCategoryOnClick, AchievementCategoryOnEnter, AchievementCategoryOnLeave
 local AchievementRowOnMouseDown, AchievementRowOnEnter, AchievementRowOnLeave
 
 -- Helper to apply achievement row visual state
@@ -158,6 +159,21 @@ local VALID_FILTERS = { all = true, incomplete = true, complete = true }
 -- Apply shared mixin for common tab functionality
 Mixin(AchievementsTab, addon.TabBaseMixin)
 AchievementsTab.tabName = "AchievementsTab"
+
+-- Named handlers for category buttons (bound once, read data from frame fields)
+AchievementCategoryOnClick = function(frame)
+    AchievementsTab:SelectCategory(frame.categoryId)
+end
+
+AchievementCategoryOnEnter = function(frame)
+    if AchievementsTab.selectedCategory ~= frame.categoryId then
+        frame.bg:SetColorTexture(unpack(COLORS.PANEL_HOVER))
+    end
+end
+
+AchievementCategoryOnLeave = function(frame)
+    AchievementsTab:ApplySelectionButtonState(frame, AchievementsTab.selectedCategory == frame.categoryId)
+end
 
 -- Named handlers for achievement rows (bound once, read data from frame fields)
 AchievementRowOnMouseDown = function(frame, button)
@@ -459,6 +475,9 @@ function AchievementsTab:SetupCategoryButton(frame, elementData)
         frame.label = label
 
         frame:EnableMouse(true)
+        frame:SetScript("OnClick", AchievementCategoryOnClick)
+        frame:SetScript("OnEnter", AchievementCategoryOnEnter)
+        frame:SetScript("OnLeave", AchievementCategoryOnLeave)
     end
 
     frame.categoryId = elementData.categoryId
@@ -478,19 +497,6 @@ function AchievementsTab:SetupCategoryButton(frame, elementData)
     frame.percentLabel:SetTextColor(addon:GetCompletionProgressColor(pctValue))
     addon:SetFontSize(frame.percentLabel, 11, "")
 
-    frame:SetScript("OnClick", function()
-        self:SelectCategory(elementData.categoryId)
-    end)
-
-    frame:SetScript("OnEnter", function(f)
-        if self.selectedCategory ~= f.categoryId then
-            f.bg:SetColorTexture(unpack(COLORS.PANEL_HOVER))
-        end
-    end)
-
-    frame:SetScript("OnLeave", function(f)
-        self:ApplySelectionButtonState(f, self.selectedCategory == f.categoryId)
-    end)
 end
 
 function AchievementsTab:SelectCategory(categoryId)

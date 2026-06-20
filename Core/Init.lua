@@ -115,6 +115,7 @@ addon.CONSTANTS = {
     WAYPOINT_OWNER_GENERIC = "generic",
     WAYPOINT_OWNER_TREASURE_HUNT = "treasure-hunt",
     WAYPOINT_OWNER_VENDOR_TRACKING = "vendor-tracking",
+    VENDOR_CURRENCY_GOLD_KEY = "__gold",
 
     -- Housing sizes (Enum.HousingCatalogEntrySize values → localization keys)
     -- Use these instead of magic numbers for patch-proof code
@@ -327,6 +328,8 @@ end
 -- Event trace log (ring buffer for post-hoc debugging, recorded when debugMode is on)
 local TRACE_MAX = 100
 addon.traceLog = {}
+addon.traceLogCursor = 0
+addon.traceLogCount = 0
 
 -- Dispatch a callback list with snapshot isolation (safe for self-unregister during dispatch)
 local function DispatchCallbacks(callbacks, ...)
@@ -347,8 +350,12 @@ end
 function addon:FireEvent(event, ...)
     if self.db and self.db.settings and self.db.settings.debugMode then
         local log = self.traceLog
-        if #log >= TRACE_MAX then table.remove(log, 1) end
-        log[#log + 1] = { t = GetTime(), e = event }
+        local cursor = (self.traceLogCursor % TRACE_MAX) + 1
+        log[cursor] = { t = GetTime(), e = event }
+        self.traceLogCursor = cursor
+        if self.traceLogCount < TRACE_MAX then
+            self.traceLogCount = self.traceLogCount + 1
+        end
     end
     local callbacks = self.internalEvents[event]
     if not callbacks then return end
@@ -395,6 +402,14 @@ end
 
 function addon:AnchorTooltipToCursor(owner)
     GameTooltip:SetOwner(owner, "ANCHOR_CURSOR_RIGHT")
+end
+
+function addon:GetVendorCurrencyKey(vendorData)
+    local currencyName = vendorData and vendorData.currencyName
+    if currencyName and currencyName ~= "" then
+        return currencyName
+    end
+    return self.CONSTANTS.VENDOR_CURRENCY_GOLD_KEY
 end
 
 function addon:GetDecorLink(recordID, callback)
@@ -463,12 +478,21 @@ function addon:ResetDebugCounters()
 end
 
 function addon:PrintTraceLog()
-    if #self.traceLog == 0 then
+    local count = self.traceLogCount or 0
+    if count == 0 then
         self:Print("No trace entries (enable debug mode to record)")
         return
     end
-    self:Print(string.format("|cFFFFD100Event Trace (%d entries):|r", #self.traceLog))
-    for i, entry in ipairs(self.traceLog) do
+    self:Print(string.format("|cFFFFD100Event Trace (%d entries):|r", count))
+
+    local startIndex = 1
+    if count == TRACE_MAX then
+        startIndex = (self.traceLogCursor % TRACE_MAX) + 1
+    end
+
+    for i = 1, count do
+        local logIndex = ((startIndex + i - 2) % TRACE_MAX) + 1
+        local entry = self.traceLog[logIndex]
         self:Print(string.format("  %d. [%.1fs] %s", i, entry.t, entry.e))
     end
 end
@@ -772,6 +796,7 @@ function addon:AttachTileSizeSlider(slider, valueText, owner)
             sliderFrame.debounceTimer:Cancel()
         end
         sliderFrame.debounceTimer = C_Timer.NewTimer(self.CONSTANTS.TIMER.INPUT_DEBOUNCE, function()
+            sliderFrame.debounceTimer = nil
             owner:SetTileSize(value)
         end)
     end)
@@ -1028,6 +1053,8 @@ SlashCmdList["HOUSINGCODEX"] = function(msg)
         addon:PrintDebugCounters()
     elseif cmd == "log clear" then
         wipe(addon.traceLog)
+        addon.traceLogCursor = 0
+        addon.traceLogCount = 0
         addon:Print(L["EVENT_TRACE_LOG_CLEARED"])
     elseif cmd == "log" then
         addon:PrintTraceLog()
@@ -1067,7 +1094,20 @@ SlashCmdList["HOUSINGCODEX"] = function(msg)
                 addon:Print("  isModelOnly: " .. tostring(record.isModelOnly))
                 addon:Print("  modelAsset: " .. tostring(record.modelAsset))
                 -- Also get raw info from API
-                local info = C_HousingCatalog.GetCatalogEntryInfo(record.entryID)
+                local entryID = record.entryID
+                local entryType = entryID and entryID.entryType
+                local rawRecordID = record.recordID
+                local isSecretValue = type(issecretvalue) == "function" and issecretvalue
+                local info
+                local canInspectRawCatalogInfo = C_HousingCatalog
+                    and C_HousingCatalog.GetCatalogEntryInfoByRecordID
+                    and entryType
+                    and rawRecordID
+                    and not (isSecretValue and isSecretValue(entryType))
+                    and not (isSecretValue and isSecretValue(rawRecordID))
+                if canInspectRawCatalogInfo then
+                    info = C_HousingCatalog.GetCatalogEntryInfoByRecordID(entryType, rawRecordID)
+                end
                 if info then
                     addon:Print("  RAW iconTexture: " .. tostring(info.iconTexture) .. " (type: " .. type(info.iconTexture) .. ")")
                     addon:Print("  RAW iconAtlas: " .. tostring(info.iconAtlas) .. " (type: " .. type(info.iconAtlas) .. ")")

@@ -19,7 +19,7 @@ local DECOR_ICON_SIZE = 22
 local WAYPOINT_BUTTON_SIZE = 20
 local WAYPOINT_MATCH_EPSILON = CONSTS.WAYPOINT_MATCH_EPSILON or 0.0001
 local WAYPOINT_OWNER_VENDOR_TRACKING = CONSTS.WAYPOINT_OWNER_VENDOR_TRACKING
-local VENDOR_CURRENCY_GOLD_KEY = "__gold"
+local VENDOR_CURRENCY_GOLD_KEY = CONSTS.VENDOR_CURRENCY_GOLD_KEY
 
 local VENDOR_SEARCH_MAX_WIDTH = 250
 local VENDOR_SEARCH_MIN_WIDTH = 80
@@ -37,13 +37,6 @@ local function GetVendorsDB()
     return addon.db and addon.db.browser and addon.db.browser.vendors
 end
 
-local function GetVendorCurrencyKey(vendorData)
-    local currencyName = vendorData and vendorData.currencyName
-    if currencyName and currencyName ~= "" then
-        return currencyName
-    end
-    return VENDOR_CURRENCY_GOLD_KEY
-end
 
 VendorsTab.frame = nil
 VendorsTab.toolbar = nil
@@ -209,7 +202,11 @@ function VendorsTab:GetCurrencyFilter()
     return db.currencyFilter
 end
 
-function VendorsTab:GetActiveCurrencyFilterCount()
+function VendorsTab:GetActiveCurrencyFilterCount(skipReconcile)
+    if not skipReconcile then
+        self:ReconcileCurrencyFilter()
+    end
+
     local filters = self:GetCurrencyFilter()
     if not filters then return 0 end
 
@@ -222,8 +219,8 @@ function VendorsTab:GetActiveCurrencyFilterCount()
     return count
 end
 
-function VendorsTab:HasActiveCurrencyFilter()
-    return self:GetActiveCurrencyFilterCount() > 0
+function VendorsTab:HasActiveCurrencyFilter(skipReconcile)
+    return self:GetActiveCurrencyFilterCount(skipReconcile) > 0
 end
 
 function VendorsTab:SetCurrencyFilterEnabled(currencyKey, enabled)
@@ -252,36 +249,77 @@ function VendorsTab:ClearCurrencyFilter(skipRefresh)
     end
 end
 
-function VendorsTab:GetCurrencyFilterOptions()
-    local seen = {}
-    local options = {}
-
-    for _, expansionKey in ipairs(addon:GetSortedVendorExpansions()) do
-        for _, zoneName in ipairs(addon:GetSortedVendorZones(expansionKey)) do
-            for _, vendorData in ipairs(addon:GetVendorsForZone(expansionKey, zoneName)) do
-                local currencyKey = GetVendorCurrencyKey(vendorData)
-                if not seen[currencyKey] then
-                    seen[currencyKey] = true
-                    table.insert(options, {
-                        key = currencyKey,
-                        label = self:GetCurrencyLabel(currencyKey),
-                    })
-                end
-            end
-        end
-    end
-
-    table.sort(options, function(a, b)
-        return strlower(a.label) < strlower(b.label)
-    end)
-    return options
-end
-
 function VendorsTab:GetCurrencyLabel(currencyKey)
     if currencyKey == VENDOR_CURRENCY_GOLD_KEY then
         return addon.L["CURRENCY_GOLD"]
     end
     return addon:GetLocalizedCurrencyName(currencyKey)
+end
+
+local function BuildCurrencyFilterData(owner, includeOptions)
+    if not addon.vendorIndexBuilt and addon.BuildVendorIndex then
+        addon:BuildVendorIndex()
+    end
+    if not addon.vendorIndexBuilt then
+        return {}, includeOptions and {} or nil, false
+    end
+
+    local seen = {}
+    local options = includeOptions and {} or nil
+
+    for _, expansionKey in ipairs(addon:GetSortedVendorExpansions()) do
+        for _, zoneName in ipairs(addon:GetSortedVendorZones(expansionKey)) do
+            for _, vendorData in ipairs(addon:GetVendorsForZone(expansionKey, zoneName)) do
+                local currencyKey = addon:GetVendorCurrencyKey(vendorData)
+                if not seen[currencyKey] then
+                    seen[currencyKey] = true
+                    if options then
+                        table.insert(options, {
+                            key = currencyKey,
+                            label = owner:GetCurrencyLabel(currencyKey),
+                        })
+                    end
+                end
+            end
+        end
+    end
+
+    if options then
+        table.sort(options, function(a, b)
+            return strlower(a.label) < strlower(b.label)
+        end)
+    end
+    return seen, options, next(seen) ~= nil
+end
+
+function VendorsTab:PruneUnknownCurrencyFilters(validKeys)
+    if not validKeys then return false end
+
+    local filters = self:GetCurrencyFilter()
+    if not filters then return false end
+
+    local changed = false
+    for currencyKey in pairs(filters) do
+        if not validKeys[currencyKey] then
+            filters[currencyKey] = nil
+            changed = true
+        end
+    end
+    return changed
+end
+
+function VendorsTab:ReconcileCurrencyFilter()
+    local validKeys, _, hasKeys = BuildCurrencyFilterData(self, false)
+    if not hasKeys then return false end
+    return self:PruneUnknownCurrencyFilters(validKeys)
+end
+
+function VendorsTab:GetCurrencyFilterOptions()
+    local validKeys, options, hasKeys = BuildCurrencyFilterData(self, true)
+    if hasKeys then
+        self:PruneUnknownCurrencyFilters(validKeys)
+    end
+    return options or {}
 end
 
 function VendorsTab:GetSelectedVendorDecorDetails(recordID)
@@ -365,6 +403,7 @@ end
 
 function VendorsTab:SetupCurrencyFilterMenu(rootDescription)
     local L = addon.L
+    self:ReconcileCurrencyFilter()
     local filters = self:GetCurrencyFilter()
     local currencySubmenu = rootDescription:CreateButton(L["VENDORS_FILTER_CURRENCY"])
 
@@ -462,6 +501,7 @@ function VendorsTab:RefreshDisplay()
     end
     searchCache = {}
     filterCache = {}
+    self:ReconcileCurrencyFilter()
     if not self:BuildExpansionDisplay() then
         self:BuildVendorDisplay()
     end
@@ -1630,7 +1670,7 @@ end
 --------------------------------------------------------------------------------
 
 local function VendorCurrencyMatchesSearch(vendorData, searchText)
-    local currencyKey = GetVendorCurrencyKey(vendorData)
+    local currencyKey = addon:GetVendorCurrencyKey(vendorData)
     local rawCurrency = currencyKey == VENDOR_CURRENCY_GOLD_KEY and addon.L["CURRENCY_GOLD"] or currencyKey
 
     if rawCurrency and strlower(rawCurrency):find(searchText, 1, true) then
@@ -1721,9 +1761,9 @@ end
 
 local function VendorPassesCurrencyFilter(vendorData)
     local filters = VendorsTab:GetCurrencyFilter()
-    if not filters or not VendorsTab:HasActiveCurrencyFilter() then return true end
+    if not filters or not VendorsTab:HasActiveCurrencyFilter(true) then return true end
 
-    return filters[GetVendorCurrencyKey(vendorData)] == true
+    return filters[addon:GetVendorCurrencyKey(vendorData)] == true
 end
 
 --------------------------------------------------------------------------------
@@ -1819,7 +1859,7 @@ function VendorsTab:BuildVendorDisplay()
         local filter = self:GetCompletionFilter()
         local searchText = strlower(strtrim(self.searchBox and self.searchBox:GetText() or ""))
         local zoneFilterActive = self.currentZoneOnly
-        local isForceExpanded = zoneFilterActive or searchText ~= "" or self:HasActiveCurrencyFilter()
+        local isForceExpanded = zoneFilterActive or searchText ~= "" or self:HasActiveCurrencyFilter(true)
 
         for _, zoneName in ipairs(addon:GetSortedVendorZones(expansionKey)) do
             if not zoneFilterActive or VendorZoneMatchesPlayerZone(zoneName) then

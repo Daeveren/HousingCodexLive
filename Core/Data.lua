@@ -50,6 +50,25 @@ local function IsValidAtlas(atlas)
     return type(atlas) == "string" and atlas ~= ""
 end
 
+local function IsSecretValue(value)
+    return type(issecretvalue) == "function" and issecretvalue(value)
+end
+
+local function HasValidCatalogRecordLookupArgs(entryType, recordID)
+    if not entryType or not recordID then return false end
+    return not IsSecretValue(entryType) and not IsSecretValue(recordID)
+end
+
+local function GetCatalogEntryInfoByRecordID(entryType, recordID)
+    if not C_HousingCatalog or not C_HousingCatalog.GetCatalogEntryInfoByRecordID then
+        return nil
+    end
+    if not HasValidCatalogRecordLookupArgs(entryType, recordID) then
+        return nil
+    end
+    return C_HousingCatalog.GetCatalogEntryInfoByRecordID(entryType, recordID)
+end
+
 -- Calculate total owned from all sources (placed + storage + redeemable).
 -- Reads native HousingCatalogEntryInfo fields.
 local function CalculateTotalOwned(info)
@@ -347,16 +366,17 @@ function addon:ProcessSearchResults(searcher, generation)
     local recordCount = 0
 
     for _, entryVariantID in ipairs(entryVariantIDs) do
+        local entryType = entryVariantID.entryType
+        local recordID = entryVariantID.recordID
         -- Check duplicate first to avoid unnecessary API call
-        if not records[entryVariantID.recordID] then
+        if HasValidCatalogRecordLookupArgs(entryType, recordID) and not records[recordID] then
             -- Use recordID-based query so a dedup winner still reflects aggregate ownership;
             -- native totalNumStored/totalNumPlaced/remainingRedeemable already sum across variants.
-            local info = C_HousingCatalog.GetCatalogEntryInfoByRecordID(
-                entryVariantID.entryType, entryVariantID.recordID)
+            local info = GetCatalogEntryInfoByRecordID(entryType, recordID)
             if info and not info.isPrefab then
                 local record = BuildRecord(entryVariantID, info)
                 if record then
-                    records[entryVariantID.recordID] = record
+                    records[recordID] = record
                     recordCount = recordCount + 1
                 end
             end
@@ -458,6 +478,8 @@ end
 -- Successful lookups are cached in fallbackRecords; failures are negative-cached
 -- only after DATA_LOADED so early API misses remain retryable.
 function addon:ResolveRecord(recordID)
+    if not recordID or IsSecretValue(recordID) then return nil end
+
     -- Check primary records first
     local record = self.decorRecords[recordID]
     if record then return record end
@@ -467,12 +489,15 @@ function addon:ResolveRecord(recordID)
     if cached ~= nil then return cached ~= false and cached or nil end
 
     -- Try direct API lookup (bypasses catalog search filter)
-    if not C_HousingCatalog or not C_HousingCatalog.GetCatalogEntryInfoByRecordID then
+    local entryType = Enum.HousingCatalogEntryType.Decor
+    if not HasValidCatalogRecordLookupArgs(entryType, recordID)
+        or not C_HousingCatalog
+        or not C_HousingCatalog.GetCatalogEntryInfoByRecordID
+    then
         return nil
     end
 
-    local info = C_HousingCatalog.GetCatalogEntryInfoByRecordID(
-        Enum.HousingCatalogEntryType.Decor, recordID)
+    local info = GetCatalogEntryInfoByRecordID(entryType, recordID)
     if not info then
         CacheFallbackMiss(self, recordID)
         return nil
@@ -838,7 +863,10 @@ end
 addon:RegisterWoWEvent("HOUSING_STORAGE_ENTRY_UPDATED", function(entryVariantID)
     if not addon.dataLoaded or not entryVariantID then return end
 
+    local entryType = entryVariantID.entryType
     local recordID = entryVariantID.recordID
+    if not HasValidCatalogRecordLookupArgs(entryType, recordID) then return end
+
     local record = addon.decorRecords[recordID]
 
     if not record then
@@ -848,8 +876,7 @@ addon:RegisterWoWEvent("HOUSING_STORAGE_ENTRY_UPDATED", function(entryVariantID)
 
         -- Use recordID-based query so the returned info
         -- reflects owned state regardless of which stack the event fired for.
-        local info = C_HousingCatalog.GetCatalogEntryInfoByRecordID(
-            entryVariantID.entryType, recordID)
+        local info = GetCatalogEntryInfoByRecordID(entryType, recordID)
         if not info then return end
 
         addon:Debug("Storage entry updated (fallback): " .. tostring(recordID))
@@ -869,8 +896,7 @@ addon:RegisterWoWEvent("HOUSING_STORAGE_ENTRY_UPDATED", function(entryVariantID)
 
     -- Use recordID-based query so the returned info reflects the best owned stack
     -- when a recordID has multiple entryVariantIDs (e.g. dyed and base variants).
-    local info = C_HousingCatalog.GetCatalogEntryInfoByRecordID(
-        entryVariantID.entryType, recordID)
+    local info = GetCatalogEntryInfoByRecordID(entryType, recordID)
     if not info then return end
 
     addon:Debug("Storage entry updated: " .. tostring(recordID))
@@ -913,8 +939,8 @@ local function ProcessStorageUpdate()
     -- Refresh ownership fields BEFORE rebuilding indexes so collected counts are accurate
     for _, record in pairs(addon.decorRecords) do
         -- Use per-record entryType so both Decor (1) and Room (2) records refresh correctly.
-        local info = record.entryID and C_HousingCatalog.GetCatalogEntryInfoByRecordID(
-            record.entryID.entryType, record.recordID)
+        local entryID = record.entryID
+        local info = entryID and GetCatalogEntryInfoByRecordID(entryID.entryType, record.recordID)
         if info then
             RefreshRecordOwnership(record, info)
         end

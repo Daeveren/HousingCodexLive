@@ -2,6 +2,17 @@
 
 All notable changes to Housing Codex.
 
+**2.8.3** (2026-06-20)
+
+**Changed**
+- Improved currency filter reliability in Decor and Vendors
+- Improved Endeavors progress reliability
+- Codebase improvements in order to make the addon run smoother
+
+**Fixed**
+- Improved Treasure Hunt waypoint settings so disabled waypoints stay off
+- Improved catalog lookup reliability while data is loading
+
 **2.8.2** (2026-06-18)
 
 **Changed**

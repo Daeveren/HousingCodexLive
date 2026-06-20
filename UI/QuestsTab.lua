@@ -16,6 +16,7 @@ local ROW_HEIGHT = CONSTS.HIERARCHY_ROW_HEIGHT
 local WISHLIST_STAR_SIZE = CONSTS.WISHLIST_STAR_SIZE_HIERARCHY
 
 -- Forward declarations for named handlers (defined after QuestsTab singleton)
+local QuestExpansionOnClick, QuestExpansionOnEnter, QuestExpansionOnLeave
 local QuestZoneHeaderOnClick, QuestZoneHeaderOnEnter, QuestZoneHeaderOnLeave
 local QuestRowOnMouseDown, QuestRowOnEnter, QuestRowOnLeave
 
@@ -217,6 +218,21 @@ local VALID_FILTERS = { all = true, incomplete = true, complete = true }
 -- Apply shared mixin for common tab functionality
 Mixin(QuestsTab, addon.TabBaseMixin)
 QuestsTab.tabName = "QuestsTab"
+
+-- Named handlers for expansion buttons (bound once, read data from frame fields)
+QuestExpansionOnClick = function(frame)
+    QuestsTab:SelectExpansion(frame.expansionKey)
+end
+
+QuestExpansionOnEnter = function(frame)
+    if QuestsTab.selectedExpansionKey ~= frame.expansionKey then
+        frame.bg:SetColorTexture(unpack(COLORS.PANEL_HOVER))
+    end
+end
+
+QuestExpansionOnLeave = function(frame)
+    QuestsTab:ApplySelectionButtonState(frame, QuestsTab.selectedExpansionKey == frame.expansionKey)
+end
 
 -- Named handlers for zone headers (bound once, read data from frame fields)
 QuestZoneHeaderOnClick = function(frame)
@@ -502,6 +518,9 @@ function QuestsTab:SetupExpansionButton(frame, elementData)
         frame.label = label
 
         frame:EnableMouse(true)
+        frame:SetScript("OnClick", QuestExpansionOnClick)
+        frame:SetScript("OnEnter", QuestExpansionOnEnter)
+        frame:SetScript("OnLeave", QuestExpansionOnLeave)
     end
 
     frame.expansionKey = elementData.expansionKey
@@ -519,19 +538,6 @@ function QuestsTab:SetupExpansionButton(frame, elementData)
     frame.percentLabel:SetTextColor(addon:GetCompletionProgressColor(pctValue))
     addon:SetFontSize(frame.percentLabel, 11, "")
 
-    frame:SetScript("OnClick", function()
-        self:SelectExpansion(elementData.expansionKey)
-    end)
-
-    frame:SetScript("OnEnter", function(f)
-        if self.selectedExpansionKey ~= f.expansionKey then
-            f.bg:SetColorTexture(unpack(COLORS.PANEL_HOVER))
-        end
-    end)
-
-    frame:SetScript("OnLeave", function(f)
-        self:ApplySelectionButtonState(f, self.selectedExpansionKey == f.expansionKey)
-    end)
 end
 
 function QuestsTab:SelectExpansion(expansionKey, visibilityCache)

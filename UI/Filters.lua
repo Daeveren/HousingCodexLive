@@ -19,10 +19,11 @@ Filters.hideShopItems = false
 Filters.currencyFilter = {}
 Filters.initialized = false
 Filters.decorCurrencyKeys = nil
-Filters.currencyFilterOptions = nil
+Filters.currencyFilterKeys = nil
+Filters.currencyFilterKeySet = nil
 Filters.currencyLookupBuilt = false
 
-local FILTER_CURRENCY_GOLD_KEY = "__gold"
+local FILTER_CURRENCY_GOLD_KEY = addon.CONSTANTS.VENDOR_CURRENCY_GOLD_KEY
 
 -- Valid states for trackable filter
 local TRACKABLE_STATES = { all = true, trackable = true, not_trackable = true }
@@ -236,14 +237,6 @@ end
 -- Vendor Currency Filter
 --------------------------------------------------------------------------------
 
-local function GetVendorCurrencyKey(vendorData)
-    local currencyName = vendorData and vendorData.currencyName
-    if currencyName and currencyName ~= "" then
-        return currencyName
-    end
-    return FILTER_CURRENCY_GOLD_KEY
-end
-
 function Filters:GetCurrencyLabel(currencyKey)
     if currencyKey == FILTER_CURRENCY_GOLD_KEY then
         return addon.L["CURRENCY_GOLD"]
@@ -266,7 +259,11 @@ function Filters:GetCurrencyFilter()
     return self.currencyFilter
 end
 
-function Filters:GetActiveCurrencyFilterCount()
+function Filters:GetActiveCurrencyFilterCount(skipEnsure)
+    if not skipEnsure then
+        self:EnsureCurrencyLookup()
+    end
+
     local filters = self:GetCurrencyFilter()
     local count = 0
     for _, selected in pairs(filters) do
@@ -277,8 +274,8 @@ function Filters:GetActiveCurrencyFilterCount()
     return count
 end
 
-function Filters:HasActiveCurrencyFilter()
-    return self:GetActiveCurrencyFilterCount() > 0
+function Filters:HasActiveCurrencyFilter(skipEnsure)
+    return self:GetActiveCurrencyFilterCount(skipEnsure) > 0
 end
 
 function Filters:IsCurrencyFilterSelected(currencyKey)
@@ -312,27 +309,46 @@ function Filters:ClearCurrencyFilter(skipApply)
     end
 end
 
+function Filters:PruneUnknownCurrencyFilters()
+    local validKeys = self.currencyFilterKeySet
+    if not self.currencyLookupBuilt or not validKeys then return false end
+
+    local filters = self:GetCurrencyFilter()
+    local changed = false
+    for currencyKey in pairs(filters) do
+        if not validKeys[currencyKey] then
+            filters[currencyKey] = nil
+            changed = true
+        end
+    end
+
+    if changed and addon.db and addon.db.browser and addon.db.browser.filters then
+        addon.db.browser.filters.currencyFilter = filters
+    end
+    return changed
+end
+
 function Filters:EnsureCurrencyLookup()
-    if self.currencyLookupBuilt then return end
+    if self.currencyLookupBuilt then return true end
 
     if not addon.vendorIndexBuilt and addon.BuildVendorIndex then
         addon:BuildVendorIndex()
     end
+    if not addon.vendorIndexBuilt then
+        return false
+    end
 
     local byDecorID = {}
     local seenCurrencies = {}
-    local options = {}
+    local currencyKeys = {}
 
     for _, expansionData in pairs(addon.vendorHierarchy or {}) do
         for _, vendors in pairs(expansionData.zones or {}) do
             for _, vendorData in ipairs(vendors) do
-                local currencyKey = GetVendorCurrencyKey(vendorData)
+                local currencyKey = addon:GetVendorCurrencyKey(vendorData)
                 if not seenCurrencies[currencyKey] then
                     seenCurrencies[currencyKey] = true
-                    table.insert(options, {
-                        key = currencyKey,
-                        label = self:GetCurrencyLabel(currencyKey),
-                    })
+                    table.insert(currencyKeys, currencyKey)
                 end
 
                 for _, decorId in ipairs(vendorData.decorIds or {}) do
@@ -343,25 +359,47 @@ function Filters:EnsureCurrencyLookup()
         end
     end
 
-    table.sort(options, function(a, b)
-        return strlower(a.label) < strlower(b.label)
+    table.sort(currencyKeys, function(a, b)
+        return strlower(a) < strlower(b)
     end)
 
+    local currencyKeySet = {}
+    for _, currencyKey in ipairs(currencyKeys) do
+        currencyKeySet[currencyKey] = true
+    end
+
+    self.currencyFilterKeys = currencyKeys
+    self.currencyFilterKeySet = currencyKeySet
     self.decorCurrencyKeys = byDecorID
-    self.currencyFilterOptions = options
     self.currencyLookupBuilt = true
+    self:PruneUnknownCurrencyFilters()
+    return true
 end
 
 function Filters:GetCurrencyFilterOptions()
-    self:EnsureCurrencyLookup()
-    return self.currencyFilterOptions or {}
+    if not self:EnsureCurrencyLookup() then
+        return {}
+    end
+
+    local options = {}
+    for _, currencyKey in ipairs(self.currencyFilterKeys or {}) do
+        table.insert(options, {
+            key = currencyKey,
+            label = self:GetCurrencyLabel(currencyKey),
+        })
+    end
+
+    table.sort(options, function(a, b)
+        return strlower(a.label) < strlower(b.label)
+    end)
+    return options
 end
 
 function Filters:PassesCurrencyFilter(record)
-    if not self:HasActiveCurrencyFilter() then return true end
+    if not self:EnsureCurrencyLookup() then return true end
+    if not self:HasActiveCurrencyFilter(true) then return true end
     if not record or not record.recordID then return false end
 
-    self:EnsureCurrencyLookup()
     local currencies = self.decorCurrencyKeys and self.decorCurrencyKeys[record.recordID]
     if not currencies then return false end
 

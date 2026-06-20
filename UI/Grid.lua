@@ -415,6 +415,7 @@ function Grid:CreateScrollBox(parent, tileSize)
     view:SetElementResetter(function(tile)
         if tile.icon then
             tile.icon:SetTexture(nil)
+            tile.icon:ResetTexCoord()
             tile.icon:Show()  -- Reset to default visible state
         end
         if tile.modelScene then
@@ -653,12 +654,14 @@ end
 
 -- Sort record IDs by a field extracted from each record (descending order)
 local function SortByField(recordIDs, fieldName)
+    local valueByID = {}
+    for _, recordID in ipairs(recordIDs) do
+        local rec = addon:GetRecord(recordID)
+        valueByID[recordID] = rec and rec[fieldName] or 0
+    end
+
     table.sort(recordIDs, function(a, b)
-        local recA = addon:GetRecord(a)
-        local recB = addon:GetRecord(b)
-        local valA = recA and recA[fieldName] or 0
-        local valB = recB and recB[fieldName] or 0
-        return valA > valB
+        return valueByID[a] > valueByID[b]
     end)
 end
 

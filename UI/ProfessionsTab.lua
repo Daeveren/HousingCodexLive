@@ -138,6 +138,64 @@ local VALID_FILTERS = { all = true, incomplete = true, complete = true }
 Mixin(ProfessionsTab, addon.TabBaseMixin)
 ProfessionsTab.tabName = "ProfessionsTab"
 
+local function ProfessionButtonOnClick(frame)
+    ProfessionsTab:SelectProfession(frame.professionName)
+end
+
+local function ProfessionButtonOnEnter(frame)
+    if ProfessionsTab.selectedProfession ~= frame.professionName then
+        frame.bg:SetColorTexture(unpack(COLORS.PANEL_HOVER))
+    end
+end
+
+local function ProfessionButtonOnLeave(frame)
+    ProfessionsTab:ApplySelectionButtonState(frame, ProfessionsTab.selectedProfession == frame.professionName)
+end
+
+local function CraftRowOnMouseDown(frame, button)
+    local decorId = frame.decorId
+    if not decorId then return end
+
+    if button == "RightButton" then
+        addon.ContextMenu:ShowForDecor(frame, decorId)
+        return
+    end
+
+    if IsShiftKeyDown() then
+        addon:ToggleTracking(decorId)
+        return
+    end
+
+    ProfessionsTab:HandleCraftSelection(frame, decorId)
+end
+
+local function CraftRowOnEnter(frame)
+    local decorId = frame.decorId
+    if not decorId then return end
+
+    if ProfessionsTab.selectedDecorId ~= decorId then
+        frame.name:SetTextColor(1, 1, 1, 1)
+    end
+
+    addon:FireEvent("RECORD_SELECTED", decorId)
+
+    addon:AnchorTooltipToCursor(frame)
+    GameTooltip:SetText(addon:ResolveDecorName(decorId, frame.record), 1, 1, 1)
+    if frame.isCollected then
+        GameTooltip:AddLine(addon.L["FILTER_COLLECTED"], 0.4, 0.9, 0.4)
+    end
+    GameTooltip:Show()
+end
+
+local function CraftRowOnLeave(frame)
+    local decorId = frame.decorId
+    if ProfessionsTab.selectedDecorId ~= decorId then
+        frame.name:SetTextColor(frame.textBrightness, frame.textBrightness, frame.textBrightness, 1)
+    end
+    GameTooltip:Hide()
+    addon:FireEvent("RECORD_SELECTED", ProfessionsTab.selectedDecorId)
+end
+
 local function GetProfessionsDB()
     return addon.db and addon.db.browser and addon.db.browser.professions
 end
@@ -293,6 +351,9 @@ function ProfessionsTab:SetupProfessionButton(frame, elementData)
         frame.label = label
 
         frame:EnableMouse(true)
+        frame:SetScript("OnClick", ProfessionButtonOnClick)
+        frame:SetScript("OnEnter", ProfessionButtonOnEnter)
+        frame:SetScript("OnLeave", ProfessionButtonOnLeave)
     end
 
     frame.professionName = elementData.professionName
@@ -309,19 +370,6 @@ function ProfessionsTab:SetupProfessionButton(frame, elementData)
     frame.progressLabel:SetTextColor(unpack(self:GetProgressColor(pctValue)))
     addon:SetFontSize(frame.progressLabel, 11, "")
 
-    frame:SetScript("OnClick", function()
-        self:SelectProfession(elementData.professionName)
-    end)
-
-    frame:SetScript("OnEnter", function(f)
-        if self.selectedProfession ~= f.professionName then
-            f.bg:SetColorTexture(unpack(COLORS.PANEL_HOVER))
-        end
-    end)
-
-    frame:SetScript("OnLeave", function(f)
-        self:ApplySelectionButtonState(f, self.selectedProfession == f.professionName)
-    end)
 end
 
 function ProfessionsTab:SelectProfession(professionName)
@@ -435,8 +483,6 @@ function ProfessionsTab:HandleCraftSelection(frame, decorId)
 end
 
 function ProfessionsTab:SetupCraftRow(frame, craft)
-    local L = addon.L
-
     if not frame.bg then
         local bg = frame:CreateTexture(nil, "BACKGROUND")
         bg:SetAllPoints()
@@ -478,6 +524,9 @@ function ProfessionsTab:SetupCraftRow(frame, craft)
         frame.name = name
 
         frame:EnableMouse(true)
+        frame:SetScript("OnMouseDown", CraftRowOnMouseDown)
+        frame:SetScript("OnEnter", CraftRowOnEnter)
+        frame:SetScript("OnLeave", CraftRowOnLeave)
     end
 
     frame.decorId = craft.decorId
@@ -485,6 +534,8 @@ function ProfessionsTab:SetupCraftRow(frame, craft)
 
     local record = ResolveCraftRecord(craft.decorId)
     local isCollected = record and record.isCollected
+    frame.record = record
+    frame.isCollected = isCollected
 
     if record then
         if record.iconType == "atlas" then
@@ -512,42 +563,6 @@ function ProfessionsTab:SetupCraftRow(frame, craft)
 
     self:UpdateCraftRowSelectionVisual(frame, self.selectedDecorId == craft.decorId, textBrightness)
 
-    frame:SetScript("OnMouseDown", function(f, button)
-        if button == "RightButton" then
-            addon.ContextMenu:ShowForDecor(f, craft.decorId)
-            return
-        end
-
-        if IsShiftKeyDown() then
-            addon:ToggleTracking(craft.decorId)
-            return
-        end
-
-        self:HandleCraftSelection(f, craft.decorId)
-    end)
-
-    frame:SetScript("OnEnter", function(f)
-        if self.selectedDecorId ~= craft.decorId then
-            f.name:SetTextColor(1, 1, 1, 1)
-        end
-
-        addon:FireEvent("RECORD_SELECTED", craft.decorId)
-
-        addon:AnchorTooltipToCursor(f)
-        GameTooltip:SetText(addon:ResolveDecorName(craft.decorId, record), 1, 1, 1)
-        if isCollected then
-            GameTooltip:AddLine(L["FILTER_COLLECTED"], 0.4, 0.9, 0.4)
-        end
-        GameTooltip:Show()
-    end)
-
-    frame:SetScript("OnLeave", function(f)
-        if self.selectedDecorId ~= craft.decorId then
-            f.name:SetTextColor(f.textBrightness, f.textBrightness, f.textBrightness, 1)
-        end
-        GameTooltip:Hide()
-        addon:FireEvent("RECORD_SELECTED", self.selectedDecorId)
-    end)
 end
 
 --------------------------------------------------------------------------------

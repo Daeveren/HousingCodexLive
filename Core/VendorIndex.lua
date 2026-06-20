@@ -491,7 +491,8 @@ function addon:BuildVendorIndex()
     if self.Filters then
         self.Filters.currencyLookupBuilt = false
         self.Filters.decorCurrencyKeys = nil
-        self.Filters.currencyFilterOptions = nil
+        self.Filters.currencyFilterKeys = nil
+        self.Filters.currencyFilterKeySet = nil
     end
 
     self.PromotionalDecorIds = self.PromotionalDecorIds or {}

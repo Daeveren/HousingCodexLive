@@ -29,10 +29,27 @@ local function IsInHousingZone()
     return mapID and HOUSING_ZONES[mapID]
 end
 
+local function IsTreasureHuntWaypointEnabled()
+    return addon.db and addon.db.settings and addon.db.settings.treasureHuntWaypoints
+end
+
+local function ClearPendingCombatWaypoint()
+    if combatRegenCallback then
+        addon:UnregisterWoWEvent("PLAYER_REGEN_ENABLED", combatRegenCallback)
+        combatRegenCallback = nil
+    end
+    pendingCombatQuestId = nil
+end
+
 --------------------------------------------------------------------------------
 -- Waypoint Management
 --------------------------------------------------------------------------------
 local function SetWaypoint(questId)
+    if not IsTreasureHuntWaypointEnabled() then
+        ClearPendingCombatWaypoint()
+        return
+    end
+
     local loc = addon.TreasureHuntLocations[questId]
     if not loc then
         addon:Debug("Treasure Hunt: No location data for quest " .. tostring(questId))
@@ -48,7 +65,7 @@ local function SetWaypoint(questId)
                 combatRegenCallback = nil
                 local qid = pendingCombatQuestId
                 pendingCombatQuestId = nil
-                if qid and C_QuestLog.IsOnQuest(qid) then
+                if qid and IsTreasureHuntWaypointEnabled() and C_QuestLog.IsOnQuest(qid) then
                     SetWaypoint(qid)
                 end
             end
@@ -58,7 +75,7 @@ local function SetWaypoint(questId)
         return
     end
 
-    pendingCombatQuestId = nil
+    ClearPendingCombatWaypoint()
 
     if not addon.Waypoints:Set(loc.mapID, loc.x, loc.y, addon.L["TREASURE_HUNT_WAYPOINT_TITLE"], {
         owner = WAYPOINT_OWNER_TREASURE_HUNT,
@@ -97,7 +114,7 @@ end
 
 -- Reconcile waypoint state after login/reload or setting toggle
 local function Reconcile()
-    if not addon.db or not addon.db.settings.treasureHuntWaypoints then return end
+    if not IsTreasureHuntWaypointEnabled() then return end
     if not IsInHousingZone() then return end
 
     -- Scan known treasure hunt quests to see if any are active
@@ -120,6 +137,7 @@ function addon.TreasureHuntWaypoints.UpdateListenerState()
     -- Listeners stay registered; setting gates behavior in handlers.
     -- If disabled mid-session, clear only the waypoint managed by this module.
     if not addon.db.settings.treasureHuntWaypoints then
+        ClearPendingCombatWaypoint()
         ClearWaypoint()
         return
     end
@@ -133,18 +151,23 @@ end
 --------------------------------------------------------------------------------
 local function OnQuestAccepted(questId)
     if not IsInHousingZone() then return end
-    if not addon.db or not addon.db.settings.treasureHuntWaypoints then return end
+    if not IsTreasureHuntWaypointEnabled() then return end
     if not questId or not addon.TreasureHuntLocations[questId] then return end
 
     addon:Debug("Treasure hunt quest accepted: " .. questId)
 
     -- Defer to next frame for safe API access
     C_Timer.After(0, function()
-        SetWaypoint(questId)
+        if IsTreasureHuntWaypointEnabled() then
+            SetWaypoint(questId)
+        end
     end)
 end
 
 local function OnQuestEnded(questId)
+    if questId == pendingCombatQuestId then
+        ClearPendingCombatWaypoint()
+    end
     if questId == activeQuestId then
         ClearWaypoint()
     end

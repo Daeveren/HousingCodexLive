@@ -25,7 +25,7 @@ local state = {
     isMaxLevel = false,
     initiativeInfo = nil,
     taskSnapshots = {},    -- { [taskID] = { current, max } }
-    sessionProgress = {},  -- { [taskID] = { taskName, current, max, lastChangedTime, delta, completed } }
+    sessionProgress = {},  -- { [taskID] = { ID, taskName, current, max, lastChangedTime, delta, completed } }
     lastNeighborhoodGUID = nil,
     lastCycleID = nil,
     initiativeDataFresh = false,
@@ -240,6 +240,7 @@ local function DiffTaskProgress(info)
     if not info or not info.tasks then return false end
 
     local function ApplyTaskDetails(entry, task)
+        entry.ID = task.ID
         entry.description = task.description or ""
         entry.timesCompleted = task.timesCompleted or 0
         entry.rewardQuestID = task.rewardQuestID or 0

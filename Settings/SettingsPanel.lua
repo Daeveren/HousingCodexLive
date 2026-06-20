@@ -438,9 +438,9 @@ function addon.Settings:Initialize()
         panel,
         L["OPTIONS_TREASURE_HUNT_WAYPOINTS"],
         L["OPTIONS_TREASURE_HUNT_WAYPOINTS_TOOLTIP"],
-        function() return addon.db and addon.db.settings.treasureHuntWaypoints end,
+        function() return addon.db and addon.db.settings and addon.db.settings.treasureHuntWaypoints end,
         function(checked)
-            if addon.db then
+            if addon.db and addon.db.settings then
                 addon.db.settings.treasureHuntWaypoints = checked
                 if addon.TreasureHuntWaypoints then
                     addon.TreasureHuntWaypoints.UpdateListenerState()
