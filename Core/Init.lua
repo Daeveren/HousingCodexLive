@@ -1307,15 +1307,27 @@ end
 
 -- Shared overlay helpers (used by MerchantOverlay and ContainerOverlay)
 addon.SHADOW_COLOR = { 0, 0, 0, 0.7 }
+addon.CHECKMARK_SHADOW_COLOR = { 0, 0, 0, 0.45 }
+addon.OWNED_CHECKMARK_COLOR = { 0, 1, 0, 1 }
 
-function addon.CreateIconWithShadow(button, size, shadowOffset)
-    local shadow = button:CreateTexture(nil, "OVERLAY", nil, 6)
-    shadow:SetSize(size + shadowOffset, size + shadowOffset)
+function addon.CreateItemButtonOverlayFrame(templateName)
+    local frame = CreateFrame("Frame", nil, UIParent, templateName)
+    frame:SetFrameLevel(1000)
+    frame:Hide()
+    return frame
+end
+
+function addon.SetupIconWithShadow(icon, shadow)
     shadow:SetVertexColor(unpack(addon.SHADOW_COLOR))
+    icon:SetVertexColor(1, 1, 1, 1)
+    return icon, shadow
+end
 
-    local icon = button:CreateTexture(nil, "OVERLAY", nil, 7)
-    icon:SetSize(size, size)
-
+function addon.SetupOwnedCheckmark(icon, shadow)
+    shadow:ClearAllPoints()
+    shadow:SetPoint("CENTER", icon, "CENTER", 1, -1)
+    shadow:SetVertexColor(unpack(addon.CHECKMARK_SHADOW_COLOR))
+    icon:SetVertexColor(unpack(addon.OWNED_CHECKMARK_COLOR))
     return icon, shadow
 end
 

@@ -2,6 +2,13 @@
 
 All notable changes to Housing Codex.
 
+**2.8.4** (2026-06-22)
+
+**Fixed**
+- Improved vendor and bag/bank decor indicators
+- Improved owned checkmark placement on vendor and bag/bank items
+- Fixed bag/bank indicators sometimes staying visible after closing inventory
+
 **2.8.3** (2026-06-20)
 
 **Changed**

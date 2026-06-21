@@ -11,11 +11,8 @@ addon.MerchantOverlay = MerchantOverlay
 -- Constants
 local DEFAULT_MERCHANT_PAGE_SIZE = 10
 local MAX_MERCHANT_OVERLAY_SCAN = 200
-local HC_ICON_SIZE = 18
-local CHECKMARK_SIZE = 16
-local HC_ICON_PATH = "Interface\\AddOns\\HousingCodex\\HC64"
 -- Storage for button overlays
-local trackedButtons = {}
+local trackedButtons = setmetatable({}, { __mode = "k" })
 
 -- Session cache for catalog lookups (cleared on storage updates and merchant close)
 local sessionCache = {}
@@ -53,14 +50,16 @@ local function GetMerchantPageSize()
 end
 
 local function HideButtonOverlay(button)
-    if not button or not button.hcOverlay then
+    local overlay = button and trackedButtons[button]
+    if not overlay then
         return
     end
 
-    button.hcOverlay.hcShadow:Hide()
-    button.hcOverlay.hcIcon:Hide()
-    button.hcOverlay.checkShadow:Hide()
-    button.hcOverlay.checkmark:Hide()
+    overlay.hcShadow:Hide()
+    overlay.hcIcon:Hide()
+    overlay.checkShadow:Hide()
+    overlay.checkmark:Hide()
+    overlay.frame:Hide()
 end
 
 local function GetLookupKey(button, displayIndex, numItems)
@@ -85,36 +84,31 @@ local function GetLookupKey(button, displayIndex, numItems)
     return nil
 end
 
--- Get or create overlay textures for button
+-- Get or create addon-owned overlay textures for a Blizzard item button
 function MerchantOverlay:GetOverlay(button)
-    if button.hcOverlay then
-        return button.hcOverlay
+    local overlay = trackedButtons[button]
+    if overlay then
+        return overlay
     end
 
-    -- HC icon with shadow
-    local hcIcon, hcShadow = addon.CreateIconWithShadow(button, HC_ICON_SIZE, 8)
-    hcShadow:SetPoint("TOPLEFT", button, "TOPLEFT", -11, 11)
-    hcShadow:SetTexture(HC_ICON_PATH)
-    hcIcon:SetPoint("TOPLEFT", button, "TOPLEFT", -7, 7)
-    hcIcon:SetTexture(HC_ICON_PATH)
+    local frame = addon.CreateItemButtonOverlayFrame("HousingCodexMerchantItemButtonOverlayTemplate")
 
-    -- Checkmark with shadow
-    local checkmark, checkShadow = addon.CreateIconWithShadow(button, CHECKMARK_SIZE, 6)
-    checkShadow:SetPoint("TOP", hcIcon, "BOTTOM", 0, 5)
-    checkShadow:SetAtlas("common-icon-checkmark")
-    checkmark:SetPoint("TOP", hcIcon, "BOTTOM", 0, 2)
-    checkmark:SetAtlas("common-icon-checkmark")
-    checkmark:SetVertexColor(0, 1, 0, 1)
+    -- HC icon with shadow (sizes and anchors are defined in XML)
+    local hcIcon, hcShadow = addon.SetupIconWithShadow(frame.HCIcon, frame.HCShadow)
 
-    button.hcOverlay = {
+    -- Owned checkmark with shadow (sizes and anchors are defined in XML)
+    local checkmark, checkShadow = addon.SetupOwnedCheckmark(frame.Checkmark, frame.CheckShadow)
+
+    local overlay = {
+        frame = frame,
         hcIcon = hcIcon,
         hcShadow = hcShadow,
         checkmark = checkmark,
         checkShadow = checkShadow,
     }
-    trackedButtons[button] = true
+    trackedButtons[button] = overlay
 
-    return button.hcOverlay
+    return overlay
 end
 
 function MerchantOverlay:ScheduleUpdateMerchantButtons()
@@ -207,12 +201,20 @@ function MerchantOverlay:UpdateMerchantButtons()
                 isDecor = false
             end
             local isOwned = isDecor and catalogInfo and addon.IsDecorOwned(catalogInfo)
-
-            local overlay = self:GetOverlay(button)
-            overlay.hcShadow:SetShown(isDecor and showDecorIcon)
-            overlay.hcIcon:SetShown(isDecor and showDecorIcon)
-            overlay.checkShadow:SetShown(isOwned and showOwnedCheckmark)
-            overlay.checkmark:SetShown(isOwned and showOwnedCheckmark)
+            local showDecor = isDecor and showDecorIcon
+            local showCheckmark = isOwned and showOwnedCheckmark
+            if not showDecor and not showCheckmark then
+                HideButtonOverlay(button)
+            else
+                local overlay = self:GetOverlay(button)
+                overlay.frame:ClearAllPoints()
+                overlay.frame:SetPoint("TOPLEFT", button, "TOPLEFT", 0, 0)
+                overlay.hcShadow:SetShown(showDecor)
+                overlay.hcIcon:SetShown(showDecor)
+                overlay.checkShadow:SetShown(showCheckmark)
+                overlay.checkmark:SetShown(showCheckmark)
+                overlay.frame:Show()
+            end
         end
     end
 end

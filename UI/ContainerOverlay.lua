@@ -8,16 +8,12 @@ local _, addon = ...
 local ContainerOverlay = {}
 addon.ContainerOverlay = ContainerOverlay
 
--- Constants (scaled for smaller bag slots ~37px vs larger merchant buttons ~45px)
-local HC_ICON_SIZE = 14
-local CHECKMARK_SIZE = 12
-local HC_ICON_PATH = "Interface\\AddOns\\HousingCodex\\HC64"
 -- Cache for catalog lookups: table = decor info, false = not decor, nil = not yet queried
 local itemDecorCache = {}
 
 -- State
 local initialized = false
-local trackedButtons = {}  -- buttons we've added overlays to (for HideAllOverlays)
+local trackedButtons = setmetatable({}, { __mode = "k" })  -- button => addon-owned overlay
 local dirty = false         -- deferred refresh pending (set when events fire while bags closed)
 
 local function ClearCache()
@@ -45,46 +41,51 @@ local function GetDecorInfo(itemID)
     return catalogInfo
 end
 
--- Get or create overlay textures for a button
+-- Get or create addon-owned overlay textures for a Blizzard item button
 function ContainerOverlay:GetOrCreateOverlay(button)
-    if button.hcOverlay then
-        return button.hcOverlay
+    local overlay = trackedButtons[button]
+    if overlay then
+        return overlay
     end
 
-    -- HC icon with shadow (smaller offsets for bag-sized buttons)
-    local hcIcon, hcShadow = addon.CreateIconWithShadow(button, HC_ICON_SIZE, 6)
-    hcShadow:SetPoint("TOPLEFT", button, "TOPLEFT", -8, 8)
-    hcShadow:SetTexture(HC_ICON_PATH)
-    hcIcon:SetPoint("TOPLEFT", button, "TOPLEFT", -5, 5)
-    hcIcon:SetTexture(HC_ICON_PATH)
+    local frame = addon.CreateItemButtonOverlayFrame("HousingCodexContainerItemButtonOverlayTemplate")
 
-    -- Checkmark with shadow
-    local checkmark, checkShadow = addon.CreateIconWithShadow(button, CHECKMARK_SIZE, 4)
-    checkShadow:SetPoint("TOP", hcIcon, "BOTTOM", 0, 4)
-    checkShadow:SetAtlas("common-icon-checkmark")
-    checkmark:SetPoint("TOP", hcIcon, "BOTTOM", 0, 2)
-    checkmark:SetAtlas("common-icon-checkmark")
-    checkmark:SetVertexColor(0, 1, 0, 1)
+    -- HC icon with shadow (sizes and anchors are defined in XML)
+    local hcIcon, hcShadow = addon.SetupIconWithShadow(frame.HCIcon, frame.HCShadow)
 
-    button.hcOverlay = {
+    -- Owned checkmark with shadow (sizes and anchors are defined in XML)
+    local checkmark, checkShadow = addon.SetupOwnedCheckmark(frame.Checkmark, frame.CheckShadow)
+
+    local overlay = {
+        frame = frame,
         hcIcon = hcIcon,
         hcShadow = hcShadow,
         checkmark = checkmark,
         checkShadow = checkShadow,
     }
 
-    trackedButtons[button] = true
+    trackedButtons[button] = overlay
 
-    return button.hcOverlay
+    return overlay
 end
 
 -- Hide overlay on a single button (if it has one)
 local function HideButtonOverlay(button)
-    if button.hcOverlay then
-        button.hcOverlay.hcShadow:Hide()
-        button.hcOverlay.hcIcon:Hide()
-        button.hcOverlay.checkShadow:Hide()
-        button.hcOverlay.checkmark:Hide()
+    local overlay = button and trackedButtons[button]
+    if overlay then
+        overlay.hcShadow:Hide()
+        overlay.hcIcon:Hide()
+        overlay.checkShadow:Hide()
+        overlay.checkmark:Hide()
+        overlay.frame:Hide()
+    end
+end
+
+function ContainerOverlay:HideContainerFrameOverlays(frame)
+    if not frame or not frame.EnumerateValidItems then return end
+
+    for _, itemButton in frame:EnumerateValidItems() do
+        HideButtonOverlay(itemButton)
     end
 end
 
@@ -114,18 +115,28 @@ function ContainerOverlay:UpdateButton(button, itemID)
     end
 
     local isOwned = addon.IsDecorOwned(catalogInfo)
+    local showCheckmark = isOwned and showOwnedCheckmark
+    if not showDecorIcon and not showCheckmark then
+        HideButtonOverlay(button)
+        return
+    end
 
     local overlay = self:GetOrCreateOverlay(button)
+    overlay.frame:ClearAllPoints()
+    overlay.frame:SetPoint("TOPLEFT", button, "TOPLEFT", 0, 0)
     overlay.hcShadow:SetShown(showDecorIcon)
     overlay.hcIcon:SetShown(showDecorIcon)
-    overlay.checkShadow:SetShown(isOwned and showOwnedCheckmark)
-    overlay.checkmark:SetShown(isOwned and showOwnedCheckmark)
+    overlay.checkShadow:SetShown(showCheckmark)
+    overlay.checkmark:SetShown(showCheckmark)
+    overlay.frame:Show()
 end
 
 -- Update all buttons in a container frame
 function ContainerOverlay:UpdateContainerFrame(frame)
     if not frame or not frame:IsShown() then return end
     if not frame.EnumerateValidItems then return end
+
+    self:HideContainerFrameOverlays(frame)
 
     for _, itemButton in frame:EnumerateValidItems() do
         if itemButton:IsShown() then
@@ -147,6 +158,10 @@ local function AreBagsVisible()
         if f and f:IsShown() then return true end
     end
     return false
+end
+
+local function IsBankPanelVisible()
+    return BankFrame and BankFrame.BankPanel and BankFrame.BankPanel:IsShown()
 end
 
 -- Flush deferred cache invalidation (called before updating any visible container)
@@ -188,14 +203,20 @@ local function RefreshAll()
         return
     end
 
-    if not AreBagsVisible() then
+    local bagsVisible = AreBagsVisible()
+    local bankVisible = IsBankPanelVisible()
+    if not bagsVisible and not bankVisible then
         dirty = true
         return
     end
     dirty = false
     ClearCache()
-    ContainerOverlay:UpdateAllContainerFrames()
-    ContainerOverlay:UpdateVisibleBankPanel()
+    if bagsVisible then
+        ContainerOverlay:UpdateAllContainerFrames()
+    end
+    if bankVisible then
+        ContainerOverlay:UpdateVisibleBankPanel()
+    end
 end
 
 -- Initialize hooks and events
@@ -217,6 +238,13 @@ function ContainerOverlay:Initialize()
     end)
     addon:Debug("ContainerOverlay: Hooked ContainerFrame_OnShow")
 
+    if type(ContainerFrame_OnHide) == "function" then
+        hooksecurefunc("ContainerFrame_OnHide", function(frame)
+            self:HideContainerFrameOverlays(frame)
+        end)
+        addon:Debug("ContainerOverlay: Hooked ContainerFrame_OnHide")
+    end
+
     -- Hook bank button refresh on each tab's item button instances.
     -- BankFrame tabs are created on demand, so hook the Refresh method
     -- on BankPanelItemButtonMixin — bank buttons are created AFTER addon load
@@ -235,6 +263,7 @@ function ContainerOverlay:Initialize()
     self.eventFrame:RegisterEvent("BAG_UPDATE_DELAYED")
     self.eventFrame:RegisterEvent("HOUSING_MARKET_AVAILABILITY_UPDATED")
     self.eventFrame:RegisterEvent("PLAYER_INTERACTION_MANAGER_FRAME_SHOW")
+    self.eventFrame:RegisterEvent("PLAYER_INTERACTION_MANAGER_FRAME_HIDE")
     self.eventFrame:SetScript("OnEvent", function(_, event, ...)
         if event == "PLAYER_INTERACTION_MANAGER_FRAME_SHOW" then
             local interactionType = ...
@@ -243,6 +272,16 @@ function ContainerOverlay:Initialize()
                or interactionType == Enum.PlayerInteractionType.AccountBanker then
                 if dirty then RefreshAll() end
                 self:UpdateVisibleBankPanel()
+            end
+        elseif event == "PLAYER_INTERACTION_MANAGER_FRAME_HIDE" then
+            local interactionType = ...
+            if interactionType == Enum.PlayerInteractionType.Banker
+               or interactionType == Enum.PlayerInteractionType.CharacterBanker
+               or interactionType == Enum.PlayerInteractionType.AccountBanker then
+                self:HideAllOverlays()
+                if AreBagsVisible() then
+                    self:UpdateAllContainerFrames()
+                end
             end
         else
             RefreshAll()
@@ -264,7 +303,7 @@ end)
 
 addon:RegisterInternalEvent(addon.Events.DECOR_VISIBILITY_CHANGED, function()
     dirty = true
-    if AreBagsVisible() or (BankPanel and BankPanel:IsShown()) or (AccountBankPanel and AccountBankPanel:IsShown()) then
+    if AreBagsVisible() or IsBankPanelVisible() then
         ContainerOverlay:UpdateAllContainerFrames()
         ContainerOverlay:UpdateVisibleBankPanel()
     end
