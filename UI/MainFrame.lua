@@ -12,6 +12,29 @@ local DEFAULT_WIDTH = addon.CONSTANTS.DEFAULT_FRAME_WIDTH
 local DEFAULT_HEIGHT = addon.CONSTANTS.DEFAULT_FRAME_HEIGHT
 local SIDEBAR_WIDTH = addon.CONSTANTS.SIDEBAR_WIDTH
 local HEADER_HEIGHT = addon.CONSTANTS.HEADER_HEIGHT
+local SCREEN_MARGIN = 20
+
+local function IsSecretValue(value)
+    return type(issecretvalue) == "function" and issecretvalue(value)
+end
+
+local function IsUsableNumber(value)
+    return type(value) == "number" and not IsSecretValue(value)
+end
+
+local function GetUsableScreenSize()
+    local screenWidth = GetScreenWidth()
+    local screenHeight = GetScreenHeight()
+
+    if not IsUsableNumber(screenWidth) or screenWidth <= 0 then
+        screenWidth = DEFAULT_WIDTH
+    end
+    if not IsUsableNumber(screenHeight) or screenHeight <= 0 then
+        screenHeight = DEFAULT_HEIGHT
+    end
+
+    return screenWidth, screenHeight
+end
 
 local MAIN_BACKDROP = {
     bgFile = "Interface\\DialogFrame\\UI-DialogBox-Background",
@@ -357,18 +380,68 @@ function MainFrame:CreatePreviewRegion()
     divider:SetColorTexture(0, 0, 0, 1)
 end
 
+function MainFrame:GetMaxFrameSize()
+    local screenWidth, screenHeight = GetUsableScreenSize()
+    return math.max(1, screenWidth - (SCREEN_MARGIN * 2)),
+        math.max(1, screenHeight - (SCREEN_MARGIN * 2))
+end
+
+function MainFrame:GetMaxPreviewWidth()
+    local maxFrameWidth = self:GetMaxFrameSize()
+    return math.max(1, maxFrameWidth - math.min(MIN_WIDTH, maxFrameWidth))
+end
+
+function MainFrame:ClampPreviewWidth(width)
+    local previewWidth = IsUsableNumber(width) and width or addon.CONSTANTS.PREVIEW_DEFAULT_WIDTH
+    return math.max(1, math.min(previewWidth, self:GetMaxPreviewWidth()))
+end
+
 function MainFrame:GetPreviewWidth()
     local db = addon.db
-    return db and db.preview.width or addon.CONSTANTS.PREVIEW_DEFAULT_WIDTH
+    local previewWidth = db and db.preview and db.preview.width or addon.CONSTANTS.PREVIEW_DEFAULT_WIDTH
+    return self:ClampPreviewWidth(previewWidth)
+end
+
+function MainFrame:GetAppliedPreviewWidth()
+    if self.previewRegion and (self.previewRegion:IsShown() or self.previewCollapsed) then
+        return self:GetPreviewWidth()
+    end
+
+    return 0
+end
+
+function MainFrame:ApplyResizeBounds(previewWidth)
+    local frame = self.frame
+    if not frame then return end
+
+    local maxWidth, maxHeight = self:GetMaxFrameSize()
+    local preview = previewWidth and previewWidth > 0 and self:ClampPreviewWidth(previewWidth) or 0
+    local minWidth = math.min(MIN_WIDTH + preview, maxWidth)
+    local minHeight = math.min(MIN_HEIGHT, maxHeight)
+
+    frame:SetResizeBounds(minWidth, minHeight, maxWidth, maxHeight)
+
+    local width, height = frame:GetSize()
+    if not IsUsableNumber(width) or not IsUsableNumber(height) then return end
+
+    local clampedWidth = math.min(math.max(width, minWidth), maxWidth)
+    local clampedHeight = math.min(math.max(height, minHeight), maxHeight)
+
+    if clampedWidth ~= width or clampedHeight ~= height then
+        frame:SetSize(clampedWidth, clampedHeight)
+    end
 end
 
 function MainFrame:ExpandForPreview()
     local frame = self.frame
     local previewWidth = self:GetPreviewWidth()
+    local frameWidth = frame:GetWidth()
 
     self.previewRegion:SetWidth(previewWidth)
-    frame:SetWidth(frame:GetWidth() + previewWidth)
-    frame:SetResizeBounds(MIN_WIDTH + previewWidth, MIN_HEIGHT, GetScreenWidth(), GetScreenHeight())
+    if IsUsableNumber(frameWidth) then
+        frame:SetWidth(frameWidth + previewWidth)
+    end
+    self:ApplyResizeBounds(previewWidth)
 
     -- Anchor content to stop at preview region
     self.contentArea:ClearAllPoints()
@@ -376,6 +449,8 @@ function MainFrame:ExpandForPreview()
     self.contentArea:SetPoint("BOTTOMRIGHT", self.previewRegion, "BOTTOMLEFT", 0, 0)
 
     self.previewRegion:Show()
+    self.previewCollapsed = false
+    self:ClampToScreen()
 end
 
 function MainFrame:CollapsePreview()
@@ -412,13 +487,17 @@ function MainFrame:RestorePreview()
     end
 
     -- Normal case: frame already includes preview width, just restore visibility
+    local previewWidth = self:GetPreviewWidth()
+    self.previewRegion:SetWidth(previewWidth)
     self.previewRegion:Show()
     self.previewCollapsed = false
+    self:ApplyResizeBounds(previewWidth)
 
     -- Restore content area to stop at preview region
     self.contentArea:ClearAllPoints()
     self.contentArea:SetPoint("TOPLEFT", self.sidebar, "TOPRIGHT", 0, 0)
     self.contentArea:SetPoint("BOTTOMRIGHT", self.previewRegion, "BOTTOMLEFT", 0, 0)
+    self:ClampToScreen()
 
     if addon.Preview.modelScene then
         addon.Preview.modelScene:Show()
@@ -430,15 +509,22 @@ function MainFrame:SetPreviewWidth(newWidth)
     if not region or not region:IsShown() then return end
 
     local frame = self.frame
-    local widthDelta = newWidth - self:GetPreviewWidth()
+    local oldWidth = region:GetWidth()
 
     if addon.db then
         addon.db.preview.width = newWidth
     end
 
-    region:SetWidth(newWidth)
-    frame:SetWidth(frame:GetWidth() + widthDelta)
-    frame:SetResizeBounds(MIN_WIDTH + newWidth, MIN_HEIGHT, GetScreenWidth(), GetScreenHeight())
+    local previewWidth = self:GetPreviewWidth()
+    local widthDelta = previewWidth - (IsUsableNumber(oldWidth) and oldWidth or previewWidth)
+    local frameWidth = frame:GetWidth()
+
+    region:SetWidth(previewWidth)
+    if IsUsableNumber(frameWidth) then
+        frame:SetWidth(frameWidth + widthDelta)
+    end
+    self:ApplyResizeBounds(previewWidth)
+    self:ClampToScreen()
 end
 
 function MainFrame:SetupResizing()
@@ -535,6 +621,8 @@ function MainFrame:RestoreLayout()
         end
     end
 
+    self:ApplyResizeBounds(0)
+
     -- Validate position for users with off-screen saved positions
     self:ValidatePosition()
 end
@@ -544,10 +632,12 @@ function MainFrame:ValidatePosition()
     if not frame then return end
 
     local left, bottom, width, height = frame:GetRect()
-    if not left then return end
+    if not IsUsableNumber(left) or not IsUsableNumber(bottom) or
+       not IsUsableNumber(width) or not IsUsableNumber(height) then
+        return
+    end
 
-    local screenWidth = GetScreenWidth()
-    local screenHeight = GetScreenHeight()
+    local screenWidth, screenHeight = GetUsableScreenSize()
     local top = bottom + height
     local right = left + width
 
@@ -563,25 +653,39 @@ function MainFrame:ClampToScreen()
     if not frame then return end
 
     local left, bottom, width, height = frame:GetRect()
-    if not left then return end
-
-    local screenWidth, screenHeight = GetScreenWidth(), GetScreenHeight()
-    local MIN_VISIBLE_H, MIN_VISIBLE_V = 100, 50
-
-    -- Clamp horizontally (ensure at least MIN_VISIBLE_H pixels visible)
-    local newLeft = left
-    if left + width < MIN_VISIBLE_H then
-        newLeft = MIN_VISIBLE_H - width
-    elseif left > screenWidth - MIN_VISIBLE_H then
-        newLeft = screenWidth - MIN_VISIBLE_H
+    if not IsUsableNumber(left) or not IsUsableNumber(bottom) or
+       not IsUsableNumber(width) or not IsUsableNumber(height) then
+        return
     end
 
-    -- Clamp vertically (ensure at least MIN_VISIBLE_V pixels visible)
+    local screenWidth, screenHeight = GetUsableScreenSize()
+    local marginX = width < screenWidth and SCREEN_MARGIN or 0
+    local marginY = height < screenHeight and SCREEN_MARGIN or 0
+
+    local newLeft = left
+    if width >= screenWidth then
+        newLeft = 0
+    else
+        local minLeft = marginX
+        local maxLeft = math.max(minLeft, screenWidth - width - marginX)
+        if left < minLeft then
+            newLeft = minLeft
+        elseif left > maxLeft then
+            newLeft = maxLeft
+        end
+    end
+
     local newBottom = bottom
-    if bottom + height < MIN_VISIBLE_V then
-        newBottom = MIN_VISIBLE_V - height
-    elseif bottom > screenHeight - MIN_VISIBLE_V then
-        newBottom = screenHeight - MIN_VISIBLE_V
+    if height >= screenHeight then
+        newBottom = 0
+    else
+        local minBottom = marginY
+        local maxBottom = math.max(minBottom, screenHeight - height - marginY)
+        if bottom < minBottom then
+            newBottom = minBottom
+        elseif bottom > maxBottom then
+            newBottom = maxBottom
+        end
     end
 
     if newLeft ~= left or newBottom ~= bottom then
@@ -611,6 +715,8 @@ function MainFrame:ResetSize()
     local frame = self.frame
     if not frame then return end
     frame:SetSize(DEFAULT_WIDTH, DEFAULT_HEIGHT)
+    self:ApplyResizeBounds(self:GetAppliedPreviewWidth())
+    self:ClampToScreen()
 end
 
 function MainFrame:Show()
@@ -623,6 +729,8 @@ function MainFrame:Show()
     if isFirstShow then
         self:Create()
     end
+
+    self:ApplyResizeBounds(self:GetAppliedPreviewWidth())
 
     -- Ensure frame is on screen
     self:ClampToScreen()

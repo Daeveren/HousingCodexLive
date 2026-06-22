@@ -2,6 +2,12 @@
 
 All notable changes to Housing Codex.
 
+**2.8.5** (2026-06-23)
+
+**Fixed**
+- Improved bag, bank, and vendor indicators so item clicks stay reliable
+- Improved main window sizing on smaller screens
+
 **2.8.4** (2026-06-22)
 
 **Fixed**

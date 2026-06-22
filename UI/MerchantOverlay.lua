@@ -38,6 +38,32 @@ local function IsSecretValue(value)
     return type(issecretvalue) == "function" and issecretvalue(value)
 end
 
+local function CanAccessAllValues(...)
+    if type(canaccessallvalues) == "function" then
+        return canaccessallvalues(...)
+    end
+
+    for i = 1, select("#", ...) do
+        if IsSecretValue(select(i, ...)) then
+            return false
+        end
+    end
+
+    return true
+end
+
+local function IsSafeValue(value)
+    return value ~= nil and not IsSecretValue(value) and CanAccessAllValues(value)
+end
+
+local function IsSafeLookupKey(value)
+    return IsSafeValue(value)
+end
+
+local function IsSafeAnchor(frame)
+    return IsSafeValue(frame)
+end
+
 local function GetMerchantPageSize()
     local pageSize = _G.MERCHANT_ITEMS_PER_PAGE
     if pageSize == nil or IsSecretValue(pageSize) or type(pageSize) ~= "number" or pageSize < 1 then
@@ -69,12 +95,12 @@ local function GetLookupKey(button, displayIndex, numItems)
         itemID = GetMerchantItemID(displayIndex)
     end
 
-    if itemID ~= nil and not IsSecretValue(itemID) and type(itemID) == "number" then
+    if type(itemID) == "number" and IsSafeLookupKey(itemID) then
         return itemID
     end
 
     local link = button and button.link
-    if link ~= nil and not IsSecretValue(link) then
+    if IsSafeLookupKey(link) then
         local linkType = type(link)
         if linkType == "string" or linkType == "number" then
             return link
@@ -206,14 +232,20 @@ function MerchantOverlay:UpdateMerchantButtons()
             if not showDecor and not showCheckmark then
                 HideButtonOverlay(button)
             else
-                local overlay = self:GetOverlay(button)
-                overlay.frame:ClearAllPoints()
-                overlay.frame:SetPoint("TOPLEFT", button, "TOPLEFT", 0, 0)
-                overlay.hcShadow:SetShown(showDecor)
-                overlay.hcIcon:SetShown(showDecor)
-                overlay.checkShadow:SetShown(showCheckmark)
-                overlay.checkmark:SetShown(showCheckmark)
-                overlay.frame:Show()
+                if not IsSafeAnchor(button) then
+                    HideButtonOverlay(button)
+                else
+                    local overlay = self:GetOverlay(button)
+                    if overlay then
+                        overlay.frame:ClearAllPoints()
+                        overlay.frame:SetPoint("TOPLEFT", button, "TOPLEFT", 0, 0)
+                        overlay.hcShadow:SetShown(showDecor)
+                        overlay.hcIcon:SetShown(showDecor)
+                        overlay.checkShadow:SetShown(showCheckmark)
+                        overlay.checkmark:SetShown(showCheckmark)
+                        overlay.frame:Show()
+                    end
+                end
             end
         end
     end

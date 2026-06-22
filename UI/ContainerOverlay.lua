@@ -25,9 +25,35 @@ local function ShouldShowAnyContainerOverlay()
     return settings and (settings.showContainerDecorIndicators or settings.showContainerOwnedCheckmark)
 end
 
+local function IsSecretValue(value)
+    return type(issecretvalue) == "function" and issecretvalue(value)
+end
+
+local function CanAccessAllValues(...)
+    if type(canaccessallvalues) == "function" then
+        return canaccessallvalues(...)
+    end
+
+    for i = 1, select("#", ...) do
+        if IsSecretValue(select(i, ...)) then
+            return false
+        end
+    end
+
+    return true
+end
+
+local function IsSafeValue(value)
+    return value ~= nil and not IsSecretValue(value) and CanAccessAllValues(value)
+end
+
+local function IsSafeAnchor(frame)
+    return IsSafeValue(frame)
+end
+
 -- Look up decor info for an itemID (with caching)
 local function GetDecorInfo(itemID)
-    if not itemID then return nil end
+    if not IsSafeValue(itemID) then return nil end
 
     local cached = itemDecorCache[itemID]
     if cached ~= nil then
@@ -41,7 +67,7 @@ local function GetDecorInfo(itemID)
     return catalogInfo
 end
 
--- Get or create addon-owned overlay textures for a Blizzard item button
+-- Get or create addon-owned overlay textures for a Blizzard item button.
 function ContainerOverlay:GetOrCreateOverlay(button)
     local overlay = trackedButtons[button]
     if overlay then
@@ -121,7 +147,14 @@ function ContainerOverlay:UpdateButton(button, itemID)
         return
     end
 
+    if not IsSafeAnchor(button) then
+        HideButtonOverlay(button)
+        return
+    end
+
     local overlay = self:GetOrCreateOverlay(button)
+    if not overlay then return end
+
     overlay.frame:ClearAllPoints()
     overlay.frame:SetPoint("TOPLEFT", button, "TOPLEFT", 0, 0)
     overlay.hcShadow:SetShown(showDecorIcon)
@@ -142,7 +175,13 @@ function ContainerOverlay:UpdateContainerFrame(frame)
         if itemButton:IsShown() then
             local bagID = itemButton:GetBagID()
             local slotID = itemButton:GetID()
-            local itemID = bagID and slotID and C_Container.GetContainerItemID(bagID, slotID)
+            local itemID
+            if C_Container and C_Container.GetContainerItemID
+                and IsSafeValue(bagID)
+                and IsSafeValue(slotID)
+                and CanAccessAllValues(bagID, slotID) then
+                itemID = C_Container.GetContainerItemID(bagID, slotID)
+            end
             self:UpdateButton(itemButton, itemID)
         end
     end
