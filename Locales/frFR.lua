@@ -468,6 +468,7 @@ L["DROPS_EMPTY_NO_RESULTS"] = "Aucune source de butin ne correspond a votre rech
 L["DROPS_CATEGORY_DROP"] = "Butins"
 L["DROPS_CATEGORY_ENCOUNTER"] = "Boss"
 L["DROPS_CATEGORY_TREASURE"] = "Trésors"
+L["DROPS_CATEGORY_SHOP"] = "Boutique"
 
 -- Drop source display
 L["DROPS_DECOR_ID"] = "Décor #%d"

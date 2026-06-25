@@ -467,6 +467,7 @@ L["DROPS_EMPTY_NO_RESULTS"] = "Keine Beutequellen entsprechen deiner Suche"
 L["DROPS_CATEGORY_DROP"] = "Beute"
 L["DROPS_CATEGORY_ENCOUNTER"] = "Bosse"
 L["DROPS_CATEGORY_TREASURE"] = "Schätze"
+L["DROPS_CATEGORY_SHOP"] = "Shop"
 
 -- Drop source display
 L["DROPS_DECOR_ID"] = "Dekor #%d"

@@ -466,6 +466,7 @@ L["DROPS_EMPTY_NO_RESULTS"] = "没有符合您搜索条件的掉落来源"
 L["DROPS_CATEGORY_DROP"] = "掉落"
 L["DROPS_CATEGORY_ENCOUNTER"] = "首领"
 L["DROPS_CATEGORY_TREASURE"] = "宝箱"
+L["DROPS_CATEGORY_SHOP"] = "商店"
 
 -- Drop source display
 L["DROPS_DECOR_ID"] = "装饰 #%d"

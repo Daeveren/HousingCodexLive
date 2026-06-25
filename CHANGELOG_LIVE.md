@@ -2,6 +2,11 @@
 
 All notable changes to Housing Codex.
 
+**2.8.6** (2026-06-26)
+
+**Changed**
+- Improved localization support for non-English clients
+
 **2.8.5** (2026-06-23)
 
 **Fixed**
