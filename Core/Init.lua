@@ -1023,6 +1023,216 @@ function addon:PrintSlashCommandHelp()
     self:Print("  " .. L["HELP_HELP"])
 end
 
+local function ParseDevDecorAuditIDs(cmd)
+    local ids = {}
+    local seen = {}
+    local args = strtrim(cmd:sub(("devdecorcheck"):len() + 1) or "")
+
+    for token in string.gmatch(args, "%d+") do
+        local decorId = tonumber(token)
+        if decorId and not seen[decorId] then
+            ids[#ids + 1] = decorId
+            seen[decorId] = true
+        end
+    end
+
+    return ids
+end
+
+local function GetRecordLocation(decorId)
+    if addon.decorRecords and addon.decorRecords[decorId] then return "native" end
+
+    local fallback = addon.fallbackRecords and addon.fallbackRecords[decorId]
+    if fallback and fallback ~= false then return "fallback" end
+    if fallback == false then return "miss" end
+
+    return "none"
+end
+
+local function FindAchievementSourcesForDecor(decorId)
+    local sources = {}
+    if not addon.AchievementSourceData then return "" end
+
+    for achievementId, achievementData in pairs(addon.AchievementSourceData) do
+        if achievementData.decorIds then
+            for _, achievementDecorId in ipairs(achievementData.decorIds) do
+                if achievementDecorId == decorId then
+                    sources[#sources + 1] = tostring(achievementId)
+                    break
+                end
+            end
+        end
+    end
+
+    table.sort(sources)
+    return table.concat(sources, ",")
+end
+
+local function SearchResultsContain(recordIDs, decorId)
+    for _, recordID in ipairs(recordIDs or {}) do
+        if recordID == decorId then return true end
+    end
+    return false
+end
+
+function addon:CreateDevReportPopup()
+    if self.devReportPopup then return self.devReportPopup end
+
+    local popup = CreateFrame("Frame", "HousingCodexDevReportPopup", UIParent, "BackdropTemplate")
+    popup:SetSize(760, 520)
+    popup:SetPoint("CENTER")
+    popup:SetFrameStrata("DIALOG")
+    popup:SetClampedToScreen(true)
+    popup:EnableMouse(true)
+    popup:SetMovable(true)
+    popup:RegisterForDrag("LeftButton")
+    popup:SetScript("OnDragStart", popup.StartMoving)
+    popup:SetScript("OnDragStop", popup.StopMovingOrSizing)
+    popup:SetBackdrop({
+        bgFile = "Interface/Tooltips/UI-Tooltip-Background",
+        edgeFile = "Interface/Tooltips/UI-Tooltip-Border",
+        edgeSize = 16,
+        insets = { left = 4, right = 4, top = 4, bottom = 4 }
+    })
+    popup:SetBackdropColor(0.05, 0.05, 0.06, 0.98)
+    popup:SetBackdropBorderColor(0.6, 0.6, 0.6)
+    popup:Hide()
+    tinsert(UISpecialFrames, "HousingCodexDevReportPopup")
+
+    local title = self:CreateFontString(popup, "OVERLAY", "GameFontNormal")
+    title:SetPoint("TOPLEFT", 12, -10)
+    title:SetText("Housing Codex Dev Decor Audit")
+    title:SetTextColor(unpack(self.CONSTANTS.COLORS.GOLD))
+
+    local closeBtn = CreateFrame("Button", nil, popup, "UIPanelCloseButton")
+    closeBtn:SetPoint("TOPRIGHT", popup, "TOPRIGHT", -2, -2)
+    closeBtn:SetSize(24, 24)
+    closeBtn:SetScript("OnClick", function() popup:Hide() end)
+
+    local scrollFrame = CreateFrame("ScrollFrame", nil, popup, "UIPanelScrollFrameTemplate")
+    scrollFrame:SetPoint("TOPLEFT", 12, -36)
+    scrollFrame:SetPoint("BOTTOMRIGHT", -30, 12)
+
+    local editBox = CreateFrame("EditBox", nil, scrollFrame)
+    editBox:SetMultiLine(true)
+    editBox:SetAutoFocus(false)
+    editBox:SetFontObject(self:GetFontObject("GameFontHighlightSmall"))
+    self:RegisterFontString(editBox, "GameFontHighlightSmall")
+    editBox:SetWidth(700)
+    editBox:SetHeight(460)
+    editBox:SetScript("OnEscapePressed", function() popup:Hide() end)
+    scrollFrame:SetScrollChild(editBox)
+    popup.editBox = editBox
+
+    popup:SetScript("OnShow", function()
+        editBox:SetFocus()
+        editBox:HighlightText()
+    end)
+
+    self.devReportPopup = popup
+    return popup
+end
+
+function addon:ShowDevReportPopup(text)
+    if InCombatLockdown() then
+        self:Print(self.L["COMBAT_LOCKDOWN_MESSAGE"])
+        return
+    end
+
+    local popup = self:CreateDevReportPopup()
+    local lineCount = 1
+    for _ in string.gmatch(text or "", "\n") do
+        lineCount = lineCount + 1
+    end
+    popup.editBox:SetHeight(math.max(460, lineCount * 16))
+    popup.editBox:SetText(text or "")
+    popup.editBox:HighlightText()
+    popup:Show()
+end
+
+function addon:RunDevDecorAudit(cmd)
+    if not self.dataLoaded then
+        self:Print(self.L["DATA_NOT_LOADED"])
+        return
+    end
+
+    local ids = ParseDevDecorAuditIDs(cmd)
+    if #ids == 0 then
+        self:Print("Usage: /hc devdecorcheck <decorId> [decorId ...]")
+        return
+    end
+
+    local rows = {}
+    local resolvedCount = 0
+    for _, decorId in ipairs(ids) do
+        local beforeLocation = GetRecordLocation(decorId)
+        local beforeRecord = self:GetRecord(decorId)
+        local resolvedRecord = self:ResolveRecord(decorId)
+        local afterLocation = GetRecordLocation(decorId)
+        local record = self:GetRecord(decorId)
+        local name = self:ResolveDecorName(decorId, record or resolvedRecord or beforeRecord)
+        local icon = record and record.icon or self:ResolveDecorIcon(decorId)
+        local sourceText = record and record.sourceText or ""
+        local vendorFallback = self.VendorItemFallback and self.VendorItemFallback[decorId]
+        local vendorSource = self.GetVendorSourceText and self:GetVendorSourceText(decorId) or nil
+        local achievementSources = FindAchievementSourcesForDecor(decorId)
+
+        if resolvedRecord then resolvedCount = resolvedCount + 1 end
+
+        rows[#rows + 1] = {
+            decorId = decorId,
+            beforeLocation = beforeLocation,
+            afterLocation = afterLocation,
+            resolved = resolvedRecord ~= nil,
+            name = name or "",
+            icon = icon,
+            sourceText = sourceText,
+            vendorFallback = vendorFallback ~= nil,
+            vendorSource = vendorSource or "",
+            achievementSources = achievementSources,
+            searchHit = false,
+        }
+    end
+
+    if self.indexesBuilt then
+        if not self.byWordIndexBuilt then
+            self:BuildWordIndex()
+        end
+        for _, row in ipairs(rows) do
+            if row.name ~= "" then
+                row.searchHit = SearchResultsContain(self:SearchByText(row.name), row.decorId)
+            end
+        end
+    end
+
+    local lines = {}
+    lines[#lines + 1] = "Housing Codex dev decor audit"
+    lines[#lines + 1] = "Version: " .. tostring(self.version)
+    lines[#lines + 1] = "Checked: " .. tostring(date("%Y-%m-%d %H:%M:%S"))
+    lines[#lines + 1] = "IDs checked: " .. tostring(#rows)
+    lines[#lines + 1] = "Resolved after check: " .. tostring(resolvedCount)
+    lines[#lines + 1] = "Columns: decorId | before | after | resolved | wordSearchAfter | vendorFallback | achievementIds | name | icon | sourceText/vendorSource"
+    lines[#lines + 1] = ""
+
+    for _, row in ipairs(rows) do
+        local source = row.sourceText ~= "" and row.sourceText or row.vendorSource
+        lines[#lines + 1] = table.concat({
+            tostring(row.decorId),
+            row.beforeLocation,
+            row.afterLocation,
+            row.resolved and "yes" or "no",
+            row.searchHit and "yes" or "no",
+            row.vendorFallback and "yes" or "no",
+            row.achievementSources ~= "" and row.achievementSources or "-",
+            row.name ~= "" and row.name or "-",
+            tostring(row.icon or "-"),
+            source ~= "" and source or "-",
+        }, " | ")
+    end
+
+    self:ShowDevReportPopup(table.concat(lines, "\n"))
+end
+
 SlashCmdList["HOUSINGCODEX"] = function(msg)
     local cmd = strlower(strtrim(msg or ""))
     local L = addon.L
@@ -1078,6 +1288,8 @@ SlashCmdList["HOUSINGCODEX"] = function(msg)
         if addon.WhatsNew then
             addon.WhatsNew:ForceShow("welcome")
         end
+    elseif cmd == "devdecorcheck" or cmd:find("^devdecorcheck%s+") then
+        addon:RunDevDecorAudit(cmd)
     elseif cmd:find("^inspect ") then
         -- Debug: inspect a record by partial name match
         local searchName = cmd:sub(9):lower()

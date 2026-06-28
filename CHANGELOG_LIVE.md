@@ -2,6 +2,14 @@
 
 All notable changes to Housing Codex.
 
+**2.8.7** (2026-06-28)
+
+**Changed**
+- Updated 12.0.7 decor source data
+
+**Fixed**
+- Improved Drops tab category text for non-English clients
+
 **2.8.6** (2026-06-26)
 
 **Changed**
