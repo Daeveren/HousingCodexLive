@@ -21,6 +21,7 @@ local TRACKING_TYPE_DECOR = addon.CONSTANTS.TRACKING_TYPE_DECOR
 -- Retry configuration for data loading
 local MAX_RETRIES = 5
 local RETRY_DELAYS = { 0.5, 1, 2, 4, 8 }  -- Exponential backoff in seconds
+local CATALOG_BUILD_BATCH_SIZE = 250
 
 addon.catalogSearcher = nil
 addon.loadRetryCount = 0
@@ -174,20 +175,22 @@ end
 local function BuildRecordFields(entryID, info, options)
     local icon, iconType, isModelOnly = GetEntryIcon(info)
     local totalOwned = CalculateTotalOwned(info)
+    local itemID = info.itemID
+    local recordID = entryID.recordID
+    local addedPatch = recordID and addon.DecorAddedPatchByRecordID and addon.DecorAddedPatchByRecordID[recordID]
 
     local isCollected = IsInfoCollected(info)
 
     local isTrackable, isTracking = false, false
     if options and options.resolveTracking then
         local ct = C_ContentTracking
-        local recordID = entryID.recordID
         isTrackable = ct and ct.IsTrackable and ct.IsTrackable(TRACKING_TYPE_DECOR, recordID) or false
         isTracking  = ct and ct.IsTracking  and ct.IsTracking(TRACKING_TYPE_DECOR, recordID)  or false
     end
 
     return {
         entryID = entryID,
-        recordID = entryID.recordID,
+        recordID = recordID,
         name = info.name or "",
         icon = icon,
         iconType = iconType,
@@ -206,13 +209,13 @@ local function BuildRecordFields(entryID, info, options)
         canCustomize = info.canCustomize or false,
         modelAsset = info.asset,
         modelSceneID = info.uiModelSceneID,
-        itemID = info.itemID,
+        itemID = itemID,
+        addedPatch = addedPatch,
         sourceText = info.sourceText or "",
         isTrackable = isTrackable,
         isTracking = isTracking,
     }
 end
-
 local function BuildRecord(entryID, info)
     if not info then return nil end
     return BuildRecordFields(entryID, info)
@@ -359,49 +362,77 @@ function addon:ProcessSearchResults(searcher, generation)
 
     self:Debug("Processing " .. #entryVariantIDs .. " catalog entries")
 
-    -- Build records, deduplicating by recordID
-    -- (Same item can have multiple entryVariantIDs from different stacks;
-    -- ownership fields are per-recordID totals, not per-entry)
+    -- Build records in small batches. Login/reload is already busy, and doing
+    -- every catalog API lookup in one callback can trip WoW's insecure script
+    -- execution limit before DATA_LOADED fires.
+    self.loadingInProgress = true
     local records = {}
     local recordCount = 0
+    local index = 1
+    local total = #entryVariantIDs
 
-    for _, entryVariantID in ipairs(entryVariantIDs) do
-        local entryType = entryVariantID.entryType
-        local recordID = entryVariantID.recordID
-        -- Check duplicate first to avoid unnecessary API call
-        if HasValidCatalogRecordLookupArgs(entryType, recordID) and not records[recordID] then
-            -- Use recordID-based query so a dedup winner still reflects aggregate ownership;
-            -- native totalNumStored/totalNumPlaced/remainingRedeemable already sum across variants.
-            local info = GetCatalogEntryInfoByRecordID(entryType, recordID)
-            if info and not info.isPrefab then
-                local record = BuildRecord(entryVariantID, info)
-                if record then
-                    records[recordID] = record
-                    recordCount = recordCount + 1
+    local function FinishInitialLoad()
+        self.loadingInProgress = false
+        self.decorRecords = records
+        self.cachedAllRecordIDs = nil
+
+        -- Mark as loaded before the optional tracking refresh. Tracking queries
+        -- touch every record too, so they should not be able to leave the UI in
+        -- the startup loading state if the client is already under load.
+        self.dataLoaded = true
+
+        local elapsedMs = math.floor(debugprofilestop() - (self.loadStartTime or 0))
+        self:Debug(string.format("Loaded %d records in %d ms", recordCount, elapsedMs))
+
+        -- Fire loaded event
+        self:FireEvent("DATA_LOADED", recordCount)
+
+        local decorTotal = self:GetVisibleDecorRecordCount()
+        local decorCollected = self:GetVisibleDecorCollectedCount()
+        local collectedPct = decorTotal > 0 and (decorCollected / decorTotal * 100) or 0
+        self:Print(string.format(self.L["LOADED_MESSAGE"], collectedPct))
+
+        C_Timer.After(0, function()
+            if self.dataLoaded then
+                self:UpdateAllTrackingStatus()
+            end
+        end)
+    end
+
+    local function ProcessBatch()
+        if generation and not IsCurrentSearcher(self, searcher, generation) then
+            return
+        end
+
+        local batchEnd = math.min(index + CATALOG_BUILD_BATCH_SIZE - 1, total)
+        while index <= batchEnd do
+            local entryVariantID = entryVariantIDs[index]
+            local entryType = entryVariantID.entryType
+            local recordID = entryVariantID.recordID
+            -- Check duplicate first to avoid unnecessary API call
+            if HasValidCatalogRecordLookupArgs(entryType, recordID) and not records[recordID] then
+                -- Use recordID-based query so a dedup winner still reflects aggregate ownership;
+                -- native totalNumStored/totalNumPlaced/remainingRedeemable already sum across variants.
+                local info = GetCatalogEntryInfoByRecordID(entryType, recordID)
+                if info and not info.isPrefab then
+                    local record = BuildRecord(entryVariantID, info)
+                    if record then
+                        records[recordID] = record
+                        recordCount = recordCount + 1
+                    end
                 end
             end
+            index = index + 1
+        end
+
+        if index <= total then
+            C_Timer.After(0, ProcessBatch)
+        else
+            FinishInitialLoad()
         end
     end
 
-    self.decorRecords = records
-    self.cachedAllRecordIDs = nil
-
-    -- Update tracking status for all records
-    self:UpdateAllTrackingStatus()
-
-    -- Mark as loaded
-    self.dataLoaded = true
-
-    local elapsedMs = math.floor(debugprofilestop() - (self.loadStartTime or 0))
-    self:Debug(string.format("Loaded %d records in %d ms", recordCount, elapsedMs))
-
-    -- Fire loaded event
-    self:FireEvent("DATA_LOADED", recordCount)
-
-    local decorTotal = self:GetVisibleDecorRecordCount()
-    local decorCollected = self:GetVisibleDecorCollectedCount()
-    local collectedPct = decorTotal > 0 and (decorCollected / decorTotal * 100) or 0
-    self:Print(string.format(self.L["LOADED_MESSAGE"], collectedPct))
+    ProcessBatch()
 end
 
 function addon:OnSearchResultsUpdated(entryVariantIDs)
@@ -466,9 +497,9 @@ end
 
 -- Resolve display icon for a decorId when no catalog record exists
 function addon:ResolveDecorIcon(decorId)
-    if C_HousingDecor and C_HousingDecor.GetDecorIcon then
+    if C_HousingDecor and C_HousingDecor.GetDecorIcon and decorId and not IsSecretValue(decorId) then
         local icon = C_HousingDecor.GetDecorIcon(decorId)
-        if icon then return icon end
+        if IsValidFileID(icon) or IsValidTexturePath(icon) then return icon end
     end
     return FALLBACK_ICON
 end

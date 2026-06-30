@@ -92,6 +92,34 @@ function addon:GetDropSourceText(decorId)
     return self.decorDropSourceText and self.decorDropSourceText[decorId]
 end
 
+function addon:ResolveDropShopRecords()
+    if not self.dataLoaded or not self.DropSourceData then return 0 end
+
+    local resolved = 0
+    local seen = {}
+    for category, sources in pairs(self.DropSourceData) do
+        if strlower(tostring(category or "")) == "shop" then
+            for _, sourceData in ipairs(sources or {}) do
+                for _, decorId in ipairs(sourceData.decorIds or {}) do
+                    if decorId and not seen[decorId] then
+                        seen[decorId] = true
+                        if self:GetRecord(decorId) or self:ResolveRecord(decorId) then
+                            resolved = resolved + 1
+                        end
+                    end
+                end
+            end
+        end
+    end
+
+    if resolved > 0 then
+        self.byWordIndexBuilt = false
+        self.cachedAllRecordIDs = nil
+    end
+
+    return resolved
+end
+
 function addon:EnrichDropSourceText()
     if not self.decorDropSourceText then return 0 end
 
@@ -241,6 +269,7 @@ end)
 
 addon:RegisterInternalEvent("DATA_LOADED", function()
     addon:BuildDropSourceLookup()
+    addon:ResolveDropShopRecords()
     addon:EnrichDropSourceText()
 end)
 

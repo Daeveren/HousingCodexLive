@@ -1233,6 +1233,58 @@ function addon:RunDevDecorAudit(cmd)
     self:ShowDevReportPopup(table.concat(lines, "\n"))
 end
 
+function addon:RunDevPatchMissingReport()
+    if not self.dataLoaded then
+        self:Print(self.L["DATA_NOT_LOADED"])
+        return
+    end
+
+    local seen = {}
+    local rows = {}
+    local function AddRecord(recordID, record, location)
+        if seen[recordID] or not record or record == false then return end
+        seen[recordID] = true
+        if record.addedPatch and record.addedPatch ~= "" then return end
+
+        rows[#rows + 1] = {
+            recordID = recordID,
+            itemID = record.itemID,
+            name = record.name or self:ResolveDecorName(recordID, record) or "",
+            sourceText = record.sourceText or "",
+            location = location,
+        }
+    end
+
+    for recordID, record in pairs(self.decorRecords or {}) do
+        AddRecord(recordID, record, "native")
+    end
+    for recordID, record in pairs(self.fallbackRecords or {}) do
+        AddRecord(recordID, record, "fallback")
+    end
+
+    table.sort(rows, function(a, b) return a.recordID < b.recordID end)
+
+    local lines = {}
+    lines[#lines + 1] = "Housing Codex missing patch data report"
+    lines[#lines + 1] = "Version: " .. tostring(self.version)
+    lines[#lines + 1] = "Checked: " .. tostring(date("%Y-%m-%d %H:%M:%S"))
+    lines[#lines + 1] = "Missing records: " .. tostring(#rows)
+    lines[#lines + 1] = "Columns: recordID | itemID | location | name | sourceText"
+    lines[#lines + 1] = ""
+
+    for _, row in ipairs(rows) do
+        lines[#lines + 1] = table.concat({
+            tostring(row.recordID),
+            tostring(row.itemID or "-"),
+            row.location,
+            row.name ~= "" and row.name or "-",
+            row.sourceText ~= "" and row.sourceText or "-",
+        }, " | ")
+    end
+
+    self:ShowDevReportPopup(table.concat(lines, "\n"))
+end
+
 SlashCmdList["HOUSINGCODEX"] = function(msg)
     local cmd = strlower(strtrim(msg or ""))
     local L = addon.L
@@ -1290,6 +1342,8 @@ SlashCmdList["HOUSINGCODEX"] = function(msg)
         end
     elseif cmd == "devdecorcheck" or cmd:find("^devdecorcheck%s+") then
         addon:RunDevDecorAudit(cmd)
+    elseif cmd == "devpatchmissing" then
+        addon:RunDevPatchMissingReport()
     elseif cmd:find("^inspect ") then
         -- Debug: inspect a record by partial name match
         local searchName = cmd:sub(9):lower()

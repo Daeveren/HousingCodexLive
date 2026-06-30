@@ -159,6 +159,38 @@ function FilterBar:SetupMenu(rootDescription)
         end
     end
 
+    local patchSubmenu = rootDescription:CreateButton(L["FILTER_ADDED_PATCH_HEADER"])
+    local patchOptions = addon.Filters:GetAddedPatchFilterOptions()
+    if #patchOptions == 0 then
+        patchSubmenu:CreateTitle(L["FILTER_NO_PATCHES"])
+    end
+    patchSubmenu:CreateButton(
+        L["CHECK_ALL"],
+        function()
+            addon.Filters:SetAllAddedPatchesEnabled(true)
+            return MenuResponse.Refresh
+        end
+    )
+    patchSubmenu:CreateButton(
+        L["UNCHECK_ALL"],
+        function()
+            addon.Filters:SetAllAddedPatchesEnabled(false)
+            return MenuResponse.Refresh
+        end
+    )
+    patchSubmenu:CreateSpacer()
+    for _, patch in ipairs(patchOptions) do
+        patchSubmenu:CreateCheckbox(
+            patch,
+            function()
+                return addon.Filters:IsAddedPatchSelected(patch)
+            end,
+            function()
+                addon.Filters:SetAddedPatchEnabled(patch, not addon.Filters:IsAddedPatchSelected(patch))
+                return MenuResponse.Refresh
+            end
+        )
+    end
     -- NOTE: "Placed in House" filter disabled — Blizzard API returns numPlaced=0
     -- for all items (bug in GetCatalogEntryInfo). Re-enable when Blizzard fixes.
 
@@ -266,6 +298,9 @@ function FilterBar:ResetToDefault(options)
 
         -- Reset vendor currency filter (post-search filter)
         addon.Filters:ClearCurrencyFilter(true)
+
+        -- Reset added patch filter (post-search filter)
+        addon.Filters:SetAllAddedPatchesEnabled(true, true)
 
         -- Reset trackable filter (post-search filter)
         addon.Filters:SetTrackableState("all")

@@ -17,6 +17,7 @@ Filters.showPlacedOnly = false
 Filters.showPromoOnly = false
 Filters.hideShopItems = false
 Filters.currencyFilter = {}
+Filters.addedPatchFilter = {}
 Filters.initialized = false
 Filters.decorCurrencyKeys = nil
 Filters.currencyFilterKeys = nil
@@ -24,6 +25,7 @@ Filters.currencyFilterKeySet = nil
 Filters.currencyLookupBuilt = false
 
 local FILTER_CURRENCY_GOLD_KEY = addon.CONSTANTS.VENDOR_CURRENCY_GOLD_KEY
+local FILTER_NO_ADDED_PATCH_KEY = "__no_patch_data"
 
 -- Valid states for trackable filter
 local TRACKABLE_STATES = { all = true, trackable = true, not_trackable = true }
@@ -58,6 +60,8 @@ function Filters:Initialize()
         self.showPromoOnly = filters.showPromoOnly or false
         self.hideShopItems = filters.hideShopItems or false
         self.currencyFilter = type(filters.currencyFilter) == "table" and filters.currencyFilter or {}
+        filters.addedPatchFilter = nil
+        self.addedPatchFilter = {}
     end
 
     self.initialized = true
@@ -412,6 +416,91 @@ function Filters:PassesCurrencyFilter(record)
     return false
 end
 
+
+--------------------------------------------------------------------------------
+-- Added Patch Filter
+--------------------------------------------------------------------------------
+
+function Filters:GetAddedPatchFilter()
+    if type(self.addedPatchFilter) ~= "table" then
+        self.addedPatchFilter = {}
+    end
+    return self.addedPatchFilter
+end
+
+function Filters:GetAddedPatchFilterOptions()
+    local options = {}
+    for _, patch in ipairs(addon.DecorAddedPatchVersions or {}) do
+        table.insert(options, patch)
+    end
+    return options
+end
+
+function Filters:HasActiveAddedPatchFilter()
+    for _, selected in pairs(self:GetAddedPatchFilter()) do
+        if selected == false then
+            return true
+        end
+    end
+    return false
+end
+
+function Filters:IsAddedPatchSelected(patch)
+    if not patch then return false end
+    return self:GetAddedPatchFilter()[patch] ~= false
+end
+
+function Filters:HasSelectedAddedPatch()
+    for _, patch in ipairs(addon.DecorAddedPatchVersions or {}) do
+        if self:IsAddedPatchSelected(patch) then
+            return true
+        end
+    end
+    return false
+end
+
+function Filters:IsNoAddedPatchSelected()
+    return self:IsAddedPatchSelected(FILTER_NO_ADDED_PATCH_KEY)
+end
+
+function Filters:SetAddedPatchEnabled(patch, enabled, skipApply)
+    if not patch then return end
+
+    local filters = self:GetAddedPatchFilter()
+    if enabled then
+        filters[patch] = nil
+    else
+        filters[patch] = false
+    end
+
+    if not skipApply then
+        addon:FireEvent("FILTER_CHANGED")
+    end
+end
+
+function Filters:SetAllAddedPatchesEnabled(enabled, skipApply)
+    local filters = self:GetAddedPatchFilter()
+    wipe(filters)
+    if not enabled then
+        for _, patch in ipairs(addon.DecorAddedPatchVersions or {}) do
+            filters[patch] = false
+        end
+    end
+
+    if not skipApply then
+        addon:FireEvent("FILTER_CHANGED")
+    end
+end
+
+function Filters:PassesAddedPatchFilter(record)
+    if not self:HasActiveAddedPatchFilter() then return true end
+    if not record then return false end
+    if not record.addedPatch or record.addedPatch == "" then
+        return self:IsNoAddedPatchSelected()
+    end
+    return self:IsAddedPatchSelected(record.addedPatch) == true
+end
+
 -- Returns true if id exists in a numerically-indexed list
 local function ContainsID(list, id)
     for _, v in ipairs(list) do
@@ -469,12 +558,13 @@ function Filters:PassesSearcherFilters(record)
 end
 
 -- Check if advanced filters are at default (for client-side search safety)
-function Filters:AreAdvancedFiltersAtDefault()
+function Filters:AreAdvancedFiltersAtDefault(ignoreAddedPatchFilter)
     local searcher = addon.catalogSearcher
     if not searcher then return true end
 
     -- First Acquisition must be disabled (default is false)
     if searcher:IsFirstAcquisitionBonusOnlyActive() then return false end
+    if not ignoreAddedPatchFilter and self:HasActiveAddedPatchFilter() then return false end
 
     -- All tag filters must be enabled (default is true)
     if addon.FilterBar and addon.FilterBar.tagGroups then
@@ -580,6 +670,8 @@ function Filters:RestoreState()
 
         -- Restore vendor currency filter
         self.currencyFilter = type(db.currencyFilter) == "table" and db.currencyFilter or {}
+        db.addedPatchFilter = nil
+        self.addedPatchFilter = {}
 
         -- Restore searcher-based filters
         if searcher then
@@ -661,6 +753,9 @@ function Filters:ResetAllFilters(options)
 
         -- Reset vendor currency filter
         self:ClearCurrencyFilter(true)
+
+        -- Reset added patch filter
+        self:SetAllAddedPatchesEnabled(true, true)
 
         -- Reset category/subcategory filters
         if addon.Categories then

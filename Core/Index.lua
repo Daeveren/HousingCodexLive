@@ -138,10 +138,24 @@ function addon:SearchByText(searchText)
     end
 
     local results = {}
+    local searchLower = string.lower(searchText)
+    if string.match(searchLower, "^%d+%.%d+$") or string.match(searchLower, "^%d+%.%d+%.%d+$") then
+        local seen = {}
+        for recordID, patch in pairs(self.DecorAddedPatchByRecordID or {}) do
+            if patch == searchLower then
+                local record = self:GetRecord(recordID) or self:ResolveRecord(recordID)
+                if record and not seen[recordID] then
+                    seen[recordID] = true
+                    table.insert(results, recordID)
+                end
+            end
+        end
+        return results
+    end
+
     local words = {}
 
     -- Extract search words
-    local searchLower = string.lower(searchText)
     for word in string.gmatch(searchLower, "%w+") do
         if #word >= 2 then
             table.insert(words, word)

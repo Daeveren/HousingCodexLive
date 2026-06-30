@@ -600,6 +600,19 @@ end
 
 function Preview:CreateActionsRow(details, anchorElement)
     addon:CreateActionsRow(self, details, anchorElement, ROW_GAP, PADDING)
+
+    local patchValue = addon:CreateFontString(self.actionsRow, "OVERLAY", "GameFontHighlight")
+    patchValue:SetPoint("RIGHT", self.actionsRow, "RIGHT", 0, 0)
+    patchValue:SetTextColor(1, 1, 1)
+    patchValue:Hide()
+    self.detailsAddedPatch = patchValue
+
+    local patchLabel = addon:CreateFontString(self.actionsRow, "OVERLAY", "GameFontHighlight")
+    patchLabel:SetPoint("RIGHT", patchValue, "LEFT", -4, 0)
+    patchLabel:SetText(addon.L["DETAILS_ADDED_PATCH"])
+    patchLabel:SetTextColor(0.5, 0.5, 0.5)
+    patchLabel:Hide()
+    self.detailsAddedPatchLabel = patchLabel
 end
 
 function Preview:UpdateWishlistButton()
@@ -681,6 +694,16 @@ function Preview:UpdateDetails(record)
     -- Category (show "Category > Subcategory" format)
     self.detailsCategory:SetText(self:FormatCategoryPath(record))
 
+    if record.addedPatch and record.addedPatch ~= "" then
+        self.detailsAddedPatch:SetText(record.addedPatch)
+        self.detailsAddedPatch:Show()
+        self.detailsAddedPatchLabel:Show()
+    else
+        self.detailsAddedPatch:SetText("")
+        self.detailsAddedPatch:Hide()
+        self.detailsAddedPatchLabel:Hide()
+    end
+
     -- ========== Actions (1C.9) ==========
     self:UpdateActionButtons(record)
 
@@ -701,7 +724,11 @@ function Preview:ClearDetails()
     self.detailsPlacement:SetText("-")
     self.detailsDyeable:SetText("")
     self.detailsCategory:SetText("")
-
+    if self.detailsAddedPatch then
+        self.detailsAddedPatch:SetText("")
+        self.detailsAddedPatch:Hide()
+        self.detailsAddedPatchLabel:Hide()
+    end
     -- Reset action buttons to disabled state (wishlist uses UpdateWishlistButton which handles nil recordID)
     self:UpdateWishlistButton()
     if self.trackButton then

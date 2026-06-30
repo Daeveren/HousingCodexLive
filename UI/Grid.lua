@@ -645,6 +645,7 @@ function Grid:ApplyPostSearchFilters(recordIDs)
             and addon.Filters:PassesPlacedFilter(record)
             and addon.Filters:PassesPromoFilter(record)
             and addon.Filters:PassesCurrencyFilter(record)
+            and addon.Filters:PassesAddedPatchFilter(record)
         then
             table.insert(filtered, recordID)
         end
@@ -677,6 +678,40 @@ function Grid:ApplyClientSideSort(recordIDs, sortType)
     return recordIDs
 end
 
+local function CopyAugmentedCandidates(candidates)
+    local seen = {}
+    local merged = {}
+    for _, id in ipairs(candidates) do
+        seen[id] = true
+        merged[#merged + 1] = id
+    end
+    return seen, merged
+end
+
+local function MergeAugmentedCandidates(candidates, sourceIDs, includeCandidate)
+    local seen, merged = CopyAugmentedCandidates(candidates)
+
+    for id, value in pairs(sourceIDs) do
+        if not seen[id] and includeCandidate(id, value) then
+            seen[id] = true
+            merged[#merged + 1] = id
+        end
+    end
+    return merged
+end
+
+local function MergeAugmentedCandidateList(candidates, sourceIDs, includeCandidate)
+    local seen, merged = CopyAugmentedCandidates(candidates)
+
+    for _, id in ipairs(sourceIDs) do
+        if not seen[id] and includeCandidate(id) then
+            seen[id] = true
+            merged[#merged + 1] = id
+        end
+    end
+    return merged
+end
+
 function Grid:SetData(recordIDs)
     if not self.scrollBox or not self.dataProvider then return end
 
@@ -699,22 +734,28 @@ function Grid:SetData(recordIDs)
     local searchText = strtrim(addon.SearchBox and addon.SearchBox:GetText() or "")
     if addon.Filters.showPromoOnly and addon.PromotionalDecorIds and searchText == ""
        and addon.Filters:AreAdvancedFiltersAtDefault() then
-        local seen = {}
-        local merged = {}
-        for _, id in ipairs(candidates) do
-            seen[id] = true
-            merged[#merged + 1] = id
+        candidates = MergeAugmentedCandidates(candidates, addon.PromotionalDecorIds, function(promoId)
+            local record = addon:GetRecord(promoId)
+            return record and addon.Filters:PassesSearcherFilters(record)
+        end)
+    end
+
+    if addon.Filters:HasActiveAddedPatchFilter() and searchText == ""
+       and addon.Filters:AreAdvancedFiltersAtDefault(true) then
+        if addon.Filters:HasSelectedAddedPatch() and addon.DecorAddedPatchByRecordID then
+            candidates = MergeAugmentedCandidates(candidates, addon.DecorAddedPatchByRecordID, function(patchId, patch)
+                if not addon.Filters:IsAddedPatchSelected(patch) then return false end
+                local record = addon:GetRecord(patchId) or addon:ResolveRecord(patchId)
+                return record and addon.Filters:PassesSearcherFilters(record)
+            end)
         end
-        for promoId in pairs(addon.PromotionalDecorIds) do
-            if not seen[promoId] then
-                local record = addon:GetRecord(promoId)
-                if record and addon.Filters:PassesSearcherFilters(record) then
-                    seen[promoId] = true
-                    merged[#merged + 1] = promoId
-                end
-            end
+        if addon.Filters:IsNoAddedPatchSelected() then
+            candidates = MergeAugmentedCandidateList(candidates, addon:GetAllRecordIDs(), function(recordID)
+                local record = addon:GetRecord(recordID)
+                return record and (not record.addedPatch or record.addedPatch == "")
+                    and addon.Filters:PassesSearcherFilters(record)
+            end)
         end
-        candidates = merged
     end
     self.candidateCount = #candidates
 
@@ -754,6 +795,7 @@ function Grid:SetData(recordIDs)
                 and addon.Filters:PassesPlacedFilter(record)
                 and addon.Filters:PassesPromoFilter(record)
                 and addon.Filters:PassesCurrencyFilter(record)
+                and addon.Filters:PassesAddedPatchFilter(record)
             then
                 filteredIDs[#filteredIDs + 1] = recordID
                 elements[#elements + 1] = { recordID = recordID }
@@ -933,8 +975,10 @@ addon:RegisterInternalEvent("SEARCH_RESULTS_UPDATED", function(recordIDs)
     -- strips that punctuation during indexing — so the index already contains
     -- the bare `len`/`splinthoof`/`marusa` tokens; this guard just stopped
     -- queries containing those characters from reaching SearchByText at all.
+    -- Periods are allowed so exact patch-version searches like 12.0.7 can
+    -- match Added in patch metadata through SearchByText.
     local searchText = strtrim(addon.SearchBox and addon.SearchBox:GetText() or "")
-    if #searchText >= 3 and not string.find(searchText, "[^%w%s'\"%-]") and addon.indexesBuilt
+    if #searchText >= 3 and not string.find(searchText, "[^%w%s'\"%-%.]") and addon.indexesBuilt
        and addon.Filters:AreAdvancedFiltersAtDefault()
        and not IS_CJK_LOCALE then
         if not addon.byWordIndexBuilt then

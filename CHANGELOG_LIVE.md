@@ -2,6 +2,20 @@
 
 All notable changes to Housing Codex.
 
+**2.9.0** (2026-06-30)
+
+**Added**
+- NEW feature! Updated all decor items to include "Added in Patch ..."
+- NEW feature! "Added in Patch" filters in Decor tab let you browse items by patch number
+- You can also search by patch number in the search box
+
+**Changed**
+- Updated shop source data
+
+**Fixed**
+- Improved startup loading reliability for decor data
+- Improved source data reliability
+
 **2.8.7** (2026-06-28)
 
 **Changed**

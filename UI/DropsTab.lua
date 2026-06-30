@@ -68,6 +68,36 @@ DropsTab.filterContainer = nil
 -- SetupSourceRow (per-tab override — simple drop source display)
 --------------------------------------------------------------------------------
 
+local function CopySourceDataWithDecorIds(sourceData, decorIds)
+    local copy = {}
+    for key, value in pairs(sourceData) do
+        copy[key] = value
+    end
+    copy.decorIds = decorIds
+    return copy
+end
+
+local function SourceHeaderMatchesSearch(sourceData, searchText, category)
+    if searchText == "" then return true end
+
+    if sourceData.sourceName and strlower(sourceData.sourceName):find(searchText, 1, true) then
+        return true
+    end
+
+    local localizedName = addon:GetLocalizedSourceName(sourceData.sourceName)
+    if localizedName and localizedName ~= sourceData.sourceName and strlower(localizedName):find(searchText, 1, true) then
+        return true
+    end
+
+    local catInfo = DropsTab.cfg.getCategoryInfo(category)
+    if catInfo then
+        local catLabel = strlower(addon.L[catInfo.labelKey] or "")
+        if catLabel:find(searchText, 1, true) then return true end
+    end
+
+    return false
+end
+
 function DropsTab:SetupSourceRow(frame, elementData)
     local L = addon.L
     local decorIds = elementData.decorIds or {}
@@ -100,6 +130,34 @@ function DropsTab:SetupSourceRow(frame, elementData)
 
     local isSourceSelected = self.selectedSourceName == elementData.sourceName
     self:UpdateSourceSelectionVisual(frame, isSourceSelected)
+end
+
+function DropsTab:GetVisibleSourceElement(sourceData, category, filter, searchText, visCache)
+    if visCache then
+        return visCache[category .. "\0" .. sourceData.sourceName]
+    end
+
+    local visibleSourceData = self:GetVisibleSourceData(sourceData)
+    if not visibleSourceData then return nil end
+
+    local sourceForFilter = visibleSourceData
+    if searchText ~= "" and not SourceHeaderMatchesSearch(visibleSourceData, searchText, category) then
+        local matchingDecorIds = {}
+        for _, decorId in ipairs(visibleSourceData.decorIds or {}) do
+            local name = addon:ResolveDecorName(decorId, addon:GetRecord(decorId))
+            if name and strlower(name):find(searchText, 1, true) then
+                matchingDecorIds[#matchingDecorIds + 1] = decorId
+            end
+        end
+
+        if #matchingDecorIds == 0 then return nil end
+        sourceForFilter = CopySourceDataWithDecorIds(visibleSourceData, matchingDecorIds)
+    end
+
+    if self:SourcePassesCompletionFilter(sourceForFilter, filter) then
+        return sourceForFilter
+    end
+    return nil
 end
 
 --------------------------------------------------------------------------------

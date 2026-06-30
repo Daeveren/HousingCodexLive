@@ -9,8 +9,8 @@ A World of Warcraft addon that gives you a better way to browse, track, and coll
 ### Catalog
 
 - **Grid View** - Browse all decorations in a searchable grid with thumbnails
-- **3D Preview** - Docked preview panel with auto-rotating model, source info, size, and dye options
-- **Filters** - Filter by collected/uncollected, wishlist, promo-only, hide shop items, trackable, indoor/outdoor, dyeable, first-acquisition bonus, and Blizzard catalog tags
+- **3D Preview** - Docked preview panel with auto-rotating model, source info, added-patch metadata when known, size, and dye options
+- **Filters** - Filter by collected/uncollected, wishlist, promo-only, hide shop items, added patch, trackable, indoor/outdoor, dyeable, first-acquisition bonus, and Blizzard catalog tags
 - **Wishlist & Hidden Items** - Star items to track, view them in a dedicated window, filter the catalog to show only wishlisted items, or right-click items to hide them from all views
 - **Quick Access** - Left-click to select and preview, shift-click to track on the map, right-click for context menu (chat link, Wowhead, track)
 

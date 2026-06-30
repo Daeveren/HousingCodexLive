@@ -943,10 +943,8 @@ function TabBaseMixin:BuildSourceVisibilityCache(filter, searchText)
     local cache = {}
     for _, category in ipairs(self.cfg.getSortedCategories()) do
         for _, sourceData in ipairs(self.cfg.getSourcesForCategory(category)) do
-            local visibleSourceData = self:GetVisibleSourceData(sourceData)
-            if visibleSourceData
-                and self:SourcePassesCompletionFilter(visibleSourceData, filter)
-                and self:SourceMatchesSearch(visibleSourceData, searchText, category) then
+            local visibleSourceData = self:GetVisibleSourceElement(sourceData, category, filter, searchText)
+            if visibleSourceData then
                 cache[category .. "\0" .. sourceData.sourceName] = visibleSourceData
             end
         end
