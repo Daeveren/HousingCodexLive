@@ -438,9 +438,9 @@ function addon.Settings:Initialize()
         panel,
         L["OPTIONS_TREASURE_HUNT_WAYPOINTS"],
         L["OPTIONS_TREASURE_HUNT_WAYPOINTS_TOOLTIP"],
-        function() return addon.db and addon.db.settings and addon.db.settings.treasureHuntWaypoints end,
+        function() return addon.db and addon.db.settings.treasureHuntWaypoints end,
         function(checked)
-            if addon.db and addon.db.settings then
+            if addon.db then
                 addon.db.settings.treasureHuntWaypoints = checked
                 if addon.TreasureHuntWaypoints then
                     addon.TreasureHuntWaypoints.UpdateListenerState()
@@ -693,12 +693,12 @@ function addon.Settings:Initialize()
     local customFontBtn
     local function UpdateCustomFontButtonText()
         if not customFontBtn then return end
-        local useCustomFont = addon.db and addon.db.settings and addon.db.settings.useCustomFont
+        local useCustomFont = addon.db and addon.db.settings.useCustomFont
         customFontBtn:SetText(useCustomFont and L["OPTIONS_DISABLE_CUSTOM_FONT"] or L["OPTIONS_ENABLE_CUSTOM_FONT"])
     end
 
     customFontBtn = addon:CreateActionButton(panel, L["OPTIONS_DISABLE_CUSTOM_FONT"], function()
-        if not (addon.db and addon.db.settings) then return end
+        if not addon.db then return end
         local enableCustomFont = not addon.db.settings.useCustomFont
         local label = enableCustomFont and L["OPTIONS_ENABLE_CUSTOM_FONT"] or L["OPTIONS_DISABLE_CUSTOM_FONT"]
         local message = string.format(L["OPTIONS_CUSTOM_FONT_CONFIRM"], label, L["OPTIONS_DISABLE_CUSTOM_FONT_TOOLTIP"])
@@ -706,7 +706,7 @@ function addon.Settings:Initialize()
             enabled = enableCustomFont,
         })
     end, function(btn)
-        local useCustomFont = addon.db and addon.db.settings and addon.db.settings.useCustomFont
+        local useCustomFont = addon.db and addon.db.settings.useCustomFont
         local label = useCustomFont and L["OPTIONS_DISABLE_CUSTOM_FONT"] or L["OPTIONS_ENABLE_CUSTOM_FONT"]
         GameTooltip:SetOwner(btn, "ANCHOR_RIGHT")
         GameTooltip:SetText(label, 1, 0.82, 0)

@@ -84,8 +84,10 @@ end
 
 -- Runtime data structures
 addon.renownHierarchy = {}         -- { [expansionKey] = { factions = {...} } }
+addon.renownFactionByID = {}
 addon.renownIndexBuilt = false
 addon.renownProgressCache = {}     -- { [factionID] = { owned, total } }
+addon.renownExpansionProgressCache = {}
 addon.renownStandingCache = {}     -- { [factionID] = standing info }
 
 -- NPC ID → decorIds lookup built from VendorSourceData
@@ -411,7 +413,9 @@ function addon:BuildRenownIndex()
     local startTime = debugprofilestop()
 
     wipe(self.renownHierarchy)
+    wipe(self.renownFactionByID)
     wipe(self.renownProgressCache)
+    wipe(self.renownExpansionProgressCache)
     wipe(self.renownStandingCache)
     vendorNPCDecorLookup = nil  -- Force rebuild on next access
 
@@ -426,7 +430,7 @@ function addon:BuildRenownIndex()
 
             local resolvedDecorEntries, resolvedDecorIds = ResolveDecorEntriesForFaction(factionData)
 
-            table.insert(self.renownHierarchy[expKey].factions, {
+            local entry = {
                 factionID = factionID,
                 label = factionData.label,
                 localizedLabel = ResolveFactionLocalizedName(factionID),
@@ -437,7 +441,9 @@ function addon:BuildRenownIndex()
                 vendors = factionData.vendors,
                 resolvedDecorEntries = resolvedDecorEntries,
                 resolvedDecorIds = resolvedDecorIds,
-            })
+            }
+            table.insert(self.renownHierarchy[expKey].factions, entry)
+            self.renownFactionByID[factionID] = entry
             factionCount = factionCount + 1
             if #resolvedDecorIds > 0 then
                 resolvedCount = resolvedCount + 1
@@ -517,15 +523,8 @@ function addon:GetFactionRewardProgress(factionID)
     local cached = self.renownProgressCache[factionID]
     if cached then return cached.owned, cached.total end
 
-    local decorIds
-    for _, expData in pairs(self.renownHierarchy) do
-        for _, faction in ipairs(expData.factions) do
-            if faction.factionID == factionID then
-                decorIds = faction.resolvedDecorIds
-            end
-        end
-        if decorIds then break end
-    end
+    local faction = self.renownFactionByID[factionID]
+    local decorIds = faction and faction.resolvedDecorIds
 
     if not decorIds or #decorIds == 0 then
         self.renownProgressCache[factionID] = { owned = 0, total = 0 }
@@ -548,6 +547,9 @@ function addon:GetFactionRewardProgress(factionID)
 end
 
 function addon:GetRenownExpansionProgress(expKey)
+    local cached = self.renownExpansionProgressCache[expKey]
+    if cached then return cached.owned, cached.total end
+
     local seen = {}
     local owned, total = 0, 0
     for _, faction in ipairs(self:GetFactionsForExpansion(expKey)) do
@@ -564,6 +566,7 @@ function addon:GetRenownExpansionProgress(expKey)
             end
         end
     end
+    self.renownExpansionProgressCache[expKey] = { owned = owned, total = total }
     return owned, total
 end
 
@@ -581,8 +584,10 @@ end
 
 addon:RegisterInternalEvent("RECORD_OWNERSHIP_UPDATED", function()
     wipe(addon.renownProgressCache)
+    wipe(addon.renownExpansionProgressCache)
 end)
 
 addon:RegisterInternalEvent(addon.Events.DECOR_VISIBILITY_CHANGED, function()
     wipe(addon.renownProgressCache)
+    wipe(addon.renownExpansionProgressCache)
 end)

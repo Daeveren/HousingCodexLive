@@ -47,6 +47,10 @@ local COIN_TEXTURE_FONT_HEIGHT = 14
 local CURRENCY_ICON_SIZE = 14
 local SOURCE_LINE_SPACING = 2
 
+local function IsSecretValue(value)
+    return type(issecretvalue) == "function" and issecretvalue(value)
+end
+
 addon.Preview = {}
 local Preview = addon.Preview
 
@@ -73,7 +77,7 @@ end
 local function FormatTextureMarkup(iconFileID)
     if not iconFileID
         or type(iconFileID) ~= "number"
-        or (type(issecretvalue) == "function" and issecretvalue(iconFileID))
+        or IsSecretValue(iconFileID)
     then
         return nil
     end
@@ -117,7 +121,7 @@ local function FormatSelectedVendorCost(vendorDetails)
     end
 
     local goldAmount = type(cost) == "number" and cost or tonumber(cost)
-    local isSecret = goldAmount and type(issecretvalue) == "function" and issecretvalue(goldAmount)
+    local isSecret = goldAmount and IsSecretValue(goldAmount)
     if goldAmount and not isSecret and goldAmount > 0 then
         local coinTextureString = C_CurrencyInfo and C_CurrencyInfo.GetCoinTextureString
         if coinTextureString then
@@ -236,6 +240,7 @@ function Preview:CreateContentArea()
     separator:SetPoint("TOPLEFT", details, "BOTTOMLEFT", 0, 0)
     separator:SetPoint("TOPRIGHT", details, "BOTTOMRIGHT", 0, 0)
     separator:SetColorTexture(0.3, 0.3, 0.3, 0.8)
+    self.detailsSeparator = separator
 
     -- Model area (below details, fills remaining space)
     local modelArea = CreateFrame("Frame", nil, region)
@@ -252,6 +257,24 @@ function Preview:CreateContentArea()
     self:CreateModelScene()
     self:CreateFallbackUI()
     self:CreateWidthPresets()
+    self:SetDetailsPanelShown(false)
+end
+
+function Preview:SetDetailsPanelShown(shown)
+    if not self.detailsArea or not self.modelArea then return end
+
+    self.detailsArea:SetShown(shown)
+    if self.detailsSeparator then
+        self.detailsSeparator:SetShown(shown)
+    end
+
+    self.modelArea:ClearAllPoints()
+    if shown and self.detailsSeparator then
+        self.modelArea:SetPoint("TOPLEFT", self.detailsSeparator, "BOTTOMLEFT", 0, 0)
+    else
+        self.modelArea:SetPoint("TOPLEFT", self.frame, "TOPLEFT", DIVIDER_OFFSET, 0)
+    end
+    self.modelArea:SetPoint("BOTTOMRIGHT", self.frame, "BOTTOMRIGHT", 0, 0)
 end
 
 function Preview:CreateModelScene()
@@ -623,8 +646,11 @@ end
 function Preview:UpdateDetails(record)
     if not record then
         self:ClearDetails()
+        self:SetDetailsPanelShown(false)
         return
     end
+
+    self:SetDetailsPanelShown(true)
 
     -- Name
     self.detailsName:SetText(record.name or addon.L["UNKNOWN"])
@@ -785,7 +811,7 @@ function Preview:RecalculateDetailsHeight()
 end
 
 -- Small preset threshold for switching to two-row metadata layout
-local SMALL_WIDTH_THRESHOLD = 300
+local SMALL_WIDTH_THRESHOLD = WIDTH_PRESETS[1]
 
 function Preview:UpdateMetadataLayout()
     if not self.detailsDyeable or not self.detailsCategory then return end
@@ -927,6 +953,7 @@ function Preview:ShowDecor(recordID)
         self.placeholderText:Hide()
         self.currentRecordID = recordID
         self.currentContextKey = self:GetSelectionContextKey(recordID)
+        self:SetDetailsPanelShown(true)
         self:ClearDetails()
         self:UpdateActionButtons(nil)
         self.detailsName:SetText(addon:ResolveDecorName(recordID, nil))
@@ -1007,6 +1034,7 @@ function Preview:ClearModel()
     self.currentContextKey = nil
     self.currentSceneID = nil  -- Reset scene tracking for fresh state
     self:ClearDetails()
+    self:SetDetailsPanelShown(false)
     self.fallbackContainer:Hide()
     self.placeholderText:Show()
 end

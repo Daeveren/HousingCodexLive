@@ -449,17 +449,21 @@ local function ScheduleHideTitleBar(forceDelay)
     end)
 end
 
--- Called on task progress — resets the timer that clears the task list on expiry
-local function OnTaskProgressActivity()
-    if not frame or not frame:IsShown() then return end
-    if not isTaskExpanded then return end
-
+local function ScheduleTaskCollapse()
     if taskGoneTimer then taskGoneTimer:Cancel() end
     taskGoneTimer = C_Timer.NewTimer(CONST.TASK_COLLAPSE_DELAY, function()
         taskGoneTimer = nil
         tasksCollapsed = true
         EP:Refresh()
     end)
+end
+
+-- Called on task progress — resets the timer that clears the task list on expiry
+local function OnTaskProgressActivity()
+    if not frame or not frame:IsShown() then return end
+    if not isTaskExpanded then return end
+
+    ScheduleTaskCollapse()
 end
 
 --------------------------------------------------------------------------------
@@ -1063,10 +1067,12 @@ function EP:ToggleConfig(anchorFrame)
     end
 
     if InCombatLockdown() then
-        pendingConfigShow = true
-        pendingConfigAnchor = anchorFrame
-        combatDeferFrame:RegisterEvent("PLAYER_REGEN_ENABLED")
-        addon:Print(L["COMBAT_LOCKDOWN_MESSAGE"])
+        if not pendingConfigShow then
+            pendingConfigShow = true
+            pendingConfigAnchor = anchorFrame
+            combatDeferFrame:RegisterEvent("PLAYER_REGEN_ENABLED")
+            addon:Print(L["COMBAT_LOCKDOWN_MESSAGE"])
+        end
         return
     end
 
@@ -1284,13 +1290,13 @@ local function CreateEndeavorsFrame()
             if totalFavorNeeded > 0 then
                 local pct = math.floor(totalFavor / totalFavorNeeded * 100)
                 GameTooltip:AddLine(string.format(L["ENDEAVORS_XP_TOOLTIP_PROGRESS"],
-                    BreakUpLargeNumbers(totalFavor), BreakUpLargeNumbers(totalFavorNeeded), pct), 0.7, 0.7, 0.7)
+                    addon:FormatLargeNumber(totalFavor), addon:FormatLargeNumber(totalFavorNeeded), pct), 0.7, 0.7, 0.7)
             end
         end
         local availableXP = math.floor(data:GetAvailableHouseXP())
         if availableXP > 0 then
             GameTooltip:AddLine(string.format(L["ENDEAVORS_XP_TOOLTIP_AVAILABLE"],
-                BreakUpLargeNumbers(availableXP)), 0.5, 1, 0.5)
+                addon:FormatLargeNumber(availableXP)), 0.5, 1, 0.5)
         end
         GameTooltip:AddLine(" ")
         GameTooltip:AddLine(L["ENDEAVORS_XP_TOOLTIP_CLICK"], 0.5, 0.8, 1)
@@ -1555,6 +1561,7 @@ function EP:UpdateLayout()
     if isTaskExpanded and not wasTaskExpanded then
         -- Tasks just appeared: animate to inline layout
         if taskGoneTimer then taskGoneTimer:Cancel(); taskGoneTimer = nil end
+
         if showXP and showEndeavor then
             AnimateBarLayout(1)
         end
@@ -1568,14 +1575,11 @@ function EP:UpdateLayout()
         ShowTitleBar()
         ScheduleHideTitleBar()
         -- After 1 min of no task progress, collapse task section visually (data preserved)
-        taskGoneTimer = C_Timer.NewTimer(CONST.TASK_COLLAPSE_DELAY, function()
-            taskGoneTimer = nil
-            tasksCollapsed = true
-            EP:Refresh()
-        end)
+        ScheduleTaskCollapse()
     elseif not isTaskExpanded and wasTaskExpanded then
         -- Tasks gone — collapse to stacked + mini width
         if taskGoneTimer then taskGoneTimer:Cancel(); taskGoneTimer = nil end
+
         AnimateBarLayout(0)
         -- Fade out content backdrop
         if contentBackdrop and contentBackdrop:IsShown() then

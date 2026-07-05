@@ -153,13 +153,7 @@ local function ShowTooltip(tooltip)
         tooltip:AddDoubleLine(L["LDB_POPUP_ROOMS"], string.format("%d / %d", roomsCollected, roomsTotal), 0.8, 0.8, 0.8, 0.5, 0.8, 1.0)
         tooltip:AddDoubleLine(L["LDB_POPUP_TOTAL_OWNED"], tostring(addon:GetVisibleTotalDecorOwnedCount()), 0.8, 0.8, 0.8, 0.95, 0.85, 0.3)
 
-        local wishlistCount = 0
-        if addon.db and addon.db.wishlist then
-            for _ in pairs(addon.db.wishlist) do
-                wishlistCount = wishlistCount + 1
-            end
-        end
-        tooltip:AddDoubleLine(L["LDB_TOOLTIP_WISHLIST"], string.format(L["LDB_TOOLTIP_WISHLIST_COUNT"], wishlistCount), 0.8, 0.8, 0.8, 0.9, 0.55, 0.3)
+        tooltip:AddDoubleLine(L["LDB_TOOLTIP_WISHLIST"], string.format(L["LDB_TOOLTIP_WISHLIST_COUNT"], addon:GetWishlistCount()), 0.8, 0.8, 0.8, 0.9, 0.55, 0.3)
     end
 
     tooltip:AddLine(" ")
@@ -261,10 +255,10 @@ function LDB:UpdateText()
 end
 
 -- Debounced refresh: update broker text (indexes already patched by Data.lua)
-local function DebouncedRefresh(delay)
+local function DebouncedRefresh()
     if LDB.updatePending then return end
     LDB.updatePending = true
-    C_Timer.After(delay, function()
+    C_Timer.After(addon.CONSTANTS.TIMER.OWNERSHIP_REFRESH_DEBOUNCE, function()
         LDB.updatePending = false
         LDB:UpdateText()
     end)
@@ -276,11 +270,11 @@ addon:RegisterInternalEvent("DATA_LOADED", function()
 end)
 
 addon:RegisterInternalEvent("RECORD_OWNERSHIP_UPDATED", function()
-    DebouncedRefresh(0.1)
+    DebouncedRefresh()
 end)
 
 addon:RegisterInternalEvent(addon.Events.DECOR_VISIBILITY_CHANGED, function()
-    DebouncedRefresh(0.1)
+    DebouncedRefresh()
 end)
 
 -- ============================================================================

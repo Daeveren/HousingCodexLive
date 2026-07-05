@@ -2,6 +2,29 @@
 
 All notable changes to Housing Codex.
 
+**3.0.0** (2026-07-05)
+
+A big update — lots of new features, tweaks and improvements!
+
+**Added**
+- NEW feature! Several new animations and effects (main UI tabs, categories, grid tiles)
+- NEW feature! Decor earned history graph for the last 15 days in the Progress tab
+- NEW feature! Housing plots decor budget progress bars in the Progress tab
+- NEW feature! Wishlist search bar and "Group by source" category grid view
+- NEW feature! Added new categories of progress bars (achievements and drops)
+
+**Changed**
+- Tweaked the Progress tab left column to also display Wishlist and Hidden item counts
+- Several improvements to the Hidden Items UI
+- Hiding items and clearing all hidden items now ask for confirmation
+- Improved localization support for non-English clients
+
+**Fixed**
+- Improved reliability of Progress data saved between sessions
+- Wishlist window fixes related to the tile size adjustment
+- Improved the messaging in the 3D preview area when no item is selected
+- Codebase improvements in order to make the addon run smoother
+
 **2.9.0** (2026-06-30)
 
 **Added**

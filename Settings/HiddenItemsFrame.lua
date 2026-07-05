@@ -15,19 +15,50 @@ addon.HiddenItemsFrame = HiddenItemsFrame
 local FRAME_NAME = "HousingCodexHiddenItemsFrame"
 local ROW_HEIGHT = 34
 local ICON_SIZE = 26
+local TITLE_BAR_HEIGHT = 46
+local CONTENT_INSET = 3
+
+StaticPopupDialogs["HOUSINGCODEX_CLEAR_HIDDEN_CONFIRM"] = {
+    text = "%s",
+    button1 = YES,
+    button2 = NO,
+    OnAccept = function()
+        addon:ClearHiddenDecor()
+    end,
+    timeout = 0,
+    whileDead = true,
+    hideOnEscape = true,
+    preferredIndex = 3,
+}
 
 local function CreateTitle(frame)
-    local title = addon:CreateFontString(frame, "OVERLAY", "GameFontNormalLarge")
-    title:SetPoint("TOPLEFT", 16, -14)
+    local title = addon:CreateFontString(frame.titleBar, "OVERLAY", "GameFontNormalLarge")
+    title:SetPoint("TOPLEFT", frame.titleBar, "TOPLEFT", 16, -8)
     title:SetText(L["HIDDEN_ITEMS_TITLE"])
     title:SetTextColor(unpack(COLORS.GOLD))
-    addon:SetFontSize(title, 16)
+    addon:SetFontSize(title, 17)
     frame.title = title
 end
 
 local function CreateEmptyState(frame)
-    local empty = addon:CreateEmptyStateFrame(frame, "HIDDEN_ITEMS_EMPTY", "HIDDEN_ITEMS_EMPTY_DESC", 360)
-    empty:SetPoint("CENTER", frame, "CENTER", 0, -8)
+    local empty = CreateFrame("Frame", nil, frame.contentFrame)
+    empty:SetAllPoints()
+    empty:Hide()
+
+    local msg = addon:CreateFontString(empty, "OVERLAY", "GameFontNormalLarge")
+    msg:SetPoint("CENTER", 0, 18)
+    msg:SetText(L["HIDDEN_ITEMS_EMPTY"])
+    msg:SetTextColor(unpack(COLORS.TEXT_SECONDARY))
+    addon:SetFontSize(msg, 18)
+
+    local desc = addon:CreateFontString(empty, "OVERLAY", "GameFontNormal")
+    desc:SetPoint("TOP", msg, "BOTTOM", 0, -10)
+    desc:SetText(L["HIDDEN_ITEMS_EMPTY_DESC"])
+    desc:SetTextColor(unpack(COLORS.TEXT_TERTIARY))
+    desc:SetWidth(380)
+    desc:SetJustifyH("CENTER")
+    addon:SetFontSize(desc, 12)
+
     frame.emptyState = empty
 end
 
@@ -95,49 +126,97 @@ function HiddenItemsFrame:Create()
     frame:SetPoint("CENTER")
     frame:SetFrameStrata("DIALOG")
     frame:SetBackdrop({
-        bgFile = "Interface\\Buttons\\WHITE8x8",
+        bgFile = "Interface\\DialogFrame\\UI-DialogBox-Background",
         edgeFile = "Interface\\Tooltips\\UI-Tooltip-Border",
+        tileSize = 16,
         edgeSize = 14,
         insets = { left = 3, right = 3, top = 3, bottom = 3 },
     })
-    frame:SetBackdropColor(0.05, 0.05, 0.07, 0.98)
-    frame:SetBackdropBorderColor(0.35, 0.35, 0.35, 1)
+    frame:SetBackdropColor(0, 0, 0, 1)
+    frame:SetBackdropBorderColor(0.3, 0.3, 0.3, 1)
+    frame:SetMovable(true)
+    frame:SetClampedToScreen(true)
+    frame:EnableMouse(true)
     frame:Hide()
     self.frame = frame
 
     table.insert(UISpecialFrames, FRAME_NAME)
 
+    local titleBar = CreateFrame("Frame", nil, frame)
+    titleBar:SetPoint("TOPLEFT", 3, -3)
+    titleBar:SetPoint("TOPRIGHT", -3, -3)
+    titleBar:SetHeight(TITLE_BAR_HEIGHT)
+    titleBar:SetFrameLevel(frame:GetFrameLevel() + 3)
+    titleBar:EnableMouse(true)
+    titleBar:RegisterForDrag("LeftButton")
+    titleBar:SetScript("OnDragStart", function()
+        if InCombatLockdown() then return end
+        frame:StartMoving()
+    end)
+    titleBar:SetScript("OnDragStop", function() frame:StopMovingOrSizing() end)
+    frame.titleBar = titleBar
+
+    local titleBg = titleBar:CreateTexture(nil, "BACKGROUND")
+    titleBg:SetAllPoints()
+    titleBg:SetColorTexture(unpack(COLORS.TITLEBAR_BG))
+
+    local titleDivider = titleBar:CreateTexture(nil, "ARTWORK")
+    titleDivider:SetPoint("BOTTOMLEFT")
+    titleDivider:SetPoint("BOTTOMRIGHT")
+    titleDivider:SetHeight(1)
+    titleDivider:SetColorTexture(0.2, 0.2, 0.25, 1)
+
     CreateTitle(frame)
 
-    local close = CreateFrame("Button", nil, frame, "UIPanelCloseButton")
+    local count = addon:CreateFontString(titleBar, "OVERLAY", "GameFontNormal")
+    count:SetPoint("TOPLEFT", frame.title, "BOTTOMLEFT", 0, -3)
+    count:SetTextColor(unpack(COLORS.TEXT_SECONDARY))
+    addon:SetFontSize(count, 12)
+    frame.countText = count
+
+    local close = CreateFrame("Button", nil, titleBar, "UIPanelCloseButton")
     close:SetPoint("TOPRIGHT", -4, -4)
+    close:SetScript("OnClick", function()
+        frame:Hide()
+    end)
     frame.closeButton = close
 
-    local clearAll = addon:CreateActionButton(frame, L["HIDDEN_ITEMS_CLEAR_ALL"], function()
-        addon:ClearHiddenDecor()
+    local clearAll = addon:CreateActionButton(titleBar, L["HIDDEN_ITEMS_CLEAR_ALL"], function()
+        local countHidden = addon:GetHiddenDecorCount()
+        if countHidden <= 0 then return end
+        StaticPopup_Show("HOUSINGCODEX_CLEAR_HIDDEN_CONFIRM", string.format(L["HIDDEN_ITEMS_CLEAR_ALL_CONFIRM"], countHidden))
     end, function(btn)
         GameTooltip:SetOwner(btn, "ANCHOR_RIGHT")
         GameTooltip:SetText(L["HIDDEN_ITEMS_CLEAR_ALL"], 1, 0.82, 0)
         GameTooltip:AddLine(L["HIDDEN_ITEMS_CLEAR_ALL_TOOLTIP"], 1, 1, 1, true)
         GameTooltip:Show()
     end)
-    clearAll:SetPoint("TOPRIGHT", close, "BOTTOMLEFT", -8, -4)
+    clearAll:SetPoint("RIGHT", close, "LEFT", -10, 0)
     frame.clearAllButton = clearAll
 
-    local count = addon:CreateFontString(frame, "OVERLAY", "GameFontNormalSmall")
-    count:SetPoint("TOPLEFT", frame.title, "BOTTOMLEFT", 0, -6)
-    count:SetTextColor(0.7, 0.7, 0.7, 1)
-    frame.countText = count
+    local contentFrame = CreateFrame("Frame", nil, frame, "BackdropTemplate")
+    contentFrame:SetPoint("TOPLEFT", CONTENT_INSET, -TITLE_BAR_HEIGHT - CONTENT_INSET)
+    contentFrame:SetPoint("BOTTOMRIGHT", -CONTENT_INSET, CONTENT_INSET)
+    contentFrame:SetBackdrop({
+        bgFile = "Interface\\Buttons\\WHITE8x8",
+        edgeFile = "Interface\\Tooltips\\UI-Tooltip-Border",
+        edgeSize = 10,
+        insets = { left = 2, right = 2, top = 2, bottom = 2 },
+    })
+    contentFrame:SetBackdropColor(0.04, 0.04, 0.06, 1)
+    contentFrame:SetBackdropBorderColor(0.22, 0.22, 0.27, 1)
+    contentFrame:SetFrameLevel(frame:GetFrameLevel() + 1)
+    frame.contentFrame = contentFrame
 
-    local scrollContainer = CreateFrame("Frame", nil, frame)
-    scrollContainer:SetPoint("TOPLEFT", 12, -58)
-    scrollContainer:SetPoint("BOTTOMRIGHT", -30, 14)
+    local scrollContainer = CreateFrame("Frame", nil, contentFrame)
+    scrollContainer:SetPoint("TOPLEFT", 6, -6)
+    scrollContainer:SetPoint("BOTTOMRIGHT", -28, 6)
 
     local scrollBox = CreateFrame("Frame", nil, scrollContainer, "WowScrollBoxList")
     scrollBox:SetAllPoints()
     self.scrollBox = scrollBox
 
-    local scrollBar = CreateFrame("EventFrame", nil, frame, "MinimalScrollBar")
+    local scrollBar = CreateFrame("EventFrame", nil, contentFrame, "MinimalScrollBar")
     scrollBar:SetPoint("TOPLEFT", scrollContainer, "TOPRIGHT", 4, 0)
     scrollBar:SetPoint("BOTTOMLEFT", scrollContainer, "BOTTOMRIGHT", 4, 0)
     self.scrollBar = scrollBar

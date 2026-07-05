@@ -251,6 +251,30 @@ function addon:GetDropCategoryCollectionProgress(category)
     return owned, total
 end
 
+function addon:GetDropUniqueCollectionProgress()
+    local cached = self.dropCategoryProgressCache.__all_unique
+    if cached then return cached.owned, cached.total end
+
+    local owned, total = 0, 0
+    local seenDecorIds = {}
+    for _, category in ipairs(self:GetSortedDropCategories()) do
+        for _, source in ipairs(self:GetDropsForCategory(category)) do
+            for _, decorId in ipairs(source.decorIds or {}) do
+                if not seenDecorIds[decorId] and self:ShouldDisplayDecor(decorId) then
+                    seenDecorIds[decorId] = true
+                    total = total + 1
+                    if self:IsDecorCollected(decorId) then
+                        owned = owned + 1
+                    end
+                end
+            end
+        end
+    end
+
+    self.dropCategoryProgressCache.__all_unique = { owned = owned, total = total }
+    return owned, total
+end
+
 function addon:GetDropCount()
     local count = 0
     for _, catData in pairs(self.dropHierarchy) do

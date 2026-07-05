@@ -384,13 +384,8 @@ function ProfessionsTab:SelectProfession(professionName)
     local db = GetProfessionsDB()
     if db then db.selectedProfession = professionName end
 
-    if self.professionScrollBox then
-        self.professionScrollBox:ForEachFrame(function(frame)
-            if frame.professionName then
-                self:ApplySelectionButtonState(frame, frame.professionName == professionName)
-            end
-        end)
-    end
+    self:UpdateHierarchySelection(self.professionScrollBox, "professionName", prevSelected, professionName,
+        function() return self.selectedProfession end)
 
     self:BuildCraftDisplay()
 end

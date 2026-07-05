@@ -16,6 +16,10 @@ local COMPLETE_CHECKMARK = "|A:common-icon-checkmark:14:14:0:-1|a"
 local initialized = false
 local ICON_PREFIX    -- "|Tpath:18:18:0:0|t " (set at Initialize)
 
+local function IsSecretValue(value)
+    return type(issecretvalue) == "function" and issecretvalue(value)
+end
+
 local function OnTooltipUnit(tooltip)
     if not tooltip or tooltip ~= GameTooltip then return end
 
@@ -28,7 +32,7 @@ local function OnTooltipUnit(tooltip)
     local tooltipData = tooltip:GetPrimaryTooltipData()
     if not tooltipData then return end
     local guid = tooltipData.guid
-    if not guid or issecretvalue(guid) then return end
+    if not guid or IsSecretValue(guid) then return end
 
     -- Fast prefix check: skip players, pets, battle pets, etc.
     if guid:sub(1, 9) ~= "Creature-" then return end

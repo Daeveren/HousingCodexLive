@@ -233,7 +233,71 @@ function addon:SearchByText(searchText)
     return results
 end
 
+--------------------------------------------------------------------------------
+-- Public: Source Classification
+--------------------------------------------------------------------------------
+
+local function MarkSourceSet(target, decorId)
+    local id = tonumber(decorId)
+    if id and id > 0 then target[id] = true end
+end
+
+local function EnsureRecordSourceSets(owner)
+    if owner.recordSourceSetsBuilt then return end
+
+    owner.achievementSourceDecorIds = owner.achievementSourceDecorIds or {}
+    owner.craftingSourceDecorIds = owner.craftingSourceDecorIds or {}
+    wipe(owner.achievementSourceDecorIds)
+    wipe(owner.craftingSourceDecorIds)
+
+    for _, achievementData in pairs(owner.AchievementSourceData or {}) do
+        for _, decorId in ipairs(achievementData.decorIds or {}) do
+            MarkSourceSet(owner.achievementSourceDecorIds, decorId)
+        end
+    end
+
+    for _, crafts in pairs(owner.CraftingSourceData or {}) do
+        for _, craft in ipairs(crafts or {}) do
+            MarkSourceSet(owner.craftingSourceDecorIds, craft.decorId)
+        end
+    end
+
+    owner.recordSourceSetsBuilt = true
+end
+
+function addon:GetRecordSourceKind(recordID)
+    local id = tonumber(recordID)
+    if not id then return "OTHER" end
+
+    if self.GetDefaultVendorDecorDetails and self:GetDefaultVendorDecorDetails(id) then
+        return "VENDORS"
+    end
+
+    if self.DecorToQuestLookup and self.DecorToQuestLookup[id] then
+        return "QUESTS"
+    end
+
+    EnsureRecordSourceSets(self)
+    if self.achievementSourceDecorIds and self.achievementSourceDecorIds[id] then
+        return "ACHIEVEMENTS"
+    end
+
+    if not self.decorDropSourceText and self.BuildDropSourceLookup then
+        self:BuildDropSourceLookup()
+    end
+    if self.GetDropSourceText and self:GetDropSourceText(id) then
+        return "DROPS"
+    end
+
+    if self.craftingSourceDecorIds and self.craftingSourceDecorIds[id] then
+        return "PROFESSIONS"
+    end
+
+    return "OTHER"
+end
+
 -- Event Handlers
 addon:RegisterInternalEvent("DATA_LOADED", function()
+    addon.recordSourceSetsBuilt = false
     addon:BuildCollectedIndex()
 end)

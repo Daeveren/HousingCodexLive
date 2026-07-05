@@ -559,13 +559,8 @@ function QuestsTab:SelectExpansion(expansionKey, visibilityCache)
     end
 
     -- Update expansion panel visuals (visible frames only)
-    if self.expansionScrollBox then
-        self.expansionScrollBox:ForEachFrame(function(frame)
-            if frame.expansionKey then
-                self:ApplySelectionButtonState(frame, frame.expansionKey == expansionKey)
-            end
-        end)
-    end
+    self:UpdateHierarchySelection(self.expansionScrollBox, "expansionKey", prevSelected, expansionKey,
+        function() return self.selectedExpansionKey end)
 
     -- Clear quest selection and preview when switching expansions (before build so auto-select targets new expansion)
     if prevSelected ~= expansionKey then
@@ -813,7 +808,7 @@ function QuestsTab:BuildZoneQuestDisplay(visibilityCache)
                 local recordIDs = self:GetVisibleQuestRecordIDs(questKey, filter, searchText, zoneName, expansionKey, visibilityCache)
                 if recordIDs then
                     -- Multi-reward quests: show one entry per reward
-                    local numRewards = recordIDs and #recordIDs or 0
+                    local numRewards = #recordIDs
                     if numRewards > 1 then
                         for i, recordID in ipairs(recordIDs) do
                             table.insert(zoneQuests, {
@@ -826,7 +821,7 @@ function QuestsTab:BuildZoneQuestDisplay(visibilityCache)
                     else
                         table.insert(zoneQuests, {
                             questID = questKey,
-                            recordID = recordIDs and recordIDs[1]
+                            recordID = recordIDs[1]
                         })
                     end
                 end
@@ -1030,6 +1025,9 @@ addon:RegisterInternalEvent("WISHLIST_CHANGED", function(recordID, isWishlisted)
         QuestsTab.zoneQuestScrollBox:ForEachFrame(function(frame)
             if frame.recordID == recordID and frame.wishlistStar then
                 addon.TabBaseMixin:UpdateWishlistStar(frame, isWishlisted)
+                if isWishlisted then
+                    addon:PlayStarTwinkle(frame.wishlistStar, frame)
+                end
             end
         end)
     end

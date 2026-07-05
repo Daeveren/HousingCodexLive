@@ -99,7 +99,7 @@ function VendorsTab:Show()
     local skipRefresh = self.ownershipRefreshedThisShow
     self.ownershipRefreshedThisShow = nil
 
-    if not addon.vendorIndexBuilt then
+    if addon.dataLoaded and not addon.vendorIndexBuilt then
         addon:BuildVendorIndex()
     end
 
@@ -257,7 +257,7 @@ function VendorsTab:GetCurrencyLabel(currencyKey)
 end
 
 local function BuildCurrencyFilterData(owner, includeOptions)
-    if not addon.vendorIndexBuilt and addon.BuildVendorIndex then
+    if addon.dataLoaded and not addon.vendorIndexBuilt and addon.BuildVendorIndex then
         addon:BuildVendorIndex()
     end
     if not addon.vendorIndexBuilt then
@@ -364,9 +364,11 @@ function VendorsTab:GetSelectedVendorDecorDetails(recordID)
     end
 
     local itemCosts = vendorData.itemCosts
-    local cost = itemCosts and itemCosts[recordID] or vendorData.cost
-    if itemCosts and itemCosts[recordID] == nil then
-        cost = nil
+    local cost
+    if itemCosts then
+        cost = itemCosts[recordID]
+    else
+        cost = vendorData.cost
     end
 
     local promoSet = addon.VendorPromotionalDecorIds
@@ -489,7 +491,7 @@ function VendorsTab:UpdateToolbarLayout(toolbarWidth)
 end
 
 -- Rebuild the expansion list and, if needed, the vendor list.
-local searchCache, filterCache
+local searchCache, filterCache, visibleVendorDecorCache
 
 -- BuildExpansionDisplay returns true when it already triggered BuildVendorDisplay
 -- internally (via SelectExpansion or direct call), so we only call it ourselves
@@ -501,12 +503,14 @@ function VendorsTab:RefreshDisplay()
     end
     searchCache = {}
     filterCache = {}
+    visibleVendorDecorCache = {}
     self:ReconcileCurrencyFilter()
     if not self:BuildExpansionDisplay() then
         self:BuildVendorDisplay()
     end
     searchCache = nil
     filterCache = nil
+    visibleVendorDecorCache = nil
 end
 
 function VendorsTab:SetCompletionFilter(filterKey, skipRefresh)
@@ -742,13 +746,8 @@ function VendorsTab:SelectExpansion(expansionKey)
         end
     end
 
-    if self.expansionScrollBox then
-        self.expansionScrollBox:ForEachFrame(function(frame)
-            if frame.expansionKey then
-                self:ApplySelectionButtonState(frame, frame.expansionKey == expansionKey)
-            end
-        end)
-    end
+    self:UpdateHierarchySelection(self.expansionScrollBox, "expansionKey", prevSelected, expansionKey,
+        function() return self.selectedExpansionKey end)
 
     self:BuildVendorDisplay()
 
@@ -1102,12 +1101,30 @@ local function SortDecorIdsByName(decorIds)
     end)
 end
 
+local function CopyDecorIdList(decorIds)
+    local copy = {}
+    for i, decorId in ipairs(decorIds or {}) do
+        copy[i] = decorId
+    end
+    return copy
+end
+
 local function GetVisibleVendorDecorIds(vendorData)
+    local cacheKey = vendorData
+    if visibleVendorDecorCache and cacheKey then
+        local cached = visibleVendorDecorCache[cacheKey]
+        if cached then return CopyDecorIdList(cached) end
+    end
+
     local visible = {}
     for _, decorId in ipairs(vendorData and vendorData.decorIds or {}) do
         if IsDecorResolvable(decorId) and addon:ShouldDisplayDecor(decorId) then
             visible[#visible + 1] = decorId
         end
+    end
+
+    if visibleVendorDecorCache and cacheKey then
+        visibleVendorDecorCache[cacheKey] = CopyDecorIdList(visible)
     end
     return visible
 end

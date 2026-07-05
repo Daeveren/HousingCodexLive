@@ -30,6 +30,7 @@ local PREVIEW_WIDTH = 380  -- Embedded preview panel width
 local DETAILS_MIN_HEIGHT = 60  -- Minimum details area height
 local DETAILS_PADDING = 8
 local DETAILS_SPACING = 4
+local GROUP_HEADER_BOTTOM_PAD = 3
 
 -- Tile color values
 local COLOR_BG_NORMAL = { 0.06, 0.06, 0.08, 1 }
@@ -65,10 +66,13 @@ WishlistFrame.scrollBox = nil
 WishlistFrame.scrollBar = nil
 WishlistFrame.previewPanel = nil
 WishlistFrame.emptyState = nil
+WishlistFrame.emptyStateMsg = nil
+WishlistFrame.emptyStateDesc = nil
 
 -- State
 WishlistFrame.tileSize = DEFAULT_TILE_SIZE
 WishlistFrame.selectedRecordID = nil
+WishlistFrame.searchText = nil
 
 -- Helper to get wishlist UI db
 local function GetWishlistDB()
@@ -272,6 +276,60 @@ function WishlistFrame:CreateToolbar()
 
     addon:AttachTileSizeSlider(slider, valueText, WishlistFrame)
 
+    -- Wishlist-local search box (does not touch the catalog searcher)
+    local searchBox = CreateFrame("EditBox", nil, toolbar, "SearchBoxTemplate")
+    searchBox:SetPoint("LEFT", slider, "RIGHT", 16, 0)
+    searchBox:SetSize(150, 22)
+    searchBox:SetAutoFocus(false)
+    if searchBox.Instructions then
+        searchBox.Instructions:SetText(L["WISHLIST_SEARCH_PLACEHOLDER"])
+        searchBox.Instructions:SetWordWrap(false)
+    end
+    self.searchBox = searchBox
+
+    searchBox:HookScript("OnTextChanged", function(editBox, userInput)
+        if userInput then
+            self:OnSearchTextChanged(editBox:GetText())
+        end
+    end)
+    if searchBox.clearButton then
+        searchBox.clearButton:HookScript("OnClick", function()
+            self:CancelSearchDebounce()
+            self:ApplySearch(nil)
+        end)
+    end
+    searchBox:SetScript("OnEnterPressed", function(editBox)
+        self:CancelSearchDebounce()
+        self:ApplySearch(editBox:GetText())
+        editBox:ClearFocus()
+    end)
+    searchBox:SetScript("OnEscapePressed", function(editBox)
+        self:CancelSearchDebounce()
+        editBox:SetText("")
+        self:ApplySearch(nil)
+        editBox:ClearFocus()
+    end)
+    searchBox:HookScript("OnHide", function()
+        self:CancelSearchDebounce()
+    end)
+
+    local groupCheck = CreateFrame("CheckButton", nil, toolbar, "UICheckButtonTemplate")
+    groupCheck:SetPoint("LEFT", searchBox, "RIGHT", 10, 0)
+    groupCheck:SetSize(22, 22)
+    groupCheck.Text:SetText(L["WISHLIST_GROUP_BY_SOURCE"])
+    groupCheck.Text:SetFontObject(addon:GetFontObject("GameFontHighlightSmall"))
+    addon:RegisterFontString(groupCheck.Text, "GameFontHighlightSmall")
+    groupCheck:SetScript("OnClick", function(check)
+        local db = GetWishlistDB()
+        if db then db.groupBySource = check:GetChecked() == true end
+        self:RefreshData()
+    end)
+    self.groupBySourceCheck = groupCheck
+
+    self.frame:SetScript("OnMouseDown", function()
+        if self.searchBox then self.searchBox:ClearFocus() end
+    end)
+
     -- Item count (right side)
     local countText = addon:CreateFontString(toolbar, "OVERLAY", "GameFontNormal")
     countText:SetPoint("RIGHT", toolbar, "RIGHT", -GRID_OUTER_PAD, 0)
@@ -279,16 +337,63 @@ function WishlistFrame:CreateToolbar()
     self.itemCountText = countText
 end
 
+local function NormalizeWishlistSearch(text)
+    if not text then return nil end
+    local trimmed = strtrim(text)
+    if trimmed == "" then return nil end
+    return strlower(trimmed)
+end
+
+local function GetColumnCount(container, tileSize)
+    local width = container and container:GetWidth() or 0
+    if width <= 0 then width = DEFAULT_WIDTH - PREVIEW_WIDTH - GRID_OUTER_PAD * 2 - 20 end
+    return math.max(1, math.floor((width + GRID_CELL_GAP) / (tileSize + GRID_CELL_GAP)))
+end
+
+local SOURCE_ORDER = { "VENDORS", "QUESTS", "ACHIEVEMENTS", "DROPS", "PROFESSIONS", "OTHER" }
+local SOURCE_LABEL_KEYS = {
+    VENDORS = "PROGRESS_SOURCE_VENDORS",
+    QUESTS = "PROGRESS_SOURCE_QUESTS",
+    ACHIEVEMENTS = "PROGRESS_SOURCE_ACHIEVEMENTS",
+    DROPS = "PROGRESS_SOURCE_DROPS",
+    PROFESSIONS = "PROGRESS_SOURCE_PROFESSIONS",
+    OTHER = "WISHLIST_GROUP_OTHER",
+}
+
+function WishlistFrame:OnSearchTextChanged(text)
+    self:CancelSearchDebounce()
+    self.searchDebounceTimer = C_Timer.NewTimer(CONSTS.TIMER.SEARCH_DEBOUNCE, function()
+        self.searchDebounceTimer = nil
+        self:ApplySearch(text)
+    end)
+end
+
+function WishlistFrame:CancelSearchDebounce()
+    if self.searchDebounceTimer then
+        self.searchDebounceTimer:Cancel()
+        self.searchDebounceTimer = nil
+    end
+end
+
+function WishlistFrame:ApplySearch(text)
+    self.searchText = NormalizeWishlistSearch(text)
+    self:RefreshData()
+end
+
 function WishlistFrame:CreateGrid()
+    local L = addon.L
     local db = GetWishlistDB()
     local savedSize = db and db.tileSize
     local isValidSize = savedSize and savedSize >= MIN_TILE_SIZE and savedSize <= MAX_TILE_SIZE
     self.tileSize = isValidSize and savedSize or DEFAULT_TILE_SIZE
 
-    -- Update slider to match
+    -- Update controls to match saved state
     if self.tileSizeSlider then
         self.tileSizeSlider:SetValue(self.tileSize)
         self.tileSizeValueText:SetText(tostring(self.tileSize))
+    end
+    if self.groupBySourceCheck then
+        self.groupBySourceCheck:SetChecked(db and db.groupBySource == true)
     end
 
     -- Grid container (between toolbar and bottom, leaves room for preview on right)
@@ -297,172 +402,194 @@ function WishlistFrame:CreateGrid()
     container:SetPoint("BOTTOMRIGHT", self.frame, "BOTTOMRIGHT", -3 - PREVIEW_WIDTH - GRID_OUTER_PAD, 3 + GRID_OUTER_PAD)
     self.gridContainer = container
 
-    -- Background for grid area (extends 7px beyond container to cover gaps)
     local containerBg = container:CreateTexture(nil, "BACKGROUND")
     containerBg:SetPoint("TOPLEFT", -7, 7)
     containerBg:SetPoint("BOTTOMRIGHT", 7, -7)
     containerBg:SetColorTexture(0.02, 0.02, 0.04, 0.75)
 
-    -- ScrollBox
     local scrollBox = CreateFrame("Frame", nil, container, "WowScrollBoxList")
     scrollBox:SetPoint("TOPLEFT")
     scrollBox:SetPoint("BOTTOMRIGHT", -20, 0)
     self.scrollBox = scrollBox
 
-    -- ScrollBar
     local scrollBar = CreateFrame("EventFrame", nil, container, "MinimalScrollBar")
     scrollBar:SetPoint("TOPLEFT", scrollBox, "TOPRIGHT", 4, 0)
     scrollBar:SetPoint("BOTTOMLEFT", scrollBox, "BOTTOMRIGHT", 4, 0)
     self.scrollBar = scrollBar
 
-    -- Debounced resize handler — FullUpdate triggers GetStride() re-derivation
     addon:AttachGridResizeHandler(container, self)
 
-    -- Create grid view
-    local containerWidth = container:GetWidth()
-    if containerWidth <= 0 then containerWidth = DEFAULT_WIDTH - PREVIEW_WIDTH - GRID_OUTER_PAD * 2 - 20 end
-    local columns = math.max(1, math.floor((containerWidth + GRID_CELL_GAP) / (self.tileSize + GRID_CELL_GAP)))
-    local view = CreateScrollBoxListGridView(
-        columns,
-        1,
-        GRID_OUTER_PAD,
-        GRID_OUTER_PAD,
-        GRID_OUTER_PAD,
-        GRID_CELL_GAP,
-        GRID_CELL_GAP
-    )
-
-    -- Tell the biaxial grid view the tile size (BackdropTemplate has no defined size)
-    view:SetElementSize(self.tileSize, self.tileSize)
-    view:SetStrideExtent(self.tileSize)
-
-    -- Element resetter
-    view:SetElementResetter(function(tile)
-        if tile.icon then
-            tile.icon:SetTexture(nil)
-            tile.icon:Show()
-        end
-        if tile.modelScene then
-            local actor = tile.modelScene:GetActorByTag("decor")
-            if actor then actor:ClearModel() end
-            tile.modelScene:Hide()
-        end
-        if tile.placed then tile.placed:Hide() end
-        if tile.quantity then
-            tile.quantity:ClearAllPoints()
-            tile.quantity:SetPoint("BOTTOMRIGHT", -4, 3)
-            tile.quantity:Hide()
-        end
-        if tile.wishlistStar then tile.wishlistStar:Hide() end
-        tile:SetBackdropBorderColor(unpack(COLOR_BORDER_NORMAL))
-        tile:SetBackdropColor(unpack(COLOR_BG_NORMAL))
-        tile:SetScript("OnMouseDown", nil)
-        tile:SetScript("OnEnter", nil)
-        tile.recordID = nil
+    local view = CreateScrollBoxListLinearView()
+    view:SetElementExtentCalculator(function(_, elementData)
+        return elementData.kind == "header" and (CONSTS.WISHLIST_GROUP_HEADER_H + GROUP_HEADER_BOTTOM_PAD) or (self.tileSize + GRID_CELL_GAP)
     end)
 
-    -- Element initializer
-    view:SetElementInitializer("BackdropTemplate", function(tile, elementData)
-        if not tile.icon then
-            self:SetupTileFrame(tile, self.tileSize)
-        else
+    view:SetElementInitializer("Frame", function(row, elementData)
+        if not row.initialized then
+            row.initialized = true
+            row.tiles = {}
+
+            local headerName = addon:CreateFontString(row, "OVERLAY", "GameFontNormal")
+            headerName:SetPoint("LEFT", row, "LEFT", 4, 0)
+            headerName:SetTextColor(unpack(COLORS.GOLD))
+            addon:SetFontSize(headerName, 12, "")
+            row.headerName = headerName
+
+            local headerCount = addon:CreateFontString(row, "OVERLAY", "GameFontNormal")
+            headerCount:SetPoint("RIGHT", row, "RIGHT", -6, 0)
+            headerCount:SetTextColor(unpack(COLORS.TEXT_TERTIARY))
+            addon:SetFontSize(headerCount, 11, "")
+            row.headerCount = headerCount
+
+            local divider = row:CreateTexture(nil, "ARTWORK")
+            divider:SetPoint("BOTTOMLEFT", 4, GROUP_HEADER_BOTTOM_PAD)
+            divider:SetPoint("BOTTOMRIGHT", -4, GROUP_HEADER_BOTTOM_PAD)
+            divider:SetHeight(1)
+            divider:SetColorTexture(0.25, 0.25, 0.28, 0.8)
+            row.headerDivider = divider
+        end
+
+        local isHeader = elementData.kind == "header"
+        row.headerName:SetShown(isHeader)
+        row.headerCount:SetShown(isHeader)
+        row.headerDivider:SetShown(isHeader)
+
+        if isHeader then
+            for _, tile in ipairs(row.tiles) do tile:Hide() end
+            row.headerName:SetText(elementData.name or "")
+            row.headerCount:SetText(string.format(L["WISHLIST_GROUP_HEADER_COUNT"], elementData.total or 0, elementData.owned or 0))
+            return
+        end
+
+        local columns = elementData.recordIDs and #elementData.recordIDs or 0
+        for i = 1, columns do
+            local tile = row.tiles[i]
+            if not tile then
+                tile = CreateFrame("Frame", nil, row, "BackdropTemplate")
+                self:SetupTileFrame(tile, self.tileSize)
+                row.tiles[i] = tile
+            end
+            tile:ClearAllPoints()
+            tile:SetPoint("TOPLEFT", row, "TOPLEFT", (i - 1) * (self.tileSize + GRID_CELL_GAP), 0)
             tile:SetSize(self.tileSize, self.tileSize)
-        end
 
-        local recordID = elementData.recordID
-        local record = addon:GetRecord(recordID)
-        tile.recordID = recordID
-
-        -- Display 3D model or 2D icon (shared utility handles lazy ModelScene creation)
-        addon:SetupTileDisplay(tile, record, CAMERA_DISCARD)
-
-        -- Placed count
-        local showIndicators = addon.db and addon.db.settings.showCollectedIndicator
-        if showIndicators and record and record.numPlaced and record.numPlaced > 0 then
-            tile.placed:SetText(record.numPlaced)
-            tile.placed:Show()
-            tile.quantity:ClearAllPoints()
-            tile.quantity:SetPoint("RIGHT", tile.placed, "LEFT", -5, 0)
-        else
-            tile.placed:Hide()
-            tile.quantity:ClearAllPoints()
-            tile.quantity:SetPoint("BOTTOMRIGHT", -4, 3)
-        end
-
-        -- Owned count
-        if showIndicators and record and record.totalOwned and record.totalOwned > 0 then
-            tile.quantity:SetText(record.totalOwned)
-            tile.quantity:Show()
-        end
-
-        -- Always show wishlist star (items are wishlisted)
-        if tile.wishlistStar then
-            tile.wishlistStar:Show()
-        end
-
-        -- Promo badge
-        if tile.promoBadge then
-            tile.promoBadge:SetShown(addon:IsPromoDecor(recordID))
-        end
-
-        -- Selection state
-        if self.selectedRecordID == recordID then
-            tile:SetBackdropBorderColor(unpack(COLORS.GOLD))
-        end
-
-        -- Click handler
-        tile:SetScript("OnMouseDown", function(_, button)
-            if button == "RightButton" then
-                addon.ContextMenu:ShowForDecor(tile, recordID)
-                return
+            local recordID = elementData.recordIDs and elementData.recordIDs[i]
+            if recordID then
+                self:BindTile(tile, recordID)
+                tile:Show()
+            else
+                self:ResetTile(tile)
+                tile:Hide()
             end
-            if button == "LeftButton" and IsShiftKeyDown() then
-                -- Shift+Click: Remove from wishlist
-                addon:SetWishlisted(recordID, false)
-                addon:GetDecorLink(recordID, function(link)
-                    addon:Print(string.format(addon.L["WISHLIST_REMOVED"], link))
-                end)
-                return
-            end
-            self:SelectRecord(recordID)
-        end)
-
-        -- Tooltip and hover preview handler
-        tile:SetScript("OnEnter", function(t)
-            t:SetBackdropColor(unpack(COLOR_BG_HOVER))
-            local rec = addon:GetRecord(t.recordID)
-            if not rec then return end
-
-            -- Show preview for hovered item
-            self:ShowPreview(t.recordID)
-
-            GameTooltip:SetOwner(t, "ANCHOR_RIGHT")
-            GameTooltip:SetText(rec.name or addon.L["UNKNOWN"], 1, 1, 1)
-            if rec.sourceText and rec.sourceText ~= "" then
-                GameTooltip:AddLine(rec.sourceText, 0.8, 0.8, 0.8, true)
-            end
-            if rec.totalOwned and rec.totalOwned > 0 then
-                GameTooltip:AddLine(string.format(addon.L["DETAILS_OWNED"], rec.totalOwned), unpack(COLOR_COLLECTED))
-            end
-            if rec.numPlaced and rec.numPlaced > 0 then
-                GameTooltip:AddLine(string.format(addon.L["DETAILS_PLACED"], rec.numPlaced), 0.4, 0.8, 0.4)
-            end
-            GameTooltip:AddLine(addon.L["WISHLIST_SHIFT_CLICK"], 0.5, 0.5, 0.5)
-            GameTooltip:Show()
-        end)
+        end
+        for i = columns + 1, #row.tiles do
+            self:ResetTile(row.tiles[i])
+            row.tiles[i]:Hide()
+        end
     end)
 
-    -- Initialize ScrollBox
     ScrollUtil.InitScrollBoxListWithScrollBar(scrollBox, scrollBar, view)
     self.view = view
 
-    -- Initialize DataProvider once (reused via Flush/InsertTable in RefreshData)
     self.dataProvider = CreateDataProvider()
     scrollBox:SetDataProvider(self.dataProvider)
 
-    addon:Debug("WishlistFrame grid created with " .. columns .. " columns")
+    addon:Debug("WishlistFrame row view created")
 end
 
+function WishlistFrame:ResetTile(tile)
+    if tile.icon then
+        tile.icon:SetTexture(nil)
+        tile.icon:Show()
+    end
+    if tile.modelScene then
+        local actor = tile.modelScene:GetActorByTag("decor")
+        if actor then actor:ClearModel() end
+        tile.modelScene:Hide()
+    end
+    if tile.placed then tile.placed:Hide() end
+    if tile.quantity then
+        tile.quantity:ClearAllPoints()
+        tile.quantity:SetPoint("BOTTOMRIGHT", -4, 3)
+        tile.quantity:Hide()
+    end
+    if tile.wishlistStar then tile.wishlistStar:Hide() end
+    if tile.promoBadge then tile.promoBadge:Hide() end
+    addon:ResetTileIconZoom(tile)
+    addon:StopStarTwinkle(tile)
+    tile:SetBackdropBorderColor(unpack(COLOR_BORDER_NORMAL))
+    tile:SetBackdropColor(unpack(COLOR_BG_NORMAL))
+    tile:SetScript("OnMouseDown", nil)
+    tile:SetScript("OnEnter", nil)
+    tile.recordID = nil
+end
+
+function WishlistFrame:BindTile(tile, recordID)
+    self:ResetTile(tile)
+
+    local record = addon:GetRecord(recordID)
+    tile.recordID = recordID
+
+    addon:SetupTileDisplay(tile, record, CAMERA_DISCARD)
+
+    local showIndicators = addon.db and addon.db.settings.showCollectedIndicator
+    if showIndicators and record and record.numPlaced and record.numPlaced > 0 then
+        tile.placed:SetText(record.numPlaced)
+        tile.placed:Show()
+        tile.quantity:ClearAllPoints()
+        tile.quantity:SetPoint("RIGHT", tile.placed, "LEFT", -5, 0)
+    end
+
+    if showIndicators and record and record.totalOwned and record.totalOwned > 0 then
+        tile.quantity:SetText(record.totalOwned)
+        tile.quantity:Show()
+    end
+
+    if tile.wishlistStar then tile.wishlistStar:Show() end
+    if tile.promoBadge then tile.promoBadge:SetShown(addon:IsPromoDecor(recordID)) end
+
+    if self.selectedRecordID == recordID then
+        tile:SetBackdropBorderColor(unpack(COLORS.GOLD))
+    end
+
+    tile:SetScript("OnMouseDown", function(_, button)
+        if button == "RightButton" then
+            addon.ContextMenu:ShowForDecor(tile, recordID)
+            return
+        end
+        if button == "LeftButton" and IsShiftKeyDown() then
+            addon:SetWishlisted(recordID, false)
+            addon:GetDecorLink(recordID, function(link)
+                addon:Print(string.format(addon.L["WISHLIST_REMOVED"], link))
+            end)
+            return
+        end
+        self:SelectRecord(recordID)
+    end)
+
+    tile:SetScript("OnEnter", function(t)
+        t:SetBackdropColor(unpack(COLOR_BG_HOVER))
+        addon:StartTileIconZoom(t)
+        local rec = addon:GetRecord(t.recordID)
+        if not rec then return end
+
+        self:ShowPreview(t.recordID)
+
+        GameTooltip:SetOwner(t, "ANCHOR_RIGHT")
+        GameTooltip:SetText(rec.name or addon.L["UNKNOWN"], 1, 1, 1)
+        if rec.sourceText and rec.sourceText ~= "" then
+            GameTooltip:AddLine(rec.sourceText, 0.8, 0.8, 0.8, true)
+        end
+        if rec.totalOwned and rec.totalOwned > 0 then
+            GameTooltip:AddLine(string.format(addon.L["DETAILS_OWNED"], rec.totalOwned), unpack(COLOR_COLLECTED))
+        end
+        if rec.numPlaced and rec.numPlaced > 0 then
+            GameTooltip:AddLine(string.format(addon.L["DETAILS_PLACED"], rec.numPlaced), 0.4, 0.8, 0.4)
+        end
+        GameTooltip:AddLine(addon.L["WISHLIST_SHIFT_CLICK"], 0.5, 0.5, 0.5)
+        GameTooltip:Show()
+    end)
+end
 -- WishlistFrame uses shared SetupTileFrame with custom OnLeave (restores preview)
 function WishlistFrame:SetupTileFrame(tile, tileSize)
     addon:SetupTileFrame(tile, tileSize, function(t)
@@ -626,6 +753,7 @@ function WishlistFrame:CreateEmptyState()
     msg:SetPoint("CENTER", 0, 20)
     msg:SetText(L["WISHLIST_EMPTY"])
     msg:SetTextColor(0.6, 0.6, 0.6, 1)
+    self.emptyStateMsg = msg
 
     -- Description
     local desc = addon:CreateFontString(frame, "OVERLAY", "GameFontNormal")
@@ -633,6 +761,7 @@ function WishlistFrame:CreateEmptyState()
     desc:SetText(L["WISHLIST_EMPTY_DESC"])
     desc:SetTextColor(0.5, 0.5, 0.5, 1)
     desc:SetWidth(300)
+    self.emptyStateDesc = desc
 end
 
 function WishlistFrame:CreateResizeHandle()
@@ -749,21 +878,83 @@ end
 -- Data Management
 --------------------------------------------------------------------------------
 
+function WishlistFrame:BuildWishlistElements(recordIDs)
+    local L = addon.L
+    local elements = {}
+    local columns = GetColumnCount(self.gridContainer, self.tileSize)
+    local db = GetWishlistDB()
+    local grouped = db and db.groupBySource == true
+
+    if not grouped then
+        for i = 1, #recordIDs, columns do
+            local row = { kind = "row", recordIDs = {} }
+            for col = 1, columns do
+                row.recordIDs[col] = recordIDs[i + col - 1]
+            end
+            elements[#elements + 1] = row
+        end
+        return elements
+    end
+
+    local groups = {}
+    for _, key in ipairs(SOURCE_ORDER) do
+        groups[key] = { ids = {}, owned = 0 }
+    end
+
+    for _, recordID in ipairs(recordIDs) do
+        local sourceKind = addon:GetRecordSourceKind(recordID) or "OTHER"
+        local group = groups[sourceKind] or groups.OTHER
+        group.ids[#group.ids + 1] = recordID
+        local record = addon:GetRecord(recordID)
+        if record and record.isCollected then
+            group.owned = group.owned + 1
+        end
+    end
+
+    for _, key in ipairs(SOURCE_ORDER) do
+        local group = groups[key]
+        if group and #group.ids > 0 then
+            local labelKey = SOURCE_LABEL_KEYS[key]
+            elements[#elements + 1] = {
+                kind = "header",
+                name = L[labelKey] or labelKey,
+                total = #group.ids,
+                owned = group.owned,
+            }
+            for i = 1, #group.ids, columns do
+                local row = { kind = "row", recordIDs = {} }
+                for col = 1, columns do
+                    row.recordIDs[col] = group.ids[i + col - 1]
+                end
+                elements[#elements + 1] = row
+            end
+        end
+    end
+
+    return elements
+end
+
 function WishlistFrame:RefreshData()
     if not self.scrollBox or not self.dataProvider then return end
 
-    -- Get all wishlisted record IDs
+    local L = addon.L
+    local totalWishlist = addon:GetWishlistCount()
     local recordIDs = {}
     if addon.db and addon.db.wishlist then
         for recordID, isWishlisted in pairs(addon.db.wishlist) do
             local record = addon:ResolveRecord(recordID)
             if isWishlisted and record and addon:ShouldDisplayDecor(recordID, record) then
-                table.insert(recordIDs, recordID)
+                local matchesSearch = true
+                if self.searchText then
+                    matchesSearch = record.name and strfind(strlower(record.name), self.searchText, 1, true) ~= nil
+                end
+                if matchesSearch then
+                    table.insert(recordIDs, recordID)
+                end
             end
         end
     end
 
-    -- Sort alphabetically by name
     table.sort(recordIDs, function(a, b)
         local recA = addon:GetRecord(a)
         local recB = addon:GetRecord(b)
@@ -772,29 +963,27 @@ function WishlistFrame:RefreshData()
         return nameA < nameB
     end)
 
-    -- Update empty state
     local isEmpty = #recordIDs == 0
     if self.emptyState then
         self.emptyState:SetShown(isEmpty)
+        if self.emptyStateMsg and self.emptyStateDesc then
+            if totalWishlist > 0 and self.searchText then
+                self.emptyStateMsg:SetText(L["WISHLIST_NO_SEARCH_RESULTS"])
+                self.emptyStateDesc:SetText(L["WISHLIST_NO_SEARCH_RESULTS_DESC"])
+            else
+                self.emptyStateMsg:SetText(L["WISHLIST_EMPTY"])
+                self.emptyStateDesc:SetText(L["WISHLIST_EMPTY_DESC"])
+            end
+        end
     end
-    if self.scrollBox then
-        self.scrollBox:SetShown(not isEmpty)
-    end
-    if self.scrollBar then
-        self.scrollBar:SetShown(not isEmpty)
-    end
+    if self.scrollBox then self.scrollBox:SetShown(not isEmpty) end
+    if self.scrollBar then self.scrollBar:SetShown(not isEmpty) end
 
-    -- Update item count
     if self.itemCountText then
-        local L = addon.L
         self.itemCountText:SetText(string.format(L["RESULT_COUNT_ALL"], #recordIDs))
     end
 
-    -- Convert to element data and populate DataProvider
-    local elements = {}
-    for _, recordID in ipairs(recordIDs) do
-        table.insert(elements, { recordID = recordID })
-    end
+    local elements = self:BuildWishlistElements(recordIDs)
     self.dataProvider:Flush()
     if #elements > 0 then
         self.dataProvider:InsertTable(elements)
@@ -802,7 +991,6 @@ function WishlistFrame:RefreshData()
 
     addon:Debug("WishlistFrame refreshed with " .. #recordIDs .. " items")
 end
-
 function WishlistFrame:SetTileSize(newSize)
     newSize = math.max(MIN_TILE_SIZE, math.min(MAX_TILE_SIZE, newSize))
     if newSize == self.tileSize then return end
@@ -815,7 +1003,15 @@ function WishlistFrame:SetTileSize(newSize)
         db.tileSize = newSize
     end
 
-    addon:ApplyTileSizeToView(self)
+    if self.resizeTimer then
+        self.resizeTimer:Cancel()
+        self.resizeTimer = nil
+    end
+
+    self:RefreshData()
+    if self.scrollBox then
+        self.scrollBox:FullUpdate(ScrollBoxConstants.UpdateImmediately)
+    end
 end
 
 function WishlistFrame:SelectRecord(recordID)
@@ -825,13 +1021,15 @@ function WishlistFrame:SelectRecord(recordID)
 
     -- Update selection visuals
     if self.scrollBox and self.view then
-        self.scrollBox:ForEachFrame(function(tile)
-            if not tile.recordID then return end
+        self.scrollBox:ForEachFrame(function(row)
+            if not row.tiles then return end
 
-            if tile.recordID == recordID then
-                tile:SetBackdropBorderColor(unpack(COLORS.GOLD))
-            elseif tile.recordID == prevSelected then
-                tile:SetBackdropBorderColor(unpack(COLOR_BORDER_NORMAL))
+            for _, tile in ipairs(row.tiles) do
+                if tile.recordID == recordID then
+                    tile:SetBackdropBorderColor(unpack(COLORS.GOLD))
+                elseif tile.recordID == prevSelected then
+                    tile:SetBackdropBorderColor(unpack(COLOR_BORDER_NORMAL))
+                end
             end
         end)
     end
@@ -1068,6 +1266,7 @@ function WishlistFrame:CancelTimers()
         self.tileSizeSlider.debounceTimer:Cancel()
         self.tileSizeSlider.debounceTimer = nil
     end
+    self:CancelSearchDebounce()
     if self.resizeTimer then
         self.resizeTimer:Cancel()
         self.resizeTimer = nil
@@ -1126,6 +1325,7 @@ function WishlistFrame:RestoreLayout()
     local w = math.min(math.max(size.width or DEFAULT_WIDTH, MIN_WIDTH), screenWidth)
     local h = math.min(math.max(size.height or DEFAULT_HEIGHT, MIN_HEIGHT), screenHeight)
     self.frame:SetSize(w, h)
+    self.frame:SetResizeBounds(MIN_WIDTH, MIN_HEIGHT, screenWidth, screenHeight)
 end
 
 --------------------------------------------------------------------------------
@@ -1175,8 +1375,11 @@ end)
 addon:RegisterInternalEvent("RECORD_OWNERSHIP_UPDATED", function(recordID)
     if not WishlistFrame:IsShown() then return end
 
-    -- Always refresh tiles (owned state affects all visible items)
-    if WishlistFrame.scrollBox and WishlistFrame.view then
+    -- Group headers cache owned counts in element data, so grouped mode needs a rebuild.
+    local db = GetWishlistDB()
+    if db and db.groupBySource == true then
+        WishlistFrame:RefreshData()
+    elseif WishlistFrame.scrollBox and WishlistFrame.view then
         WishlistFrame.scrollBox:FullUpdate(ScrollBoxConstants.UpdateImmediately)
     end
 

@@ -98,7 +98,7 @@ function RenownTab:Show()
     local skipRefresh = self.ownershipRefreshedThisShow
     self.ownershipRefreshedThisShow = nil
 
-    if not addon.renownIndexBuilt then
+    if addon.dataLoaded and not addon.renownIndexBuilt then
         addon:BuildRenownIndex()
     end
 
@@ -286,13 +286,8 @@ function RenownTab:SelectExpansion(expKey)
     local db = GetRenownDB()
     if db then db.selectedExpansion = expKey end
 
-    if self.expansionScrollBox then
-        self.expansionScrollBox:ForEachFrame(function(frame)
-            if frame.expansionKey then
-                self:ApplySelectionButtonState(frame, frame.expansionKey == expKey)
-            end
-        end)
-    end
+    self:UpdateHierarchySelection(self.expansionScrollBox, "expansionKey", prevSelected, expKey,
+        function() return self.selectedExpansion end)
 
     self:BuildFactionDisplay()
 
@@ -668,11 +663,14 @@ function RenownTab:SetupDecorRows(frame, entries, factionID, vendors)
         if record and record.icon then
             if record.iconType == "atlas" then
                 row.icon:SetAtlas(record.icon)
+                row.icon:SetTexCoord(0, 1, 0, 1)
             else
                 row.icon:SetTexture(record.icon)
+                row.icon:SetTexCoord(unpack(ICON_CROP_COORDS))
             end
         else
             row.icon:SetTexture(addon:ResolveDecorIcon(decorId))
+            row.icon:SetTexCoord(unpack(ICON_CROP_COORDS))
         end
 
         row.checkIcon:SetShown(row.isCollected)

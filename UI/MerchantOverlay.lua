@@ -125,7 +125,7 @@ function MerchantOverlay:GetOverlay(button)
     -- Owned checkmark with shadow (sizes and anchors are defined in XML)
     local checkmark, checkShadow = addon.SetupOwnedCheckmark(frame.Checkmark, frame.CheckShadow)
 
-    local overlay = {
+    overlay = {
         frame = frame,
         hcIcon = hcIcon,
         hcShadow = hcShadow,
@@ -226,7 +226,7 @@ function MerchantOverlay:UpdateMerchantButtons()
             if isDecor and catalogInfo.entryID and not addon:ShouldDisplayDecor(catalogInfo.entryID.recordID) then
                 isDecor = false
             end
-            local isOwned = isDecor and catalogInfo and addon.IsDecorOwned(catalogInfo)
+            local isOwned = isDecor and addon.IsDecorOwned(catalogInfo)
             local showDecor = isDecor and showDecorIcon
             local showCheckmark = isOwned and showOwnedCheckmark
             if not showDecor and not showCheckmark then
@@ -314,7 +314,8 @@ function MerchantOverlay:Initialize()
     end)
 
     -- Listen for internal ownership updates
-    addon:RegisterInternalEvent("RECORD_OWNERSHIP_UPDATED", function()
+    addon:RegisterInternalEvent("RECORD_OWNERSHIP_UPDATED", function(recordID, collectionStateChanged)
+        if not collectionStateChanged then return end
         if not MerchantFrame or not MerchantFrame:IsShown() then return end
         -- Clear session cache to force fresh ownership checks
         ClearSessionCache()

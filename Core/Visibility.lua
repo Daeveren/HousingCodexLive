@@ -130,9 +130,12 @@ function addon:InvalidateDecorVisibilityCaches()
     if self.dropCategoryProgressCache then wipe(self.dropCategoryProgressCache) end
     if self.craftingProgressCache then wipe(self.craftingProgressCache) end
     if self.pvpCategoryProgressCache then wipe(self.pvpCategoryProgressCache) end
+    if self.pvpSourceProgressCache then wipe(self.pvpSourceProgressCache) end
     if self.renownProgressCache then wipe(self.renownProgressCache) end
+    if self.renownExpansionProgressCache then wipe(self.renownExpansionProgressCache) end
     if self.vendorExpansionProgressCache then wipe(self.vendorExpansionProgressCache) end
     if self.vendorZoneProgressCache then wipe(self.vendorZoneProgressCache) end
+    self.vendorUniqueProgressCache = nil
 end
 
 function addon:NotifyDecorVisibilityChanged(recordID, reason)
@@ -152,6 +155,16 @@ function addon:SetDecorHidden(recordID, hidden)
     self.db.hiddenDecor[id] = shouldHide or nil
     self:NotifyDecorVisibilityChanged(id, shouldHide and "hidden" or "unhidden")
     return true
+end
+
+function addon:GetHiddenDecorCount()
+    local hidden = self.db and self.db.hiddenDecor
+    if type(hidden) ~= "table" then return 0 end
+    local count = 0
+    for _, isHidden in pairs(hidden) do
+        if isHidden == true then count = count + 1 end
+    end
+    return count
 end
 
 function addon:ClearHiddenDecor()

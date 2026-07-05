@@ -9,7 +9,7 @@ local ADDON_NAME, addon = ...
 HousingCodex = addon
 
 -- Version info (read from TOC at runtime - single source of truth)
-addon.version = C_AddOns.GetAddOnMetadata("HousingCodex", "Version") or "unknown"
+addon.version = C_AddOns.GetAddOnMetadata(ADDON_NAME, "Version") or "unknown"
 addon.addonName = ADDON_NAME
 
 -- Localization table (populated by Locales/*.lua)
@@ -58,6 +58,10 @@ addon.CONSTANTS = {
     WISHLIST_STAR_SIZE_PREVIEW = 24,  -- Star button size in preview details
     WISHLIST_STAR_SIZE_HIERARCHY = 14, -- Small star for hierarchy rows (quests/achievements)
 
+    -- Grid tile icon anchor insets (shared by SetupTileFrame/SetupTileDisplay
+    -- and the hover-zoom animation in UI/Animations.lua)
+    TILE_ICON_INSETS = { LEFT = 6, TOP = 6, RIGHT = 6, BOTTOM = 20 },
+
     -- Hierarchy layout (QuestsTab, AchievementsTab)
     HIERARCHY_PADDING = 8,              -- Padding for quest/achievement hierarchies
     HIERARCHY_ROW_HEIGHT = 26,          -- Quest/achievement row height
@@ -69,6 +73,7 @@ addon.CONSTANTS = {
         GOLD = { 1, 0.82, 0, 1 },
         GOLD_DIM = { 0.8, 0.66, 0, 1 },
         TITLE = { 0.9, 0.85, 0.5, 1 },
+        TITLEBAR_BG = { 0.08, 0.08, 0.1, 0.95 },
         SIDEBAR_BG = { 0.05, 0.05, 0.08, 0.9 },
         CONTENT_BG = { 0, 0, 0, 0.8 },
         TAB_NORMAL = { 0.1, 0.1, 0.12, 0.8 },
@@ -128,7 +133,8 @@ addon.CONSTANTS = {
         [69] = "SIZE_HUGE",    -- Enum.HousingCatalogEntrySize.Huge
     },
 
-    -- Sort types (native = HousingCatalogSearcher, client-side >= 100)
+    -- Sort types (native = HousingCatalogSearcher, client-side >= CUSTOM_SORT_THRESHOLD)
+    CUSTOM_SORT_THRESHOLD = 100,
     SORT_NATIVE_NEWEST = 0,    -- Enum.HousingCatalogSortType.DateAdded
     SORT_NATIVE_ALPHA = 1,     -- Enum.HousingCatalogSortType.Alphabetical
     SORT_CLIENT_SIZE = 100,    -- Client-side: by size (Huge → None)
@@ -210,11 +216,22 @@ addon.CONSTANTS = {
 
     -- Debounce timing
     TIMER = {
-        INPUT_DEBOUNCE = 0.15,            -- User input debounce (search, slider, resize)
+        INPUT_DEBOUNCE = 0.15,            -- User input debounce (slider, resize)
+        SEARCH_DEBOUNCE = 0.2,           -- Search input debounce (heavier API call)
         OWNERSHIP_REFRESH_DEBOUNCE = 0.1, -- Collection state change coalescing
         QUEST_REFRESH_DEBOUNCE = 0.1,     -- Quest event coalescing (completion + cache invalidation)
         STORAGE_UPDATE_DEBOUNCE = 0.5,    -- Housing storage event coalescing
+        HISTORY_DEBOUNCE = 2.0,           -- Collection-history snapshot coalescing
     },
+
+    -- Progress sidebar additions
+    PLACEMENT_BUDGET_WARN_THRESHOLD = 0.8,
+    PLACEMENT_BUDGET_WARN_COLOR = { 1.0, 0.55, 0.1, 1 },
+    COLLECTION_HISTORY_BAR_MAX_H = 24,
+    COLLECTION_HISTORY_BAR_MIN_H = 2,
+    COLLECTION_HISTORY_DISPLAY_DAYS = 15,
+    COLLECTION_HISTORY_RETENTION_DAYS = 30,
+    WISHLIST_GROUP_HEADER_H = 24,
 
     -- What's New / Welcome popup
     WHATSNEW = {
@@ -302,6 +319,8 @@ addon.Events = {
     ZONE_DECOR_CACHE_INVALIDATED    = "ZONE_DECOR_CACHE_INVALIDATED",
     PLAYER_PROFESSIONS_CHANGED      = "PLAYER_PROFESSIONS_CHANGED",
     WAYPOINT_CHANGED                = "WAYPOINT_CHANGED",
+    COLLECTION_HISTORY_UPDATED      = "COLLECTION_HISTORY_UPDATED",
+    PLACEMENT_BUDGET_UPDATED        = "PLACEMENT_BUDGET_UPDATED",
     ENDEAVORS_ZONE_CHANGED          = "ENDEAVORS_ZONE_CHANGED",
     ENDEAVORS_HOUSE_LEVEL_UPDATED   = "ENDEAVORS_HOUSE_LEVEL_UPDATED",
     ENDEAVORS_INITIATIVE_UPDATED    = "ENDEAVORS_INITIATIVE_UPDATED",
@@ -398,6 +417,14 @@ end)
 -- Utility Functions
 function addon:Print(msg)
     print("|cFFFFD100Housing Codex:|r " .. tostring(msg))
+end
+
+function addon:FormatLargeNumber(value)
+    local number = math.floor(tonumber(value) or 0)
+    if BreakUpLargeNumbers then
+        return BreakUpLargeNumbers(number)
+    end
+    return tostring(number)
 end
 
 function addon:AnchorTooltipToCursor(owner)
@@ -684,6 +711,9 @@ function addon:CreateWishlistStarButton(parent, owner)
             addon:Print(string.format(key, link))
         end)
         btn:UpdateState(recordID)
+        if isNowWishlisted then
+            addon:PlayStarTwinkle(star, btn)
+        end
     end)
 
     btn:SetScript("OnEnter", function(b)
@@ -810,7 +840,11 @@ function addon:AttachGridResizeHandler(container, owner)
         owner.resizeTimer = C_Timer.NewTimer(self.CONSTANTS.TIMER.INPUT_DEBOUNCE, function()
             owner.resizeTimer = nil
             if owner.scrollBox and owner.view then
-                owner.scrollBox:FullUpdate(ScrollBoxConstants.UpdateImmediately)
+                if owner.BuildWishlistElements and owner.RefreshData then
+                    owner:RefreshData()
+                else
+                    owner.scrollBox:FullUpdate(ScrollBoxConstants.UpdateImmediately)
+                end
             end
         end)
     end)
@@ -870,9 +904,10 @@ function addon:SetupTileFrame(tile, tileSize, onLeaveCallback)
     tile:SetBackdropBorderColor(unpack(COLORS.BORDER))
 
     -- Icon fills most of tile, leaving room for quantity at bottom
+    local insets = self.CONSTANTS.TILE_ICON_INSETS
     local icon = tile:CreateTexture(nil, "ARTWORK")
-    icon:SetPoint("TOPLEFT", 6, -6)
-    icon:SetPoint("BOTTOMRIGHT", -6, 20)
+    icon:SetPoint("TOPLEFT", insets.LEFT, -insets.TOP)
+    icon:SetPoint("BOTTOMRIGHT", -insets.RIGHT, insets.BOTTOM)
     tile.icon = icon
 
     -- ModelScene created lazily on first use (see element initializer)
@@ -913,6 +948,7 @@ function addon:SetupTileFrame(tile, tileSize, onLeaveCallback)
 
     -- OnLeave handler (OnEnter is set per-element in initializer)
     tile:SetScript("OnLeave", function(t)
+        addon:StopTileIconZoom(t)
         if onLeaveCallback then
             onLeaveCallback(t)
         end
@@ -934,10 +970,11 @@ function addon:SetupTileDisplay(tile, record, cameraModType)
     if useModelScene then
         -- Lazy create ModelScene on first use
         if not tile.modelScene then
+            local insets = addon.CONSTANTS.TILE_ICON_INSETS
             local modelScene = CreateFrame("ModelScene", nil, tile, "NonInteractableModelSceneMixinTemplate")
             modelScene:EnableMouse(false)
-            modelScene:SetPoint("TOPLEFT", 6, -6)
-            modelScene:SetPoint("BOTTOMRIGHT", -6, 20)
+            modelScene:SetPoint("TOPLEFT", insets.LEFT, -insets.TOP)
+            modelScene:SetPoint("BOTTOMRIGHT", -insets.RIGHT, insets.BOTTOM)
             tile.modelScene = modelScene
             modelScene:TransitionToModelSceneID(TILE_MODEL_SCENE_ID, addon.CONSTANTS.CAMERA.TRANSITION_IMMEDIATE, cameraModType, true)
         end
@@ -1026,7 +1063,7 @@ end
 local function ParseDevDecorAuditIDs(cmd)
     local ids = {}
     local seen = {}
-    local args = strtrim(cmd:sub(("devdecorcheck"):len() + 1) or "")
+    local args = strtrim(cmd:sub(#"devdecorcheck" + 1))
 
     for token in string.gmatch(args, "%d+") do
         local decorId = tonumber(token)

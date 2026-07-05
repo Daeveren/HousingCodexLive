@@ -201,6 +201,7 @@ AchievementRowOnMouseDown = function(frame, button)
 end
 
 AchievementRowOnEnter = function(frame)
+    if not frame.achievementID then return end
     if AchievementsTab.selectedAchievementID ~= frame.achievementID or AchievementsTab.selectedRecordID ~= frame.recordID then
         frame.bg:SetColorTexture(unpack(COLORS.ROW_BG_SOLID))
     end
@@ -508,13 +509,8 @@ function AchievementsTab:SelectCategory(categoryId)
     if db then db.selectedCategory = categoryId end
 
     -- Update category panel visuals
-    if self.categoryScrollBox then
-        self.categoryScrollBox:ForEachFrame(function(frame)
-            if frame.categoryId then
-                self:ApplySelectionButtonState(frame, frame.categoryId == categoryId)
-            end
-        end)
-    end
+    self:UpdateHierarchySelection(self.categoryScrollBox, "categoryId", prevSelected, categoryId,
+        function() return self.selectedCategory end)
 
     -- Clear selection and preview when switching categories (before build so auto-select targets new category)
     if prevSelected ~= categoryId then
@@ -730,7 +726,7 @@ function AchievementsTab:BuildAchievementDisplay(visCache, filter, searchText)
             local recordIDs = self:GetVisibleAchievementRecordIDs(achievementID, filter, searchText, categoryId, visCache)
             if recordIDs then
                 -- Multi-reward achievements: show one entry per reward
-                local numRewards = recordIDs and #recordIDs or 0
+                local numRewards = #recordIDs
                 if numRewards > 1 then
                     for i, recordID in ipairs(recordIDs) do
                         table.insert(elements, {
@@ -743,7 +739,7 @@ function AchievementsTab:BuildAchievementDisplay(visCache, filter, searchText)
                 else
                     table.insert(elements, {
                         achievementID = achievementID,
-                        recordID = recordIDs and recordIDs[1]
+                        recordID = recordIDs[1]
                     })
                 end
             end
@@ -904,6 +900,9 @@ addon:RegisterInternalEvent("WISHLIST_CHANGED", function(recordID, isWishlisted)
         AchievementsTab.achievementScrollBox:ForEachFrame(function(frame)
             if frame.recordID == recordID and frame.wishlistStar then
                 addon.TabBaseMixin:UpdateWishlistStar(frame, isWishlisted)
+                if isWishlisted then
+                    addon:PlayStarTwinkle(frame.wishlistStar, frame)
+                end
             end
         end)
     end

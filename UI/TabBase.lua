@@ -21,6 +21,9 @@ local COLORS = CONSTS.COLORS
 -- @param isWishlisted: boolean
 function TabBaseMixin:UpdateWishlistStar(frame, isWishlisted)
     if not frame or not frame.wishlistStar or not frame.label then return end
+    -- Rows are recycled without an element resetter: kill any in-flight
+    -- twinkle burst before the star is re-bound to different content
+    addon:StopStarTwinkle(frame)
     frame.wishlistStar:SetShown(isWishlisted)
     if isWishlisted then
         frame.wishlistStar:ClearAllPoints()
@@ -118,6 +121,61 @@ function TabBaseMixin:ApplySelectionButtonState(frame, isSelected)
         frame.selectionBorder:Hide()
         frame.label:SetTextColor(unpack(COLORS.TEXT_SECONDARY))
     end
+end
+
+-- Apply selection visuals across a left-column panel and play the gold-bar
+-- "stretch & settle" between the previous and new row. Animates only when both
+-- rows are currently visible (off-screen rows snap — also avoids drawing the
+-- transient bar outside the panel, since ScrollBox does not clip children).
+-- @param scrollBox: the panel's WowScrollBoxList
+-- @param keyField: key field present on row frames (e.g. "category", "expansionKey")
+-- @param prevKey, newKey: previous and new selection keys
+-- @param getSelectedKey: function() -> current key; re-read when the bar lands
+--   so a selection change mid-animation reveals the right row's border
+function TabBaseMixin:UpdateHierarchySelection(scrollBox, keyField, prevKey, newKey, getSelectedKey)
+    if not scrollBox then return end
+
+    local prevFrame, newFrame
+    scrollBox:ForEachFrame(function(frame)
+        local key = frame[keyField]
+        if key ~= nil then
+            self:ApplySelectionButtonState(frame, key == newKey)
+            if key == newKey then newFrame = frame end
+            if key == prevKey then prevFrame = frame end
+        end
+    end)
+
+    if prevKey == nil or prevKey == newKey or not prevFrame or not newFrame then return end
+
+    -- Coordinates relative to the rows' shared parent (the scroll target),
+    -- so the bar moves with scrolled content
+    local target = newFrame:GetParent()
+    if not target then return end
+    local targetTop = target:GetTop()
+    local prevTop, prevBottom = prevFrame:GetTop(), prevFrame:GetBottom()
+    local newTop, newBottom = newFrame:GetTop(), newFrame:GetBottom()
+    if not (addon:IsUsableUINumber(targetTop) and addon:IsUsableUINumber(prevTop)
+        and addon:IsUsableUINumber(prevBottom) and addon:IsUsableUINumber(newTop)
+        and addon:IsUsableUINumber(newBottom)) then
+        return
+    end
+
+    -- The static gold border stays hidden while the transient bar travels
+    if newFrame.selectionBorder then
+        newFrame.selectionBorder:Hide()
+    end
+
+    addon:PlaySelectionBarStretch(target, 0,
+        targetTop - prevTop, prevTop - prevBottom,
+        targetTop - newTop, newTop - newBottom,
+        function()
+            local current = getSelectedKey()
+            scrollBox:ForEachFrame(function(frame)
+                if frame[keyField] ~= nil then
+                    self:ApplySelectionButtonState(frame, frame[keyField] == current)
+                end
+            end)
+        end)
 end
 
 --------------------------------------------------------------------------------
@@ -519,13 +577,8 @@ function TabBaseMixin:SelectCategory(category)
     local db = self:GetDB()
     if db then db.selectedCategory = category end
 
-    if self.categoryScrollBox then
-        self.categoryScrollBox:ForEachFrame(function(frame)
-            if frame.category then
-                self:ApplySelectionButtonState(frame, frame.category == category)
-            end
-        end)
-    end
+    self:UpdateHierarchySelection(self.categoryScrollBox, "category", prevSelected, category,
+        function() return self.selectedCategory end)
 
     self:BuildSourceDisplay()
 

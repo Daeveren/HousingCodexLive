@@ -16,6 +16,13 @@ local ROW_HEIGHT = 28
 local ROW_SPACING = ROW_HEIGHT + 2
 local CONTENT_PADDING = 20
 local COLUMN_GAP = 16
+local SIDEBAR_SECTION_GAP = 10
+local SIDEBAR_GROUP_GAP = 8
+local BUDGET_BAR_HEIGHT = 20
+local BUDGET_ROW_SPACING = 32
+local HOUSE_HEADER_ROW_SPACING = 24
+local HOUSE_PLOT_SECTION_GAP = 10
+local SIDEBAR_HISTORY_BOTTOM_GAP = 6
 
 local SOURCE_LABEL_KEYS = {
     QUESTS       = "PROGRESS_SOURCE_QUESTS",
@@ -37,6 +44,11 @@ ProgressTab.frame = nil
 ProgressTab.scrollFrame = nil
 ProgressTab.scrollChild = nil
 ProgressTab.sidePanel = nil
+ProgressTab.sideContent = nil
+ProgressTab.sideScrollFrame = nil
+ProgressTab.sideScrollChild = nil
+ProgressTab.sideScrollTrack = nil
+ProgressTab.sideScrollThumb = nil
 ProgressTab.sidebarElements = {}
 ProgressTab.sourceRows = {}
 ProgressTab.professionRows = {}
@@ -45,6 +57,8 @@ ProgressTab.almostThereRows = {}
 ProgressTab.questExpRows = {}
 ProgressTab.renownExpRows = {}
 ProgressTab.pvpCategoryRows = {}
+ProgressTab.achievementCatRows = {}
+ProgressTab.dropCatRows = {}
 
 -- Override: gray for <100%, green at 100%
 function ProgressTab:GetProgressColor(percent)
@@ -77,6 +91,7 @@ function ProgressTab:Create(parent)
 end
 
 function ProgressTab:CreateSidebarPanel(parent)
+    local TRACK_WIDTH = 6
     local panel = CreateFrame("Frame", nil, parent)
     panel:SetPoint("TOPLEFT", parent, "TOPLEFT", -SIDEBAR_WIDTH, 0)
     panel:SetPoint("BOTTOMLEFT", parent, "BOTTOMLEFT", -SIDEBAR_WIDTH, 0)
@@ -89,12 +104,126 @@ function ProgressTab:CreateSidebarPanel(parent)
     bg:SetAllPoints()
     bg:SetColorTexture(0.04, 0.04, 0.06, 0.98)
 
+    local scrollFrame = CreateFrame("ScrollFrame", nil, panel)
+    scrollFrame:SetPoint("TOPLEFT", panel, "TOPLEFT", 0, 0)
+    scrollFrame:SetPoint("BOTTOMRIGHT", panel, "BOTTOMRIGHT", -14, 0)
+    self.sideScrollFrame = scrollFrame
+
+    local scrollChild = CreateFrame("Frame", nil, scrollFrame)
+    scrollChild:SetWidth(SIDEBAR_WIDTH - 14)
+    scrollChild:SetHeight(1)
+    scrollFrame:SetScrollChild(scrollChild)
+    self.sideScrollChild = scrollChild
+    self.sideContent = scrollChild
+
+    local track = CreateFrame("Frame", nil, panel)
+    track:SetWidth(TRACK_WIDTH)
+    track:SetPoint("TOPRIGHT", panel, "TOPRIGHT", -4, -8)
+    track:SetPoint("BOTTOMRIGHT", panel, "BOTTOMRIGHT", -4, 8)
+    track:EnableMouse(true)
+    track:Hide()
+    self.sideScrollTrack = track
+
+    local trackBg = track:CreateTexture(nil, "BACKGROUND")
+    trackBg:SetAllPoints()
+    trackBg:SetColorTexture(0.1, 0.1, 0.12, 0.3)
+
+    local thumb = CreateFrame("Frame", nil, track)
+    thumb:SetWidth(TRACK_WIDTH)
+    self.sideScrollThumb = thumb
+    local thumbTex = thumb:CreateTexture(nil, "ARTWORK")
+    thumbTex:SetAllPoints()
+    thumbTex:SetColorTexture(0.4, 0.4, 0.45, 0.6)
+
+    scrollFrame:EnableMouseWheel(true)
+    scrollFrame:SetScript("OnMouseWheel", function(sf, delta)
+        local range = sf:GetVerticalScrollRange()
+        if range <= 0 then return end
+        local step = 34
+        sf:SetVerticalScroll(math.max(0, math.min(range, sf:GetVerticalScroll() - delta * step)))
+    end)
+
+    local function ThumbOnUpdate(t)
+        if not t.dragging then return end
+        local cursorY = select(2, GetCursorPosition()) / UIParent:GetEffectiveScale()
+        local deltaY = t.dragStartY - cursorY
+        local trackHeight = track:GetHeight()
+        local thumbHeight = t:GetHeight()
+        if not trackHeight or not thumbHeight then return end
+        local maxTravel = trackHeight - thumbHeight
+        if maxTravel <= 0 then return end
+        local range = scrollFrame:GetVerticalScrollRange()
+        scrollFrame:SetVerticalScroll(math.max(0, math.min(range, t.dragStartScroll + (deltaY / maxTravel) * range)))
+    end
+
+    thumb:EnableMouse(true)
+    thumb:SetScript("OnMouseDown", function(t, button)
+        if button == "LeftButton" then
+            t.dragging = true
+            t.dragStartY = select(2, GetCursorPosition()) / UIParent:GetEffectiveScale()
+            t.dragStartScroll = scrollFrame:GetVerticalScroll()
+            t:SetScript("OnUpdate", ThumbOnUpdate)
+        end
+    end)
+    thumb:SetScript("OnMouseUp", function(t)
+        t.dragging = false
+        t:SetScript("OnUpdate", nil)
+    end)
+
+    track:SetScript("OnMouseDown", function(t, button)
+        if button ~= "LeftButton" then return end
+        local range = scrollFrame:GetVerticalScrollRange()
+        if range <= 0 then return end
+        local cursorY = select(2, GetCursorPosition()) / UIParent:GetEffectiveScale()
+        local top = t:GetTop()
+        local height = t:GetHeight()
+        if not top or not height or height <= 0 then return end
+        local pct = (top - cursorY) / height
+        scrollFrame:SetVerticalScroll(math.max(0, math.min(range, pct * range)))
+    end)
+
+    scrollFrame:SetScript("OnVerticalScroll", function()
+        ProgressTab:UpdateSidebarScrollbar()
+    end)
+    scrollFrame:SetScript("OnScrollRangeChanged", function()
+        ProgressTab:UpdateSidebarScrollbar()
+    end)
+    scrollFrame:SetScript("OnSizeChanged", function(_, width)
+        scrollChild:SetWidth(math.max(1, width))
+        ProgressTab:UpdateSidebarScrollbar()
+    end)
+
     -- Right border separator
     local border = panel:CreateTexture(nil, "ARTWORK")
     border:SetWidth(1)
     border:SetPoint("TOPRIGHT", 0, 0)
     border:SetPoint("BOTTOMRIGHT", 0, 0)
     border:SetColorTexture(0.2, 0.2, 0.25, 1)
+end
+
+function ProgressTab:UpdateSidebarScrollbar()
+    local scrollFrame = self.sideScrollFrame
+    local track = self.sideScrollTrack
+    local thumb = self.sideScrollThumb
+    if not scrollFrame or not track or not thumb then return end
+
+    local range = scrollFrame:GetVerticalScrollRange()
+    if not range or range <= 0 then
+        scrollFrame:SetVerticalScroll(0)
+        track:Hide()
+        return
+    end
+
+    track:Show()
+    local trackHeight = track:GetHeight()
+    if not trackHeight or trackHeight <= 0 then return end
+    local visibleRatio = scrollFrame:GetHeight() / (scrollFrame:GetHeight() + range)
+    local thumbHeight = math.max(20, math.floor(trackHeight * visibleRatio))
+    thumb:SetHeight(thumbHeight)
+    local pct = scrollFrame:GetVerticalScroll() / range
+    local maxTravel = trackHeight - thumbHeight
+    thumb:ClearAllPoints()
+    thumb:SetPoint("TOP", track, "TOP", 0, -math.floor(pct * maxTravel))
 end
 
 function ProgressTab:EnsureIndexes()
@@ -311,6 +440,8 @@ function ProgressTab:ClearDashboard()
         self.questExpRows,
         self.renownExpRows,
         self.pvpCategoryRows,
+        self.achievementCatRows,
+        self.dropCatRows,
         self.almostThereRows,
     }
     for _, pool in ipairs(pools) do
@@ -331,6 +462,8 @@ function ProgressTab:ClearDashboard()
         "questExpHeader",
         "renownExpHeader",
         "pvpCategoryHeader",
+        "achievementCatHeader",
+        "dropCatHeader",
         "almostThereHeader",
     }
     for _, key in ipairs(headers) do
@@ -358,7 +491,7 @@ function ProgressTab:BuildDashboard(preserveScroll)
 
     local columnWidth = math.floor((contentWidth - COLUMN_GAP) / 2)
 
-    -- Left column: By Source + Most Progressed + Quest Expansions + PvP Categories
+    -- Left column: By Source + Most Progressed + Quest/PvP/Achievement categories
     local leftY = self:BuildSourceSection(0, columnWidth, 0)
     leftY = leftY - SECTION_PADDING
     leftY = self:BuildAlmostThereSection(leftY, columnWidth, 0)
@@ -371,6 +504,14 @@ function ProgressTab:BuildDashboard(preserveScroll)
     if #pvpCategoryData > 0 then
         if leftY < 0 then leftY = leftY - SECTION_PADDING end
         leftY = self:BuildExpansionSection(leftY, columnWidth, "pvpCategory", L["PROGRESS_PVP_CATEGORIES"], pvpCategoryData, self.pvpCategoryRows, 0)
+    end
+    local achievementCatData = addon:GetProgressByAchievementCategory()
+    if #achievementCatData > 0 then
+        if leftY < 0 then leftY = leftY - SECTION_PADDING end
+        for _, data in ipairs(achievementCatData) do
+            data.displayLabel = addon:GetCategoryName(data.categoryId)
+        end
+        leftY = self:BuildExpansionSection(leftY, columnWidth, "achievementCat", L["PROGRESS_ACHIEVEMENT_CATEGORIES"], achievementCatData, self.achievementCatRows, 0)
     end
 
     -- Right column: Professions + Vendor Expansions + Renown Expansions
@@ -385,6 +526,11 @@ function ProgressTab:BuildDashboard(preserveScroll)
     if #renownExpData > 0 then
         if rightY < 0 then rightY = rightY - SECTION_PADDING end
         rightY = self:BuildExpansionSection(rightY, columnWidth, "renownExp", L["PROGRESS_RENOWN_EXPANSIONS"], renownExpData, self.renownExpRows, rightX)
+    end
+    local dropCatData = addon:GetProgressByDropCategory()
+    if #dropCatData > 0 then
+        if rightY < 0 then rightY = rightY - SECTION_PADDING end
+        rightY = self:BuildExpansionSection(rightY, columnWidth, "dropCat", L["PROGRESS_DROP_CATEGORIES"], dropCatData, self.dropCatRows, rightX)
     end
 
     local totalHeight = math.max(math.abs(leftY), math.abs(rightY))
@@ -405,34 +551,786 @@ end
 -- Sidebar Summary
 --------------------------------------------------------------------------------
 
+local function CreateSidebarText(parent, fontObject, size, justify)
+    local fs = addon:CreateFontString(parent, "OVERLAY", fontObject or "GameFontNormal")
+    fs:SetJustifyH(justify or "LEFT")
+    addon:SetFontSize(fs, size or 12, "")
+    return fs
+end
+
+local function OpenHousingDashboard(tabID)
+    if InCombatLockdown() then return end
+    if not HousingDashboardFrame then
+        pcall(C_AddOns.LoadAddOn, "Blizzard_HousingDashboard")
+    end
+    if not HousingDashboardFrame then return end
+    ShowUIPanel(HousingDashboardFrame)
+    HousingDashboardFrame:SetTab(HousingDashboardFrame.houseInfoTab)
+    local contentFrame = HousingDashboardFrame.HouseInfoContent
+        and HousingDashboardFrame.HouseInfoContent.ContentFrame
+    if contentFrame then
+        if not contentFrame.tabsInitialized then
+            pcall(contentFrame.Initialize, contentFrame)
+        end
+        if contentFrame[tabID] then
+            contentFrame:SetTab(contentFrame[tabID])
+        end
+    end
+end
+
+local function SetSidebarElementShown(element, shown)
+    if not element then return end
+    if element.SetShown then
+        element:SetShown(shown)
+    elseif shown then
+        element:Show()
+    else
+        element:Hide()
+    end
+end
+
+function ProgressTab:PlaceSidebarDualDivider(elements, panel, key, yOffset)
+    for i = 1, 2 do
+        local dividerKey = "divider_" .. key .. i
+        if not elements[dividerKey] then
+            elements[dividerKey] = panel:CreateTexture(nil, "ARTWORK")
+            elements[dividerKey]:SetColorTexture(0.25, 0.25, 0.28, 0.75)
+        end
+
+        local divider = elements[dividerKey]
+        divider:ClearAllPoints()
+        divider:SetPoint("TOPLEFT", panel, "TOPLEFT", 12, yOffset - (i - 1) * 3)
+        divider:SetPoint("TOPRIGHT", panel, "TOPRIGHT", -12, yOffset - (i - 1) * 3)
+        divider:SetHeight(1)
+        divider:Show()
+    end
+
+    return yOffset - 14
+end
+
+function ProgressTab:PlaceSidebarSectionHeader(elements, panel, key, text, yOffset)
+    local headerKey = "sectionHeader_" .. key
+    if not elements[headerKey] then
+        elements[headerKey] = CreateSidebarText(panel, "GameFontNormal", 11, "LEFT")
+    end
+
+    local header = elements[headerKey]
+    header:ClearAllPoints()
+    header:SetPoint("TOPLEFT", panel, "TOPLEFT", 12, yOffset)
+    header:SetText(text)
+    header:SetTextColor(unpack(COLORS.GOLD))
+    header:Show()
+
+    return yOffset - 22
+end
+
+function ProgressTab:SetupSidebarStatRow(elements, panel, stat, yOffset)
+    local labelKey = "label_" .. stat.key
+    local valueKey = "value_" .. stat.key
+    local buttonKey = "button_" .. stat.key
+
+    if stat.onClick and not elements[buttonKey] then
+        local button = CreateFrame("Button", nil, panel)
+        button.bg = button:CreateTexture(nil, "BACKGROUND")
+        button.bg:SetAllPoints()
+        button.bg:SetColorTexture(1, 1, 1, 0)
+        elements[buttonKey] = button
+    end
+
+    local button = elements[buttonKey]
+    if button then
+        button:ClearAllPoints()
+        button:SetPoint("TOPLEFT", panel, "TOPLEFT", 8, yOffset + 4)
+        button:SetPoint("TOPRIGHT", panel, "TOPRIGHT", -8, yOffset + 4)
+        button:SetHeight(20)
+        button:SetScript("OnClick", stat.onClick)
+        button:Show()
+    end
+
+    if not elements[labelKey] then
+        elements[labelKey] = CreateSidebarText(panel, "GameFontNormal", 12, "LEFT")
+    end
+    local label = elements[labelKey]
+    label:ClearAllPoints()
+    label:SetPoint("TOPLEFT", panel, "TOPLEFT", 12, yOffset)
+    label:SetText(stat.label)
+    label:SetTextColor(unpack(COLORS.TEXT_TERTIARY))
+    label:Show()
+
+    if not elements[valueKey] then
+        elements[valueKey] = CreateSidebarText(panel, "GameFontNormal", 12, "RIGHT")
+    end
+    local value = elements[valueKey]
+    value:ClearAllPoints()
+    value:SetPoint("TOPRIGHT", panel, "TOPRIGHT", -12, yOffset)
+    value:SetText(stat.value)
+    value:SetTextColor(unpack(stat.color))
+    value:Show()
+
+    if button then
+        button:SetScript("OnEnter", function(b)
+            b.bg:SetColorTexture(1, 1, 1, 0.06)
+            label:SetTextColor(unpack(COLORS.TEXT_SECONDARY))
+        end)
+        button:SetScript("OnLeave", function(b)
+            b.bg:SetColorTexture(1, 1, 1, 0)
+            label:SetTextColor(unpack(COLORS.TEXT_TERTIARY))
+        end)
+    end
+end
+
+function ProgressTab:BuildBudgetRows(elements, panel, yOffset)
+    local L = addon.L
+    local budget = addon.GetPlacementBudget and addon:GetPlacementBudget()
+    if not budget then return yOffset end
+
+    local activeKeys = {}
+    local previousKeys = self.activeBudgetKeys or {}
+    self.activeBudgetKeys = activeKeys
+    local function MarkActive(key)
+        activeKeys[key] = true
+    end
+
+    local function FormatUnit(value, oneKey, manyKey)
+        local key = value == 1 and oneKey or manyKey
+        return string.format(L[key], value)
+    end
+
+    local function FormatElapsed(seconds)
+        seconds = math.max(0, math.floor(seconds or 0))
+        local days = math.floor(seconds / 86400)
+        local hours = math.floor((seconds % 86400) / 3600)
+        local minutes = math.floor((seconds % 3600) / 60)
+        if days > 0 then
+            local text = FormatUnit(days, "PROGRESS_TIME_DAY", "PROGRESS_TIME_DAYS")
+            if hours > 0 then
+                text = text .. ", " .. FormatUnit(hours, "PROGRESS_TIME_HOUR", "PROGRESS_TIME_HOURS")
+            end
+            return text
+        end
+        if hours > 0 then
+            local text = FormatUnit(hours, "PROGRESS_TIME_HOUR", "PROGRESS_TIME_HOURS")
+            if minutes > 0 then
+                text = text .. " " .. FormatUnit(minutes, "PROGRESS_TIME_MINUTE", "PROGRESS_TIME_MINUTES")
+            end
+            return text
+        end
+        return FormatUnit(math.max(1, minutes), "PROGRESS_TIME_MINUTE", "PROGRESS_TIME_MINUTES")
+    end
+
+    local function ShowUpdatedTooltip(owner, title, snapshot)
+        GameTooltip:SetOwner(owner, "ANCHOR_RIGHT")
+        GameTooltip:SetText(title)
+        if type(snapshot) == "table" and type(snapshot.updatedAt) == "number" then
+            local updatedText = date("%Y-%m-%d %H:%M", snapshot.updatedAt)
+            GameTooltip:AddLine(string.format(L["PROGRESS_BUDGET_LAST_UPDATED"], updatedText), 0.8, 0.8, 0.8)
+            local now = GetServerTime and GetServerTime()
+            if type(now) == "number" then
+                GameTooltip:AddLine(string.format(L["PROGRESS_BUDGET_TIME_AGO"], FormatElapsed(now - snapshot.updatedAt)), 0.65, 0.70, 0.78)
+            end
+        end
+        GameTooltip:Show()
+    end
+
+
+    local function ShowHouseXPTooltip(owner, levelInfo)
+        GameTooltip:SetOwner(owner, "ANCHOR_RIGHT")
+        local xpIcon = CreateAtlasMarkup("housing-dashboard-icon-xp", 16, 16)
+        GameTooltip:AddLine(xpIcon .. " " .. L["ENDEAVORS_XP_TOOLTIP_TITLE"], 1, 0.82, 0)
+        if levelInfo.isMaxLevel then
+            GameTooltip:AddLine(string.format(L["ENDEAVORS_XP_TOOLTIP_LEVEL_MAX"], levelInfo.level), 1, 1, 1)
+        else
+            GameTooltip:AddLine(string.format(L["ENDEAVORS_XP_TOOLTIP_LEVEL"], levelInfo.level), 1, 1, 1)
+            local totalFavor = math.floor(levelInfo.favorTotal or 0)
+            local totalFavorNeeded = math.floor(levelInfo.favorTotalNeeded or 0)
+            if totalFavorNeeded > 0 then
+                local pct = math.floor(totalFavor / totalFavorNeeded * 100)
+                GameTooltip:AddLine(string.format(L["ENDEAVORS_XP_TOOLTIP_PROGRESS"],
+                    addon:FormatLargeNumber(totalFavor), addon:FormatLargeNumber(totalFavorNeeded), pct), 0.7, 0.7, 0.7)
+            end
+        end
+
+        GameTooltip:AddLine(" ")
+        GameTooltip:AddLine(L["ENDEAVORS_XP_TOOLTIP_CLICK"], 0.5, 0.8, 1)
+        GameTooltip:Show()
+    end
+
+    local live = addon.IsPlacementBudgetLiveContext and addon:IsPlacementBudgetLiveContext()
+    local currentPlotID, currentBudgetContext = nil, nil
+    if addon.GetCurrentPlacementBudgetContext then
+        currentPlotID, currentBudgetContext = addon:GetCurrentPlacementBudgetContext()
+    end
+
+    local plotsByID = type(budget.plotsByID) == "table" and budget.plotsByID or nil
+    local knownPlots = type(budget.knownPlots) == "table" and budget.knownPlots or nil
+    local plotIdentityMap = {}
+
+    local function HasBudgetSnapshot(snapshot)
+        return type(snapshot) == "table" and type(snapshot.spent) == "number" and type(snapshot.max) == "number" and snapshot.max > 0
+    end
+
+    local function IsSecretValue(value)
+        return type(issecretvalue) == "function" and issecretvalue(value)
+    end
+
+    local function GetCurrentFactionTag()
+        if type(UnitFactionGroup) ~= "function" then return nil end
+
+        local ok, factionTag = pcall(UnitFactionGroup, "player")
+        if not ok or IsSecretValue(factionTag) then return nil end
+        if factionTag == "Alliance" or factionTag == "Horde" then
+            return factionTag
+        end
+        return nil
+    end
+
+    local currentFactionTag = live and GetCurrentFactionTag() or nil
+
+    local function GetPlotDisplayKey(plotID, plotInfo)
+        if type(plotInfo) == "table" then
+            if plotInfo.houseGUID ~= nil and plotInfo.houseGUID ~= "" then
+                return "house:" .. tostring(plotInfo.houseGUID)
+            end
+        end
+        return "plot:" .. tostring(plotID)
+    end
+
+    local function GetPlotCompletenessScore(plotID, plotInfo)
+        local score = 0
+        local budgets = type(plotInfo) == "table" and type(plotInfo.budgets) == "table" and plotInfo.budgets or nil
+        if plotInfo and plotInfo.visited then score = score + 8 end
+        if budgets and HasBudgetSnapshot(budgets.outdoor) then score = score + 4 end
+        if budgets and HasBudgetSnapshot(budgets.interior) then score = score + 4 end
+        if plotsByID and HasBudgetSnapshot(plotsByID[plotID]) then score = score + 2 end
+        if plotInfo and type(plotInfo.houseLevel) == "table" and type(plotInfo.houseLevel.level) == "number" then score = score + 1 end
+        return score
+    end
+
+    local function ShouldReplacePlotCandidate(current, candidate)
+        if not current then return true end
+        if candidate.score ~= current.score then return candidate.score > current.score end
+
+        local candidateLevel = candidate.plotInfo and candidate.plotInfo.houseLevel and candidate.plotInfo.houseLevel.level or 0
+        local currentLevel = current.plotInfo and current.plotInfo.houseLevel and current.plotInfo.houseLevel.level or 0
+        if candidateLevel ~= currentLevel then return candidateLevel > currentLevel end
+
+        local candidateUpdated = candidate.updatedAt or 0
+        local currentUpdated = current.updatedAt or 0
+        if candidateUpdated ~= currentUpdated then return candidateUpdated > currentUpdated end
+
+        local candidateNum = tonumber(candidate.plotID)
+        local currentNum = tonumber(current.plotID)
+        if candidateNum and currentNum then return candidateNum < currentNum end
+        return tostring(candidate.plotID) < tostring(current.plotID)
+    end
+
+    local function FindKnownPlotByPlotID(plotID)
+        if not knownPlots then return nil end
+
+        local numericPlotID = tonumber(plotID)
+        local fallback = type(knownPlots[plotID]) == "table" and knownPlots[plotID] or nil
+        if not numericPlotID then return fallback end
+
+        for _, plotInfo in pairs(knownPlots) do
+            if type(plotInfo) == "table" and plotInfo.plotID == numericPlotID then
+                if plotInfo.houseGUID ~= nil and plotInfo.houseGUID ~= "" then
+                    return plotInfo
+                end
+                fallback = fallback or plotInfo
+            end
+        end
+        return fallback
+    end
+
+    local function HasMatchingNeighborhood(plotInfo, otherInfo)
+        local neighborhoodGUID = plotInfo and plotInfo.neighborhoodGUID
+        local otherNeighborhoodGUID = otherInfo and otherInfo.neighborhoodGUID
+        if neighborhoodGUID == nil or neighborhoodGUID == "" or otherNeighborhoodGUID == nil or otherNeighborhoodGUID == "" then
+            return true
+        end
+        return neighborhoodGUID == otherNeighborhoodGUID
+    end
+
+    local function HasHouseIdentityDuplicate(plotInfo)
+        if type(plotInfo) ~= "table" or plotInfo.houseGUID ~= nil and plotInfo.houseGUID ~= "" then return false end
+        if not knownPlots or type(plotInfo.plotID) ~= "number" then return false end
+        for _, otherInfo in pairs(knownPlots) do
+            if otherInfo ~= plotInfo and type(otherInfo) == "table" and otherInfo.plotID == plotInfo.plotID
+                and otherInfo.houseGUID ~= nil and otherInfo.houseGUID ~= "" and HasMatchingNeighborhood(plotInfo, otherInfo) then
+                return true
+            end
+        end
+        return false
+    end
+
+    local function AddPlotCandidate(plotID, plotInfo)
+        if type(plotID) ~= "string" then return end
+        local budgets = type(plotInfo) == "table" and type(plotInfo.budgets) == "table" and plotInfo.budgets or nil
+        local hasData = type(plotInfo) == "table" and plotInfo.visited
+            or (budgets and (HasBudgetSnapshot(budgets.outdoor) or HasBudgetSnapshot(budgets.interior)))
+            or (plotsByID and HasBudgetSnapshot(plotsByID[plotID]))
+        if not hasData then return end
+
+        local updatedAt = 0
+        if budgets then
+            if HasBudgetSnapshot(budgets.outdoor) then updatedAt = math.max(updatedAt, budgets.outdoor.updatedAt or 0) end
+            if HasBudgetSnapshot(budgets.interior) then updatedAt = math.max(updatedAt, budgets.interior.updatedAt or 0) end
+        end
+        if plotsByID and HasBudgetSnapshot(plotsByID[plotID]) then
+            updatedAt = math.max(updatedAt, plotsByID[plotID].updatedAt or 0)
+        end
+
+        local candidate = {
+            plotID = plotID,
+            plotInfo = plotInfo,
+            score = GetPlotCompletenessScore(plotID, plotInfo),
+            updatedAt = updatedAt,
+        }
+        local key = GetPlotDisplayKey(plotID, plotInfo)
+        if ShouldReplacePlotCandidate(plotIdentityMap[key], candidate) then
+            plotIdentityMap[key] = candidate
+        end
+    end
+
+    if knownPlots then
+        for plotID, plotInfo in pairs(knownPlots) do
+            if type(plotInfo) == "table" and type(plotInfo.plotID) == "number" and not HasHouseIdentityDuplicate(plotInfo) then
+                AddPlotCandidate(plotID, plotInfo)
+            end
+        end
+    end
+
+    if plotsByID then
+        for plotID, snapshot in pairs(plotsByID) do
+            if HasBudgetSnapshot(snapshot) then
+                AddPlotCandidate(plotID, FindKnownPlotByPlotID(plotID))
+            end
+        end
+    end
+
+    local plotRows = {}
+    for _, candidate in pairs(plotIdentityMap) do
+        plotRows[#plotRows + 1] = candidate
+    end
+    table.sort(plotRows, function(a, b)
+        local plotA = a.plotInfo
+        local plotB = b.plotInfo
+        local orderA = plotA and plotA.factionTag == "Alliance" and 1 or plotA and plotA.factionTag == "Horde" and 2 or 3
+        local orderB = plotB and plotB.factionTag == "Alliance" and 1 or plotB and plotB.factionTag == "Horde" and 2 or 3
+        if orderA ~= orderB then return orderA < orderB end
+
+        local levelA = plotA and plotA.houseLevel and plotA.houseLevel.level or 0
+        local levelB = plotB and plotB.houseLevel and plotB.houseLevel.level or 0
+        if levelA ~= levelB then return levelA > levelB end
+
+        if a.updatedAt ~= b.updatedAt then return a.updatedAt > b.updatedAt end
+
+        local numA = tonumber(a.plotID)
+        local numB = tonumber(b.plotID)
+        if numA and numB then return numA < numB end
+        return tostring(a.plotID) < tostring(b.plotID)
+    end)
+
+    if #plotRows > 2 then
+        table.sort(plotRows, function(a, b)
+            if a.score ~= b.score then return a.score > b.score end
+
+            local plotA = a.plotInfo
+            local plotB = b.plotInfo
+            local levelA = plotA and plotA.houseLevel and plotA.houseLevel.level or 0
+            local levelB = plotB and plotB.houseLevel and plotB.houseLevel.level or 0
+            if levelA ~= levelB then return levelA > levelB end
+
+            if a.updatedAt ~= b.updatedAt then return a.updatedAt > b.updatedAt end
+
+            local numA = tonumber(a.plotID)
+            local numB = tonumber(b.plotID)
+            if numA and numB then return numA < numB end
+            return tostring(a.plotID) < tostring(b.plotID)
+        end)
+
+        while #plotRows > 2 do
+            table.remove(plotRows)
+        end
+
+        table.sort(plotRows, function(a, b)
+            local plotA = a.plotInfo
+            local plotB = b.plotInfo
+            local orderA = plotA and plotA.factionTag == "Alliance" and 1 or plotA and plotA.factionTag == "Horde" and 2 or 3
+            local orderB = plotB and plotB.factionTag == "Alliance" and 1 or plotB and plotB.factionTag == "Horde" and 2 or 3
+            if orderA ~= orderB then return orderA < orderB end
+
+            local levelA = plotA and plotA.houseLevel and plotA.houseLevel.level or 0
+            local levelB = plotB and plotB.houseLevel and plotB.houseLevel.level or 0
+            if levelA ~= levelB then return levelA > levelB end
+
+            if a.updatedAt ~= b.updatedAt then return a.updatedAt > b.updatedAt end
+
+            local numA = tonumber(a.plotID)
+            local numB = tonumber(b.plotID)
+            if numA and numB then return numA < numB end
+            return tostring(a.plotID) < tostring(b.plotID)
+        end)
+    end
+    local function GetFactionName(factionTag, fallbackName)
+        if factionTag == "Alliance" then
+            return FACTION_ALLIANCE or "Alliance"
+        elseif factionTag == "Horde" then
+            return FACTION_HORDE or "Horde"
+        end
+        if type(fallbackName) == "string" and fallbackName ~= "" then
+            return fallbackName
+        end
+        return nil
+    end
+
+    local function GetPlotTitle(plotRow, index)
+        local plotInfo = plotRow and plotRow.plotInfo
+        if type(plotInfo) == "table" then
+            local factionName = GetFactionName(plotInfo.factionTag, plotInfo.factionName)
+            if factionName and factionName ~= "" then
+                return factionName
+            end
+        end
+        return L["PROGRESS_BUDGET_PLOT"] .. " " .. index
+    end
+
+    local function CreateBudgetBar(key)
+        if not elements[key] then
+            local bar = CreateFrame("StatusBar", nil, panel)
+            bar:SetHeight(BUDGET_BAR_HEIGHT)
+            bar:SetMinMaxValues(0, 100)
+            bar:SetStatusBarTexture("Interface\\RaidFrame\\Raid-Bar-Hp-Fill")
+
+            local bg = bar:CreateTexture(nil, "BACKGROUND")
+            bg:SetAllPoints()
+            bg:SetColorTexture(0.10, 0.10, 0.13, 0.8)
+            bar.bg = bg
+
+            local label = CreateSidebarText(bar, "GameFontNormal", 12, "LEFT")
+            label:SetPoint("LEFT", bar, "LEFT", 6, 0)
+            label:SetJustifyV("MIDDLE")
+            bar.label = label
+
+            local text = CreateSidebarText(bar, "GameFontNormal", 12, "RIGHT")
+            text:SetPoint("RIGHT", bar, "RIGHT", -6, 0)
+            text:SetJustifyV("MIDDLE")
+            bar.text = text
+
+            elements[key] = bar
+        end
+        MarkActive(key)
+        return elements[key]
+    end
+
+    local function FormatLevelText(levelInfo)
+        local valid = type(levelInfo) == "table" and type(levelInfo.level) == "number" and levelInfo.level > 0
+        if not valid then return L["PROGRESS_BUDGET_LEVEL_UNKNOWN"], false, 0 end
+
+        local percent = 0
+        if levelInfo.isMaxLevel then
+            percent = 100
+        elseif type(levelInfo.favorTotal) == "number" and type(levelInfo.favorTotalNeeded) == "number" and levelInfo.favorTotalNeeded > 0 then
+            percent = math.min(100, math.max(0, levelInfo.favorTotal / levelInfo.favorTotalNeeded * 100))
+        end
+        return string.format("%s (%d%%)", string.format(L["PROGRESS_BUDGET_LEVEL"], levelInfo.level), math.floor(percent)), true, percent
+    end
+
+    local function DrawPlotHeader(plotID, plotTitle, plotInfo)
+        local levelInfo = type(plotInfo) == "table" and plotInfo.houseLevel or nil
+        local levelText, valid = FormatLevelText(levelInfo)
+        local oldLabelKey = "budget_levelLabel" .. plotID
+        local oldBarKey = "budget_levelBar" .. plotID
+        local oldButtonKey = "budget_levelButton" .. plotID
+        local headerKey = "budget_plotHeader" .. plotID
+
+        SetSidebarElementShown(elements[oldLabelKey], false)
+        SetSidebarElementShown(elements[oldBarKey], false)
+        SetSidebarElementShown(elements[oldButtonKey], false)
+        if elements[oldBarKey] and elements[oldBarKey].text then
+            elements[oldBarKey].text:Hide()
+        end
+
+        if elements[headerKey] and not elements[headerKey].text then
+            elements[headerKey]:Hide()
+            elements[headerKey] = nil
+        end
+        if not elements[headerKey] then
+            local button = CreateFrame("Button", nil, panel)
+            button:EnableMouse(true)
+            button.text = CreateSidebarText(button, "GameFontNormal", 13, "LEFT")
+            button.text:SetPoint("LEFT", button, "LEFT", 0, 0)
+            elements[headerKey] = button
+        end
+        MarkActive(headerKey)
+
+        local header = elements[headerKey]
+        header:ClearAllPoints()
+        header:SetPoint("TOPLEFT", panel, "TOPLEFT", 12, yOffset)
+        header:SetPoint("TOPRIGHT", panel, "TOPRIGHT", -12, yOffset)
+        header:SetHeight(18)
+        header.text:SetText(string.format("%s - %s", plotTitle, levelText))
+        header.text:SetTextColor(1, 1, 1, 1)
+        header:SetScript("OnEnter", function(b)
+            b.text:SetTextColor(unpack(COLORS.TEXT_SECONDARY))
+            if valid then
+                ShowHouseXPTooltip(b, levelInfo)
+            else
+                GameTooltip:SetOwner(b, "ANCHOR_RIGHT")
+                GameTooltip:SetText(L["PROGRESS_BUDGET_LEVEL_UNKNOWN"])
+                GameTooltip:Show()
+            end
+        end)
+        header:SetScript("OnLeave", function(b)
+            b.text:SetTextColor(1, 1, 1, 1)
+            GameTooltip:Hide()
+        end)
+        header:SetScript("OnMouseUp", function(_, mouseButton)
+            if mouseButton ~= "LeftButton" or not valid then return end
+            OpenHousingDashboard("houseUpgradeTabID")
+        end)
+        header:Show()
+        header.text:Show()
+
+        return yOffset - HOUSE_HEADER_ROW_SPACING
+    end
+
+    local function PlotMatchesCurrentID(plotID, plotInfo)
+        if not currentPlotID then return false end
+        if currentPlotID == plotID then return true end
+        if type(plotInfo) ~= "table" then return false end
+
+        if plotInfo.houseGUID ~= nil and plotInfo.houseGUID ~= "" and currentPlotID == "house:" .. tostring(plotInfo.houseGUID) then
+            return true
+        end
+
+        if type(plotInfo.plotID) == "number" and plotInfo.neighborhoodGUID ~= nil and plotInfo.neighborhoodGUID ~= "" then
+            local plotKey = "neighborhood:" .. tostring(plotInfo.neighborhoodGUID) .. ":plot:" .. tostring(math.floor(plotInfo.plotID))
+            return currentPlotID == plotKey
+        end
+        return false
+    end
+
+    local function HasUniqueCurrentFactionRow(plotInfo)
+        if not currentFactionTag or type(plotInfo) ~= "table" or plotInfo.factionTag ~= currentFactionTag then
+            return false
+        end
+
+        local matches = 0
+        for _, row in ipairs(plotRows) do
+            local rowInfo = row.plotInfo
+            if type(rowInfo) == "table" and rowInfo.factionTag == currentFactionTag then
+                matches = matches + 1
+                if matches > 1 then return false end
+            end
+        end
+        return matches == 1
+    end
+
+    local function IsCurrentPlotRow(plotID, plotInfo)
+        if not live then return false end
+        if PlotMatchesCurrentID(plotID, plotInfo) then return true end
+        if currentPlotID then return false end
+        if #plotRows == 1 then
+            local factionTag = type(plotInfo) == "table" and plotInfo.factionTag or nil
+            return not currentFactionTag or not factionTag or factionTag == currentFactionTag
+        end
+        return HasUniqueCurrentFactionRow(plotInfo)
+    end
+
+    local function GetBudgetSnapshotForPlot(plotID, plotInfo, contextKey, snapshot)
+        local rowLive = currentBudgetContext == contextKey and IsCurrentPlotRow(plotID, plotInfo)
+        if rowLive then
+            local liveSnapshot = contextKey == "outdoor" and budget.plot or budget.interior
+            if HasBudgetSnapshot(liveSnapshot) then
+                return liveSnapshot, true
+            end
+        end
+        return snapshot, rowLive
+    end
+
+    local function DrawBudgetRow(plotID, key, contextKey, label, snapshot, known, rowLiveOverride)
+        local valid = type(snapshot) == "table" and type(snapshot.spent) == "number" and type(snapshot.max) == "number" and snapshot.max > 0
+        local rowKey = "budget_" .. key .. (plotID or "")
+        local rowLive = rowLiveOverride == true or (live and currentBudgetContext == contextKey and (not plotID or currentPlotID == plotID))
+        if not valid and not known then
+            SetSidebarElementShown(elements[rowKey], false)
+            return yOffset
+        end
+
+        local bar = CreateBudgetBar(rowKey)
+        local percent = valid and math.min(100, math.max(0, snapshot.spent / snapshot.max * 100)) or 0
+        local color = valid and percent >= (CONSTS.PLACEMENT_BUDGET_WARN_THRESHOLD * 100) and CONSTS.PLACEMENT_BUDGET_WARN_COLOR or COLORS.GOLD
+        local alpha = valid and (rowLive and 0.65 or 0.45) or 0.25
+        bar:ClearAllPoints()
+        bar:SetHeight(BUDGET_BAR_HEIGHT)
+        bar:SetPoint("TOPLEFT", panel, "TOPLEFT", 12, yOffset)
+        bar:SetPoint("TOPRIGHT", panel, "TOPRIGHT", -12, yOffset)
+        bar:SetValue(percent)
+        bar:SetStatusBarColor(color[1], color[2], color[3], alpha)
+        bar:SetAlpha((valid and rowLive) and 1 or 0.7)
+        bar.label:ClearAllPoints()
+        bar.label:SetPoint("LEFT", bar, "LEFT", 6, 0)
+        bar.label:SetWidth(86)
+        bar.label:SetText(label)
+        bar.label:SetTextColor(unpack(COLORS.TEXT_TERTIARY))
+        bar.text:ClearAllPoints()
+        bar.text:SetPoint("RIGHT", bar, "RIGHT", -6, 0)
+        bar.text:SetWidth(86)
+        bar.text:SetText(valid and string.format("%d / %d", snapshot.spent, snapshot.max) or "-- / --")
+        bar.text:SetTextColor(unpack(valid and COLORS.TEXT_PRIMARY or COLORS.TEXT_TERTIARY))
+        bar:SetScript("OnEnter", function(b)
+            if valid then
+                ShowUpdatedTooltip(b, label, snapshot)
+            else
+                GameTooltip:SetOwner(b, "ANCHOR_RIGHT")
+                GameTooltip:SetText(L["PROGRESS_BUDGET_EMPTY_HINT"])
+                GameTooltip:Show()
+            end
+        end)
+        bar:SetScript("OnLeave", function() GameTooltip:Hide() end)
+        bar:Show()
+        bar.label:Show()
+        bar.text:Show()
+        return yOffset - BUDGET_ROW_SPACING
+    end
+
+    if #plotRows > 0 then
+        for i, plotRow in ipairs(plotRows) do
+            local plotID = plotRow.plotID
+            local plotInfo = plotRow.plotInfo
+            local budgets = type(plotInfo) == "table" and type(plotInfo.budgets) == "table" and plotInfo.budgets or {}
+            local plotTitle = GetPlotTitle(plotRow, i)
+            local outdoorSnapshot, outdoorLive = GetBudgetSnapshotForPlot(plotID, plotInfo, "outdoor", budgets.outdoor or (plotsByID and plotsByID[plotID]))
+            local interiorSnapshot, interiorLive = GetBudgetSnapshotForPlot(plotID, plotInfo, "interior", budgets.interior)
+            yOffset = DrawPlotHeader(plotID, plotTitle, plotInfo)
+            yOffset = yOffset - 2
+            yOffset = DrawBudgetRow(plotID, "plotOutdoor", "outdoor", L["PROGRESS_BUDGET_OUTDOOR"], outdoorSnapshot, true, outdoorLive)
+            yOffset = DrawBudgetRow(plotID, "plotInterior", "interior", L["PROGRESS_BUDGET_INDOOR"], interiorSnapshot, true, interiorLive)
+            yOffset = yOffset - HOUSE_PLOT_SECTION_GAP
+        end
+    else
+        if budget.plot then
+            yOffset = DrawBudgetRow(nil, "plot", "outdoor", L["PROGRESS_BUDGET_OUTDOOR"], budget.plot, false)
+        end
+        if budget.interior then
+            yOffset = DrawBudgetRow(nil, "interior", "interior", L["PROGRESS_BUDGET_INDOOR"], budget.interior, false)
+        end
+    end
+
+    for key in pairs(previousKeys) do
+        if not activeKeys[key] then
+            SetSidebarElementShown(elements[key], false)
+            if elements[key] and elements[key].label then elements[key].label:Hide() end
+            if elements[key] and elements[key].text then elements[key].text:Hide() end
+        end
+    end
+
+    return yOffset - SIDEBAR_SECTION_GAP
+end
+
+function ProgressTab:BuildHistorySparkline(elements, panel, yOffset)
+    local L = addon.L
+    local days = CONSTS.COLLECTION_HISTORY_DISPLAY_DAYS
+    local history = addon.GetCollectionHistoryGains and addon:GetCollectionHistoryGains(days)
+    if not history then return yOffset end
+
+
+    local function GetDayLabel(dayOffset)
+        local daysAgo = math.abs(dayOffset or 0)
+        if daysAgo == 0 then
+            return L["PROGRESS_HISTORY_TOOLTIP_TODAY"]
+        end
+        local key = daysAgo == 1 and "PROGRESS_HISTORY_TOOLTIP_DAY_AGO" or "PROGRESS_HISTORY_TOOLTIP_DAYS_AGO"
+        return string.format(L[key], daysAgo)
+    end
+
+    local function ShowHistoryTooltip(owner, point)
+        point = point or {}
+        local gain = math.max(0, math.floor(point.gain or 0))
+        GameTooltip:SetOwner(owner, "ANCHOR_RIGHT")
+        GameTooltip:SetText(GetDayLabel(point.dayOffset), 1, 0.82, 0)
+        if gain > 0 then
+            GameTooltip:AddLine(string.format(L["PROGRESS_HISTORY_TOOLTIP_GAIN"], gain), 0.45, 1, 0.45)
+        else
+            GameTooltip:AddLine(L["PROGRESS_HISTORY_TOOLTIP_EMPTY"], 0.7, 0.7, 0.7)
+        end
+        GameTooltip:AddLine(string.format(L["PROGRESS_HISTORY_SUMMARY"], history.totalGain or 0, days), 0.8, 0.8, 0.8)
+        if type(point.startCount) == "number" then
+            GameTooltip:AddLine(string.format(L["PROGRESS_HISTORY_TOOLTIP_START"], addon:FormatLargeNumber(point.startCount)), 0.65, 0.70, 0.78)
+        end
+        if type(point.count) == "number" then
+            GameTooltip:AddLine(string.format(L["PROGRESS_HISTORY_TOOLTIP_TOTAL"], addon:FormatLargeNumber(point.count)), 0.8, 0.8, 0.8)
+        elseif not point.hasData then
+            GameTooltip:AddLine(L["PROGRESS_HISTORY_TOOLTIP_NO_SNAPSHOT"], 0.55, 0.55, 0.6)
+        end
+        GameTooltip:AddLine(" ")
+        GameTooltip:AddLine(L["PROGRESS_HISTORY_TOOLTIP_HINT"], 0.5, 0.8, 1, true)
+        GameTooltip:Show()
+    end
+
+    local usableWidth = SIDEBAR_WIDTH - 38
+    local gap = 2
+    local barWidth = math.max(3, math.floor((usableWidth - gap * (days - 1)) / days))
+    local scaleMax = math.max(3, history.maxGain or 0)
+    local baseY = yOffset - CONSTS.COLLECTION_HISTORY_BAR_MAX_H
+
+    for i = 1, days do
+        local key = "historyBar" .. i
+        if not elements[key] or not elements[key].SetScript then
+            SetSidebarElementShown(elements[key], false)
+            local frame = CreateFrame("Button", nil, panel)
+            frame:EnableMouse(true)
+            frame.fill = frame:CreateTexture(nil, "ARTWORK")
+            frame.fill:SetPoint("BOTTOMLEFT", frame, "BOTTOMLEFT", 0, 0)
+            frame.fill:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", 0, 0)
+            elements[key] = frame
+        end
+        local bar = elements[key]
+        local point = history.gains[i] or { dayOffset = i - days, gain = 0, hasData = false }
+        local gain = point.gain or 0
+        local height = CONSTS.COLLECTION_HISTORY_BAR_MIN_H
+        if gain > 0 then
+            height = math.max(CONSTS.COLLECTION_HISTORY_BAR_MIN_H, math.floor(gain / scaleMax * CONSTS.COLLECTION_HISTORY_BAR_MAX_H))
+        end
+        bar:ClearAllPoints()
+        bar:SetPoint("BOTTOMLEFT", panel, "TOPLEFT", 12 + (i - 1) * (barWidth + gap), baseY)
+        bar:SetSize(barWidth, CONSTS.COLLECTION_HISTORY_BAR_MAX_H)
+        bar.fill:SetHeight(height)
+        bar.fill:SetColorTexture(COLORS.GOLD[1], COLORS.GOLD[2], COLORS.GOLD[3], gain > 0 and 0.75 or 0.50)
+        bar:SetScript("OnEnter", function(b)
+            ShowHistoryTooltip(b, point)
+        end)
+        bar:SetScript("OnLeave", function()
+            GameTooltip:Hide()
+        end)
+        bar:Show()
+        bar.fill:Show()
+    end
+    yOffset = yOffset - CONSTS.COLLECTION_HISTORY_BAR_MAX_H - 4
+
+    SetSidebarElementShown(elements.historySummary, false)
+
+    return yOffset - SIDEBAR_HISTORY_BOTTOM_GAP
+end
+
 function ProgressTab:BuildSidebarSummary()
     if not self.sidePanel then return end
 
     local L = addon.L
     local overview = addon:GetProgressOverview()
     local progressColor = self:GetProgressColor(overview.percent)
-    local panel = self.sidePanel
+    local panel = self.sideContent or self.sidePanel
     local elements = self.sidebarElements
-    local yOffset = -16
-
-    -- "OVERVIEW" header
-    if not elements.header then
-        elements.header = addon:CreateFontString(panel, "OVERLAY", "GameFontNormal")
-        elements.header:SetJustifyH("CENTER")
-        addon:SetFontSize(elements.header, 11, "")
+    local yOffset = -12
+    for _, element in pairs(elements) do
+        element:Hide()
     end
-    elements.header:ClearAllPoints()
-    elements.header:SetPoint("TOP", panel, "TOP", 0, yOffset)
-    elements.header:SetText(L["PROGRESS_OVERVIEW"])
-    elements.header:SetTextColor(unpack(COLORS.GOLD))
-    elements.header:Show()
-    yOffset = yOffset - 28
 
-    -- "All Decor Collected" subtitle
+    yOffset = self:PlaceSidebarSectionHeader(elements, panel, "overview", L["PROGRESS_OVERVIEW"], yOffset)
+
     if not elements.subtitle then
-        elements.subtitle = addon:CreateFontString(panel, "OVERLAY", "GameFontNormal")
-        elements.subtitle:SetJustifyH("CENTER")
-        addon:SetFontSize(elements.subtitle, 14, "")
+        elements.subtitle = CreateSidebarText(panel, "GameFontNormal", 14, "CENTER")
     end
     elements.subtitle:ClearAllPoints()
     elements.subtitle:SetPoint("TOP", panel, "TOP", 0, yOffset)
@@ -441,20 +1339,16 @@ function ProgressTab:BuildSidebarSummary()
     elements.subtitle:Show()
     yOffset = yOffset - 24
 
-    -- Big percentage
     if not elements.bigPercent then
-        elements.bigPercent = addon:CreateFontString(panel, "OVERLAY", "GameFontNormal")
-        elements.bigPercent:SetJustifyH("CENTER")
-        addon:SetFontSize(elements.bigPercent, 34, "")
+        elements.bigPercent = CreateSidebarText(panel, "GameFontNormal", 34, "CENTER")
     end
     elements.bigPercent:ClearAllPoints()
     elements.bigPercent:SetPoint("TOP", panel, "TOP", 0, yOffset)
     elements.bigPercent:SetText(string.format("%.1f%%", overview.percent))
     elements.bigPercent:SetTextColor(unpack(progressColor))
     elements.bigPercent:Show()
-    yOffset = yOffset - 44
+    yOffset = yOffset - 40
 
-    -- Overall progress bar
     if not elements.progressBar then
         local bar = CreateFrame("StatusBar", nil, panel)
         bar:SetHeight(16)
@@ -476,43 +1370,57 @@ function ProgressTab:BuildSidebarSummary()
     bar:Show()
     yOffset = yOffset - 28
 
-    -- Stat rows (label left, value right)
-    local stats = {
-        { key = "collected", label = L["PROGRESS_COLLECTED"], value = tostring(overview.collected), color = COLORS.GOLD },
-        { key = "total", label = L["PROGRESS_TOTAL"], value = tostring(overview.total), color = COLORS.TEXT_PRIMARY },
-        { key = "remaining", label = L["PROGRESS_REMAINING"], value = tostring(overview.remaining), color = COLORS.TEXT_TERTIARY },
+    local statValueColor = COLORS.TEXT_TERTIARY
+    local primaryStats = {
+        { key = "collected", label = L["PROGRESS_COLLECTED"], value = tostring(overview.collected), color = statValueColor },
+        { key = "total", label = L["PROGRESS_TOTAL"], value = tostring(overview.total), color = statValueColor },
+        { key = "remaining", label = L["PROGRESS_REMAINING"], value = tostring(overview.remaining), color = statValueColor },
+        { key = "wishlist", label = L["PROGRESS_STAT_WISHLIST"] .. " >", value = tostring(addon:GetWishlistCount()), color = statValueColor, onClick = function()
+            if InCombatLockdown() then
+                addon:Print(L["COMBAT_LOCKDOWN_MESSAGE"])
+                return
+            end
+            if addon.MainFrame then
+                addon.MainFrame:Hide()
+            end
+            if addon.WishlistFrame then
+                addon.WishlistFrame:Show()
+            end
+        end },
+        { key = "hidden", label = L["PROGRESS_STAT_HIDDEN"] .. " >", value = tostring(addon:GetHiddenDecorCount()), color = statValueColor, onClick = function() addon.HiddenItemsFrame:ShowFrame() end },
     }
 
-    for _, stat in ipairs(stats) do
-        local labelKey = "label_" .. stat.key
-        local valueKey = "value_" .. stat.key
+    for _, stat in ipairs(primaryStats) do
+        self:SetupSidebarStatRow(elements, panel, stat, yOffset)
+        yOffset = yOffset - 18
+    end
 
-        if not elements[labelKey] then
-            elements[labelKey] = addon:CreateFontString(panel, "OVERLAY", "GameFontNormal")
-            elements[labelKey]:SetJustifyH("LEFT")
-            addon:SetFontSize(elements[labelKey], 12, "")
-        end
-        elements[labelKey]:ClearAllPoints()
-        elements[labelKey]:SetPoint("TOPLEFT", panel, "TOPLEFT", 12, yOffset)
-        elements[labelKey]:SetText(stat.label)
-        elements[labelKey]:SetTextColor(unpack(COLORS.TEXT_TERTIARY))
-        elements[labelKey]:Show()
+    local history = addon.GetCollectionHistoryGains and addon:GetCollectionHistoryGains(CONSTS.COLLECTION_HISTORY_DISPLAY_DAYS)
+    if history then
+        yOffset = yOffset - SIDEBAR_SECTION_GAP
+        yOffset = self:PlaceSidebarDualDivider(elements, panel, "overviewHistory", yOffset)
+        yOffset = self:PlaceSidebarSectionHeader(elements, panel, "history", string.format(L["PROGRESS_HISTORY_HEADER"], CONSTS.COLLECTION_HISTORY_DISPLAY_DAYS), yOffset)
+        yOffset = self:BuildHistorySparkline(elements, panel, yOffset)
+    end
 
-        if not elements[valueKey] then
-            elements[valueKey] = addon:CreateFontString(panel, "OVERLAY", "GameFontNormal")
-            elements[valueKey]:SetJustifyH("RIGHT")
-            addon:SetFontSize(elements[valueKey], 12, "")
-        end
-        elements[valueKey]:ClearAllPoints()
-        elements[valueKey]:SetPoint("TOPRIGHT", panel, "TOPRIGHT", -12, yOffset)
-        elements[valueKey]:SetText(stat.value)
-        elements[valueKey]:SetTextColor(unpack(stat.color))
-        elements[valueKey]:Show()
+    local budget = addon.GetPlacementBudget and addon:GetPlacementBudget()
+    if budget then
+        yOffset = yOffset - SIDEBAR_SECTION_GAP
+        yOffset = self:PlaceSidebarDualDivider(elements, panel, "historyBudget", yOffset)
+        yOffset = self:PlaceSidebarSectionHeader(elements, panel, "budget", L["PROGRESS_BUDGET_HEADER"], yOffset)
+        yOffset = self:BuildBudgetRows(elements, panel, yOffset)
+    end
 
-        yOffset = yOffset - 22
+    local contentHeight = math.max(1, math.abs(yOffset) + 12)
+    if self.sideScrollChild then
+        self.sideScrollChild:SetHeight(contentHeight)
+    end
+    if self.sideScrollFrame then
+        local range = self.sideScrollFrame:GetVerticalScrollRange()
+        self.sideScrollFrame:SetVerticalScroll(math.max(0, math.min(range, self.sideScrollFrame:GetVerticalScroll())))
+        self:UpdateSidebarScrollbar()
     end
 end
-
 --------------------------------------------------------------------------------
 -- Section Header Helper
 --------------------------------------------------------------------------------
@@ -648,6 +1556,8 @@ function ProgressTab:BuildSourceSection(yOffset, columnWidth, xOffset)
             local filter = GetCompletionFilter(data)
             if data.category then
                 NavigateToSourceTab(addon.DropsTab, "DROPS", data.category, filter)
+            elseif data.targetTabKey == "DROPS" then
+                NavigateToSourceTab(addon.DropsTab, "DROPS", nil, filter)
             elseif data.targetTabKey == "ACHIEVEMENTS" then
                 NavigateToSourceTab(addon.AchievementsTab, "ACHIEVEMENTS", nil, filter)
             elseif data.targetTabKey == "PVP" then
@@ -823,6 +1733,24 @@ addon:RegisterInternalEvent(addon.Events.DECOR_VISIBILITY_CHANGED, function()
     if ProgressTab:IsShown() then
         ProgressTab:EnsureIndexes()
         ProgressTab:RefreshDisplay(true)
+    end
+end)
+
+addon:RegisterInternalEvent(addon.Events.WISHLIST_CHANGED, function()
+    if ProgressTab:IsShown() then
+        ProgressTab:BuildSidebarSummary()
+    end
+end)
+
+addon:RegisterInternalEvent(addon.Events.PLACEMENT_BUDGET_UPDATED, function()
+    if ProgressTab:IsShown() then
+        ProgressTab:BuildSidebarSummary()
+    end
+end)
+
+addon:RegisterInternalEvent(addon.Events.COLLECTION_HISTORY_UPDATED, function()
+    if ProgressTab:IsShown() then
+        ProgressTab:BuildSidebarSummary()
     end
 end)
 

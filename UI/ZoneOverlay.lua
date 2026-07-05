@@ -39,8 +39,12 @@ local BACKDROP_ALPHA_FACTOR = 0.95  -- Reduce backdrop alpha slightly vs user se
 -- by scaling dimensions and offsets to match the old WorldMapFrame-child size.
 local mapScaleFactor = 1
 
+local function IsSecretValue(value)
+    return type(issecretvalue) == "function" and issecretvalue(value)
+end
+
 local function IsAccessibleScale(value)
-    return type(value) == "number" and value > 0 and not issecretvalue(value)
+    return type(value) == "number" and not IsSecretValue(value) and value > 0
 end
 
 local function UpdateMapScaleFactor()
@@ -725,8 +729,12 @@ function ZoneOverlay:RefreshLayout()
     end
 
     -- Get data for current zone
-    local items = currentMapID and addon:GetZoneDecorItems(currentMapID)
-    local uncollected, total = addon:GetZoneDecorProgress(currentMapID or 0)
+    if not currentMapID then
+        HideOverlay()
+        return
+    end
+    local items = addon:GetZoneDecorItems(currentMapID)
+    local uncollected, total = addon:GetZoneDecorProgress(currentMapID)
 
     if not items or total == 0 then
         HideOverlay()

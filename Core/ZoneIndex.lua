@@ -426,6 +426,7 @@ function addon:GetZoneDecorProgress(mapID)
     local cached = zoneProgressCache[zoneMapID]
     if cached then return cached.uncollected, cached.total end
 
+    -- GetZoneDecorItems re-resolves the root; resolving an already-root mapID is idempotent.
     local items = self:GetZoneDecorItems(zoneMapID)
     if not items then return 0, 0 end
 

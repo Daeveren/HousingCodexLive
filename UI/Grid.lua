@@ -107,6 +107,7 @@ end
 
 local function TileOnEnter(self)
     self:SetBackdropColor(unpack(COLOR_BG_HOVER))
+    addon:StartTileIconZoom(self)
     local rec = addon:GetRecord(self.recordID)
     if not rec then return end
 
@@ -328,7 +329,7 @@ function Grid:SetSortType(sortType)
     addon.db.browser.sortType = sortType
 
     -- Native sorts are < 100, client-side sorts are >= 100
-    local isNative = sortType < 100
+    local isNative = sortType < CONSTS.CUSTOM_SORT_THRESHOLD
 
     if isNative then
         if addon.catalogSearcher then
@@ -432,6 +433,8 @@ function Grid:CreateScrollBox(parent, tileSize)
             tile.quantity:Hide()
         end
         if tile.wishlistStar then tile.wishlistStar:Hide() end
+        addon:ResetTileIconZoom(tile)
+        addon:StopStarTwinkle(tile)
         tile:SetBackdropBorderColor(unpack(COLOR_BORDER_NORMAL))
         tile:SetBackdropColor(unpack(COLOR_BG_NORMAL))
         tile:SetScript("OnMouseDown", nil)
@@ -539,7 +542,7 @@ function Grid:Create(parent)
 
     -- Apply saved sort type (only native sorts go to catalogSearcher)
     local savedSortType = addon.db and addon.db.browser and addon.db.browser.sortType
-    if savedSortType and savedSortType < 100 and addon.catalogSearcher then
+    if savedSortType and savedSortType < CONSTS.CUSTOM_SORT_THRESHOLD and addon.catalogSearcher then
         addon.catalogSearcher:SetSortType(savedSortType)
     end
 
@@ -633,20 +636,23 @@ end
 -- Store unfiltered IDs for re-filtering without new search
 Grid.unfilteredRecordIDs = {}
 
+local function PassesAllPostSearchFilters(recordID, record)
+    return record
+        and addon:ShouldDisplayDecor(recordID, record)
+        and addon.Filters:PassesTrackableFilter(record)
+        and addon.Filters:PassesWishlistFilter(record)
+        and addon.Filters:PassesPlacedFilter(record)
+        and addon.Filters:PassesPromoFilter(record)
+        and addon.Filters:PassesCurrencyFilter(record)
+        and addon.Filters:PassesAddedPatchFilter(record)
+end
+
 -- Apply client-side filters that aren't supported by HousingCatalogSearcher
 function Grid:ApplyPostSearchFilters(recordIDs)
     local filtered = {}
     for _, recordID in ipairs(recordIDs) do
         local record = addon:GetRecord(recordID)
-        if record
-            and addon:ShouldDisplayDecor(recordID, record)
-            and addon.Filters:PassesTrackableFilter(record)
-            and addon.Filters:PassesWishlistFilter(record)
-            and addon.Filters:PassesPlacedFilter(record)
-            and addon.Filters:PassesPromoFilter(record)
-            and addon.Filters:PassesCurrencyFilter(record)
-            and addon.Filters:PassesAddedPatchFilter(record)
-        then
+        if PassesAllPostSearchFilters(recordID, record) then
             table.insert(filtered, recordID)
         end
     end
@@ -688,27 +694,36 @@ local function CopyAugmentedCandidates(candidates)
     return seen, merged
 end
 
-local function MergeAugmentedCandidates(candidates, sourceIDs, includeCandidate)
-    local seen, merged = CopyAugmentedCandidates(candidates)
+local function IterateListValues(source)
+    local index = 0
+    return function()
+        index = index + 1
+        local id = source[index]
+        if id ~= nil then
+            return id, id
+        end
+    end
+end
 
-    for id, value in pairs(sourceIDs) do
-        if not seen[id] and includeCandidate(id, value) then
+local function AppendUnseen(merged, seen, source, iteratorFactory, includeCandidate)
+    if not source then return end
+    for id, value in iteratorFactory(source) do
+        if not seen[id] and (not includeCandidate or includeCandidate(id, value)) then
             seen[id] = true
             merged[#merged + 1] = id
         end
     end
+end
+
+local function MergeAugmentedCandidates(candidates, sourceIDs, includeCandidate)
+    local seen, merged = CopyAugmentedCandidates(candidates)
+    AppendUnseen(merged, seen, sourceIDs, pairs, includeCandidate)
     return merged
 end
 
 local function MergeAugmentedCandidateList(candidates, sourceIDs, includeCandidate)
     local seen, merged = CopyAugmentedCandidates(candidates)
-
-    for _, id in ipairs(sourceIDs) do
-        if not seen[id] and includeCandidate(id) then
-            seen[id] = true
-            merged[#merged + 1] = id
-        end
-    end
+    AppendUnseen(merged, seen, sourceIDs, IterateListValues, includeCandidate)
     return merged
 end
 
@@ -770,7 +785,7 @@ function Grid:SetData(recordIDs)
 
     -- Apply post-search filters and build element data
     local sortType = addon.db and addon.db.browser and addon.db.browser.sortType or 0
-    local needsSort = sortType >= 100
+    local needsSort = sortType >= CONSTS.CUSTOM_SORT_THRESHOLD
 
     local filteredIDs, elements
 
@@ -788,15 +803,7 @@ function Grid:SetData(recordIDs)
         elements = {}
         for _, recordID in ipairs(candidates) do
             local record = addon:GetRecord(recordID)
-            if record
-                and addon:ShouldDisplayDecor(recordID, record)
-                and addon.Filters:PassesTrackableFilter(record)
-                and addon.Filters:PassesWishlistFilter(record)
-                and addon.Filters:PassesPlacedFilter(record)
-                and addon.Filters:PassesPromoFilter(record)
-                and addon.Filters:PassesCurrencyFilter(record)
-                and addon.Filters:PassesAddedPatchFilter(record)
-            then
+            if PassesAllPostSearchFilters(recordID, record) then
                 filteredIDs[#filteredIDs + 1] = recordID
                 elements[#elements + 1] = { recordID = recordID }
             end
@@ -934,20 +941,8 @@ addon:RegisterInternalEvent("DATA_LOADED", function(recordCount)
 end)
 
 function Grid:MergeResults(listA, listB)
-    local seen = {}
-    local merged = {}
-    for _, id in ipairs(listA) do
-        if not seen[id] then
-            seen[id] = true
-            table.insert(merged, id)
-        end
-    end
-    for _, id in ipairs(listB) do
-        if not seen[id] then
-            seen[id] = true
-            table.insert(merged, id)
-        end
-    end
+    local seen, merged = CopyAugmentedCandidates(listA)
+    AppendUnseen(merged, seen, listB, IterateListValues)
     return merged
 end
 
@@ -968,7 +963,7 @@ addon:RegisterInternalEvent("SEARCH_RESULTS_UPDATED", function(recordIDs)
     -- tail is unsorted relative to the head, but fallbackRecords items have no
     -- valid native position anyway (Blizzard's searcher omits them), so appending
     -- them is strictly additive — the alternative is invisibility.
-    -- Client sorts (sortType >= 100) get a post-merge re-sort in Grid:SetData.
+    -- Client sorts (sortType >= CUSTOM_SORT_THRESHOLD) get a post-merge re-sort in Grid:SetData.
     -- Allow apostrophes/double-quotes/hyphens through the guard so vendor-name
     -- searches like `"Len" Splinthoof` or `Maru'sa` still take the word-index
     -- branch. `BuildWordIndex` tokenizes via `%w+` (Core/Index.lua:75), which
@@ -1065,6 +1060,9 @@ addon:RegisterInternalEvent("WISHLIST_CHANGED", function(recordID, isWishlisted)
         Grid.scrollBox:ForEachFrame(function(tile)
             if tile.recordID == recordID and tile.wishlistStar then
                 tile.wishlistStar:SetShown(isWishlisted)
+                if isWishlisted then
+                    addon:PlayStarTwinkle(tile.wishlistStar, tile)
+                end
             end
         end)
     end

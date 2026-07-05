@@ -136,7 +136,7 @@ function MainFrame:CreateTitleBar()
     -- Title bar texture
     local titleBg = titleBar:CreateTexture(nil, "BACKGROUND")
     titleBg:SetAllPoints()
-    titleBg:SetColorTexture(0.08, 0.08, 0.1, 0.95)
+    titleBg:SetColorTexture(unpack(COLORS.TITLEBAR_BG))
 
     -- Addon icon
     local icon = titleBar:CreateTexture(nil, "ARTWORK")
@@ -151,6 +151,10 @@ function MainFrame:CreateTitleBar()
     title:SetText(addon.L["ADDON_NAME"])
     title:SetTextColor(unpack(COLORS.TITLE))
     self.titleText = title
+
+    -- Idle gold shimmer: a soft highlight sweeps the title every few seconds
+    -- while shown (interval/direction logic lives in UI/Animations.lua)
+    addon:AttachGoldShimmer(title, frame, COLORS.TITLE)
 
     -- Close button
     local closeBtn = CreateFrame("Button", nil, titleBar, "UIPanelCloseButton")

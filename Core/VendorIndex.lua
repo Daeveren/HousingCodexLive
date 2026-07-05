@@ -177,6 +177,7 @@ addon.vendorIndexBuilt = false
 addon.vendorZoneCache = {}
 addon.vendorExpansionProgressCache = {}
 addon.vendorZoneProgressCache = {}
+addon.vendorUniqueProgressCache = nil
 addon.vendorZoneToMapId = {}  -- zoneName -> uiMapId (for localized zone name lookup)
 
 local function FormatVendorSourceText(vendorName)
@@ -485,6 +486,7 @@ function addon:BuildVendorIndex()
     wipe(self.vendorZoneCache)
     wipe(self.vendorExpansionProgressCache)
     wipe(self.vendorZoneProgressCache)
+    self.vendorUniqueProgressCache = nil
     wipe(self.vendorZoneToMapId)
     self.vendorMapVendorsByMapID = nil
     self:InvalidateVendorPinCache()
@@ -723,6 +725,9 @@ function addon:GetVendorExpansionCollectionProgress(expansionKey)
 end
 
 function addon:GetVendorUniqueCollectionProgress()
+    local cached = self.vendorUniqueProgressCache
+    if cached then return cached.owned, cached.total end
+
     local vendors = {}
     for expansionKey, expData in pairs(self.vendorHierarchy) do
         for zoneName in pairs(expData.zones) do
@@ -732,7 +737,9 @@ function addon:GetVendorUniqueCollectionProgress()
         end
     end
 
-    return self:GetVendorScopeCollectionProgress(vendors, true)
+    local owned, total = self:GetVendorScopeCollectionProgress(vendors, true)
+    self.vendorUniqueProgressCache = { owned = owned, total = total }
+    return owned, total
 end
 
 function addon:GetVendorCount()
@@ -847,11 +854,13 @@ end
 addon:RegisterInternalEvent("RECORD_OWNERSHIP_UPDATED", function()
     wipe(addon.vendorExpansionProgressCache)
     wipe(addon.vendorZoneProgressCache)
+    addon.vendorUniqueProgressCache = nil
 end)
 
 addon:RegisterInternalEvent(addon.Events.DECOR_VISIBILITY_CHANGED, function()
     wipe(addon.vendorExpansionProgressCache)
     wipe(addon.vendorZoneProgressCache)
+    addon.vendorUniqueProgressCache = nil
 end)
 
 -- Eagerly build vendor index at data load so tooltip overlay and map pins
@@ -859,9 +868,10 @@ end)
 addon:RegisterInternalEvent("DATA_LOADED", function()
     if not addon.vendorIndexBuilt then
         addon:BuildVendorIndex()
+    else
+        addon:BuildVendorSourceLookup()
+        addon:EnrichVendorSourceText()
     end
-    addon:BuildVendorSourceLookup()
-    addon:EnrichVendorSourceText()
     addon:RefreshVendorProfessionVisibilityState(false)
 end)
 

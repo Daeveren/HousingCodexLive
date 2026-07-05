@@ -11,6 +11,21 @@ addon.ContextMenu = {}
 
 local MENU_TAG = "HOUSING_CODEX_CONTEXT_MENU"
 
+StaticPopupDialogs["HOUSINGCODEX_HIDE_DECOR_CONFIRM"] = {
+    text = "%s",
+    button1 = YES,
+    button2 = NO,
+    OnAccept = function(_, data)
+        if data and data.recordID then
+            addon:SetDecorHidden(data.recordID, true)
+        end
+    end,
+    timeout = 0,
+    whileDead = true,
+    hideOnEscape = true,
+    preferredIndex = 3,
+}
+
 --------------------------------------------------------------------------------
 -- Shared Helpers
 --------------------------------------------------------------------------------
@@ -29,7 +44,13 @@ local function AddDecorOptions(rootDescription, record, recordID)
     local isHidden = addon:IsDecorHidden(recordID)
     local hiddenText = isHidden and L["CONTEXT_MENU_UNHIDE_ITEM"] or L["CONTEXT_MENU_HIDE_ITEM"]
     rootDescription:CreateButton(hiddenText, function()
-        addon:SetDecorHidden(recordID, not isHidden)
+        if isHidden then
+            addon:SetDecorHidden(recordID, false)
+            return
+        end
+
+        local name = addon:ResolveDecorName(recordID, record) or tostring(recordID)
+        StaticPopup_Show("HOUSINGCODEX_HIDE_DECOR_CONFIRM", string.format(L["HIDDEN_ITEMS_HIDE_CONFIRM"], name), nil, { recordID = recordID })
     end)
 
     -- Track toggle (only if trackable)

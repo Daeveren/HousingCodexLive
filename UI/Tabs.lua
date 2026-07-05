@@ -18,8 +18,17 @@ local TRUNCATE_CHAR_LIMITS = { 6, 5, 4, 3, 2 }
 local ICON_ONLY_LEVEL = #TRUNCATE_CHAR_LIMITS + 1
 
 -- SelectBar slide animation (set to false to revert to instant show/hide)
+-- "Stretch & Settle": the bar first stretches toward the target, then contracts onto it.
+-- Long jumps cap the stretch (no bar flashing across the whole strip) and leave a
+-- short gold-to-titlebar-gray gradient trail along the traveled path instead.
 local TAB_SLIDE_ENABLED = true
-local TAB_SLIDE_DURATION = 0.20  -- 200ms
+local TAB_STRETCH_DURATION = 0.13     -- phase 1: expand toward the new tab
+local TAB_SETTLE_DURATION = 0.16      -- phase 2: contract onto the new tab
+local TAB_MAX_STRETCH_FACTOR = 2      -- stretch cap = (old + new tab width) * this
+local TAB_TRAIL_LENGTH_FRAC = 0.2     -- trail length as fraction of the travel distance
+local TAB_TRAIL_ALPHA = 0.2           -- trail opacity at its gold end
+local TAB_TRAIL_FADE_START = 0.55     -- settle progress at which the trail starts fading
+                                      -- (fully gone when the bar lands — no after-fade)
 
 local function EaseOutQuad(t)
     return 1 - (1 - t) * (1 - t)
@@ -30,6 +39,7 @@ local slideDriver       -- child frame for OnUpdate
 local curBarX = 0       -- current bar x offset (container-relative)
 local curBarW = 0       -- current bar width
 local sharedSelectBar   -- the single gold texture
+local sharedTrail       -- gradient trail texture behind the moving bar
 
 local function ApplyBarPosition(x, w)
     curBarX = x
@@ -47,6 +57,48 @@ end
 
 local function CancelSlide()
     slideDriver:SetScript("OnUpdate", nil)
+    if sharedTrail then
+        sharedTrail:Hide()
+    end
+end
+
+-- Orient the trail gradient: gold at the bar's trailing edge, fading into the
+-- titlebar gray along the traveled path
+local function ConfigureTrail(movingRight)
+    local gold = COLORS.GOLD
+    local bg = COLORS.TITLEBAR_BG
+    local goldEnd = CreateColor(gold[1], gold[2], gold[3], 1)
+    local fadeEnd = CreateColor(bg[1], bg[2], bg[3], 0)
+    if movingRight then
+        sharedTrail:SetGradient("HORIZONTAL", fadeEnd, goldEnd)
+    else
+        sharedTrail:SetGradient("HORIZONTAL", goldEnd, fadeEnd)
+    end
+end
+
+-- Position the trail behind the bar's trailing edge, clamped to the start tab
+local function UpdateTrail(movingRight, startX, startW, trailLen, alphaMul)
+    if trailLen < 1 then return end
+
+    local left, right
+    if movingRight then
+        right = curBarX
+        left = math.max(startX, right - trailLen)
+    else
+        left = curBarX + curBarW
+        right = math.min(startX + startW, left + trailLen)
+    end
+
+    local width = right - left
+    if width < 1 or alphaMul <= 0 then
+        sharedTrail:Hide()
+        return
+    end
+
+    sharedTrail:SetPoint("BOTTOMLEFT", sharedTrail:GetParent(), "BOTTOMLEFT", left, -3)
+    sharedTrail:SetWidth(width)
+    sharedTrail:SetAlpha(TAB_TRAIL_ALPHA * alphaMul)
+    sharedTrail:Show()
 end
 
 local function SlideBarTo(btn)
@@ -55,23 +107,54 @@ local function SlideBarTo(btn)
     local startX, startW = curBarX, curBarW
     local targetX = btn.xOffset
     local targetW = btn:GetWidth()
+    local movingRight = targetX >= startX
+
+    -- Stretch phase target: span both tabs, capped so long jumps elongate
+    -- modestly instead of flashing a bar across the whole strip. For adjacent
+    -- tabs the cap is never hit, so the full-span stretch is unchanged.
+    local spanX = math.min(startX, targetX)
+    local spanW = math.max(startX + startW, targetX + targetW) - spanX
+    local stretchW = math.min(spanW, (startW + targetW) * TAB_MAX_STRETCH_FACTOR)
+    -- While stretching, the bar stays anchored on its trailing side
+    local stretchX = movingRight and startX or (startX + startW - stretchW)
+
+    local trailLen = math.abs(targetX - startX) * TAB_TRAIL_LENGTH_FRAC
+    ConfigureTrail(movingRight)
+
     local elapsed = 0
 
     sharedSelectBar:Show()
 
     slideDriver:SetScript("OnUpdate", function(self, dt)
         elapsed = elapsed + dt
-        local t = math.min(elapsed / TAB_SLIDE_DURATION, 1)
-        local e = EaseOutQuad(t)
 
-        ApplyBarPosition(
-            startX + (targetX - startX) * e,
-            startW + (targetW - startW) * e
-        )
+        if elapsed < TAB_STRETCH_DURATION then
+            local e = EaseOutQuad(elapsed / TAB_STRETCH_DURATION)
+            ApplyBarPosition(
+                startX + (stretchX - startX) * e,
+                startW + (stretchW - startW) * e
+            )
+        else
+            local t = math.min((elapsed - TAB_STRETCH_DURATION) / TAB_SETTLE_DURATION, 1)
+            local e = EaseOutQuad(t)
+            ApplyBarPosition(
+                stretchX + (targetX - stretchX) * e,
+                stretchW + (targetW - stretchW) * e
+            )
 
-        if t >= 1 then
-            self:SetScript("OnUpdate", nil)
-            ApplyBarPosition(targetX, targetW)
+            -- Trail fades out over the tail of the settle, so it is gone the
+            -- moment the bar lands — no lingering after-fade
+            local fade = 1
+            if t > TAB_TRAIL_FADE_START then
+                fade = 1 - (t - TAB_TRAIL_FADE_START) / (1 - TAB_TRAIL_FADE_START)
+            end
+            UpdateTrail(movingRight, startX, startW, trailLen, fade)
+
+            if t >= 1 then
+                self:SetScript("OnUpdate", nil)
+                sharedTrail:Hide()
+                ApplyBarPosition(targetX, targetW)
+            end
         end
     end)
 end
@@ -271,6 +354,14 @@ function Tabs:Create(titleBar, anchorAfter)
         bar:SetColorTexture(unpack(COLORS.GOLD))
         bar:Hide()
         sharedSelectBar = bar
+
+        -- Gradient trail left behind the moving bar (below the bar's sublayer)
+        local trail = container:CreateTexture(nil, "OVERLAY", nil, -1)
+        trail:SetHeight(3)
+        trail:SetTexture("Interface\\Buttons\\WHITE8x8")
+        trail:Hide()
+        sharedTrail = trail
+
         slideDriver = CreateFrame("Frame", nil, container)
     end
 
@@ -349,7 +440,7 @@ function Tabs:SelectTab(tabKey, skipSave, skipAnim)
         local oldBtn = self.buttons[previousTab]
         oldBtn.bg:SetColorTexture(unpack(COLORS.TAB_NORMAL))
         oldBtn.label:SetTextColor(unpack(COLORS.TAB_TEXT_INACTIVE))
-        oldBtn.icon:SetAlpha(0.75)
+        oldBtn.icon:SetAlpha(COLORS.TAB_ICON_ALPHA_INACTIVE)
         if not TAB_SLIDE_ENABLED then
             oldBtn.selectBar:Hide()
         end

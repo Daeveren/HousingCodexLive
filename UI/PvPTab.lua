@@ -110,11 +110,7 @@ function PvPTab:SetupSourceRow(frame, elementData)
     frame.sourceName:SetTextColor(unpack(COLORS.SOURCE_NAME_GOLD))
     addon:SetFontSize(frame.sourceName, 14, "")
 
-    -- Progress (manual counting — no dedicated PvP progress helper)
-    local owned = 0
-    for _, decorId in ipairs(decorIds) do
-        if addon:IsDecorCollected(decorId) then owned = owned + 1 end
-    end
+    local owned = addon:GetPvPSourceCollectionProgress(elementData)
     frame.sourceProgress:SetText(string.format("%d/%d", owned, decorCount))
     local progressComplete = owned == decorCount and decorCount > 0
     frame.sourceProgress:SetTextColor(unpack(progressComplete and COLORS.PROGRESS_COMPLETE or COLORS.TEXT_TERTIARY))

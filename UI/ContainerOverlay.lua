@@ -82,7 +82,7 @@ function ContainerOverlay:GetOrCreateOverlay(button)
     -- Owned checkmark with shadow (sizes and anchors are defined in XML)
     local checkmark, checkShadow = addon.SetupOwnedCheckmark(frame.Checkmark, frame.CheckShadow)
 
-    local overlay = {
+    overlay = {
         frame = frame,
         hcIcon = hcIcon,
         hcShadow = hcShadow,
@@ -328,7 +328,8 @@ function ContainerOverlay:Initialize()
     end)
 
     -- Internal ownership updates (clear cache — API returns fresh structs per call)
-    addon:RegisterInternalEvent("RECORD_OWNERSHIP_UPDATED", function()
+    addon:RegisterInternalEvent("RECORD_OWNERSHIP_UPDATED", function(recordID, collectionStateChanged)
+        if not collectionStateChanged then return end
         RefreshAll()
     end)
 

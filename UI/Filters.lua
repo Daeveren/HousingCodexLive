@@ -60,8 +60,6 @@ function Filters:Initialize()
         self.showPromoOnly = filters.showPromoOnly or false
         self.hideShopItems = filters.hideShopItems or false
         self.currencyFilter = type(filters.currencyFilter) == "table" and filters.currencyFilter or {}
-        filters.addedPatchFilter = nil
-        self.addedPatchFilter = {}
     end
 
     self.initialized = true
@@ -677,7 +675,7 @@ function Filters:RestoreState()
         if searcher then
             -- Restore sort type (only native sorts go to catalogSearcher)
             local sortType = addon.db.browser.sortType or 0
-            if sortType < 100 then
+            if sortType < addon.CONSTANTS.CUSTOM_SORT_THRESHOLD then
                 searcher:SetSortType(sortType)
             end
 
@@ -730,32 +728,8 @@ function Filters:ResetAllFilters(options)
             end
         end
 
-        -- Reset collection filters (default: show both collected and uncollected)
-        self:SetCollectionDirect(true, true)
-
-        -- Reset trackable state
-        self:SetTrackableState("all")
-
-        -- Reset wishlist-only filter
-        self:SetWishlistOnly(false)
-
-        -- Reset placed-only filter
+        -- Placed-only exists outside FilterBar, so ResetAllFilters owns it.
         self:SetPlacedOnly(false)
-
-        -- Reset promo-only filter
-        self:SetPromoOnly(false)
-
-        -- Explicit reset clears global visibility filters; programmatic tab
-        -- navigation can preserve them with preserveGlobalVisibility.
-        if not options.preserveGlobalVisibility then
-            self:SetHideShopItems(false)
-        end
-
-        -- Reset vendor currency filter
-        self:ClearCurrencyFilter(true)
-
-        -- Reset added patch filter
-        self:SetAllAddedPatchesEnabled(true, true)
 
         -- Reset category/subcategory filters
         if addon.Categories then
@@ -766,14 +740,27 @@ function Filters:ResetAllFilters(options)
             addon.catalogSearcher:SetFilteredSubcategoryID(nil)
         end
 
-        -- Reset FilterBar (special filters + tags)
-        if addon.FilterBar then
+        -- Reset FilterBar-owned filters and tags when available. Keep the full
+        -- fallback so early/manual callers do not lose the shared filter reset.
+        if addon.FilterBar and addon.catalogSearcher then
             addon.FilterBar:ResetToDefault(options)
-        elseif addon.catalogSearcher then
-            -- Manual reset if FilterBar not available
-            addon.catalogSearcher:SetCustomizableOnly(false)
-            addon.catalogSearcher:SetAllowedIndoors(true)
-            addon.catalogSearcher:SetAllowedOutdoors(true)
+        else
+            self:SetCollectionDirect(true, true)
+            self:SetTrackableState("all")
+            self:SetWishlistOnly(false)
+            self:SetPromoOnly(false)
+            if not options.preserveGlobalVisibility then
+                self:SetHideShopItems(false)
+            end
+            self:ClearCurrencyFilter(true)
+            self:SetAllAddedPatchesEnabled(true, true)
+
+            if addon.catalogSearcher then
+                addon.catalogSearcher:SetCustomizableOnly(false)
+                addon.catalogSearcher:SetAllowedIndoors(true)
+                addon.catalogSearcher:SetAllowedOutdoors(true)
+                addon.catalogSearcher:SetFirstAcquisitionBonusOnly(false)
+            end
         end
     end)
 

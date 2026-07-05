@@ -44,8 +44,8 @@ function addon:GetProgressOverview()
         return self.progressCache.overview
     end
 
-    local collected = self:GetVisibleUniqueCollectedCount()
-    local total = self:GetVisibleRecordCount()
+    local collected = self:GetVisibleDecorCollectedCount()
+    local total = self:GetVisibleDecorRecordCount()
     local percent = total > 0 and (collected / total * 100) or 0
     local remaining = total - collected
 
@@ -155,21 +155,17 @@ function addon:GetProgressBySourceType()
         targetTabKey = "ACHIEVEMENTS",
     })
 
-    -- Drops (split by sub-category, dynamically from DropIndex)
-    for _, category in ipairs(self:GetSortedDropCategories()) do
-        local categoryInfo = self:GetSourceCategoryInfo(category)
-        local dOwned, dTotal = self:GetDropCategoryCollectionProgress(category)
-        if dTotal > 0 then
-            table.insert(result, {
-                key = category,
-                labelKey = categoryInfo and categoryInfo.labelKey or category,
-                owned = dOwned,
-                total = dTotal,
-                percent = dOwned / dTotal * 100,
-                targetTabKey = "DROPS",
-                category = category,
-            })
-        end
+    -- Drops (deduped aggregate; category detail has its own section)
+    local dOwned, dTotal = self:GetDropUniqueCollectionProgress()
+    if dTotal > 0 then
+        table.insert(result, {
+            key = "DROPS",
+            labelKey = "PROGRESS_SOURCE_DROPS",
+            owned = dOwned,
+            total = dTotal,
+            percent = dOwned / dTotal * 100,
+            targetTabKey = "DROPS",
+        })
     end
 
     -- Professions (sum per-profession rows already computed by GetProgressByProfession)
@@ -285,6 +281,58 @@ function addon:GetProgressByPvPCategory()
     end
 
     self.progressCache.byPvPCategory = result
+    return result
+end
+
+--------------------------------------------------------------------------------
+-- Public: Progress By Achievement / Drop Category
+--------------------------------------------------------------------------------
+
+function addon:GetProgressByAchievementCategory()
+    if self.progressCache.byAchievementCategory then
+        return self.progressCache.byAchievementCategory
+    end
+
+    local result = {}
+    for _, categoryId in ipairs(self:GetSortedAchievementCategories()) do
+        local owned, total = self:GetCategoryCollectionProgress(categoryId)
+        if total > 0 then
+            table.insert(result, {
+                categoryId = categoryId,
+                owned      = owned,
+                total      = total,
+                percent    = owned / total * 100,
+                sourceKind = "ACHIEVEMENTS",
+            })
+        end
+    end
+
+    self.progressCache.byAchievementCategory = result
+    return result
+end
+
+function addon:GetProgressByDropCategory()
+    if self.progressCache.byDropCategory then
+        return self.progressCache.byDropCategory
+    end
+
+    local result = {}
+    for _, category in ipairs(self:GetSortedDropCategories()) do
+        local owned, total = self:GetDropCategoryCollectionProgress(category)
+        if total > 0 then
+            local categoryInfo = self:GetSourceCategoryInfo(category)
+            table.insert(result, {
+                category   = category,
+                labelKey   = categoryInfo and categoryInfo.labelKey or category,
+                owned      = owned,
+                total      = total,
+                percent    = owned / total * 100,
+                sourceKind = "DROPS",
+            })
+        end
+    end
+
+    self.progressCache.byDropCategory = result
     return result
 end
 

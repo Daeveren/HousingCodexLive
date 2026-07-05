@@ -48,6 +48,7 @@ local PVP_DROP_KEYWORDS = {}
 addon.pvpHierarchy = {}
 addon.pvpIndexBuilt = false
 addon.pvpCategoryProgressCache = {}
+addon.pvpSourceProgressCache = {}
 
 local function SortBySourceName(a, b)
     return (addon:GetLocalizedSourceName(a.sourceName) or "") < (addon:GetLocalizedSourceName(b.sourceName) or "")
@@ -72,6 +73,7 @@ function addon:BuildPvPIndex()
 
     wipe(self.pvpHierarchy)
     wipe(self.pvpCategoryProgressCache)
+    wipe(self.pvpSourceProgressCache)
 
     local sourceCount, decorCount = 0, 0
 
@@ -133,13 +135,14 @@ function addon:BuildPvPIndex()
 
     for _, dropCategory in ipairs({"encounter", "drop"}) do
         if self.DropSourceData and self.DropSourceData[dropCategory] then
-            for _, sourceData in ipairs(self.DropSourceData[dropCategory]) do
+            for sourceIndex, sourceData in ipairs(self.DropSourceData[dropCategory]) do
                 local name = sourceData.sourceName or ""
                 for _, keyword in ipairs(PVP_DROP_KEYWORDS) do
                     if name:find(keyword, 1, true) then
                         local entry = {
                             sourceName     = name ~= "" and name or L["UNKNOWN"],
                             sourceCategory = "drops",
+                            sourceKey      = dropCategory .. ":" .. tostring(sourceIndex),
                             decorIds       = sourceData.decorIds or {},
                         }
                         table.insert(dropSources, entry)
@@ -221,6 +224,25 @@ function addon:GetPvPUniqueCollectionProgress()
     return owned, total
 end
 
+function addon:GetPvPSourceCollectionProgress(source)
+    if not source then return 0, 0 end
+    local cacheKey = tostring(source.sourceCategory or "") .. ":" .. tostring(source.achievementID or source.npcId or source.sourceKey or source.sourceName or "")
+    local cached = self.pvpSourceProgressCache[cacheKey]
+    if cached then return cached.owned, cached.total end
+
+    local decorIds = source.decorIds or {}
+    local owned, total = 0, 0
+    for _, decorId in ipairs(decorIds) do
+        if self:ShouldDisplayDecor(decorId) then
+            total = total + 1
+            if self:IsDecorCollected(decorId) then owned = owned + 1 end
+        end
+    end
+
+    self.pvpSourceProgressCache[cacheKey] = { owned = owned, total = total }
+    return owned, total
+end
+
 function addon:GetPvPSourceCount()
     local count = 0
     for _, catData in pairs(self.pvpHierarchy) do
@@ -235,8 +257,10 @@ end
 
 addon:RegisterInternalEvent("RECORD_OWNERSHIP_UPDATED", function()
     wipe(addon.pvpCategoryProgressCache)
+    wipe(addon.pvpSourceProgressCache)
 end)
 
 addon:RegisterInternalEvent(addon.Events.DECOR_VISIBILITY_CHANGED, function()
     wipe(addon.pvpCategoryProgressCache)
+    wipe(addon.pvpSourceProgressCache)
 end)

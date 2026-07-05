@@ -32,6 +32,7 @@ Categories.categories = {}       -- Cached category info
 Categories.subcategories = {}    -- Cached subcategory info
 Categories.focusedCategoryID = nil
 Categories.focusedSubcategoryID = nil
+Categories.selectedCategoryID = nil
 
 function Categories:Initialize(sidebar)
     if self.container then return end
@@ -198,6 +199,8 @@ end
 function Categories:BuildDisplay()
     if not self.container or not self.buttonPool then return end
 
+    -- Land any in-flight selection-bar animation before the rows change
+    addon:CancelSelectionBarStretch(self.container)
     self.buttonPool:ReleaseAll()
 
     if self.focusedCategoryID then
@@ -211,6 +214,7 @@ end
 function Categories:PositionButton(btn, yOffset)
     btn:SetPoint("TOPLEFT", self.container, "TOPLEFT", PADDING, yOffset)
     btn:SetPoint("TOPRIGHT", self.container, "TOPRIGHT", -PADDING, yOffset)
+    btn.layoutTop = -yOffset  -- distance from container top (layout math for the selection-bar animation)
 end
 
 function Categories:BuildCategoryView()
@@ -427,11 +431,40 @@ function Categories:SetButtonSelected(btn, selected)
         btn.bg:SetColorTexture(unpack(COLOR_BG_SELECTED))
         btn.selectionBorder:Show()
         btn.label:SetTextColor(1, 1, 1, 1)  -- White for selected
+        self:AnimateSelectionBar(btn)
     else
         btn.bg:SetColorTexture(unpack(COLOR_BG_NORMAL))
         btn.selectionBorder:Hide()
         btn.label:SetTextColor(0.6, 0.6, 0.6, 1)  -- Grayed out for non-selected
     end
+end
+
+-- Gold-bar "stretch & settle" between the previously and newly selected button.
+-- Buttons are pooled and rebuilt on every BuildDisplay, so positions come from
+-- the deterministic layout offsets rather than (possibly released) frames.
+-- Snaps without animating when the view changed (drill-down/back).
+function Categories:AnimateSelectionBar(btn)
+    local newTop = btn.layoutTop
+    if not newTop then return end
+
+    local viewKey = self.focusedCategoryID or "root"
+    local prev = self.lastSelectionRect
+    self.lastSelectionRect = { top = newTop, height = BUTTON_HEIGHT, viewKey = viewKey }
+
+    if not prev or prev.viewKey ~= viewKey or prev.top == newTop then return end
+
+    -- The static gold border stays hidden while the transient bar travels
+    btn.selectionBorder:Hide()
+    addon:PlaySelectionBarStretch(self.container, PADDING,
+        prev.top, prev.height, newTop, BUTTON_HEIGHT,
+        function()
+            -- Reveal whichever button is selected once the bar lands
+            for activeBtn in self.buttonPool:EnumerateActive() do
+                if activeBtn.isSelected then
+                    activeBtn.selectionBorder:Show()
+                end
+            end
+        end)
 end
 
 function Categories:UpdateResultCount(shown, total)

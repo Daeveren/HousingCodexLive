@@ -6,7 +6,7 @@
 
 local _, addon = ...
 
-local DEBOUNCE_DELAY = 0.2  -- Intentionally higher than CONSTS.TIMER.INPUT_DEBOUNCE (heavier API call)
+local DEBOUNCE_DELAY = addon.CONSTANTS.TIMER.SEARCH_DEBOUNCE
 
 addon.SearchBox = {}
 local SearchBox = addon.SearchBox

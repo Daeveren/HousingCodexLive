@@ -195,9 +195,8 @@ local function OnHouseLevelFavorUpdated(houseLevelFavor)
 
     state.houseLevel = houseLevelFavor.houseLevel or 0
     state.houseFavor = houseLevelFavor.houseFavor or 0
-    local maxHouseLevel = C_Housing.GetMaxHouseLevel()
-    if maxHouseLevel and maxHouseLevel > 0 then
-        state.maxHouseLevel = maxHouseLevel
+    if state.maxHouseLevel <= 0 then
+        state.maxHouseLevel = C_Housing.GetMaxHouseLevel() or 0
     end
     state.isMaxLevel = state.maxHouseLevel > 0 and state.houseLevel >= state.maxHouseLevel
 

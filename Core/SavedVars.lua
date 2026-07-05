@@ -95,6 +95,11 @@ local defaults = {
     },
     wishlist = {},
     hiddenDecor = {},
+    placementBudget = {
+        plotsByID = {},
+        knownPlots = {},
+    },
+    collectionHistory = {},
     settings = {
         showCollectedIndicator = true,
         useCustomFont = true,
@@ -130,6 +135,7 @@ local defaults = {
         tileSize = 152,      -- Separate from browser.tileSize
         position = nil,      -- Frame position
         size = { width = 1200, height = 940 },  -- Default size (clamped to screen at runtime)
+        groupBySource = false, -- Group wishlist items by source type
     },
     endeavors = {
         enabled = true,
@@ -341,6 +347,16 @@ function addon:SetWishlisted(recordID, wishlisted)
     if wasWishlisted ~= wishlisted then
         self:FireEvent("WISHLIST_CHANGED", recordID, wishlisted)
     end
+end
+
+function addon:GetWishlistCount()
+    local wishlist = self.db and self.db.wishlist
+    if type(wishlist) ~= "table" then return 0 end
+    local count = 0
+    for _, isWishlisted in pairs(wishlist) do
+        if isWishlisted == true then count = count + 1 end
+    end
+    return count
 end
 
 function addon:ToggleWishlist(recordID)
