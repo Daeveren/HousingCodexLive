@@ -461,8 +461,8 @@ function MainFrame:CollapsePreview()
     if not self.previewRegion or not self.previewRegion:IsShown() then return end
 
     -- Hide ModelScene for GPU cleanup (same as OnMainFrameHide pattern)
-    if addon.Preview and addon.Preview.modelScene then
-        addon.Preview.modelScene:Hide()
+    if addon.Preview then
+        addon.Preview:OnMainFrameHide()
     end
 
     self.previewRegion:Hide()
@@ -503,8 +503,8 @@ function MainFrame:RestorePreview()
     self.contentArea:SetPoint("BOTTOMRIGHT", self.previewRegion, "BOTTOMLEFT", 0, 0)
     self:ClampToScreen()
 
-    if addon.Preview.modelScene then
-        addon.Preview.modelScene:Show()
+    if addon.Preview then
+        addon.Preview:OnMainFrameShow()
     end
 end
 
@@ -749,6 +749,10 @@ function MainFrame:Show()
 
     self.frame:Show()
     self.frame:Raise()
+
+    if addon.Preview then
+        addon.Preview:OnMainFrameShow()
+    end
 
     -- Handle deferred refreshes from when frame was hidden
     if addon.needsFullRefresh or addon.needsGridRefresh then

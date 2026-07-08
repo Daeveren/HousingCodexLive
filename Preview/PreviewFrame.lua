@@ -960,6 +960,7 @@ function Preview:ShowDecor(recordID)
         self.detailsName:SetTextColor(1, 1, 1)
         self:RecalculateDetailsHeight()
         self:ShowFallback(addon.L["PREVIEW_NOT_IN_CATALOG"])
+        self.modelReloadNeeded = false
         return
     end
 
@@ -973,6 +974,7 @@ function Preview:ShowDecor(recordID)
     -- No model asset available - show fallback with icon
     if not record.modelAsset then
         self:ShowFallback(addon.L["PREVIEW_NO_MODEL"], record.icon, record.iconType)
+        self.modelReloadNeeded = false
         return
     end
 
@@ -994,6 +996,7 @@ function Preview:ShowDecor(recordID)
     local actor = self:GetActor()
     if not actor then
         self:ShowFallback(addon.L["PREVIEW_ERROR"], record.icon, record.iconType)
+        self.modelReloadNeeded = false
         addon:Debug("Preview: no actor found in scene " .. sceneID)
         return
     end
@@ -1004,6 +1007,7 @@ function Preview:ShowDecor(recordID)
 
     self:HideFallback()
     self.modelScene:Show()
+    self.modelReloadNeeded = false
     addon:Debug("Preview showing model for: " .. record.name)
 end
 
@@ -1033,6 +1037,7 @@ function Preview:ClearModel()
     self.currentRecordID = nil
     self.currentContextKey = nil
     self.currentSceneID = nil  -- Reset scene tracking for fresh state
+    self.modelReloadNeeded = false
     self:ClearDetails()
     self:SetDetailsPanelShown(false)
     self.fallbackContainer:Hide()
@@ -1075,6 +1080,16 @@ function Preview:OnMainFrameHide()
     if self.modelScene then
         self.modelScene:Hide()
     end
+    if self.currentRecordID then
+        self.modelReloadNeeded = true
+    end
+end
+
+function Preview:OnMainFrameShow()
+    if not self.currentRecordID or not self.modelReloadNeeded then return end
+    if not self:IsShown() then return end
+
+    self:ShowDecor(self.currentRecordID)
 end
 
 -- ============================================================================
@@ -1094,7 +1109,10 @@ addon:RegisterInternalEvent("RECORD_SELECTED", function(recordID)
     -- Update preview content when selection changes (skip if already showing this record)
     if Preview:IsShown() then
         local contextKey = Preview:GetSelectionContextKey(recordID)
-        if recordID == Preview.currentRecordID and contextKey == Preview.currentContextKey then return end
+        if recordID == Preview.currentRecordID and contextKey == Preview.currentContextKey
+           and not Preview.modelReloadNeeded then
+            return
+        end
         Preview:ShowDecor(recordID)
     end
 end)

@@ -2,6 +2,14 @@
 
 All notable changes to Housing Codex.
 
+**3.0.1** (2026-07-08)
+
+**Changed**
+- Improved localization support for non-English clients
+
+**Fixed**
+- Decor previews now reload correctly after reopening the addon
+
 **3.0.0** (2026-07-05)
 
 A big update — lots of new features, tweaks and improvements!
