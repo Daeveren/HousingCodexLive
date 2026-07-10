@@ -2,6 +2,14 @@
 
 All notable changes to Housing Codex.
 
+**3.0.2** (2026-07-10)
+
+**Changed**
+- Updated decor vendor price data
+
+**Fixed**
+- Improved newer currency icons and cost tooltips in decor previews
+
 **3.0.1** (2026-07-08)
 
 **Changed**

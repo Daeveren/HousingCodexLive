@@ -85,6 +85,56 @@ local function FormatTextureMarkup(iconFileID)
     return string.format("|T%d:%d:%d:0:0|t", iconFileID, CURRENCY_ICON_SIZE, CURRENCY_ICON_SIZE)
 end
 
+local function ExtractHyperlinkToken(link)
+    if type(link) ~= "string" or link == "" then return nil end
+    return link:match("|H([^|]+)|h")
+end
+
+local function FormatHyperlinkedCostToken(link, text)
+    local token = ExtractHyperlinkToken(link)
+    if not token or not text or text == "" then return nil end
+
+    local color = link:match("(|c%x%x%x%x%x%x%x%x)|H") or "|cffffffff"
+    return color .. "|H" .. token .. "|h" .. text .. "|h|r"
+end
+
+local function GetCurrencyLink(currencyID, amount)
+    if not currencyID
+        or not C_CurrencyInfo
+        or not C_CurrencyInfo.GetCurrencyLink
+    then
+        return nil
+    end
+
+    local ok, link = pcall(C_CurrencyInfo.GetCurrencyLink, currencyID, amount)
+    if ok and link and link ~= "" then
+        return link
+    end
+    return nil
+end
+
+local function FormatCurrencyCostToken(currencyInfo, cost, currencyLabel)
+    if not currencyLabel or currencyLabel == "" then return nil end
+
+    local currencyIcon = FormatTextureMarkup(currencyInfo and currencyInfo.iconFileID)
+    local tokenText = currencyIcon and (currencyIcon .. " " .. currencyLabel) or currencyLabel
+
+    local amount
+    if cost and not IsSecretValue(cost) then
+        amount = tonumber(cost)
+    end
+
+    if currencyInfo and currencyInfo.currencyID then
+        local currencyLink = GetCurrencyLink(currencyInfo.currencyID, amount)
+        local hyperlinked = FormatHyperlinkedCostToken(currencyLink, tokenText)
+        if hyperlinked then return hyperlinked end
+    elseif currencyInfo and currencyInfo.itemID then
+        return string.format("|cffffffff|Hitem:%d::::::::|h%s|h|r", currencyInfo.itemID, tokenText)
+    end
+
+    return tokenText
+end
+
 local function GetVendorsTrackingContext()
     if not addon.Tabs or not addon.Tabs:IsSelected("VENDORS") then
         return nil, nil
@@ -113,11 +163,8 @@ local function FormatSelectedVendorCost(vendorDetails)
         local currencyLabel = currencyInfo and currencyInfo.name or addon:GetLocalizedCurrencyName(currencyName)
         if not currencyLabel or currencyLabel == "" then return tostring(cost) end
 
-        local currencyIcon = FormatTextureMarkup(currencyInfo and currencyInfo.iconFileID)
-        if currencyIcon then
-            return tostring(cost) .. " " .. currencyIcon .. " " .. currencyLabel
-        end
-        return tostring(cost) .. " " .. currencyLabel
+        local costToken = FormatCurrencyCostToken(currencyInfo, cost, currencyLabel)
+        return tostring(cost) .. " " .. (costToken or currencyLabel)
     end
 
     local goldAmount = type(cost) == "number" and cost or tonumber(cost)
