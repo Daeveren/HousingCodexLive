@@ -121,6 +121,7 @@ addon.CONSTANTS = {
     WAYPOINT_OWNER_TREASURE_HUNT = "treasure-hunt",
     WAYPOINT_OWNER_VENDOR_TRACKING = "vendor-tracking",
     VENDOR_CURRENCY_GOLD_KEY = "__gold",
+    PVP_ACHIEVEMENT_CATEGORY_ID = 95,
 
     -- Housing sizes (Enum.HousingCatalogEntrySize values → localization keys)
     -- Use these instead of magic numbers for patch-proof code
@@ -431,12 +432,104 @@ function addon:AnchorTooltipToCursor(owner)
     GameTooltip:SetOwner(owner, "ANCHOR_CURSOR_RIGHT")
 end
 
-function addon:GetVendorCurrencyKey(vendorData)
-    local currencyName = vendorData and vendorData.currencyName
+function addon:GetVendorDecorCostDetails(vendorData, decorId)
+    if not vendorData then return nil, nil, false, nil end
+
+    local normalized = vendorData.decorCosts and vendorData.decorCosts[decorId]
+    local normalizedComponents = normalized and normalized.components
+    if normalizedComponents and normalizedComponents[1] then
+        local primary = normalizedComponents[1]
+        return primary.amount, primary.currencyName, normalized.hasItemCost == true,
+            normalizedComponents
+    end
+
+    -- Compatibility input path. Generated VendorData intentionally remains
+    -- compact; BuildVendorIndex converts these legacy fields once so runtime
+    -- consumers only see decorCosts.
+    local detail = vendorData.itemCostDetails and vendorData.itemCostDetails[decorId]
+    local components = detail and detail.components
+    if components and components[1] then
+        local primary = components[1]
+        return primary.amount, primary.currencyName, true, components
+    end
+
+    local itemCosts = vendorData.itemCosts
+    if itemCosts and itemCosts[decorId] ~= nil then
+        local amount = itemCosts[decorId]
+        local fallbackComponents = amount and {
+            {
+                kind = vendorData.currencyName and "currency" or "gold",
+                amount = amount,
+                currencyName = vendorData.currencyName,
+            },
+        } or nil
+        return amount, vendorData.currencyName, true, fallbackComponents
+    end
+    if itemCosts then
+        return nil, nil, false, nil
+    end
+
+    local amount = vendorData.cost
+    local fallbackComponents = amount and {
+        {
+            kind = vendorData.currencyName and "currency" or "gold",
+            amount = amount,
+            currencyName = vendorData.currencyName,
+        },
+    } or nil
+    return amount, vendorData.currencyName, false, fallbackComponents
+end
+
+function addon:NormalizeVendorDecorCost(vendorData, decorId)
+    local _, _, hasItemCost, components = self:GetVendorDecorCostDetails(vendorData, decorId)
+    if not components or not components[1] then return nil end
+
+    local normalizedComponents = {}
+    for index, component in ipairs(components) do
+        normalizedComponents[index] = {
+            kind = component.kind,
+            amount = component.amount,
+            currencyName = component.currencyName,
+            currencyID = component.currencyID,
+            itemID = component.itemID,
+        }
+    end
+    return {
+        components = normalizedComponents,
+        hasItemCost = hasItemCost == true,
+    }
+end
+
+function addon:GetVendorDecorCurrencyKeys(vendorData, decorId)
+    local amount, currencyName, _, components = self:GetVendorDecorCostDetails(vendorData, decorId)
+    local keys = {}
+    if components then
+        for _, component in ipairs(components) do
+            local key = component.currencyName
+            if (not key or key == "") and component.kind == "gold" then
+                key = self.CONSTANTS.VENDOR_CURRENCY_GOLD_KEY
+            end
+            if key and key ~= "" then
+                keys[key] = true
+            end
+        end
+    elseif currencyName and currencyName ~= "" then
+        keys[currencyName] = true
+    elseif amount ~= nil then
+        keys[self.CONSTANTS.VENDOR_CURRENCY_GOLD_KEY] = true
+    end
+    return keys
+end
+
+function addon:GetVendorCurrencyKey(vendorData, decorId)
+    local amount, currencyName = self:GetVendorDecorCostDetails(vendorData, decorId)
     if currencyName and currencyName ~= "" then
         return currencyName
     end
-    return self.CONSTANTS.VENDOR_CURRENCY_GOLD_KEY
+    if amount ~= nil then
+        return self.CONSTANTS.VENDOR_CURRENCY_GOLD_KEY
+    end
+    return nil
 end
 
 function addon:GetDecorLink(recordID, callback)

@@ -2,6 +2,16 @@
 
 All notable changes to Housing Codex.
 
+**3.0.3** (2026-07-13)
+
+**Changed**
+- Improved price details for decor with combined vendor costs
+- Improved PvP decor achievement categorization
+
+**Fixed**
+- Currency filters now show only matching decor at each vendor
+- Improved rare cases where vendor prices appeared as unknown
+
 **3.0.2** (2026-07-10)
 
 **Changed**

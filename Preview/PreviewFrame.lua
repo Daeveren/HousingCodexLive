@@ -153,11 +153,8 @@ local function GetVendorsTrackingContext()
     return vendorsTab, npcId, vendorsTab.selectedVendorZoneName
 end
 
-local function FormatSelectedVendorCost(vendorDetails)
-    local cost = vendorDetails and vendorDetails.cost
+local function FormatVendorCostComponent(cost, currencyName)
     if not cost then return nil end
-
-    local currencyName = vendorDetails.currencyName
     if currencyName and currencyName ~= "" then
         local currencyInfo = addon.GetCurrencyDisplayInfo and addon:GetCurrencyDisplayInfo(currencyName)
         local currencyLabel = currencyInfo and currencyInfo.name or addon:GetLocalizedCurrencyName(currencyName)
@@ -181,6 +178,21 @@ local function FormatSelectedVendorCost(vendorDetails)
 
     local currencyLabel = addon.L["CURRENCY_GOLD"] or "gold"
     return tostring(cost) .. " " .. currencyLabel
+end
+
+local function FormatSelectedVendorCost(vendorDetails)
+    if not vendorDetails then return nil end
+
+    local formatted = {}
+    for _, component in ipairs(vendorDetails.costComponents or {}) do
+        local text = FormatVendorCostComponent(component.amount, component.currencyName)
+        if text then table.insert(formatted, text) end
+    end
+    if #formatted > 0 then
+        return table.concat(formatted, " + ")
+    end
+
+    return FormatVendorCostComponent(vendorDetails.cost, vendorDetails.currencyName)
 end
 
 local function FormatSelectedVendorSourceLine(label, value)

@@ -5,6 +5,7 @@
 ]]
 
 local _, addon = ...
+local PVP_ACHIEVEMENT_CATEGORY_ID = addon.CONSTANTS.PVP_ACHIEVEMENT_CATEGORY_ID
 
 -- WoW achievement root category IDs (stable across locales)
 -- Intentional ordering (diverges from Blizzard's ACHIEVEMENTUI_SUMMARYCATEGORIES; 81 not in Blizzard list)
@@ -12,7 +13,7 @@ local CATEGORY_ORDER = {
     [92] = 1,      -- General
     [96] = 2,      -- Quests
     [97] = 3,      -- Exploration
-    [95] = 4,      -- Player vs. Player
+    [PVP_ACHIEVEMENT_CATEGORY_ID] = 4, -- Player vs. Player
     [168] = 5,     -- Dungeons & Raids
     [169] = 6,     -- Professions
     [201] = 7,     -- Reputation
@@ -102,24 +103,35 @@ end
 -- Get top-level category ID from WoW API
 -- Walks up the category hierarchy to find the root category ID
 function addon:GetWoWAchievementCategory(achievementId)
-    local categoryId = GetAchievementCategory(achievementId)
-    if not categoryId then return nil end
-
-    -- Walk up hierarchy to find top-level category (where parentCategoryId == -1)
-    local _, parentCategoryId = GetCategoryInfo(categoryId)
-
-    while parentCategoryId and parentCategoryId ~= -1 do
-        categoryId = parentCategoryId
-        _, parentCategoryId = GetCategoryInfo(categoryId)
+    if not achievementId
+        or type(GetAchievementCategory) ~= "function"
+        or type(GetCategoryInfo) ~= "function"
+    then
+        return nil
     end
 
-    return categoryId
+    local ok, categoryId = pcall(GetAchievementCategory, achievementId)
+    if not ok or type(categoryId) ~= "number" then return nil end
+
+    -- Follow Blizzard_AchievementUI's parent walk, with nil/cycle guards for
+    -- login-time API states where category data is not ready yet.
+    local visited = {}
+    while categoryId and not visited[categoryId] do
+        visited[categoryId] = true
+        local infoOK, _, parentCategoryId = pcall(GetCategoryInfo, categoryId)
+        if not infoOK or type(parentCategoryId) ~= "number" then return nil end
+        if parentCategoryId == -1 then return categoryId end
+        categoryId = parentCategoryId
+    end
+
+    return nil
 end
 
 -- Get localized category name from category ID
 function addon:GetCategoryName(categoryId)
-    if not categoryId then return nil end
-    return (GetCategoryInfo(categoryId))
+    if not categoryId or type(GetCategoryInfo) ~= "function" then return nil end
+    local ok, name = pcall(GetCategoryInfo, categoryId)
+    return ok and name or nil
 end
 
 -- Build achievement hierarchy (categoryId -> achievements)

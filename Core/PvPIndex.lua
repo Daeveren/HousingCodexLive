@@ -7,6 +7,7 @@
 
 local _, addon = ...
 local L = addon.L
+local PVP_ACHIEVEMENT_CATEGORY_ID = addon.CONSTANTS.PVP_ACHIEVEMENT_CATEGORY_ID
 
 -- PvP source category display info
 local PVP_SOURCE_CATEGORY_INFO = {
@@ -80,7 +81,10 @@ function addon:BuildPvPIndex()
     -- 1. Scan AchievementSourceData for PvP category achievements
     local achievementSources = {}
     for achievementId, achievementData in pairs(self.AchievementSourceData) do
-        if achievementData.category == "PvP" and achievementData.decorIds then
+        local wowCategoryId = self:GetWoWAchievementCategory(achievementId)
+        local isPvP = wowCategoryId == PVP_ACHIEVEMENT_CATEGORY_ID
+            or (wowCategoryId == nil and achievementData.category == "PvP")
+        if isPvP and achievementData.decorIds then
             local entry = {
                 sourceName    = addon:GetAchievementName(achievementId),
                 sourceCategory = "achievements",

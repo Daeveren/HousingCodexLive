@@ -51,14 +51,21 @@ local function MarkDropShopSources(target)
 end
 
 local function MarkVendorShopSources(target)
-    local vendorData = addon.VendorSourceData
-    if not vendorData then return end
+    if not addon.vendorIndexBuilt and addon.BuildVendorIndex then
+        addon:BuildVendorIndex()
+    end
+    if not addon.vendorIndexBuilt then return end
 
-    for _, zones in pairs(vendorData) do
-        for _, vendors in pairs(zones or {}) do
+    for _, expansionData in pairs(addon.vendorHierarchy or {}) do
+        for _, vendors in pairs(expansionData.zones or {}) do
             for _, vendor in ipairs(vendors or {}) do
-                if IsShopCurrency(vendor.currencyName) then
-                    MarkDecorSet(target, vendor.decorIds)
+                for _, decorId in ipairs(vendor.decorIds or {}) do
+                    for currencyName in pairs(addon:GetVendorDecorCurrencyKeys(vendor, decorId)) do
+                        if IsShopCurrency(currencyName) then
+                            target[decorId] = true
+                            break
+                        end
+                    end
                 end
             end
         end

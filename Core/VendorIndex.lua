@@ -105,16 +105,6 @@ local function SetsEqual(a, b)
     return true
 end
 
-local function CopyItemCosts(itemCosts)
-    if not itemCosts then return nil end
-
-    local copy = {}
-    for decorId, cost in pairs(itemCosts) do
-        copy[decorId] = cost
-    end
-    return copy
-end
-
 local function ResolveProfessionSkillLine(profession)
     if profession == nil then return nil end
     if not (C_TradeSkillUI and C_TradeSkillUI.GetProfessionSkillLineID) then return nil end
@@ -192,15 +182,11 @@ local function FormatVendorSourceText(vendorName)
 end
 
 local function GetVendorDecorCost(vendorData, decorId)
-    local itemCosts = vendorData and vendorData.itemCosts
-    if itemCosts then
-        return itemCosts[decorId], itemCosts[decorId] ~= nil
-    end
-    return vendorData and vendorData.cost, false
+    return addon:GetVendorDecorCostDetails(vendorData, decorId)
 end
 
 local function BuildVendorDecorDetails(vendorData, zoneName, decorId)
-    local cost, hasItemCost = GetVendorDecorCost(vendorData, decorId)
+    local cost, currencyName, hasItemCost, costComponents = GetVendorDecorCost(vendorData, decorId)
     local promoSet = addon.VendorPromotionalDecorIds
         and addon.VendorPromotionalDecorIds[vendorData.npcId]
 
@@ -210,7 +196,8 @@ local function BuildVendorDecorDetails(vendorData, zoneName, decorId)
         vendorName = vendorData.npcName,
         zoneName = zoneName,
         cost = cost,
-        currencyName = vendorData.currencyName,
+        currencyName = currencyName,
+        costComponents = costComponents,
         isPromotional = promoSet and promoSet[decorId] == true,
         hasItemCost = hasItemCost,
     }
@@ -237,7 +224,7 @@ local function IsBetterVendorDecorDetails(candidate, current)
 end
 
 function addon:BuildVendorSourceLookup()
-    if not self.VendorSourceData then return end
+    if not self.vendorHierarchy then return end
 
     local vendorNamesByDecor = {}
     local vendorDetailsByDecor = {}
@@ -246,8 +233,8 @@ function addon:BuildVendorSourceLookup()
     wipe(self.decorVendorSourceText)
     wipe(self.decorVendorDetails)
 
-    for _, zones in pairs(self.VendorSourceData) do
-        for zoneName, vendors in pairs(zones) do
+    for _, expansionData in pairs(self.vendorHierarchy) do
+        for zoneName, vendors in pairs(expansionData.zones or {}) do
             for _, vendorData in ipairs(vendors) do
                 local vendorName = vendorData.npcName
                 if vendorName and vendorData.decorIds then
@@ -285,8 +272,8 @@ end
 
 function addon:GetDefaultVendorDecorDetails(decorId)
     if not decorId then return nil end
-    if not self.decorVendorDetails and self.BuildVendorSourceLookup then
-        self:BuildVendorSourceLookup()
+    if not self.vendorIndexBuilt and self.BuildVendorIndex then
+        self:BuildVendorIndex()
     end
 
     local details = self.decorVendorDetails and self.decorVendorDetails[decorId]
@@ -301,6 +288,7 @@ function addon:GetDefaultVendorDecorDetails(decorId)
         zoneName = details.zoneName and addon:GetLocalizedVendorZoneName(details.zoneName) or nil,
         cost = details.cost,
         currencyName = details.currencyName,
+        costComponents = details.costComponents,
         isPromotional = details.isPromotional,
     }
 end
@@ -480,7 +468,6 @@ function addon:BuildVendorIndex()
 
     local startTime = debugprofilestop()
 
-    self:BuildVendorSourceLookup()
     wipe(self.vendorIndex)
     wipe(self.vendorHierarchy)
     wipe(self.vendorZoneCache)
@@ -501,6 +488,7 @@ function addon:BuildVendorIndex()
     wipe(self.PromotionalDecorIds)
 
     local vendorCount, decorCount = 0, 0
+    local knownCostCount, costComponentCount = 0, 0
 
     for sourceExpansionKey, zones in pairs(self.VendorSourceData) do
         for zoneName, vendors in pairs(zones) do
@@ -523,6 +511,21 @@ function addon:BuildVendorIndex()
             for _, vendorData in ipairs(vendors) do
                 local npcId = vendorData.npcId
                 if npcId then
+                    local runtimeVendor = {
+                        npcId = npcId,
+                        npcName = vendorData.npcName,
+                        decorIds = vendorData.decorIds or {},
+                        decorCosts = {},
+                    }
+                    for _, decorId in ipairs(runtimeVendor.decorIds) do
+                        local costDetails = self:NormalizeVendorDecorCost(vendorData, decorId)
+                        if costDetails then
+                            runtimeVendor.decorCosts[decorId] = costDetails
+                            knownCostCount = knownCostCount + 1
+                            costComponentCount = costComponentCount + #costDetails.components
+                        end
+                    end
+
                     local vendorEntry = self.vendorIndex[npcId]
                     if not vendorEntry then
                         -- promotionalDecorIds: set of decorIds this vendor sells only during
@@ -535,9 +538,7 @@ function addon:BuildVendorIndex()
                         vendorEntry = {
                             npcId = npcId,
                             npcName = vendorData.npcName,
-                            cost = vendorData.cost,
-                            currencyName = vendorData.currencyName,
-                            itemCosts = CopyItemCosts(vendorData.itemCosts),
+                            decorCosts = {},
                             decorIds = {},
                             decorIdSet = {},
                             promotionalDecorIds = promoSet,
@@ -546,14 +547,9 @@ function addon:BuildVendorIndex()
                         vendorCount = vendorCount + 1
                     end
 
-                    -- Merge itemCosts from subsequent zone entries for same vendor
-                    if vendorData.itemCosts and not vendorEntry.itemCosts then
-                        vendorEntry.itemCosts = CopyItemCosts(vendorData.itemCosts)
-                    elseif vendorData.itemCosts and vendorEntry.itemCosts then
-                        for did, c in pairs(vendorData.itemCosts) do
-                            if not vendorEntry.itemCosts[did] then
-                                vendorEntry.itemCosts[did] = c
-                            end
+                    for decorId, details in pairs(runtimeVendor.decorCosts) do
+                        if not vendorEntry.decorCosts[decorId] then
+                            vendorEntry.decorCosts[decorId] = details
                         end
                     end
 
@@ -575,14 +571,7 @@ function addon:BuildVendorIndex()
                         }
                     end
 
-                    table.insert(self.vendorHierarchy[expansionKey].zones[zoneName], {
-                        npcId = npcId,
-                        npcName = vendorData.npcName,
-                        cost = vendorData.cost,
-                        currencyName = vendorData.currencyName,
-                        itemCosts = vendorData.itemCosts,
-                        decorIds = vendorData.decorIds or {},
-                    })
+                    table.insert(self.vendorHierarchy[expansionKey].zones[zoneName], runtimeVendor)
                 end
             end
         end
@@ -601,6 +590,8 @@ function addon:BuildVendorIndex()
     for _, vendorEntry in pairs(self.vendorIndex) do
         vendorEntry.decorIdSet = nil
     end
+
+    self:BuildVendorSourceLookup()
 
     if self.NPCLocationData then
         for npcId, zoneInfo in pairs(self.vendorZoneCache) do
@@ -648,8 +639,10 @@ function addon:BuildVendorIndex()
     self.vendorIndexBuilt = true
     self:InvalidateProgressCache()
 
-    self:Debug(string.format("Built vendor index: %d vendors, %d decor items (%d sourceText enriched) in %d ms",
-        vendorCount, decorCount, enriched, math.floor(debugprofilestop() - startTime)))
+    self:Debug(string.format(
+        "Built vendor index: %d vendors, %d decor items, %d known costs/%d components (%d sourceText enriched) in %d ms",
+        vendorCount, decorCount, knownCostCount, costComponentCount, enriched,
+        math.floor(debugprofilestop() - startTime)))
 end
 
 function addon:IsPromoDecor(recordID)
@@ -882,7 +875,3 @@ end)
 addon:RegisterWoWEvent("PLAYER_ENTERING_WORLD", function()
     addon:RefreshVendorProfessionVisibilityState(true)
 end)
-
-if addon.VendorSourceData then
-    addon:BuildVendorSourceLookup()
-end

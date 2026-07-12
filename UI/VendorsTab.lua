@@ -270,14 +270,17 @@ local function BuildCurrencyFilterData(owner, includeOptions)
     for _, expansionKey in ipairs(addon:GetSortedVendorExpansions()) do
         for _, zoneName in ipairs(addon:GetSortedVendorZones(expansionKey)) do
             for _, vendorData in ipairs(addon:GetVendorsForZone(expansionKey, zoneName)) do
-                local currencyKey = addon:GetVendorCurrencyKey(vendorData)
-                if not seen[currencyKey] then
-                    seen[currencyKey] = true
-                    if options then
-                        table.insert(options, {
-                            key = currencyKey,
-                            label = owner:GetCurrencyLabel(currencyKey),
-                        })
+                for _, decorId in ipairs(vendorData.decorIds or {}) do
+                    for currencyKey in pairs(addon:GetVendorDecorCurrencyKeys(vendorData, decorId)) do
+                        if not seen[currencyKey] then
+                            seen[currencyKey] = true
+                            if options then
+                                table.insert(options, {
+                                    key = currencyKey,
+                                    label = owner:GetCurrencyLabel(currencyKey),
+                                })
+                            end
+                        end
                     end
                 end
             end
@@ -363,13 +366,7 @@ function VendorsTab:GetSelectedVendorDecorDetails(recordID)
         zoneName = zoneCache.zoneName
     end
 
-    local itemCosts = vendorData.itemCosts
-    local cost
-    if itemCosts then
-        cost = itemCosts[recordID]
-    else
-        cost = vendorData.cost
-    end
+    local cost, currencyName, _, costComponents = addon:GetVendorDecorCostDetails(vendorData, recordID)
 
     local promoSet = addon.VendorPromotionalDecorIds
         and addon.VendorPromotionalDecorIds[vendorData.npcId]
@@ -382,7 +379,8 @@ function VendorsTab:GetSelectedVendorDecorDetails(recordID)
             or addon.L["VENDOR_UNKNOWN"],
         zoneName = zoneName and addon:GetLocalizedVendorZoneName(zoneName) or nil,
         cost = cost,
-        currencyName = vendorData.currencyName,
+        currencyName = currencyName,
+        costComponents = costComponents,
         isPromotional = promoSet and promoSet[recordID] == true,
     }
 end
@@ -1686,8 +1684,7 @@ end
 -- Search/Filter Logic (with per-refresh memoization)
 --------------------------------------------------------------------------------
 
-local function VendorCurrencyMatchesSearch(vendorData, searchText)
-    local currencyKey = addon:GetVendorCurrencyKey(vendorData)
+local function CurrencyKeyMatchesSearch(currencyKey, searchText)
     local rawCurrency = currencyKey == VENDOR_CURRENCY_GOLD_KEY and addon.L["CURRENCY_GOLD"] or currencyKey
 
     if rawCurrency and strlower(rawCurrency):find(searchText, 1, true) then
@@ -1698,6 +1695,15 @@ local function VendorCurrencyMatchesSearch(vendorData, searchText)
     return localizedCurrency
         and localizedCurrency ~= rawCurrency
         and strlower(localizedCurrency):find(searchText, 1, true) ~= nil
+end
+
+local function VendorCurrencyMatchesSearch(vendorData, searchText)
+    for _, decorId in ipairs(vendorData.decorIds or {}) do
+        for currencyKey in pairs(addon:GetVendorDecorCurrencyKeys(vendorData, decorId)) do
+            if CurrencyKeyMatchesSearch(currencyKey, searchText) then return true end
+        end
+    end
+    return false
 end
 
 local function VendorMatchesSearch(vendorData, searchText, zoneName, expansionKey)
@@ -1776,11 +1782,23 @@ local function VendorPassesCompletionFilter(vendorData, filter, zoneName, expans
     return result
 end
 
-local function VendorPassesCurrencyFilter(vendorData)
+local function GetCurrencyFilteredVendor(vendorData)
+    local visibleDecorIds = GetVisibleVendorDecorIds(vendorData)
     local filters = VendorsTab:GetCurrencyFilter()
-    if not filters or not VendorsTab:HasActiveCurrencyFilter(true) then return true end
+    if not filters or not VendorsTab:HasActiveCurrencyFilter(true) then
+        return CopyVendorWithDecorIds(vendorData, visibleDecorIds)
+    end
 
-    return filters[addon:GetVendorCurrencyKey(vendorData)] == true
+    local filteredDecorIds = {}
+    for _, decorId in ipairs(visibleDecorIds) do
+        for currencyKey in pairs(addon:GetVendorDecorCurrencyKeys(vendorData, decorId)) do
+            if filters[currencyKey] == true then
+                filteredDecorIds[#filteredDecorIds + 1] = decorId
+                break
+            end
+        end
+    end
+    return CopyVendorWithDecorIds(vendorData, filteredDecorIds)
 end
 
 --------------------------------------------------------------------------------
@@ -1825,12 +1843,11 @@ function VendorsTab:BuildExpansionDisplay()
         for _, zoneName in ipairs(addon:GetSortedVendorZones(expansionKey)) do
             if not zoneFilterActive or VendorZoneMatchesPlayerZone(zoneName) then
                 for _, vendorData in ipairs(addon:GetVendorsForZone(expansionKey, zoneName)) do
-                    local visibleDecorIds = GetVisibleVendorDecorIds(vendorData)
-                    if addon:ShouldShowVendorForPlayerProfessionFilter(vendorData.npcId)
-                        and #visibleDecorIds > 0
-                        and VendorPassesCompletionFilter(vendorData, filter, zoneName, expansionKey)
-                        and VendorPassesCurrencyFilter(vendorData)
-                        and VendorMatchesSearch(vendorData, searchText, zoneName, expansionKey) then
+                    local filteredVendor = GetCurrencyFilteredVendor(vendorData)
+                    if addon:ShouldShowVendorForPlayerProfessionFilter(filteredVendor.npcId)
+                        and #filteredVendor.decorIds > 0
+                        and VendorPassesCompletionFilter(filteredVendor, filter, zoneName, expansionKey)
+                        and VendorMatchesSearch(filteredVendor, searchText, zoneName, expansionKey) then
                         hasVisibleContent = true
                         break
                     end
@@ -1882,13 +1899,12 @@ function VendorsTab:BuildVendorDisplay()
             if not zoneFilterActive or VendorZoneMatchesPlayerZone(zoneName) then
                 local zoneVendors = {}
                 for _, vendorData in ipairs(addon:GetVendorsForZone(expansionKey, zoneName)) do
-                    local visibleDecorIds = GetVisibleVendorDecorIds(vendorData)
-                    if addon:ShouldShowVendorForPlayerProfessionFilter(vendorData.npcId)
-                        and #visibleDecorIds > 0
-                        and VendorPassesCompletionFilter(vendorData, filter, zoneName, expansionKey)
-                        and VendorPassesCurrencyFilter(vendorData)
-                        and VendorMatchesSearch(vendorData, searchText, zoneName, expansionKey) then
-                        table.insert(zoneVendors, CopyVendorWithDecorIds(vendorData, visibleDecorIds))
+                    local filteredVendor = GetCurrencyFilteredVendor(vendorData)
+                    if addon:ShouldShowVendorForPlayerProfessionFilter(filteredVendor.npcId)
+                        and #filteredVendor.decorIds > 0
+                        and VendorPassesCompletionFilter(filteredVendor, filter, zoneName, expansionKey)
+                        and VendorMatchesSearch(filteredVendor, searchText, zoneName, expansionKey) then
+                        table.insert(zoneVendors, filteredVendor)
                     end
                 end
 

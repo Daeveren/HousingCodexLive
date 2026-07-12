@@ -347,15 +347,15 @@ function Filters:EnsureCurrencyLookup()
     for _, expansionData in pairs(addon.vendorHierarchy or {}) do
         for _, vendors in pairs(expansionData.zones or {}) do
             for _, vendorData in ipairs(vendors) do
-                local currencyKey = addon:GetVendorCurrencyKey(vendorData)
-                if not seenCurrencies[currencyKey] then
-                    seenCurrencies[currencyKey] = true
-                    table.insert(currencyKeys, currencyKey)
-                end
-
                 for _, decorId in ipairs(vendorData.decorIds or {}) do
                     byDecorID[decorId] = byDecorID[decorId] or {}
-                    byDecorID[decorId][currencyKey] = true
+                    for currencyKey in pairs(addon:GetVendorDecorCurrencyKeys(vendorData, decorId)) do
+                        byDecorID[decorId][currencyKey] = true
+                        if not seenCurrencies[currencyKey] then
+                            seenCurrencies[currencyKey] = true
+                            table.insert(currencyKeys, currencyKey)
+                        end
+                    end
                 end
             end
         end
