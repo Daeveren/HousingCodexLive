@@ -14,7 +14,7 @@ local SearchBox = addon.SearchBox
 SearchBox.frame = nil
 SearchBox.debounceTimer = nil
 SearchBox.lastSearchText = nil
-SearchBox.pendingSearchText = nil  -- Stores search text typed before catalogSearcher is ready
+SearchBox.pendingSearchText = nil  -- Stores unapplied text across searcher readiness or visibility changes
 
 -- Normalize search text: trim whitespace, convert empty to nil
 local function NormalizeSearchText(text)
@@ -73,9 +73,21 @@ function SearchBox:Create(parent)
         editBox:ClearFocus()
     end)
 
-    -- Cancel debounce when EditBox is hidden (e.g., parent frame closes)
+    -- Preserve a still-debounced value when the box or parent frame hides.
     frame:HookScript("OnHide", function()
+        if self.debounceTimer then
+            self.pendingSearchText = frame:GetText()
+        end
         self:CancelDebounce()
+    end)
+
+    -- Apply text that was preserved by OnHide once the box is visible again.
+    frame:HookScript("OnShow", function()
+        if self.pendingSearchText == nil then return end
+
+        local pendingText = self.pendingSearchText
+        self.pendingSearchText = nil
+        self:ApplySearch(pendingText, true)
     end)
 
     return frame
@@ -86,6 +98,7 @@ function SearchBox:OnTextChanged(text)
 
     -- Start debounce timer
     self.debounceTimer = C_Timer.NewTimer(DEBOUNCE_DELAY, function()
+        self.debounceTimer = nil
         self:ApplySearch(text)
     end)
 end
@@ -153,7 +166,7 @@ end
 
 -- Re-apply pending search when data loads
 addon:RegisterInternalEvent("DATA_LOADED", function()
-    if SearchBox.pendingSearchText then
+    if SearchBox.pendingSearchText ~= nil then
         addon:Debug("SearchBox: Re-applying pending search after data load")
         SearchBox:ApplySearch(SearchBox.pendingSearchText, true)
         return

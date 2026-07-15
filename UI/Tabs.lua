@@ -182,13 +182,16 @@ Tabs.levelWidths = {}       -- total width for each truncation level
 -- Truncate text to N chars + "..." if longer than N chars
 -- At 2 chars (last level before icon-only), drop the ellipsis
 local function TruncateText(fullText, charLimit)
-    if #fullText <= charLimit then
+    local chars = addon.SplitUTF8Chars(fullText)
+    if #chars <= charLimit then
         return fullText
     end
+
+    local truncated = table.concat(chars, "", 1, charLimit)
     if charLimit <= 2 then
-        return fullText:sub(1, charLimit)
+        return truncated
     end
-    return fullText:sub(1, charLimit) .. "..."
+    return truncated .. "..."
 end
 
 local function CreateTabButton(parent, tabConfig)
@@ -432,6 +435,7 @@ end
 function Tabs:SelectTab(tabKey, skipSave, skipAnim)
     local btn = self.buttons[tabKey]
     if not btn or not btn.enabled then return end
+    if self.currentTab == tabKey then return end
 
     local previousTab = self.currentTab
 

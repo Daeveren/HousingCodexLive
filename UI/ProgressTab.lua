@@ -60,6 +60,16 @@ ProgressTab.pvpCategoryRows = {}
 ProgressTab.achievementCatRows = {}
 ProgressTab.dropCatRows = {}
 
+local function GetSafeCursorY()
+    local _, cursorY = GetCursorPosition()
+    local scale = UIParent:GetEffectiveScale()
+    if not addon:IsUsableUINumber(cursorY) or not addon:IsUsableUINumber(scale) or scale <= 0 then
+        return nil
+    end
+
+    return cursorY / scale
+end
+
 -- Override: gray for <100%, green at 100%
 function ProgressTab:GetProgressColor(percent)
     if percent == 100 then
@@ -145,7 +155,8 @@ function ProgressTab:CreateSidebarPanel(parent)
 
     local function ThumbOnUpdate(t)
         if not t.dragging then return end
-        local cursorY = select(2, GetCursorPosition()) / UIParent:GetEffectiveScale()
+        local cursorY = GetSafeCursorY()
+        if not cursorY then return end
         local deltaY = t.dragStartY - cursorY
         local trackHeight = track:GetHeight()
         local thumbHeight = t:GetHeight()
@@ -159,8 +170,10 @@ function ProgressTab:CreateSidebarPanel(parent)
     thumb:EnableMouse(true)
     thumb:SetScript("OnMouseDown", function(t, button)
         if button == "LeftButton" then
+            local cursorY = GetSafeCursorY()
+            if not cursorY then return end
             t.dragging = true
-            t.dragStartY = select(2, GetCursorPosition()) / UIParent:GetEffectiveScale()
+            t.dragStartY = cursorY
             t.dragStartScroll = scrollFrame:GetVerticalScroll()
             t:SetScript("OnUpdate", ThumbOnUpdate)
         end
@@ -174,7 +187,8 @@ function ProgressTab:CreateSidebarPanel(parent)
         if button ~= "LeftButton" then return end
         local range = scrollFrame:GetVerticalScrollRange()
         if range <= 0 then return end
-        local cursorY = select(2, GetCursorPosition()) / UIParent:GetEffectiveScale()
+        local cursorY = GetSafeCursorY()
+        if not cursorY then return end
         local top = t:GetTop()
         local height = t:GetHeight()
         if not top or not height or height <= 0 then return end
@@ -343,7 +357,8 @@ function ProgressTab:CreateScrollFrame(parent)
     thumb:EnableMouse(true)
     local function ThumbOnUpdate(t)
         if not t.dragging then return end
-        local cursorY = select(2, GetCursorPosition()) / UIParent:GetEffectiveScale()
+        local cursorY = GetSafeCursorY()
+        if not cursorY then return end
         local deltaY = t.dragStartY - cursorY
         local trackHeight = track:GetHeight()
         local thumbHeight = t:GetHeight()
@@ -356,8 +371,10 @@ function ProgressTab:CreateScrollFrame(parent)
 
     thumb:SetScript("OnMouseDown", function(t, button)
         if button == "LeftButton" then
+            local cursorY = GetSafeCursorY()
+            if not cursorY then return end
             t.dragging = true
-            t.dragStartY = select(2, GetCursorPosition()) / UIParent:GetEffectiveScale()
+            t.dragStartY = cursorY
             t.dragStartScroll = scrollFrame:GetVerticalScroll()
             t:SetScript("OnUpdate", ThumbOnUpdate)
         end
@@ -372,7 +389,8 @@ function ProgressTab:CreateScrollFrame(parent)
         if button ~= "LeftButton" then return end
         local range = scrollFrame:GetVerticalScrollRange()
         if range <= 0 then return end
-        local cursorY = select(2, GetCursorPosition()) / UIParent:GetEffectiveScale()
+        local cursorY = GetSafeCursorY()
+        if not cursorY then return end
         local top = t:GetTop()
         local height = t:GetHeight()
         if not top or not height or height <= 0 then return end

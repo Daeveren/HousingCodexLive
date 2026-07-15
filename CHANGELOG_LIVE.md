@@ -2,6 +2,13 @@
 
 All notable changes to Housing Codex.
 
+**3.0.4** (2026-07-15)
+
+**Fixed**
+- Improved reliability of main tabs and decor previews
+- Search text is now preserved during layout changes
+- Improved loading messages, Progress scrollbars, and non-English tab labels
+
 **3.0.3** (2026-07-13)
 
 **Changed**

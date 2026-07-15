@@ -17,6 +17,7 @@ addon.L = {}
 
 -- Data state
 addon.dataLoaded = false
+addon.dataLoadFailed = false
 addon.decorRecords = {}
 
 -- Constants
@@ -302,6 +303,7 @@ addon.internalEvents = {}
 -- Event name constants (use these instead of string literals to catch typos at load time)
 addon.Events = {
     DATA_LOADED                     = "DATA_LOADED",
+    DATA_LOAD_STARTED               = "DATA_LOAD_STARTED",
     DATA_LOAD_FAILED                = "DATA_LOAD_FAILED",
     RECORD_SELECTED                 = "RECORD_SELECTED",
     SEARCH_RESULTS_UPDATED          = "SEARCH_RESULTS_UPDATED",

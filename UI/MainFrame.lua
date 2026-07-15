@@ -307,6 +307,25 @@ function MainFrame:CreateContentArea()
     end
 end
 
+function MainFrame:SetLoadingState(state)
+    if not self.loadingOverlay or not self.loadingText then return end
+
+    if state == "loaded" then
+        self.loadingOverlay:Hide()
+        return
+    end
+
+    if state == "failed" then
+        self.loadingText:SetText(addon.L["ERROR_LOAD_FAILED_SHORT"])
+        self.loadingText:SetTextColor(1, 0.4, 0.4, 1)
+    else
+        self.loadingText:SetText(addon.L["LOADING_DATA"])
+        self.loadingText:SetTextColor(unpack(COLORS.TITLE))
+    end
+
+    self.loadingOverlay:Show()
+end
+
 function MainFrame:CreateLoadingOverlay()
     local overlay = CreateFrame("Frame", nil, self.contentArea)
     overlay:SetAllPoints()
@@ -323,16 +342,26 @@ function MainFrame:CreateLoadingOverlay()
     text:SetTextColor(unpack(COLORS.TITLE))
     self.loadingText = text
 
-    addon:RegisterInternalEvent("DATA_LOADED", function()
-        overlay:Hide()
+    addon:RegisterInternalEvent(addon.Events.DATA_LOAD_STARTED, function()
+        self:SetLoadingState("loading")
     end)
 
-    addon:RegisterInternalEvent("DATA_LOAD_FAILED", function()
-        text:SetText(addon.L["ERROR_LOAD_FAILED_SHORT"])
-        text:SetTextColor(1, 0.4, 0.4, 1)
+    addon:RegisterInternalEvent(addon.Events.DATA_LOADED, function()
+        self:SetLoadingState("loaded")
     end)
 
-    overlay:SetShown(not addon.dataLoaded)
+    addon:RegisterInternalEvent(addon.Events.DATA_LOAD_FAILED, function()
+        self:SetLoadingState("failed")
+    end)
+
+    local state = "loading"
+    if addon.dataLoaded then
+        state = "loaded"
+    elseif addon.dataLoadFailed then
+        state = "failed"
+    end
+
+    self:SetLoadingState(state)
 end
 
 function MainFrame:CreateResizeHandle()

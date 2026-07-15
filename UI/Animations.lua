@@ -360,6 +360,7 @@ local function SplitIntoChars(text)
     end
     return chars
 end
+addon.SplitUTF8Chars = SplitIntoChars
 
 local function BuildShimmerText(state, sweepProgress)
     local base = state.baseColor

@@ -227,7 +227,8 @@ function addon:ScheduleRetry(reason)
 
     if self.loadRetryCount > MAX_RETRIES then
         self:Debug("Max retries reached, giving up")
-        self:FireEvent("DATA_LOAD_FAILED")
+        self.dataLoadFailed = true
+        self:FireEvent(self.Events.DATA_LOAD_FAILED)
         self:Print(self.L["ERROR_LOAD_FAILED"])
         return
     end
@@ -251,6 +252,8 @@ function addon:LoadData()
         self:Debug("Load already in progress, skipping")
         return
     end
+    self.dataLoadFailed = false
+    self:FireEvent(self.Events.DATA_LOAD_STARTED)
 
     self.loadStartTime = debugprofilestop()
 
@@ -380,12 +383,13 @@ function addon:ProcessSearchResults(searcher, generation)
         -- touch every record too, so they should not be able to leave the UI in
         -- the startup loading state if the client is already under load.
         self.dataLoaded = true
+        self.dataLoadFailed = false
 
         local elapsedMs = math.floor(debugprofilestop() - (self.loadStartTime or 0))
         self:Debug(string.format("Loaded %d records in %d ms", recordCount, elapsedMs))
 
         -- Fire loaded event
-        self:FireEvent("DATA_LOADED", recordCount)
+        self:FireEvent(self.Events.DATA_LOADED, recordCount)
 
         local decorTotal = self:GetVisibleDecorRecordCount()
         local decorCollected = self:GetVisibleDecorCollectedCount()
@@ -1012,6 +1016,7 @@ end)
 function addon:ResetLoadState()
     self.searcherGeneration = (self.searcherGeneration or 0) + 1
     self.loadRetryCount = 0
+    self.dataLoadFailed = false
     if self.searchTimeoutTimer then
         self.searchTimeoutTimer:Cancel()
         self.searchTimeoutTimer = nil
