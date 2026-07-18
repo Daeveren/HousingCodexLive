@@ -117,12 +117,24 @@ local FRAME_BACKDROP = {
 -- tabID: the tab ID key on the HouseInfoContent frame (e.g. "houseUpgradeTabID", "endeavorTabID")
 local function OpenHousingDashboard(tabID)
     if InCombatLockdown() then return end
+    if PlayerIsTimerunning()
+        or not C_Housing.IsHousingServiceEnabled()
+        or C_PlayerInfo.IsPlayerNPERestricted() then
+        return
+    end
     if not HousingDashboardFrame then
         pcall(C_AddOns.LoadAddOn, "Blizzard_HousingDashboard")
     end
     if not HousingDashboardFrame then return end
+
+    local function SetDashboardTab(dashboardFrame, tab)
+        local setTab = dashboardFrame and dashboardFrame.SetTab
+        if type(setTab) ~= "function" or tab == nil then return false end
+        return pcall(setTab, dashboardFrame, tab)
+    end
+
     ShowUIPanel(HousingDashboardFrame)
-    HousingDashboardFrame:SetTab(HousingDashboardFrame.houseInfoTab)
+    if not SetDashboardTab(HousingDashboardFrame, HousingDashboardFrame.houseInfoTab) then return end
     local contentFrame = HousingDashboardFrame.HouseInfoContent
         and HousingDashboardFrame.HouseInfoContent.ContentFrame
     if contentFrame then
@@ -130,7 +142,7 @@ local function OpenHousingDashboard(tabID)
             pcall(contentFrame.Initialize, contentFrame)
         end
         if contentFrame[tabID] then
-            contentFrame:SetTab(contentFrame[tabID])
+            SetDashboardTab(contentFrame, contentFrame[tabID])
         end
     end
 end

@@ -2,6 +2,13 @@
 
 All notable changes to Housing Codex.
 
+**3.0.5** (2026-07-18)
+
+**Fixed**
+- Improved Progress tab plot labels, completion totals, and responsive layout
+- Improved plot decor budget history across houses and neighborhoods
+- In the Progress tab plot decor budget area, clicking Alliance/Horde house text now opens the default UI Housing Dashboard while closing Housing Codex in order to avoid overlapping
+
 **3.0.4** (2026-07-15)
 
 **Fixed**

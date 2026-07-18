@@ -263,6 +263,8 @@ function ProgressTab:Show()
 
     local skipRefresh = self.ownershipRefreshedThisShow
     self.ownershipRefreshedThisShow = nil
+    local previewWasExpanded = addon.MainFrame.previewRegion
+        and addon.MainFrame.previewRegion:IsShown()
 
     self:EnsureIndexes()
 
@@ -272,7 +274,9 @@ function ProgressTab:Show()
     -- Collapse preview BEFORE RefreshDisplay so columns are sized for full-width content area
     addon.MainFrame:CollapsePreview()
 
-    if not skipRefresh then
+    -- A hidden ownership refresh can run before the preview collapses. Rebuild
+    -- once at the full content width when that ordering changed the layout.
+    if not skipRefresh or previewWasExpanded then
         self:RefreshDisplay()
     end
 end
@@ -526,10 +530,16 @@ function ProgressTab:BuildDashboard(preserveScroll)
     local achievementCatData = addon:GetProgressByAchievementCategory()
     if #achievementCatData > 0 then
         if leftY < 0 then leftY = leftY - SECTION_PADDING end
+        local displayData = {}
         for _, data in ipairs(achievementCatData) do
-            data.displayLabel = addon:GetCategoryName(data.categoryId)
+            local rowData = {}
+            for key, value in pairs(data) do
+                rowData[key] = value
+            end
+            rowData.displayLabel = addon:GetCategoryName(data.categoryId)
+            displayData[#displayData + 1] = rowData
         end
-        leftY = self:BuildExpansionSection(leftY, columnWidth, "achievementCat", L["PROGRESS_ACHIEVEMENT_CATEGORIES"], achievementCatData, self.achievementCatRows, 0)
+        leftY = self:BuildExpansionSection(leftY, columnWidth, "achievementCat", L["PROGRESS_ACHIEVEMENT_CATEGORIES"], displayData, self.achievementCatRows, 0)
     end
 
     -- Right column: Professions + Vendor Expansions + Renown Expansions
@@ -578,12 +588,27 @@ end
 
 local function OpenHousingDashboard(tabID)
     if InCombatLockdown() then return end
+    if PlayerIsTimerunning()
+        or not C_Housing.IsHousingServiceEnabled()
+        or C_PlayerInfo.IsPlayerNPERestricted() then
+        return
+    end
     if not HousingDashboardFrame then
         pcall(C_AddOns.LoadAddOn, "Blizzard_HousingDashboard")
     end
     if not HousingDashboardFrame then return end
+
+    local function SetDashboardTab(frame, tab)
+        local setTab = frame and frame.SetTab
+        if type(setTab) ~= "function" or tab == nil then return false end
+        return pcall(setTab, frame, tab)
+    end
+
+    if addon.MainFrame then
+        addon.MainFrame:Hide()
+    end
     ShowUIPanel(HousingDashboardFrame)
-    HousingDashboardFrame:SetTab(HousingDashboardFrame.houseInfoTab)
+    if not SetDashboardTab(HousingDashboardFrame, HousingDashboardFrame.houseInfoTab) then return end
     local contentFrame = HousingDashboardFrame.HouseInfoContent
         and HousingDashboardFrame.HouseInfoContent.ContentFrame
     if contentFrame then
@@ -591,7 +616,7 @@ local function OpenHousingDashboard(tabID)
             pcall(contentFrame.Initialize, contentFrame)
         end
         if contentFrame[tabID] then
-            contentFrame:SetTab(contentFrame[tabID])
+            SetDashboardTab(contentFrame, contentFrame[tabID])
         end
     end
 end
@@ -774,90 +799,159 @@ function ProgressTab:BuildBudgetRows(elements, panel, yOffset)
     end
 
     local live = addon.IsPlacementBudgetLiveContext and addon:IsPlacementBudgetLiveContext()
-    local currentPlotID, currentBudgetContext = nil, nil
+    local currentPlotID, currentBudgetContext, currentNeighborhoodGUID = nil, nil, nil
     if addon.GetCurrentPlacementBudgetContext then
-        currentPlotID, currentBudgetContext = addon:GetCurrentPlacementBudgetContext()
+        currentPlotID, currentBudgetContext, currentNeighborhoodGUID = addon:GetCurrentPlacementBudgetContext()
     end
 
     local plotsByID = type(budget.plotsByID) == "table" and budget.plotsByID or nil
     local knownPlots = type(budget.knownPlots) == "table" and budget.knownPlots or nil
     local plotIdentityMap = {}
+    local stableIdentitiesByPlotID = {}
 
     local function HasBudgetSnapshot(snapshot)
         return type(snapshot) == "table" and type(snapshot.spent) == "number" and type(snapshot.max) == "number" and snapshot.max > 0
     end
 
-    local function IsSecretValue(value)
-        return type(issecretvalue) == "function" and issecretvalue(value)
-    end
-
-    local function GetCurrentFactionTag()
-        if type(UnitFactionGroup) ~= "function" then return nil end
-
-        local ok, factionTag = pcall(UnitFactionGroup, "player")
-        if not ok or IsSecretValue(factionTag) then return nil end
-        if factionTag == "Alliance" or factionTag == "Horde" then
-            return factionTag
-        end
-        return nil
-    end
-
-    local currentFactionTag = live and GetCurrentFactionTag() or nil
-
-    local function GetPlotDisplayKey(plotID, plotInfo)
+    local function GetStablePlotIdentityKey(plotID, plotInfo)
         if type(plotInfo) == "table" then
             if plotInfo.houseGUID ~= nil and plotInfo.houseGUID ~= "" then
                 return "house:" .. tostring(plotInfo.houseGUID)
             end
+            if type(plotInfo.plotID) == "number" and plotInfo.neighborhoodGUID ~= nil and plotInfo.neighborhoodGUID ~= "" then
+                return "neighborhood:" .. tostring(plotInfo.neighborhoodGUID) .. ":plot:" .. tostring(math.floor(plotInfo.plotID))
+            end
         end
-        return "plot:" .. tostring(plotID)
+        if type(plotID) == "string" and tonumber(plotID) == nil then
+            return plotID
+        end
+        return nil
+    end
+
+    if knownPlots then
+        for plotID, plotInfo in pairs(knownPlots) do
+            if type(plotInfo) == "table" and type(plotInfo.plotID) == "number" then
+                local identityKey = GetStablePlotIdentityKey(plotID, plotInfo)
+                if identityKey then
+                    local identities = stableIdentitiesByPlotID[plotInfo.plotID]
+                    if not identities then
+                        identities = {}
+                        stableIdentitiesByPlotID[plotInfo.plotID] = identities
+                    end
+                    identities[identityKey] = true
+                end
+            end
+        end
+    end
+
+    local function HasAmbiguousPlotIdentity(plotInfo)
+        if type(plotInfo) ~= "table" or type(plotInfo.plotID) ~= "number" then return false end
+        local identities = stableIdentitiesByPlotID[plotInfo.plotID]
+        if not identities then return false end
+
+        local count = 0
+        for _ in pairs(identities) do
+            count = count + 1
+            if count > 1 then return true end
+        end
+        return false
+    end
+
+    local function GetVerifiedSavedSnapshot(plotID, plotInfo, snapshot, containerKey)
+        if not HasBudgetSnapshot(snapshot) then return nil end
+
+        local expectedIdentityKey = GetStablePlotIdentityKey(plotID, plotInfo)
+        if type(snapshot.identityKey) == "string" then
+            if not expectedIdentityKey or snapshot.identityKey ~= expectedIdentityKey then
+                return nil
+            end
+            return snapshot
+        end
+        if type(containerKey) == "string" and containerKey == expectedIdentityKey then
+            return snapshot
+        end
+        if not HasAmbiguousPlotIdentity(plotInfo) then
+            return snapshot
+        end
+        return nil
+    end
+
+    local function GetPlotDisplayKey(plotID, plotInfo)
+        return GetStablePlotIdentityKey(plotID, plotInfo) or "plot:" .. tostring(plotID)
     end
 
     local function GetPlotCompletenessScore(plotID, plotInfo)
         local score = 0
         local budgets = type(plotInfo) == "table" and type(plotInfo.budgets) == "table" and plotInfo.budgets or nil
         if plotInfo and plotInfo.visited then score = score + 8 end
-        if budgets and HasBudgetSnapshot(budgets.outdoor) then score = score + 4 end
-        if budgets and HasBudgetSnapshot(budgets.interior) then score = score + 4 end
-        if plotsByID and HasBudgetSnapshot(plotsByID[plotID]) then score = score + 2 end
+        if budgets and GetVerifiedSavedSnapshot(plotID, plotInfo, budgets.outdoor) then score = score + 4 end
+        if budgets and GetVerifiedSavedSnapshot(plotID, plotInfo, budgets.interior) then score = score + 4 end
+        if plotsByID and GetVerifiedSavedSnapshot(plotID, plotInfo, plotsByID[plotID], plotID) then score = score + 2 end
         if plotInfo and type(plotInfo.houseLevel) == "table" and type(plotInfo.houseLevel.level) == "number" then score = score + 1 end
         return score
+    end
+
+    local function GetPlotLevel(candidate)
+        local plotInfo = candidate and candidate.plotInfo
+        return plotInfo and plotInfo.houseLevel and plotInfo.houseLevel.level or 0
+    end
+
+    local function IsPlotTiebreakBefore(a, b)
+        local levelA = GetPlotLevel(a)
+        local levelB = GetPlotLevel(b)
+        if levelA ~= levelB then return levelA > levelB end
+
+        if a.updatedAt ~= b.updatedAt then return a.updatedAt > b.updatedAt end
+
+        local numA = tonumber(a.plotID)
+        local numB = tonumber(b.plotID)
+        if numA and numB then return numA < numB end
+        return tostring(a.plotID) < tostring(b.plotID)
+    end
+
+    local function GetFactionSortOrder(candidate)
+        local factionTag = candidate and candidate.plotInfo and candidate.plotInfo.factionTag
+        if factionTag == "Alliance" then return 1 end
+        if factionTag == "Horde" then return 2 end
+        return 3
+    end
+
+    local function IsFactionSortedPlotBefore(a, b)
+        local orderA = GetFactionSortOrder(a)
+        local orderB = GetFactionSortOrder(b)
+        if orderA ~= orderB then return orderA < orderB end
+        return IsPlotTiebreakBefore(a, b)
+    end
+
+    local function IsCompletePlotBefore(a, b)
+        if a.score ~= b.score then return a.score > b.score end
+        return IsPlotTiebreakBefore(a, b)
     end
 
     local function ShouldReplacePlotCandidate(current, candidate)
         if not current then return true end
         if candidate.score ~= current.score then return candidate.score > current.score end
-
-        local candidateLevel = candidate.plotInfo and candidate.plotInfo.houseLevel and candidate.plotInfo.houseLevel.level or 0
-        local currentLevel = current.plotInfo and current.plotInfo.houseLevel and current.plotInfo.houseLevel.level or 0
-        if candidateLevel ~= currentLevel then return candidateLevel > currentLevel end
-
-        local candidateUpdated = candidate.updatedAt or 0
-        local currentUpdated = current.updatedAt or 0
-        if candidateUpdated ~= currentUpdated then return candidateUpdated > currentUpdated end
-
-        local candidateNum = tonumber(candidate.plotID)
-        local currentNum = tonumber(current.plotID)
-        if candidateNum and currentNum then return candidateNum < currentNum end
-        return tostring(candidate.plotID) < tostring(current.plotID)
+        return IsPlotTiebreakBefore(candidate, current)
     end
 
     local function FindKnownPlotByPlotID(plotID)
-        if not knownPlots then return nil end
+        if not knownPlots then return nil, false end
 
         local numericPlotID = tonumber(plotID)
-        local fallback = type(knownPlots[plotID]) == "table" and knownPlots[plotID] or nil
-        if not numericPlotID then return fallback end
+        if not numericPlotID then
+            return type(knownPlots[plotID]) == "table" and knownPlots[plotID] or nil, false
+        end
 
+        local match
         for _, plotInfo in pairs(knownPlots) do
             if type(plotInfo) == "table" and plotInfo.plotID == numericPlotID then
-                if plotInfo.houseGUID ~= nil and plotInfo.houseGUID ~= "" then
-                    return plotInfo
+                if match and match ~= plotInfo then
+                    return nil, true
                 end
-                fallback = fallback or plotInfo
+                match = plotInfo
             end
         end
-        return fallback
+        return match, false
     end
 
     local function HasMatchingNeighborhood(plotInfo, otherInfo)
@@ -921,7 +1015,10 @@ function ProgressTab:BuildBudgetRows(elements, panel, yOffset)
     if plotsByID then
         for plotID, snapshot in pairs(plotsByID) do
             if HasBudgetSnapshot(snapshot) then
-                AddPlotCandidate(plotID, FindKnownPlotByPlotID(plotID))
+                local plotInfo, ambiguous = FindKnownPlotByPlotID(plotID)
+                if plotInfo or not ambiguous then
+                    AddPlotCandidate(plotID, plotInfo)
+                end
             end
         end
     end
@@ -930,66 +1027,15 @@ function ProgressTab:BuildBudgetRows(elements, panel, yOffset)
     for _, candidate in pairs(plotIdentityMap) do
         plotRows[#plotRows + 1] = candidate
     end
-    table.sort(plotRows, function(a, b)
-        local plotA = a.plotInfo
-        local plotB = b.plotInfo
-        local orderA = plotA and plotA.factionTag == "Alliance" and 1 or plotA and plotA.factionTag == "Horde" and 2 or 3
-        local orderB = plotB and plotB.factionTag == "Alliance" and 1 or plotB and plotB.factionTag == "Horde" and 2 or 3
-        if orderA ~= orderB then return orderA < orderB end
-
-        local levelA = plotA and plotA.houseLevel and plotA.houseLevel.level or 0
-        local levelB = plotB and plotB.houseLevel and plotB.houseLevel.level or 0
-        if levelA ~= levelB then return levelA > levelB end
-
-        if a.updatedAt ~= b.updatedAt then return a.updatedAt > b.updatedAt end
-
-        local numA = tonumber(a.plotID)
-        local numB = tonumber(b.plotID)
-        if numA and numB then return numA < numB end
-        return tostring(a.plotID) < tostring(b.plotID)
-    end)
 
     if #plotRows > 2 then
-        table.sort(plotRows, function(a, b)
-            if a.score ~= b.score then return a.score > b.score end
-
-            local plotA = a.plotInfo
-            local plotB = b.plotInfo
-            local levelA = plotA and plotA.houseLevel and plotA.houseLevel.level or 0
-            local levelB = plotB and plotB.houseLevel and plotB.houseLevel.level or 0
-            if levelA ~= levelB then return levelA > levelB end
-
-            if a.updatedAt ~= b.updatedAt then return a.updatedAt > b.updatedAt end
-
-            local numA = tonumber(a.plotID)
-            local numB = tonumber(b.plotID)
-            if numA and numB then return numA < numB end
-            return tostring(a.plotID) < tostring(b.plotID)
-        end)
+        table.sort(plotRows, IsCompletePlotBefore)
 
         while #plotRows > 2 do
             table.remove(plotRows)
         end
-
-        table.sort(plotRows, function(a, b)
-            local plotA = a.plotInfo
-            local plotB = b.plotInfo
-            local orderA = plotA and plotA.factionTag == "Alliance" and 1 or plotA and plotA.factionTag == "Horde" and 2 or 3
-            local orderB = plotB and plotB.factionTag == "Alliance" and 1 or plotB and plotB.factionTag == "Horde" and 2 or 3
-            if orderA ~= orderB then return orderA < orderB end
-
-            local levelA = plotA and plotA.houseLevel and plotA.houseLevel.level or 0
-            local levelB = plotB and plotB.houseLevel and plotB.houseLevel.level or 0
-            if levelA ~= levelB then return levelA > levelB end
-
-            if a.updatedAt ~= b.updatedAt then return a.updatedAt > b.updatedAt end
-
-            local numA = tonumber(a.plotID)
-            local numB = tonumber(b.plotID)
-            if numA and numB then return numA < numB end
-            return tostring(a.plotID) < tostring(b.plotID)
-        end)
     end
+    table.sort(plotRows, IsFactionSortedPlotBefore)
     local function GetFactionName(factionTag, fallbackName)
         if factionTag == "Alliance" then
             return FACTION_ALLIANCE or "Alliance"
@@ -1114,46 +1160,36 @@ function ProgressTab:BuildBudgetRows(elements, panel, yOffset)
     end
 
     local function PlotMatchesCurrentID(plotID, plotInfo)
-        if not currentPlotID then return false end
-        if currentPlotID == plotID then return true end
         if type(plotInfo) ~= "table" then return false end
+        if currentPlotID == plotID then return true end
 
-        if plotInfo.houseGUID ~= nil and plotInfo.houseGUID ~= "" and currentPlotID == "house:" .. tostring(plotInfo.houseGUID) then
+        if currentPlotID and plotInfo.houseGUID ~= nil and plotInfo.houseGUID ~= "" and currentPlotID == "house:" .. tostring(plotInfo.houseGUID) then
             return true
         end
 
-        if type(plotInfo.plotID) == "number" and plotInfo.neighborhoodGUID ~= nil and plotInfo.neighborhoodGUID ~= "" then
+        if currentPlotID and type(plotInfo.plotID) == "number" and plotInfo.neighborhoodGUID ~= nil and plotInfo.neighborhoodGUID ~= "" then
             local plotKey = "neighborhood:" .. tostring(plotInfo.neighborhoodGUID) .. ":plot:" .. tostring(math.floor(plotInfo.plotID))
-            return currentPlotID == plotKey
+            if currentPlotID == plotKey then return true end
+        end
+        if not currentPlotID and currentNeighborhoodGUID ~= nil and currentNeighborhoodGUID ~= ""
+            and plotInfo.neighborhoodGUID == currentNeighborhoodGUID then
+            local matches = 0
+            for _, row in ipairs(plotRows) do
+                local rowInfo = row.plotInfo
+                if type(rowInfo) == "table" and rowInfo.neighborhoodGUID == currentNeighborhoodGUID then
+                    matches = matches + 1
+                    if matches > 1 then return false end
+                end
+            end
+            return matches == 1
         end
         return false
-    end
-
-    local function HasUniqueCurrentFactionRow(plotInfo)
-        if not currentFactionTag or type(plotInfo) ~= "table" or plotInfo.factionTag ~= currentFactionTag then
-            return false
-        end
-
-        local matches = 0
-        for _, row in ipairs(plotRows) do
-            local rowInfo = row.plotInfo
-            if type(rowInfo) == "table" and rowInfo.factionTag == currentFactionTag then
-                matches = matches + 1
-                if matches > 1 then return false end
-            end
-        end
-        return matches == 1
     end
 
     local function IsCurrentPlotRow(plotID, plotInfo)
         if not live then return false end
         if PlotMatchesCurrentID(plotID, plotInfo) then return true end
-        if currentPlotID then return false end
-        if #plotRows == 1 then
-            local factionTag = type(plotInfo) == "table" and plotInfo.factionTag or nil
-            return not currentFactionTag or not factionTag or factionTag == currentFactionTag
-        end
-        return HasUniqueCurrentFactionRow(plotInfo)
+        return not currentPlotID and not currentNeighborhoodGUID and #plotRows == 1
     end
 
     local function GetBudgetSnapshotForPlot(plotID, plotInfo, contextKey, snapshot)
@@ -1219,8 +1255,13 @@ function ProgressTab:BuildBudgetRows(elements, panel, yOffset)
             local plotInfo = plotRow.plotInfo
             local budgets = type(plotInfo) == "table" and type(plotInfo.budgets) == "table" and plotInfo.budgets or {}
             local plotTitle = GetPlotTitle(plotRow, i)
-            local outdoorSnapshot, outdoorLive = GetBudgetSnapshotForPlot(plotID, plotInfo, "outdoor", budgets.outdoor or (plotsByID and plotsByID[plotID]))
-            local interiorSnapshot, interiorLive = GetBudgetSnapshotForPlot(plotID, plotInfo, "interior", budgets.interior)
+            local outdoorSaved = GetVerifiedSavedSnapshot(plotID, plotInfo, budgets.outdoor)
+            if not outdoorSaved and plotsByID then
+                outdoorSaved = GetVerifiedSavedSnapshot(plotID, plotInfo, plotsByID[plotID], plotID)
+            end
+            local interiorSaved = GetVerifiedSavedSnapshot(plotID, plotInfo, budgets.interior)
+            local outdoorSnapshot, outdoorLive = GetBudgetSnapshotForPlot(plotID, plotInfo, "outdoor", outdoorSaved)
+            local interiorSnapshot, interiorLive = GetBudgetSnapshotForPlot(plotID, plotInfo, "interior", interiorSaved)
             yOffset = DrawPlotHeader(plotID, plotTitle, plotInfo)
             yOffset = yOffset - 2
             yOffset = DrawBudgetRow(plotID, "plotOutdoor", "outdoor", L["PROGRESS_BUDGET_OUTDOOR"], outdoorSnapshot, true, outdoorLive)
@@ -1247,10 +1288,9 @@ function ProgressTab:BuildBudgetRows(elements, panel, yOffset)
     return yOffset - SIDEBAR_SECTION_GAP
 end
 
-function ProgressTab:BuildHistorySparkline(elements, panel, yOffset)
+function ProgressTab:BuildHistorySparkline(elements, panel, yOffset, history)
     local L = addon.L
     local days = CONSTS.COLLECTION_HISTORY_DISPLAY_DAYS
-    local history = addon.GetCollectionHistoryGains and addon:GetCollectionHistoryGains(days)
     if not history then return yOffset end
 
 
@@ -1362,7 +1402,8 @@ function ProgressTab:BuildSidebarSummary()
     end
     elements.bigPercent:ClearAllPoints()
     elements.bigPercent:SetPoint("TOP", panel, "TOP", 0, yOffset)
-    elements.bigPercent:SetText(string.format("%.1f%%", overview.percent))
+    local displayedOverviewPercent = overview.remaining > 0 and math.min(overview.percent, 99.9) or overview.percent
+    elements.bigPercent:SetText(string.format("%.1f%%", displayedOverviewPercent))
     elements.bigPercent:SetTextColor(unpack(progressColor))
     elements.bigPercent:Show()
     yOffset = yOffset - 40
@@ -1418,7 +1459,7 @@ function ProgressTab:BuildSidebarSummary()
         yOffset = yOffset - SIDEBAR_SECTION_GAP
         yOffset = self:PlaceSidebarDualDivider(elements, panel, "overviewHistory", yOffset)
         yOffset = self:PlaceSidebarSectionHeader(elements, panel, "history", string.format(L["PROGRESS_HISTORY_HEADER"], CONSTS.COLLECTION_HISTORY_DISPLAY_DAYS), yOffset)
-        yOffset = self:BuildHistorySparkline(elements, panel, yOffset)
+        yOffset = self:BuildHistorySparkline(elements, panel, yOffset, history)
     end
 
     local budget = addon.GetPlacementBudget and addon:GetPlacementBudget()
@@ -1525,7 +1566,8 @@ function ProgressTab:SetupProgressRow(row, data, yOffset, rowWidth, onClick, xOf
     if data.percent == 100 then
         pctText = string.format("%d/%d  |TInterface\\RaidFrame\\ReadyCheck-Ready:14|t", data.owned, data.total)
     else
-        pctText = string.format("%d/%d  %.0f%%", data.owned, data.total, data.percent)
+        local displayedPercent = data.owned < data.total and math.min(data.percent, 99) or data.percent
+        pctText = string.format("%d/%d  %.0f%%", data.owned, data.total, displayedPercent)
     end
     row.progressText:SetText(pctText)
     local progressColor = self:GetProgressColor(data.percent)

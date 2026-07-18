@@ -12,6 +12,7 @@ local CONTEXT_PLOTS_BY_ID = "plotsByID"
 local CONTEXT_KNOWN_PLOTS = "knownPlots"
 local levelRequestTimes = {}
 local MergeDuplicateNoGUIDRows
+local RepairResolvedPlotSnapshots
 
 local function IsValidSnapshot(snapshot)
     return type(snapshot) == "table"
@@ -93,18 +94,20 @@ end
 
 local function FindKnownPlotByPlotID(knownPlots, plotID)
     local numericPlotID = tonumber(plotID)
-    if not numericPlotID then return nil end
+    if not numericPlotID then
+        return knownPlots[plotID]
+    end
 
-    local fallback = knownPlots[plotID]
+    local match
     for _, plotInfo in pairs(knownPlots) do
         if type(plotInfo) == "table" and plotInfo.plotID == numericPlotID then
-            if plotInfo.houseGUID ~= nil and plotInfo.houseGUID ~= "" then
-                return plotInfo
+            if match and match ~= plotInfo then
+                return nil
             end
-            fallback = fallback or plotInfo
+            match = plotInfo
         end
     end
-    return fallback
+    return match
 end
 
 local function GetBudgetDB()
@@ -130,6 +133,9 @@ local function GetBudgetDB()
             plotInfo.budgets[CONTEXT_OUTDOOR] = snapshot
             normalizedChanged = true
         end
+    end
+    if RepairResolvedPlotSnapshots then
+        normalizedChanged = RepairResolvedPlotSnapshots(db, knownPlots) or normalizedChanged
     end
 
     return db, normalizedChanged
@@ -166,14 +172,15 @@ local function HasHouseGUID(plotInfo)
     return type(plotInfo) == "table" and plotInfo.houseGUID ~= nil and plotInfo.houseGUID ~= ""
 end
 
-local function HasMatchingNeighborhood(plotInfo, neighborhoodGUID)
-    if neighborhoodGUID == nil or neighborhoodGUID == "" then return true end
-    return plotInfo.neighborhoodGUID == nil or plotInfo.neighborhoodGUID == "" or plotInfo.neighborhoodGUID == neighborhoodGUID
+local function HasExactNeighborhood(plotInfo, neighborhoodGUID)
+    return neighborhoodGUID ~= nil and neighborhoodGUID ~= ""
+        and type(plotInfo) == "table"
+        and plotInfo.neighborhoodGUID == neighborhoodGUID
 end
 
 local function FindNoGUIDPlotByPlotID(knownPlots, plotID, neighborhoodGUID)
     for key, plotInfo in pairs(knownPlots) do
-        if type(plotInfo) == "table" and plotInfo.plotID == plotID and not HasHouseGUID(plotInfo) and HasMatchingNeighborhood(plotInfo, neighborhoodGUID) then
+        if type(plotInfo) == "table" and plotInfo.plotID == plotID and not HasHouseGUID(plotInfo) and HasExactNeighborhood(plotInfo, neighborhoodGUID) then
             return key, plotInfo
         end
     end
@@ -188,14 +195,75 @@ local function CopyFieldIfMissing(target, source, field)
     return false
 end
 
-local function MergeNoGUIDPlotInfo(target, source)
+local function SetBudgetIdentity(budgets, identityKey)
+    if type(budgets) ~= "table" or type(identityKey) ~= "string" then return false end
+
+    local changed = false
+    for _, snapshot in pairs(budgets) do
+        if IsValidSnapshot(snapshot) and snapshot.identityKey ~= identityKey then
+            snapshot.identityKey = identityKey
+            changed = true
+        end
+    end
+    return changed
+end
+
+local function MovePlotSnapshotIdentity(db, sourceKey, targetKey)
+    if type(db) ~= "table" or type(sourceKey) ~= "string" or type(targetKey) ~= "string" or sourceKey == targetKey then
+        return false
+    end
+
+    local plotsByID = NormalizePlotsByID(db)
+    local sourceSnapshot = plotsByID[sourceKey]
+    if not IsValidSnapshot(sourceSnapshot) then return false end
+
+    sourceSnapshot.identityKey = targetKey
+    local targetSnapshot = plotsByID[targetKey]
+    if not IsValidSnapshot(targetSnapshot)
+        or targetSnapshot.identityKey ~= targetKey
+        or sourceSnapshot.updatedAt > targetSnapshot.updatedAt then
+        plotsByID[targetKey] = sourceSnapshot
+    end
+    plotsByID[sourceKey] = nil
+    return true
+end
+
+RepairResolvedPlotSnapshots = function(db, knownPlots)
+    local changed = false
+    for plotKey, plotInfo in pairs(knownPlots) do
+        local houseKey = HasHouseGUID(plotInfo) and "house:" .. tostring(plotInfo.houseGUID) or nil
+        local scopedKey = houseKey == plotKey and GetPlotKey(plotInfo.plotID, plotInfo.neighborhoodGUID) or nil
+        local moved = scopedKey and scopedKey ~= plotKey and MovePlotSnapshotIdentity(db, scopedKey, plotKey)
+        if moved then
+            local snapshot = NormalizePlotsByID(db)[plotKey]
+            local currentSnapshot = plotInfo.budgets[CONTEXT_OUTDOOR]
+            if IsValidSnapshot(snapshot)
+                and (not IsValidSnapshot(currentSnapshot)
+                    or currentSnapshot.identityKey ~= plotKey
+                    or snapshot.updatedAt > currentSnapshot.updatedAt) then
+                plotInfo.budgets[CONTEXT_OUTDOOR] = snapshot
+            end
+            changed = true
+        end
+    end
+    return changed
+end
+
+local function MergeNoGUIDPlotInfo(target, source, targetIdentityKey)
     if type(target) ~= "table" or type(source) ~= "table" then return false end
 
     local changed = false
     target.budgets = NormalizeBudgetMap(target.budgets)
     local sourceBudgets = NormalizeBudgetMap(source.budgets)
+    changed = SetBudgetIdentity(sourceBudgets, targetIdentityKey) or changed
     for context, snapshot in pairs(sourceBudgets) do
-        if not IsValidSnapshot(target.budgets[context]) then
+        local targetSnapshot = target.budgets[context]
+        local sourceIsVerified = type(targetIdentityKey) == "string" and snapshot.identityKey == targetIdentityKey
+        local targetIsVerified = type(targetIdentityKey) == "string"
+            and IsValidSnapshot(targetSnapshot)
+            and targetSnapshot.identityKey == targetIdentityKey
+        if not IsValidSnapshot(targetSnapshot)
+            or (sourceIsVerified and (not targetIsVerified or snapshot.updatedAt > targetSnapshot.updatedAt)) then
             target.budgets[context] = snapshot
             changed = true
         end
@@ -220,14 +288,13 @@ local function MergeNoGUIDRows(knownPlots, targetKey, sourceKey)
     local source = knownPlots[sourceKey]
     if type(target) ~= "table" or type(source) ~= "table" then return false end
 
-    MergeNoGUIDPlotInfo(target, source)
+    MergeNoGUIDPlotInfo(target, source, targetKey)
     knownPlots[sourceKey] = nil
     return true
 end
 
 MergeDuplicateNoGUIDRows = function(knownPlots)
     local scopedByIdentity = {}
-    local bareKeys = {}
     local changed = false
 
     for key, plotInfo in pairs(knownPlots) do
@@ -247,29 +314,6 @@ MergeDuplicateNoGUIDRows = function(knownPlots)
                 else
                     scopedByIdentity[identityKey] = key
                 end
-            else
-                bareKeys[#bareKeys + 1] = key
-            end
-        end
-    end
-
-    for _, bareKey in ipairs(bareKeys) do
-        local bareInfo = knownPlots[bareKey]
-        if type(bareInfo) == "table" and type(bareInfo.plotID) == "number" and not HasHouseGUID(bareInfo) then
-            local matchKey
-            local ambiguous = false
-            for _, scopedKey in pairs(scopedByIdentity) do
-                local scopedInfo = knownPlots[scopedKey]
-                if type(scopedInfo) == "table" and scopedInfo.plotID == bareInfo.plotID then
-                    if matchKey and matchKey ~= scopedKey then
-                        ambiguous = true
-                        break
-                    end
-                    matchKey = scopedKey
-                end
-            end
-            if matchKey and not ambiguous then
-                changed = MergeNoGUIDRows(knownPlots, matchKey, bareKey) or changed
             end
         end
     end
@@ -277,13 +321,14 @@ MergeDuplicateNoGUIDRows = function(knownPlots)
     return changed
 end
 
-local function PruneSamePlotNoGUIDRows(knownPlots, plotKey, plotInfo, plotID, houseGUID, neighborhoodGUID)
+local function PruneSamePlotNoGUIDRows(db, knownPlots, plotKey, plotInfo, plotID, houseGUID, neighborhoodGUID)
     if houseGUID == nil or houseGUID == "" then return false end
 
     local changed = false
     for otherKey, otherInfo in pairs(knownPlots) do
-        if otherKey ~= plotKey and type(otherInfo) == "table" and otherInfo.plotID == plotID and not HasHouseGUID(otherInfo) and HasMatchingNeighborhood(otherInfo, neighborhoodGUID) then
-            changed = MergeNoGUIDPlotInfo(plotInfo, otherInfo) or changed
+        if otherKey ~= plotKey and type(otherInfo) == "table" and otherInfo.plotID == plotID and not HasHouseGUID(otherInfo) and HasExactNeighborhood(otherInfo, neighborhoodGUID) then
+            changed = MergeNoGUIDPlotInfo(plotInfo, otherInfo, plotKey) or changed
+            changed = MovePlotSnapshotIdentity(db, otherKey, plotKey) or changed
             knownPlots[otherKey] = nil
             changed = true
         end
@@ -292,10 +337,10 @@ local function PruneSamePlotNoGUIDRows(knownPlots, plotKey, plotInfo, plotID, ho
 end
 
 local function IsSecretValue(value)
-    return type(issecretvalue) == "function" and issecretvalue(value)
+    return value ~= nil and type(issecretvalue) == "function" and issecretvalue(value)
 end
 
-local function GetCurrentFactionInfo()
+local function GetPlayerFactionInfo()
     if type(UnitFactionGroup) ~= "function" then return nil, nil end
 
     local ok, factionTag, localizedFaction = pcall(UnitFactionGroup, "player")
@@ -305,6 +350,33 @@ local function GetCurrentFactionInfo()
         localizedFaction = nil
     end
 
+    return factionTag, localizedFaction
+end
+
+local function GetNeighborhoodFactionInfo(neighborhoodGUID)
+    if neighborhoodGUID == nil or neighborhoodGUID == "" then return nil, nil end
+    if IsSecretValue(neighborhoodGUID) then return nil, nil end
+    if not C_Housing or type(C_Housing.DoesFactionMatchNeighborhood) ~= "function" then return nil, nil end
+
+    local playerFactionTag, localizedPlayerFaction = GetPlayerFactionInfo()
+    if not playerFactionTag then return nil, nil end
+
+    local ok, factionMatches = pcall(C_Housing.DoesFactionMatchNeighborhood, neighborhoodGUID)
+    if not ok or IsSecretValue(factionMatches) or type(factionMatches) ~= "boolean" then return nil, nil end
+
+    local factionTag = playerFactionTag
+    if not factionMatches then
+        factionTag = playerFactionTag == "Alliance" and "Horde" or "Alliance"
+    end
+
+    local localizedFaction
+    if factionTag == playerFactionTag then
+        localizedFaction = localizedPlayerFaction
+    elseif factionTag == "Alliance" then
+        localizedFaction = FACTION_ALLIANCE
+    else
+        localizedFaction = FACTION_HORDE
+    end
     return factionTag, localizedFaction
 end
 
@@ -323,9 +395,11 @@ local function RememberHouseInfo(db, houseInfo, markVisited)
     if not IsValidKnownPlot(plotInfo) and HasHouseGUID(houseInfo) then
         local previousKey, previousInfo = FindNoGUIDPlotByPlotID(knownPlots, normalizedPlotID, houseInfo.neighborhoodGUID)
         if previousKey then
+            SetBudgetIdentity(previousInfo.budgets, plotKey)
             knownPlots[previousKey] = nil
             plotInfo = previousInfo
             knownPlots[plotKey] = plotInfo
+            MovePlotSnapshotIdentity(db, previousKey, plotKey)
             changed = true
         end
     end
@@ -381,20 +455,18 @@ local function RememberHouseInfo(db, houseInfo, markVisited)
         end
     end
 
-    if markVisited then
-        local factionTag, factionName = GetCurrentFactionInfo()
-        if factionTag and plotInfo.factionTag ~= factionTag then
-            plotInfo.factionTag = factionTag
-            changed = true
-        end
-        if factionName and plotInfo.factionName ~= factionName then
-            plotInfo.factionName = factionName
-            changed = true
-        end
+    local factionTag, factionName = GetNeighborhoodFactionInfo(houseInfo.neighborhoodGUID)
+    if factionTag and plotInfo.factionTag ~= factionTag then
+        plotInfo.factionTag = factionTag
+        changed = true
+    end
+    if factionName and plotInfo.factionName ~= factionName then
+        plotInfo.factionName = factionName
+        changed = true
     end
 
     plotInfo.budgets = NormalizeBudgetMap(plotInfo.budgets)
-    changed = PruneSamePlotNoGUIDRows(knownPlots, plotKey, plotInfo, normalizedPlotID, houseInfo.houseGUID, houseInfo.neighborhoodGUID) or changed
+    changed = PruneSamePlotNoGUIDRows(db, knownPlots, plotKey, plotInfo, normalizedPlotID, houseInfo.houseGUID, houseInfo.neighborhoodGUID) or changed
     return plotKey, changed
 end
 
@@ -506,11 +578,12 @@ local function RequestKnownHouseLevels(db, force)
     end
 end
 
-local function ShouldSaveSnapshot(snapshot, spent, maxBudget, updatedAt)
+local function ShouldSaveSnapshot(snapshot, spent, maxBudget, updatedAt, identityKey)
     return not snapshot
         or snapshot.spent ~= spent
         or snapshot.max ~= maxBudget
         or snapshot.updatedAt ~= updatedAt
+        or snapshot.identityKey ~= identityKey
 end
 
 local function CaptureBudget(silent)
@@ -563,22 +636,23 @@ local function CaptureBudget(silent)
         spent = spent,
         max = maxBudget,
         updatedAt = now,
+        identityKey = plotKey,
     }
 
     if context == CONTEXT_INTERIOR then
-        if ShouldSaveSnapshot(db[CONTEXT_INTERIOR], spent, maxBudget, now) then
+        if ShouldSaveSnapshot(db[CONTEXT_INTERIOR], spent, maxBudget, now, plotKey) then
             db[CONTEXT_INTERIOR] = snapshot
             changed = true
         end
     elseif context == CONTEXT_OUTDOOR then
-        if ShouldSaveSnapshot(db[CONTEXT_PLOT], spent, maxBudget, now) then
+        if ShouldSaveSnapshot(db[CONTEXT_PLOT], spent, maxBudget, now, plotKey) then
             db[CONTEXT_PLOT] = snapshot
             changed = true
         end
 
         if plotKey then
             local plotsByID = NormalizePlotsByID(db)
-            if ShouldSaveSnapshot(plotsByID[plotKey], spent, maxBudget, now) then
+            if ShouldSaveSnapshot(plotsByID[plotKey], spent, maxBudget, now, plotKey) then
                 plotsByID[plotKey] = snapshot
                 changed = true
             end
@@ -589,7 +663,7 @@ local function CaptureBudget(silent)
         local knownPlots = NormalizeKnownPlots(db)
         local plotInfo = knownPlots[plotKey]
         if plotInfo then
-            if ShouldSaveSnapshot(plotInfo.budgets[context], spent, maxBudget, now) then
+            if ShouldSaveSnapshot(plotInfo.budgets[context], spent, maxBudget, now, plotKey) then
                 plotInfo.budgets[context] = snapshot
                 changed = true
             end
@@ -725,12 +799,17 @@ function addon:GetCurrentPlacementBudgetContext()
     end
 
     local context = GetCurrentContext()
-    if not context or not C_Housing.GetCurrentHouseInfo then
-        return nil, context
-    end
+    if not context then return nil, nil, nil end
 
-    local houseInfo = C_Housing.GetCurrentHouseInfo()
-    return GetHouseKey(houseInfo), context
+    local houseInfo = C_Housing.GetCurrentHouseInfo and C_Housing.GetCurrentHouseInfo()
+    local neighborhoodGUID = type(houseInfo) == "table" and houseInfo.neighborhoodGUID or nil
+    if (neighborhoodGUID == nil or neighborhoodGUID == "") and C_Housing.GetCurrentNeighborhoodGUID then
+        neighborhoodGUID = SafeCall(C_Housing.GetCurrentNeighborhoodGUID)
+    end
+    if IsSecretValue(neighborhoodGUID) then
+        neighborhoodGUID = nil
+    end
+    return GetHouseKey(houseInfo), context, neighborhoodGUID
 end
 
 addon:RegisterWoWEvent("HOUSE_PLOT_ENTERED", ScheduleCaptureBudget)
