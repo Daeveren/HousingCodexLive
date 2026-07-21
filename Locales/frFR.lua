@@ -358,7 +358,6 @@ L["ACHIEVEMENTS_EMPTY_NO_RESULTS"] = "Aucun haut fait ne correspond à votre rec
 L["ACHIEVEMENTS_UNKNOWN"] = "Haut fait #%d"
 
 -- Achievement tracking messages
-L["ACHIEVEMENTS_TRACKING_STARTED"] = "Suivi de l'objet activé"
 L["ACHIEVEMENTS_TRACKING_STARTED_ACHIEVEMENT"] = "Suivi du haut fait activé"
 L["ACHIEVEMENTS_TRACKING_STOPPED"] = "Suivi du haut fait arrêté"
 L["ACHIEVEMENTS_TRACKING_MAX_REACHED"] = "Impossible de suivre - maximum de hauts faits atteint (10)"

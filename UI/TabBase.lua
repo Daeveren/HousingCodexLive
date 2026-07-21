@@ -332,12 +332,15 @@ end
 function TabBaseMixin:RegisterTabVisibility(tabKey)
     addon:RegisterInternalEvent("TAB_CHANGED", function(activeKey)
         if activeKey == tabKey then
-            if self.ownershipDirty and self.ownershipRefreshFn then
+            local refreshAfterShow = self.ownershipDirty and self.ownershipRefreshFn
+            if refreshAfterShow then
                 self.ownershipDirty = nil
-                self.ownershipRefreshFn()
                 self.ownershipRefreshedThisShow = true
             end
             self:Show()
+            if refreshAfterShow then
+                refreshAfterShow()
+            end
         else
             self:Hide()
         end
@@ -472,7 +475,9 @@ function TabBaseMixin:NavigateFromProgress(category, filter)
         self.searchBox:SetText("")
     end
     self:SetCompletionFilter(filter or "all", true)
-    self:BuildCategoryDisplay()
+    if not self:BuildCategoryDisplay() then
+        self:BuildSourceDisplay()
+    end
     if category then
         self:SelectCategory(category)
     end

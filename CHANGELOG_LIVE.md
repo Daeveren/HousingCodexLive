@@ -2,6 +2,13 @@
 
 All notable changes to Housing Codex.
 
+**3.0.6** (2026-07-22)
+
+**Fixed**
+- Achievement completion dates now display correctly in tooltips
+- Improved navigation from Progress to Achievements, Drops, and PvP
+- Source tabs no longer appear empty when opened for the first time
+
 **3.0.5** (2026-07-18)
 
 **Fixed**

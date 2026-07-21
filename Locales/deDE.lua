@@ -357,7 +357,6 @@ L["ACHIEVEMENTS_EMPTY_NO_RESULTS"] = "Keine Erfolge entsprechen deiner Suche"
 L["ACHIEVEMENTS_UNKNOWN"] = "Erfolg #%d"
 
 -- Achievement tracking messages
-L["ACHIEVEMENTS_TRACKING_STARTED"] = "Objekt wird jetzt verfolgt"
 L["ACHIEVEMENTS_TRACKING_STARTED_ACHIEVEMENT"] = "Erfolg wird jetzt verfolgt"
 L["ACHIEVEMENTS_TRACKING_STOPPED"] = "Erfolgsverfolgung beendet"
 L["ACHIEVEMENTS_TRACKING_MAX_REACHED"] = "Kann nicht verfolgt werden - Maximum für Erfolge erreicht (10)"

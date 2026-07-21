@@ -356,7 +356,6 @@ L["ACHIEVEMENTS_EMPTY_NO_RESULTS"] = "Достижения не найдены"
 L["ACHIEVEMENTS_UNKNOWN"] = "Достижение №%d"
 
 -- Achievement tracking messages
-L["ACHIEVEMENTS_TRACKING_STARTED"] = "Предмет отслеживается"
 L["ACHIEVEMENTS_TRACKING_STARTED_ACHIEVEMENT"] = "Достижение отслеживается"
 L["ACHIEVEMENTS_TRACKING_STOPPED"] = "Отслеживание достижения прекращено"
 L["ACHIEVEMENTS_TRACKING_MAX_REACHED"] = "Ошибка: достигнут лимит отслеживания достижений (10)"

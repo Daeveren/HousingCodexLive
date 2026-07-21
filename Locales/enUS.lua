@@ -354,7 +354,6 @@ L["ACHIEVEMENTS_EMPTY_NO_RESULTS"] = "No achievements match your search"
 L["ACHIEVEMENTS_UNKNOWN"] = "Achievement #%d"
 
 -- Achievement tracking messages
-L["ACHIEVEMENTS_TRACKING_STARTED"] = "Now tracking item"
 L["ACHIEVEMENTS_TRACKING_STARTED_ACHIEVEMENT"] = "Now tracking achievement"
 L["ACHIEVEMENTS_TRACKING_STOPPED"] = "Stopped tracking achievement"
 L["ACHIEVEMENTS_TRACKING_MAX_REACHED"] = "Cannot track - maximum achievements reached (10)"

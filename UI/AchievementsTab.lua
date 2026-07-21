@@ -256,7 +256,8 @@ AchievementRowOnEnter = function(frame)
 
     if completed and month and day and year then
         GameTooltip:AddLine(" ")
-        GameTooltip:AddLine(string.format(ACHIEVEMENT_TOOLTIP_COMPLETE, day, month, year), 0.6, 0.6, 0.6)
+        local completedDate = FormatShortDate(day, month, year)
+        GameTooltip:AddLine(string.format(ACHIEVEMENT_META_COMPLETED_DATE, completedDate), 0.6, 0.6, 0.6)
     end
 
     GameTooltip:Show()
@@ -417,7 +418,9 @@ function AchievementsTab:NavigateFromProgress(categoryId, filter)
         self.searchBox:SetText("")
     end
     self:SetCompletionFilter(filter or "all", true)
-    self:BuildCategoryDisplay()
+    if not self:BuildCategoryDisplay() then
+        self:BuildAchievementDisplay()
+    end
     if categoryId then
         self:SelectCategory(categoryId)
     end
