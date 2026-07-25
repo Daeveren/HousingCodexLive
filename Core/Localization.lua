@@ -5,8 +5,15 @@
 
 local _, addon = ...
 
--- Safety net: missing L["KEY"] returns the key name itself (debug aid)
-setmetatable(addon.L, { __index = function(_, key) return key end })
+-- Safety net: missing L["KEY"] returns the key name itself and reports it in debug mode.
+setmetatable(addon.L, {
+    __index = function(_, key)
+        if addon.Debug then
+            addon:Debug("Missing localization key:", key)
+        end
+        return key
+    end,
+})
 
 -- Game entity name overrides for non-English clients (drop sources, vendor names, etc.)
 -- Populated by locale files (e.g., frFR.lua). English fallback is the original name.
@@ -97,8 +104,8 @@ function addon:GetLocalizedCurrencyName(englishName)
 
     local currencyID = CURRENCY_NAME_TO_ID[englishName]
     if currencyID and C_CurrencyInfo and C_CurrencyInfo.GetCurrencyInfo then
-        local info = C_CurrencyInfo.GetCurrencyInfo(currencyID)
-        if info and info.name and info.name ~= "" then
+        local ok, info = pcall(C_CurrencyInfo.GetCurrencyInfo, currencyID)
+        if ok and info and IsUsableValue(info.name) and info.name ~= "" then
             currencyNameCache[englishName] = info.name
             return info.name
         end
@@ -107,8 +114,8 @@ function addon:GetLocalizedCurrencyName(englishName)
     -- Try item-based currency lookup (e.g., Mark of Honor)
     local itemID = ITEM_CURRENCY_TO_ID[englishName]
     if itemID and C_Item and C_Item.GetItemNameByID then
-        local name = C_Item.GetItemNameByID(itemID)
-        if name and name ~= "" then
+        local ok, name = pcall(C_Item.GetItemNameByID, itemID)
+        if ok and IsUsableValue(name) and name ~= "" then
             currencyNameCache[englishName] = name
             return name
         end

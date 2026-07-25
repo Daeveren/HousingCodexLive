@@ -5,21 +5,25 @@
 
 local _, addon = ...
 
-local CURRENT_DB_VERSION = 8
+local CURRENT_DB_VERSION = 9
 
 local LOCALES_USING_SYSTEM_FONT_BY_DEFAULT = {
     zhCN = true,
+    zhTW = true,
+    koKR = true,
 }
 
-local function ShouldUseSystemFontByDefault()
-    return LOCALES_USING_SYSTEM_FONT_BY_DEFAULT[GetLocale()] == true
-end
+local V9_SYSTEM_FONT_DEFAULTS = {
+    zhTW = true,
+    koKR = true,
+}
 
-local function ApplyLocaleFontDefault(db)
+local function ApplyLocaleFontDefault(db, localeDefaults)
     if type(db.settings) ~= "table" then
         db.settings = {}
     end
-    if ShouldUseSystemFontByDefault() then
+    localeDefaults = localeDefaults or LOCALES_USING_SYSTEM_FONT_BY_DEFAULT
+    if localeDefaults[GetLocale()] then
         db.settings.useCustomFont = false
     end
 end
@@ -55,6 +59,7 @@ local defaults = {
         },
         quests = {
             selectedQuestID = nil,
+            selectedRecordID = nil,   -- For multi-reward quests
             selectedExpansionKey = nil,
             completionFilter = "all",  -- "all" | "incomplete" | "complete"
             expandedZones = {},       -- { ["EXPANSION_TWW:Isle of Dorn"] = true, ... }
@@ -62,7 +67,7 @@ local defaults = {
         achievements = {
             selectedCategory = nil,
             selectedAchievementID = nil,
-            selectedRecordID = nil,
+            selectedRecordID = nil,   -- For multi-reward achievements
             completionFilter = "all",  -- "all" | "incomplete" | "complete"
         },
         renown = {
@@ -235,8 +240,15 @@ local function MigrateDB(db)
     -- does not include Chinese glyph coverage. This is one-time only; later user
     -- changes through Settings or /hc font are preserved.
     if db.version < 8 then
-        ApplyLocaleFontDefault(db)
+        ApplyLocaleFontDefault(db, { zhCN = true })
         db.version = 8
+    end
+
+    -- v8 -> v9: Apply the same one-time system-font default to Traditional
+    -- Chinese and Korean clients without overwriting later zhCN user choices.
+    if db.version < 9 then
+        ApplyLocaleFontDefault(db, V9_SYSTEM_FONT_DEFAULTS)
+        db.version = 9
     end
 
     return db

@@ -176,8 +176,7 @@ local function FormatVendorCostComponent(cost, currencyName)
         end
     end
 
-    local currencyLabel = addon.L["CURRENCY_GOLD"] or "gold"
-    return tostring(cost) .. " " .. currencyLabel
+    return string.format(addon.L["CURRENCY_GOLD_FORMAT"], tostring(cost))
 end
 
 local function FormatSelectedVendorCost(vendorDetails)

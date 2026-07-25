@@ -532,25 +532,17 @@ local function CreateQuickSetupRow(frame, contentArea)
     div1:SetPoint("LEFT", label, "RIGHT", 20, 0)
     div1:SetColorTexture(0.3, 0.3, 0.3, 1)
 
-    -- Instruction Text
-    local openLabel = addon:CreateFontString(centerHarness, "OVERLAY", "GameFontHighlight")
-    openLabel:SetPoint("LEFT", div1, "RIGHT", 20, 0)
-    openLabel:SetText(L["WELCOME_OPEN_WITH"])
-    openLabel:SetTextColor(0.8, 0.8, 0.8, 1)
-
-    local openValue = addon:CreateFontString(centerHarness, "OVERLAY", "GameFontNormalLarge")
-    openValue:SetPoint("LEFT", openLabel, "RIGHT", 6, 0)
-    openValue:SetText("|cFFFFD100/hc|r")
-
-    local orLabel = addon:CreateFontString(centerHarness, "OVERLAY", "GameFontHighlight")
-    orLabel:SetPoint("LEFT", openValue, "RIGHT", 6, 0)
-    orLabel:SetText(L["WELCOME_SET_KEYBIND"])
-    orLabel:SetTextColor(0.8, 0.8, 0.8, 1)
-
-    local keybindLabel = addon:CreateFontString(centerHarness, "OVERLAY", "GameFontNormal")
-    keybindLabel:SetPoint("LEFT", orLabel, "RIGHT", 6, 0)
-    keybindLabel:SetText(L["WELCOME_KEYBIND_LABEL"])
-    keybindLabel:SetTextColor(unpack(COLORS.GOLD))
+    -- Keep the sentence in one locale-owned format so translators control word order.
+    local instruction = addon:CreateFontString(centerHarness, "OVERLAY", "GameFontHighlight")
+    instruction:SetPoint("LEFT", div1, "RIGHT", 20, 0)
+    instruction:SetPoint("RIGHT", centerHarness, "RIGHT", 0, 0)
+    instruction:SetJustifyH("LEFT")
+    instruction:SetText(string.format(
+        L["WELCOME_OPEN_INSTRUCTION"],
+        "|cFFFFD100/hc|r",
+        "|cFFFFD100" .. L["WELCOME_KEYBIND_LABEL"] .. "|r"
+    ))
+    instruction:SetTextColor(0.8, 0.8, 0.8, 1)
 
     return setupRow
 end

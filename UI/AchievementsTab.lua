@@ -698,17 +698,11 @@ function AchievementsTab:BuildCategoryDisplay(visCache, filter, searchText)
             self:SelectCategory(elements[1].categoryId)
             return true
         else
-            self.selectedCategory = nil
-            self.selectedAchievementID = nil
-            self.selectedRecordID = nil
-            local db = GetAchievementsDB()
-            if db then
-                db.selectedCategory = nil
-                db.selectedAchievementID = nil
-                db.selectedRecordID = nil
-            end
-            addon:FireEvent("RECORD_SELECTED", nil)
-            self:BuildAchievementDisplay()
+            -- Nothing matches the current search/filter. Keep the category and
+            -- achievement selection so clearing the search restores it instead of
+            -- re-selecting the first category (which would discard the selection).
+            -- BuildAchievementDisplay renders the empty list and blanks the preview.
+            self:BuildAchievementDisplay(visCache, filter, searchText)
             return true
         end
     end
@@ -755,31 +749,11 @@ function AchievementsTab:BuildAchievementDisplay(visCache, filter, searchText)
         self.achievementDataProvider:InsertTable(elements)
     end
 
-    -- Reconcile selection: if selected achievement is no longer visible, auto-select first or clear
-    if self.selectedAchievementID then
-        local found = false
-        for _, elem in ipairs(elements) do
-            if elem.achievementID == self.selectedAchievementID
-                and (not self.selectedRecordID or elem.recordID == self.selectedRecordID) then
-                found = true
-                break
-            end
-        end
-        if not found then
-            if #elements > 0 then
-                self:SelectAchievement(elements[1])
-            else
-                self.selectedAchievementID = nil
-                self.selectedRecordID = nil
-                local db = GetAchievementsDB()
-                if db then
-                    db.selectedAchievementID = nil
-                    db.selectedRecordID = nil
-                end
-                addon:FireEvent("RECORD_SELECTED", nil)
-            end
-        end
-    end
+    -- The selection is user state, so narrowing the search/filter only hides rows:
+    -- both the in-memory and the persisted selection survive until the user picks
+    -- another achievement or switches category. UpdateEmptyStates blanks the preview
+    -- while no rows are listed; this restores it as soon as rows come back.
+    self:RestoreSuppressedPreview(#elements > 0, self.selectedRecordID)
 
     self:UpdateEmptyStates()
 end
@@ -866,7 +840,9 @@ function AchievementsTab:UpdateEmptyStates()
     if self.achievementScrollBar then self.achievementScrollBar:SetShown(showAchievementList) end
 
     if showNoResults then
-        addon:FireEvent("RECORD_SELECTED", nil)
+        -- Keep the selection but blank its preview while the panel lists nothing;
+        -- BuildAchievementDisplay restores the preview when rows return.
+        self:SuppressPreviewWhileEmpty(self.selectedRecordID ~= nil)
     end
 end
 

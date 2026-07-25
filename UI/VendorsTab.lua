@@ -1047,10 +1047,10 @@ function VendorsTab:SetupZoneHeader(frame, elementData)
     if classHall then
         local colorCode = addon:GetClassColorCode(classHall)
         local localizedClass = addon:GetLocalizedClassName(classHall)
-        frame.zoneLabel:SetText(localizedZoneName .. " " .. colorCode .. "(" .. localizedClass .. " " .. L["VENDOR_CLASS_HALL_SUFFIX"] .. ")|r")
+        frame.zoneLabel:SetText(localizedZoneName .. " " .. colorCode .. "(" .. string.format(L["VENDOR_CLASS_HALL_SUFFIX"], localizedClass) .. ")|r")
     elseif housingZone then
         local localizedFaction = addon:GetLocalizedFactionName(housingZone)
-        frame.zoneLabel:SetText(localizedZoneName .. " |cff888888(" .. localizedFaction .. " " .. L["VENDOR_HOUSING_ZONE_SUFFIX"] .. ")|r")
+        frame.zoneLabel:SetText(localizedZoneName .. " |cff888888(" .. string.format(L["VENDOR_HOUSING_ZONE_SUFFIX"], localizedFaction) .. ")|r")
     else
         frame.zoneLabel:SetText(localizedZoneName)
     end

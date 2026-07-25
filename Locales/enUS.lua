@@ -436,6 +436,7 @@ L["VENDORS_ACTION_TRACK_DISABLED_TOOLTIP"] = "This vendor has no valid waypoint 
 
 -- Vendor cost display
 L["CURRENCY_GOLD"] = "gold"
+L["CURRENCY_GOLD_FORMAT"] = "%s gold"
 -- Vendor decor fallback
 L["VENDORS_DECOR_ID"] = "Decor #%d"
 L["VENDOR_CAT_ACCENTS"] = "Accents"
@@ -448,8 +449,8 @@ L["VENDOR_CAT_STRUCTURAL"] = "Structural"
 L["VENDOR_CAT_UNCATEGORIZED"] = "Uncategorized"
 
 -- Vendor zone annotations
-L["VENDOR_CLASS_HALL_SUFFIX"] = "class hall"
-L["VENDOR_HOUSING_ZONE_SUFFIX"] = "housing zone"
+L["VENDOR_CLASS_HALL_SUFFIX"] = "%s class hall"
+L["VENDOR_HOUSING_ZONE_SUFFIX"] = "%s housing zone"
 L["VENDOR_CLASS_ONLY_SUFFIX"] = "%s Only"
 
 -- Vendor tooltip overlay
@@ -604,8 +605,7 @@ L["WELCOME_TITLE"] = "Welcome to Housing Codex"
 L["WELCOME_SUBTITLE"] = "Your companion for decor discovery and all things housing"
 L["WELCOME_START"] = "Start Exploring"
 L["WELCOME_QUICK_SETUP"] = "Good to Know"
-L["WELCOME_OPEN_WITH"] = "You can open the addon at any time via"
-L["WELCOME_SET_KEYBIND"] = "or by setting your own keybind in"
+L["WELCOME_OPEN_INSTRUCTION"] = "You can open the addon at any time with %s, or set your own keybind in %s."
 L["WELCOME_KEYBIND_LABEL"] = "Options"
 
 --------------------------------------------------------------------------------

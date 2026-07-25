@@ -117,6 +117,7 @@ local function ResetZoneQuestFrameState(frame)
     frame.expansionKey = nil
     frame.zoneName = nil
     frame.isZone = nil
+    frame.isComplete = nil
     frame.elementData = nil
     frame:SetScript("OnClick", nil)
     frame:SetScript("OnMouseDown", nil)
@@ -318,6 +319,21 @@ local function GetQuestsDB()
     return addon.db and addon.db.browser and addon.db.browser.quests
 end
 
+-- Profiles written before selectedRecordID existed persist a quest with no reward ID.
+-- Adopt the quest's first visible reward so the restored row highlights instead of
+-- looking unselected until the first click. Does not fire RECORD_SELECTED: a restored
+-- selection populates the preview on first hover/click, same as any other tab show.
+-- Called on show and again once the index exists, because the tab can be restored
+-- before catalog data loads. Idempotent: returns immediately once a reward is set.
+local function NormalizeSavedQuestSelection(self)
+    if not self.selectedQuestID or self.selectedRecordID then return end
+    local visibleRecords = addon:FilterVisibleDecorIds(addon:GetRecordsForQuest(self.selectedQuestID))
+    self.selectedRecordID = visibleRecords[1]
+    if not self.selectedRecordID then return end
+    local db = GetQuestsDB()
+    if db then db.selectedRecordID = self.selectedRecordID end
+end
+
 -- UI elements
 QuestsTab.frame = nil
 QuestsTab.toolbar = nil
@@ -393,6 +409,7 @@ function QuestsTab:Show()
         self.selectedExpansionKey = saved.selectedExpansionKey
         self.selectedQuestID = saved.selectedQuestID
         self.selectedRecordID = saved.selectedRecordID
+        NormalizeSavedQuestSelection(self)
     end
 
     self:SetCompletionFilter(saved and saved.completionFilter or "all", skipRefresh)
@@ -784,7 +801,10 @@ function QuestsTab:BuildExpansionDisplay(visibilityCache)
             self:SelectExpansion(elements[1].expansionKey, visibilityCache)
             return true
         else
-            self.selectedExpansionKey = nil
+            -- Nothing matches the current search/filter. Keep the expansion selected
+            -- so clearing the search restores it: dropping it here would make the next
+            -- rebuild look like an expansion switch, which discards the quest selection.
+            -- BuildZoneQuestDisplay renders the empty list and blanks the preview.
             self:BuildZoneQuestDisplay(visibilityCache)
             return true
         end
@@ -843,38 +863,12 @@ function QuestsTab:BuildZoneQuestDisplay(visibilityCache)
         self.zoneQuestDataProvider:InsertTable(elements)
     end
 
-    -- Reconcile selection: if selected quest is no longer visible, auto-select first or clear
-    if self.selectedQuestID then
-        local found = false
-        for _, elem in ipairs(elements) do
-            if not elem.isZone and elem.questID == self.selectedQuestID
-                and (not self.selectedRecordID or elem.recordID == self.selectedRecordID) then
-                found = true
-                break
-            end
-        end
-        if not found then
-            local firstQuest
-            for _, elem in ipairs(elements) do
-                if not elem.isZone then
-                    firstQuest = elem
-                    break
-                end
-            end
-            if firstQuest then
-                self:SelectQuest(firstQuest)
-            else
-                self.selectedQuestID = nil
-                self.selectedRecordID = nil
-                local db = GetQuestsDB()
-                if db then
-                    db.selectedQuestID = nil
-                    db.selectedRecordID = nil
-                end
-                addon:FireEvent("RECORD_SELECTED", nil)
-            end
-        end
-    end
+    -- The selection is user state, so view changes never touch it: collapsing a zone
+    -- or narrowing the search/filter only hides rows, and both the in-memory and the
+    -- persisted selection survive until the user picks another quest or switches
+    -- expansion. UpdateEmptyStates blanks the preview while no rows are listed; this
+    -- restores it as soon as rows come back.
+    self:RestoreSuppressedPreview(#elements > 0, self.selectedRecordID)
 
     self:UpdateEmptyStates()
 end
@@ -977,7 +971,9 @@ function QuestsTab:UpdateEmptyStates()
     if self.zoneQuestScrollBar then self.zoneQuestScrollBar:SetShown(showQuestList) end
 
     if showNoResults then
-        addon:FireEvent("RECORD_SELECTED", nil)
+        -- Keep the selection but blank its preview while the panel lists nothing;
+        -- BuildZoneQuestDisplay restores the preview when rows return.
+        self:SuppressPreviewWhileEmpty(self.selectedRecordID ~= nil)
     end
 end
 
@@ -992,6 +988,9 @@ addon:RegisterInternalEvent("DATA_LOADED", function()
     if QuestsTab:IsShown() and not addon.questIndexBuilt then
         addon:BuildQuestIndex()
         addon:BuildQuestHierarchy()
+        -- Retry the legacy-profile reward adoption: Show() may have run before the
+        -- index existed (restored tab on a slow login), leaving it unresolved.
+        NormalizeSavedQuestSelection(QuestsTab)
         QuestsTab:RefreshDisplay()
     end
 end)

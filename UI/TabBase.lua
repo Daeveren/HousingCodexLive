@@ -348,6 +348,48 @@ function TabBaseMixin:RegisterTabVisibility(tabKey)
 end
 
 --------------------------------------------------------------------------------
+-- Selection Preview Suppression
+--------------------------------------------------------------------------------
+
+-- A committed selection is user state and survives view changes (search, filter,
+-- collapsed groups), but the preview is blanked while the list has nothing to show.
+-- These two halves own that handoff and must stay paired: the empty-state pass arms
+-- the suppression, the following display rebuild consumes it. See the selection
+-- ownership rule in .claude/rules/tabs.md.
+
+-- Blank the preview for an empty result set, remembering to restore it if the tab
+-- still holds a selection. Always fires RECORD_SELECTED(nil), even when already
+-- suppressed: the preview is global, so a sibling tab may have populated it while this
+-- one was hidden, and re-entering an empty list must blank it again. hasRestorable only
+-- decides whether the preview is remembered for later restoration.
+-- @param hasRestorable: true when the tab holds a selected record to restore. Pass the
+--        record, not the parent source ID — arming without a record would let the next
+--        rebuild consume the suppression while firing nothing, stranding the selection.
+function TabBaseMixin:SuppressPreviewWhileEmpty(hasRestorable)
+    if hasRestorable then
+        self.selectionPreviewSuppressed = true
+    end
+    addon:FireEvent("RECORD_SELECTED", nil)
+end
+
+-- Re-fire the preview for a preserved selection once the list has rows again.
+-- No-op unless a previous empty result set suppressed it.
+-- Pass the tab's currently selected record, read at call time — tabs name that field
+-- differently (selectedRecordID, selectedDecorId, ...), and reading it live rather
+-- than snapshotting it at suppression time is what keeps a long-armed flag from
+-- restoring a selection the user has since replaced.
+-- @param hasElements: true when the rebuilt list is non-empty
+-- @param recordID: the tab's selected decor/record ID, or nil for no selection
+function TabBaseMixin:RestoreSuppressedPreview(hasElements, recordID)
+    if not self.selectionPreviewSuppressed or not hasElements then return end
+    self.selectionPreviewSuppressed = nil
+
+    if recordID then
+        addon:FireEvent("RECORD_SELECTED", recordID)
+    end
+end
+
+--------------------------------------------------------------------------------
 -- Source-Category Tab Framework
 -- Shared lifecycle, panels, selection, and display-building for tabs that use
 -- a Category > Source > Decor hierarchy (DropsTab, PvPTab).
@@ -1029,6 +1071,13 @@ end
 
 --------------------------------------------------------------------------------
 -- Display Building
+--
+-- NOTE: the reconcile-and-wipe passes below (a search/filter that hides the
+-- selection reassigns or clears it, and the category tier persists that clear) are
+-- the legacy behavior, NOT the pattern to copy. QuestsTab/AchievementsTab now follow
+-- the selection-ownership policy in .claude/rules/tabs.md and use the
+-- SuppressPreviewWhileEmpty/RestoreSuppressedPreview pair above. Converting this
+-- framework is pending follow-up work.
 --------------------------------------------------------------------------------
 
 function TabBaseMixin:BuildCategoryDisplay(visCache)
@@ -1143,6 +1192,9 @@ function TabBaseMixin:CreateEmptyStates()
     self.noResultsState = addon:CreateEmptyStateFrame(self.sourcePanel, cfg.emptyNoResultsKey)
 end
 
+-- NOTE: unlike QuestsTab/AchievementsTab, this framework does not yet call
+-- SuppressPreviewWhileEmpty here — its Build*Display passes still clear the selection
+-- outright. See the selection-ownership migration note in .claude/rules/tabs.md.
 function TabBaseMixin:UpdateEmptyStates()
     local hasSources = self.cfg.getSourceCount() > 0
     local hasSelection = self.selectedCategory ~= nil

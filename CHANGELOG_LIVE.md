@@ -2,6 +2,16 @@
 
 All notable changes to Housing Codex.
 
+**3.0.7** (2026-07-25)
+
+**Changed**
+- Improved localization text and font defaults for non-English clients
+
+**Fixed**
+- Quests and Achievements now preserve selections and previews through searches and filters
+- Collapsing a quest zone no longer changes the selected quest
+- Improved reliability of decor catalog data
+
 **3.0.6** (2026-07-22)
 
 **Fixed**

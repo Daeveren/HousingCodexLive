@@ -507,7 +507,7 @@ function RenownTab:SetupFactionCard(frame, elementData)
         local localizedStanding = requiredStanding
             and addon:LocalizeRequiredStanding(requiredStanding, sourceData and sourceData.kind, factionID)
         local reqPart = localizedStanding
-            and ("|cFFCC6630* " .. strlower(string.format(L["RENOWN_REQUIRED"], localizedStanding)) .. "|r")
+            and ("|cFFCC6630* " .. string.format(L["RENOWN_REQUIRED"], localizedStanding) .. "|r")
             or ""
         local statusPart
         if isUnlocked then

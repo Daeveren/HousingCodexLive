@@ -538,10 +538,12 @@ function addon:ResolveRecord(recordID)
         return nil
     end
 
-    -- Synthetic entryID fallback for items missing entryID in API response
+    -- HousingCatalogEntryInfo has no entryID field, so this always synthesises one.
+    -- Prefer the API's own non-nilable entryType over asserting Decor, so the record
+    -- reflects what the catalog actually returned.
     local entryID = info.entryID or {
-        recordID = recordID,
-        entryType = Enum.HousingCatalogEntryType.Decor,
+        recordID = info.recordID or recordID,
+        entryType = info.entryType or entryType,
     }
 
     record = BuildRecordFields(entryID, info, { resolveTracking = true })

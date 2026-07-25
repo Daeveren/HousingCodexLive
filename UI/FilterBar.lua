@@ -16,9 +16,9 @@ FilterBar.initialized = false
 
 -- Trackable filter options (constant)
 local TRACKABLE_OPTIONS = {
-    { key = "all",           labelKey = "FILTER_TRACKABLE_ALL",  fallback = "All" },
-    { key = "trackable",     labelKey = "FILTER_TRACKABLE",      fallback = "Trackable Only" },
-    { key = "not_trackable", labelKey = "FILTER_NOT_TRACKABLE",  fallback = "Not Trackable" },
+    { key = "all",           labelKey = "FILTER_TRACKABLE_ALL" },
+    { key = "trackable",     labelKey = "FILTER_TRACKABLE" },
+    { key = "not_trackable", labelKey = "FILTER_NOT_TRACKABLE" },
 }
 
 function FilterBar:Initialize()
@@ -61,14 +61,14 @@ function FilterBar:CreateDropdown(parent)
 end
 
 -- Special filter checkbox configuration
--- key: localization key, fallback: English text
+-- key: localization key
 -- getter/toggler: HousingCatalogSearcher method names
 -- default: expected state when filters are reset
 local SPECIAL_FILTERS = {
-    { key = "FILTER_DYEABLE",            fallback = "Dyeable",                 getter = "IsCustomizableOnlyActive",           toggler = "ToggleCustomizableOnly",           default = false },
-    { key = "FILTER_INDOORS",            fallback = "Indoors",                 getter = "IsAllowedIndoorsActive",             toggler = "ToggleAllowedIndoors",             default = true },
-    { key = "FILTER_OUTDOORS",           fallback = "Outdoors",                getter = "IsAllowedOutdoorsActive",            toggler = "ToggleAllowedOutdoors",            default = true },
-    { key = "FILTER_FIRST_ACQUISITION",  fallback = "First Acquisition Bonus", getter = "IsFirstAcquisitionBonusOnlyActive",  toggler = "ToggleFirstAcquisitionBonusOnly",  default = false },
+    { key = "FILTER_DYEABLE",            getter = "IsCustomizableOnlyActive",          toggler = "ToggleCustomizableOnly",          default = false },
+    { key = "FILTER_INDOORS",            getter = "IsAllowedIndoorsActive",            toggler = "ToggleAllowedIndoors",            default = true },
+    { key = "FILTER_OUTDOORS",           getter = "IsAllowedOutdoorsActive",           toggler = "ToggleAllowedOutdoors",           default = true },
+    { key = "FILTER_FIRST_ACQUISITION",  getter = "IsFirstAcquisitionBonusOnlyActive", toggler = "ToggleFirstAcquisitionBonusOnly", default = false },
 }
 
 function FilterBar:SetupMenu(rootDescription)
@@ -199,7 +199,7 @@ function FilterBar:SetupMenu(rootDescription)
     -- Trackable filter submenu (post-search filter via addon.Filters)
     local trackableSubmenu = rootDescription:CreateButton(L["FILTER_TRACKABLE_HEADER"])
     for _, opt in ipairs(TRACKABLE_OPTIONS) do
-        local label = L[opt.labelKey] or opt.fallback
+        local label = L[opt.labelKey]
         trackableSubmenu:CreateRadio(
             label,
             function() return addon.Filters.trackableState == opt.key end,
@@ -214,7 +214,7 @@ function FilterBar:SetupMenu(rootDescription)
 
     -- Create checkboxes for special filters (with save on change)
     for _, filter in ipairs(SPECIAL_FILTERS) do
-        local label = L[filter.key] or filter.fallback
+        local label = L[filter.key]
         local getter = function() return searcher[filter.getter](searcher) end
         local toggler = function()
             searcher[filter.toggler](searcher)
