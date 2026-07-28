@@ -467,7 +467,7 @@ L["DROPS_FILTER_COMPLETE"] = "Complete"
 L["DROPS_EMPTY_NO_SOURCES"] = "No drop sources found"
 L["DROPS_EMPTY_NO_SOURCES_DESC"] = "Drop data may not be available"
 L["DROPS_SELECT_CATEGORY"] = "Select a category"
-L["DROPS_EMPTY_NO_RESULTS"] = "No drop sources match your search"
+L["DROPS_EMPTY_NO_RESULTS"] = "No drop sources match your current filters"
 
 -- Drop source category labels
 L["DROPS_CATEGORY_DROP"] = "Drops"
@@ -703,7 +703,7 @@ L["PVP_CATEGORY_DROPS"] = "Drops"
 L["PVP_EMPTY_NO_SOURCES"] = "No PvP sources found"
 L["PVP_EMPTY_NO_SOURCES_DESC"] = "PvP data may not be available"
 L["PVP_SELECT_CATEGORY"] = "Select a category"
-L["PVP_EMPTY_NO_RESULTS"] = "No PvP sources match your search"
+L["PVP_EMPTY_NO_RESULTS"] = "No PvP sources match your current filters"
 L["SETTINGS_CATEGORY_NAME"] = "Housing |cffFB7104Codex|r"
 
 --------------------------------------------------------------------------------

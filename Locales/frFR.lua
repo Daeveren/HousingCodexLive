@@ -467,7 +467,7 @@ L["DROPS_FILTER_COMPLETE"] = "Complétés"
 L["DROPS_EMPTY_NO_SOURCES"] = "Aucune source de butin trouvée"
 L["DROPS_EMPTY_NO_SOURCES_DESC"] = "Les données de butin peuvent ne pas être disponibles"
 L["DROPS_SELECT_CATEGORY"] = "Sélectionnez une catégorie"
-L["DROPS_EMPTY_NO_RESULTS"] = "Aucune source de butin ne correspond à votre recherche"
+L["DROPS_EMPTY_NO_RESULTS"] = "Aucune source de butin ne correspond à vos filtres actuels"
 
 -- Drop source category labels
 L["DROPS_CATEGORY_DROP"] = "Butins"
@@ -703,7 +703,7 @@ L["PVP_CATEGORY_DROPS"] = "Butins"
 L["PVP_EMPTY_NO_SOURCES"] = "Aucune source JcJ trouvée"
 L["PVP_EMPTY_NO_SOURCES_DESC"] = "Les données JcJ peuvent ne pas être disponibles"
 L["PVP_SELECT_CATEGORY"] = "Sélectionnez une catégorie"
-L["PVP_EMPTY_NO_RESULTS"] = "Aucune source JcJ ne correspond à votre recherche"
+L["PVP_EMPTY_NO_RESULTS"] = "Aucune source JcJ ne correspond à vos filtres actuels"
 L["SETTINGS_CATEGORY_NAME"] = "Housing |cffFB7104Codex|r"
 
 --------------------------------------------------------------------------------

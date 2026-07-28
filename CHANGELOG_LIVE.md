@@ -2,6 +2,15 @@
 
 All notable changes to Housing Codex.
 
+**3.0.8** (2026-07-27)
+
+**Changed**
+- Improvements to Drops and PvP tabs
+
+**Fixed**
+- Drops and PvP now preserve selections and previews through searches and filters
+- Empty Drops and PvP views now show a clear no-results message
+
 **3.0.7** (2026-07-25)
 
 **Changed**

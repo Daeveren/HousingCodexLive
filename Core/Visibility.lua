@@ -135,9 +135,9 @@ function addon:InvalidateDecorVisibilityCaches()
         self:FireEvent(self.Events.ZONE_DECOR_CACHE_INVALIDATED)
     end
     if self.dropCategoryProgressCache then wipe(self.dropCategoryProgressCache) end
+    self.dropUniqueProgressCache = nil
     if self.craftingProgressCache then wipe(self.craftingProgressCache) end
     if self.pvpCategoryProgressCache then wipe(self.pvpCategoryProgressCache) end
-    if self.pvpSourceProgressCache then wipe(self.pvpSourceProgressCache) end
     if self.renownProgressCache then wipe(self.renownProgressCache) end
     if self.renownExpansionProgressCache then wipe(self.renownExpansionProgressCache) end
     if self.vendorExpansionProgressCache then wipe(self.vendorExpansionProgressCache) end

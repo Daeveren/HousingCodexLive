@@ -398,26 +398,12 @@ end
 -- SourcePassesCompletionFilter.
 --------------------------------------------------------------------------------
 
-local SOURCE_ROW_BASE_HEIGHT = 32
-local DECOR_ROW_HEIGHT = 24
+local SOURCE_ROW_BASE_HEIGHT = CONSTS.SOURCE_ROW_BASE_HEIGHT
+local DECOR_ROW_HEIGHT = CONSTS.DECOR_ROW_HEIGHT
 local DECOR_ICON_SIZE = 22
 local CATEGORY_ICON_SIZE = 20
 local ICON_CROP_COORDS = CONSTS.ICON_CROP_COORDS
 local VALID_FILTERS = { all = true, incomplete = true, complete = true }
-
-local function FindCategoryInList(elements, category)
-    for _, elem in ipairs(elements) do
-        if elem.category == category then return true end
-    end
-    return false
-end
-
-local function FindSourceInList(elements, sourceName)
-    for _, elem in ipairs(elements) do
-        if elem.sourceName == sourceName then return true end
-    end
-    return false
-end
 
 --------------------------------------------------------------------------------
 -- DB Accessor
@@ -619,6 +605,14 @@ end
 
 function TabBaseMixin:SelectCategory(category)
     local prevSelected = self.selectedCategory
+    local categoryChanged = prevSelected ~= category
+
+    if categoryChanged then
+        self.selectedSourceName = nil
+        self.selectedDecorId = nil
+        addon:FireEvent("RECORD_SELECTED", nil)
+    end
+
     self.selectedCategory = category
 
     local db = self:GetDB()
@@ -628,12 +622,6 @@ function TabBaseMixin:SelectCategory(category)
         function() return self.selectedCategory end)
 
     self:BuildSourceDisplay()
-
-    if prevSelected ~= category then
-        self.selectedSourceName = nil
-        self.selectedDecorId = nil
-        addon:FireEvent("RECORD_SELECTED", nil)
-    end
 
     self:UpdateEmptyStates()
 end
@@ -738,12 +726,13 @@ function TabBaseMixin:InitializeSourceFrame(frame)
         self:HandleItemSelection({
             decorId = decorIds[1],
             sourceNameKey = f.sourceNameKey,
+            sourceCategoryKey = f.sourceCategoryKey,
             isSourceRow = true,
             sourceFrame = f,
         })
     end)
     frame:SetScript("OnEnter", function(f)
-        if self.selectedSourceName ~= f.sourceNameKey then
+        if self.selectedCategory ~= f.sourceCategoryKey or self.selectedSourceName ~= f.sourceNameKey then
             f.bg:SetColorTexture(0.12, 0.12, 0.14, 1)
         end
         local decorIds = f.decorIds
@@ -752,7 +741,7 @@ function TabBaseMixin:InitializeSourceFrame(frame)
         end
     end)
     frame:SetScript("OnLeave", function(f)
-        if self.selectedSourceName ~= f.sourceNameKey then
+        if self.selectedCategory ~= f.sourceCategoryKey or self.selectedSourceName ~= f.sourceNameKey then
             f.bg:SetColorTexture(unpack(COLORS.ROW_BG))
         end
         self:RestoreSelectionOnLeave()
@@ -764,6 +753,7 @@ function TabBaseMixin:ResetSourceFrame(frame)
     frame.sourceContainer:Hide()
     frame.decorContainer:Hide()
     frame.sourceNameKey = nil
+    frame.sourceCategoryKey = nil
     frame.sourceTooltipHint = nil
     frame.decorIds = nil
 
@@ -803,7 +793,8 @@ function TabBaseMixin:UpdateDecorSelectionVisual(row, isSelected, textBrightness
 end
 
 function TabBaseMixin:HandleItemSelection(params)
-    local isCurrentlySelected = self.selectedSourceName == params.sourceNameKey
+    local isCurrentlySelected = self.selectedCategory == params.sourceCategoryKey
+        and self.selectedSourceName == params.sourceNameKey
         and self.selectedDecorId == params.decorId
 
     if isCurrentlySelected then
@@ -818,7 +809,7 @@ function TabBaseMixin:HandleItemSelection(params)
     else
         if self.selectedSourceName then
             self.sourceScrollBox:ForEachFrame(function(f)
-                if f.sourceNameKey == self.selectedSourceName then
+                if f.sourceCategoryKey == self.selectedCategory and f.sourceNameKey == self.selectedSourceName then
                     self:UpdateSourceSelectionVisual(f, false)
                 end
             end)
@@ -827,7 +818,9 @@ function TabBaseMixin:HandleItemSelection(params)
             self.sourceScrollBox:ForEachFrame(function(f)
                 if f.decorRows then
                     for _, row in pairs(f.decorRows) do
-                        if row.decorId == self.selectedDecorId and f.sourceNameKey == self.selectedSourceName then
+                        if row.decorId == self.selectedDecorId
+                            and f.sourceCategoryKey == self.selectedCategory
+                            and f.sourceNameKey == self.selectedSourceName then
                             self:UpdateDecorSelectionVisual(row, false, row.textBrightness or 0.7)
                         end
                     end
@@ -904,13 +897,16 @@ function TabBaseMixin:SetupDecorRows(frame, decorIds)
                 self:HandleItemSelection({
                     decorId = did,
                     sourceNameKey = r.sourceNameKey,
+                    sourceCategoryKey = r.sourceCategoryKey,
                     isSourceRow = false,
                     decorRow = r,
                 })
             end)
             row:SetScript("OnEnter", function(r)
                 local did = r.decorId
-                if not (self.selectedSourceName == r.sourceNameKey and self.selectedDecorId == did) then
+                if not (self.selectedCategory == r.sourceCategoryKey
+                    and self.selectedSourceName == r.sourceNameKey
+                    and self.selectedDecorId == did) then
                     r.name:SetTextColor(1, 1, 1, 1)
                 end
                 addon:FireEvent("RECORD_SELECTED", did)
@@ -927,7 +923,9 @@ function TabBaseMixin:SetupDecorRows(frame, decorIds)
             end)
             row:SetScript("OnLeave", function(r)
                 local did = r.decorId
-                if not (self.selectedSourceName == r.sourceNameKey and self.selectedDecorId == did) then
+                if not (self.selectedCategory == r.sourceCategoryKey
+                    and self.selectedSourceName == r.sourceNameKey
+                    and self.selectedDecorId == did) then
                     r.name:SetTextColor(r.textBrightness, r.textBrightness, r.textBrightness, 1)
                 end
                 GameTooltip:Hide()
@@ -947,6 +945,7 @@ function TabBaseMixin:SetupDecorRows(frame, decorIds)
         row.record = record
         row.isCollected = record and record.isCollected
         row.sourceNameKey = frame.sourceNameKey
+        row.sourceCategoryKey = frame.sourceCategoryKey
         row.sourceTooltipHint = frame.sourceTooltipHint
 
         if record then
@@ -967,7 +966,9 @@ function TabBaseMixin:SetupDecorRows(frame, decorIds)
         row.name:SetText(displayName)
         addon:SetFontSize(row.name, 13, "")
 
-        local isItemSelected = self.selectedSourceName == frame.sourceNameKey and self.selectedDecorId == decorId
+        local isItemSelected = self.selectedCategory == frame.sourceCategoryKey
+            and self.selectedSourceName == frame.sourceNameKey
+            and self.selectedDecorId == decorId
         self:UpdateDecorSelectionVisual(row, isItemSelected, textBrightness)
     end
 end
@@ -1022,21 +1023,26 @@ end
 function TabBaseMixin:SourcePassesCompletionFilter(sourceData, filter)
     if filter == "all" then return true end
 
-    local owned, total
     local getProgress = self.cfg.getSourceProgress
+    local owned, total
     if getProgress then
         owned, total = getProgress(sourceData)
     else
-        owned, total = 0, 0
-        for _, decorId in ipairs(sourceData.decorIds or {}) do
-            total = total + 1
-            if addon:IsDecorCollected(decorId) then owned = owned + 1 end
-        end
+        owned, total = self:GetVisibleSourceCollectionProgress(sourceData)
     end
 
     local isComplete = total > 0 and owned == total
     if filter == "complete" then return isComplete end
     if filter == "incomplete" then return not isComplete end
+end
+
+function TabBaseMixin:GetVisibleSourceCollectionProgress(sourceData)
+    local decorIds = sourceData and sourceData.decorIds or {}
+    local owned = 0
+    for _, decorId in ipairs(decorIds) do
+        if addon:IsDecorCollected(decorId) then owned = owned + 1 end
+    end
+    return owned, #decorIds
 end
 
 function TabBaseMixin:BuildSourceVisibilityCache(filter, searchText)
@@ -1072,12 +1078,9 @@ end
 --------------------------------------------------------------------------------
 -- Display Building
 --
--- NOTE: the reconcile-and-wipe passes below (a search/filter that hides the
--- selection reassigns or clears it, and the category tier persists that clear) are
--- the legacy behavior, NOT the pattern to copy. QuestsTab/AchievementsTab now follow
--- the selection-ownership policy in .claude/rules/tabs.md and use the
--- SuppressPreviewWhileEmpty/RestoreSuppressedPreview pair above. Converting this
--- framework is pending follow-up work.
+-- Searches, completion filters, and visibility changes only hide rows. They do
+-- not rewrite the committed category/source/decor selection. Explicit category
+-- clicks continue to clear the source selection in SelectCategory.
 --------------------------------------------------------------------------------
 
 function TabBaseMixin:BuildCategoryDisplay(visCache)
@@ -1105,17 +1108,8 @@ function TabBaseMixin:BuildCategoryDisplay(visCache)
         self.categoryDataProvider:InsertTable(elements)
     end
 
-    if #elements > 0 and not FindCategoryInList(elements, self.selectedCategory) then
+    if #elements > 0 and self.selectedCategory == nil then
         self:SelectCategory(elements[1].category)
-        return true
-    elseif self.selectedCategory and not FindCategoryInList(elements, self.selectedCategory) then
-        self.selectedCategory = nil
-        self.selectedSourceName = nil
-        self.selectedDecorId = nil
-        local db = self:GetDB()
-        if db then db.selectedCategory = nil end
-        addon:FireEvent("RECORD_SELECTED", nil)
-        self:BuildSourceDisplay()
         return true
     end
     return false
@@ -1144,12 +1138,7 @@ function TabBaseMixin:BuildSourceDisplay(visCache)
         self.sourceDataProvider:InsertTable(elements)
     end
 
-    if self.selectedSourceName and not FindSourceInList(elements, self.selectedSourceName) then
-        self.selectedSourceName = nil
-        self.selectedDecorId = nil
-        addon:FireEvent("RECORD_SELECTED", nil)
-    end
-
+    self:RestoreSuppressedPreview(#elements > 0, self.selectedDecorId)
     self:UpdateEmptyStates()
 end
 
@@ -1192,22 +1181,30 @@ function TabBaseMixin:CreateEmptyStates()
     self.noResultsState = addon:CreateEmptyStateFrame(self.sourcePanel, cfg.emptyNoResultsKey)
 end
 
--- NOTE: unlike QuestsTab/AchievementsTab, this framework does not yet call
--- SuppressPreviewWhileEmpty here — its Build*Display passes still clear the selection
--- outright. See the selection-ownership migration note in .claude/rules/tabs.md.
 function TabBaseMixin:UpdateEmptyStates()
     local hasSources = self.cfg.getSourceCount() > 0
     local hasSelection = self.selectedCategory ~= nil
+    local categoryDataProvider = self.categoryScrollBox and self.categoryScrollBox:GetDataProvider()
+    local categoryResults = categoryDataProvider and categoryDataProvider:GetSize() or 0
+    local hasVisibleCategories = categoryResults > 0
     local dataProvider = self.sourceScrollBox and self.sourceScrollBox:GetDataProvider()
-    local hasResults = dataProvider and dataProvider:GetSize() > 0
+    local sourceResults = dataProvider and dataProvider:GetSize() or 0
+    local hasResults = sourceResults > 0
     local searchText = self:GetActiveSearchText()
     local hasActiveFilter = (searchText ~= "") or (self:GetCompletionFilter() ~= "all")
     local showSourceList = hasSources and hasSelection and hasResults
+    local showNoResults = hasSources and not hasResults
+        and (hasSelection or hasActiveFilter or not hasVisibleCategories)
+    local showNoCategory = hasSources and hasVisibleCategories and not hasSelection and not hasActiveFilter
+
+    if not hasResults then
+        self:SuppressPreviewWhileEmpty(self.selectedDecorId ~= nil)
+    end
 
     if self.emptyState then self.emptyState:SetShown(not hasSources) end
-    if self.noCategoryState then self.noCategoryState:SetShown(hasSources and not hasSelection and not hasActiveFilter) end
-    if self.noResultsState then self.noResultsState:SetShown(hasSources and not hasResults and (hasSelection or hasActiveFilter)) end
-    if self.categoryScrollBox then self.categoryScrollBox:SetShown(hasSources) end
+    if self.noCategoryState then self.noCategoryState:SetShown(showNoCategory) end
+    if self.noResultsState then self.noResultsState:SetShown(showNoResults) end
+    if self.categoryScrollBox then self.categoryScrollBox:SetShown(hasSources and hasVisibleCategories) end
     if self.sourceScrollBox then self.sourceScrollBox:SetShown(showSourceList) end
     if self.sourceScrollBar then self.sourceScrollBar:SetShown(showSourceList) end
 end

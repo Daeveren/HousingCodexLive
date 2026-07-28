@@ -466,7 +466,7 @@ L["DROPS_FILTER_COMPLETE"] = "Abgeschlossen"
 L["DROPS_EMPTY_NO_SOURCES"] = "Keine Beutequellen gefunden"
 L["DROPS_EMPTY_NO_SOURCES_DESC"] = "Beutedaten sind möglicherweise nicht verfügbar"
 L["DROPS_SELECT_CATEGORY"] = "Wähle eine Kategorie"
-L["DROPS_EMPTY_NO_RESULTS"] = "Keine Beutequellen entsprechen deiner Suche"
+L["DROPS_EMPTY_NO_RESULTS"] = "Keine Beutequellen entsprechen deinen aktuellen Filtern"
 
 -- Drop source category labels
 L["DROPS_CATEGORY_DROP"] = "Beute"
@@ -702,7 +702,7 @@ L["PVP_CATEGORY_DROPS"] = "Beute"
 L["PVP_EMPTY_NO_SOURCES"] = "Keine PvP-Quellen gefunden"
 L["PVP_EMPTY_NO_SOURCES_DESC"] = "PvP-Daten sind möglicherweise nicht verfügbar"
 L["PVP_SELECT_CATEGORY"] = "Wähle eine Kategorie"
-L["PVP_EMPTY_NO_RESULTS"] = "Keine PvP-Quellen entsprechen deiner Suche"
+L["PVP_EMPTY_NO_RESULTS"] = "Keine PvP-Quellen entsprechen deinen aktuellen Filtern"
 L["SETTINGS_CATEGORY_NAME"] = "Housing |cffFB7104Codex|r"
 
 --------------------------------------------------------------------------------

@@ -468,7 +468,7 @@ L["DROPS_FILTER_COMPLETE"] = "Собрано"
 L["DROPS_EMPTY_NO_SOURCES"] = "Источники добычи не найдены"
 L["DROPS_EMPTY_NO_SOURCES_DESC"] = "Данные о добыче могут быть недоступны"
 L["DROPS_SELECT_CATEGORY"] = "Выберите категорию"
-L["DROPS_EMPTY_NO_RESULTS"] = "Нет источников добычи, подходящих под поиск"
+L["DROPS_EMPTY_NO_RESULTS"] = "Нет источников добычи, соответствующих текущим фильтрам"
 
 -- Drop source category labels
 L["DROPS_CATEGORY_DROP"] = "Добыча"
@@ -704,7 +704,7 @@ L["PVP_CATEGORY_DROPS"] = "Добыча"
 L["PVP_EMPTY_NO_SOURCES"] = "PvP-источники не найдены"
 L["PVP_EMPTY_NO_SOURCES_DESC"] = "Данные о PvP могут быть недоступны"
 L["PVP_SELECT_CATEGORY"] = "Выберите категорию"
-L["PVP_EMPTY_NO_RESULTS"] = "Нет PvP-источников, подходящих под поиск"
+L["PVP_EMPTY_NO_RESULTS"] = "Нет PvP-источников, соответствующих текущим фильтрам"
 L["SETTINGS_CATEGORY_NAME"] = "Housing |cffFB7104Codex|r"
 
 --------------------------------------------------------------------------------

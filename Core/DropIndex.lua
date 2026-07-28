@@ -46,6 +46,7 @@ local SOURCE_TEXT_PRIORITY = {
 addon.dropHierarchy = {}
 addon.dropIndexBuilt = false
 addon.dropCategoryProgressCache = {}
+addon.dropUniqueProgressCache = nil
 
 function addon:GetSourceCategoryInfo(category)
     return SOURCE_CATEGORY_INFO[category]
@@ -160,6 +161,7 @@ function addon:BuildDropIndex()
     self:BuildDropSourceLookup()
     wipe(self.dropHierarchy)
     wipe(self.dropCategoryProgressCache)
+    self.dropUniqueProgressCache = nil
 
     local sourceCount, decorCount = 0, 0
 
@@ -216,19 +218,6 @@ function addon:GetDropsForCategory(category)
     return catData and catData.sources or {}
 end
 
-function addon:GetDropSourceCollectionProgress(source)
-    local owned, total = 0, 0
-    for _, decorId in ipairs(source.decorIds or {}) do
-        if self:ShouldDisplayDecor(decorId) then
-            total = total + 1
-            if self:IsDecorCollected(decorId) then
-                owned = owned + 1
-            end
-        end
-    end
-    return owned, total
-end
-
 function addon:GetDropCategoryCollectionProgress(category)
     local cached = self.dropCategoryProgressCache[category]
     if cached then return cached.owned, cached.total end
@@ -252,7 +241,7 @@ function addon:GetDropCategoryCollectionProgress(category)
 end
 
 function addon:GetDropUniqueCollectionProgress()
-    local cached = self.dropCategoryProgressCache.__all_unique
+    local cached = self.dropUniqueProgressCache
     if cached then return cached.owned, cached.total end
 
     local owned, total = 0, 0
@@ -271,7 +260,7 @@ function addon:GetDropUniqueCollectionProgress()
         end
     end
 
-    self.dropCategoryProgressCache.__all_unique = { owned = owned, total = total }
+    self.dropUniqueProgressCache = { owned = owned, total = total }
     return owned, total
 end
 
@@ -289,6 +278,7 @@ end
 
 addon:RegisterInternalEvent("RECORD_OWNERSHIP_UPDATED", function()
     wipe(addon.dropCategoryProgressCache)
+    addon.dropUniqueProgressCache = nil
 end)
 
 addon:RegisterInternalEvent("DATA_LOADED", function()
