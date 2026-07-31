@@ -19,6 +19,7 @@ local WISHLIST_STAR_SIZE = CONSTS.WISHLIST_STAR_SIZE_HIERARCHY
 local QuestExpansionOnClick, QuestExpansionOnEnter, QuestExpansionOnLeave
 local QuestZoneHeaderOnClick, QuestZoneHeaderOnEnter, QuestZoneHeaderOnLeave
 local QuestRowOnMouseDown, QuestRowOnEnter, QuestRowOnLeave
+local QuestsTab
 
 -- Helper to apply quest row visual state
 local function ApplyQuestRowState(frame, isSelected)
@@ -48,7 +49,7 @@ local function InitializeZoneQuestFrame(frame)
 
     -- Selection border (left edge gold bar)
     local border = frame:CreateTexture(nil, "ARTWORK")
-    border:SetWidth(3)
+    border:SetWidth(CONSTS.SELECTION_BORDER_WIDTH)
     border:SetPoint("TOPLEFT", 0, 0)
     border:SetPoint("BOTTOMLEFT", 0, 0)
     border:SetColorTexture(unpack(COLORS.GOLD))
@@ -108,6 +109,9 @@ local function InitializeZoneQuestFrame(frame)
 end
 
 local function ResetZoneQuestFrameState(frame)
+    if QuestsTab and QuestsTab.hoveredQuestFrame == frame then
+        QuestsTab.hoveredQuestFrame = nil
+    end
     frame.selectionBorder:Hide()
     frame.checkIcon:Hide()
     if frame.incompleteIcon then frame.incompleteIcon:Hide() end
@@ -213,8 +217,44 @@ local function SetupQuestRow(self, frame, elementData)
     frame:SetScript("OnLeave", QuestRowOnLeave)
 end
 addon.QuestsTab = {}
-local QuestsTab = addon.QuestsTab
+QuestsTab = addon.QuestsTab
 local VALID_FILTERS = { all = true, incomplete = true, complete = true }
+
+-- Prefer Blizzard's full quest link when available, then use the client-supported
+-- bare quest hyperlink for catalogue quests that GetQuestLink has not cached. If
+-- neither produces tooltip data, show a useful local fallback instead of reopening
+-- an empty/stale GameTooltip; QUEST_DATA_LOAD_RESULT refreshes the hovered row.
+local function ShowQuestTooltip(frame)
+    addon:AnchorTooltipToCursor(frame)
+
+    if type(frame.questID) == "number" then
+        local questLink = GetQuestLink and GetQuestLink(frame.questID)
+        if questLink and GameTooltip:SetHyperlink(questLink) then
+            return true
+        end
+        if GameTooltip:SetHyperlink("quest:" .. frame.questID) then
+            return true
+        end
+    end
+
+    local questTitle = addon:GetQuestTitle(frame.questID) or tostring(frame.questID)
+    GameTooltip:SetText(questTitle, 1, 1, 1)
+
+    if type(frame.questID) == "number" and C_QuestLog and C_QuestLog.GetQuestObjectives then
+        local objectives = C_QuestLog.GetQuestObjectives(frame.questID)
+        if objectives then
+            for _, objective in ipairs(objectives) do
+                if objective.text and objective.text ~= "" then
+                    local color = objective.finished and COLORS.PROGRESS_COMPLETE or COLORS.TEXT_TERTIARY
+                    GameTooltip:AddLine(objective.text, color[1], color[2], color[3], true)
+                end
+            end
+        end
+    end
+
+    GameTooltip:Show()
+    return false
+end
 
 -- Apply shared mixin for common tab functionality
 Mixin(QuestsTab, addon.TabBaseMixin)
@@ -288,17 +328,18 @@ QuestRowOnEnter = function(frame)
         addon:FireEvent("RECORD_SELECTED", recordID)
     end
 
-    addon:AnchorTooltipToCursor(frame)
-    if type(frame.questID) == "number" then
-        GameTooltip:SetHyperlink("quest:" .. frame.questID)
-    else
-        local questTitle = addon:GetQuestTitle(frame.questID) or frame.questID
-        GameTooltip:SetText(questTitle, 1, 1, 1)
+    QuestsTab.hoveredQuestFrame = frame
+    local showedNativeTooltip = ShowQuestTooltip(frame)
+    if not showedNativeTooltip and type(frame.questID) == "number"
+        and C_QuestLog and C_QuestLog.RequestLoadQuestByID then
+        C_QuestLog.RequestLoadQuestByID(frame.questID)
     end
-    GameTooltip:Show()
 end
 
 QuestRowOnLeave = function(frame)
+    if QuestsTab.hoveredQuestFrame == frame then
+        QuestsTab.hoveredQuestFrame = nil
+    end
     GameTooltip:Hide()
 
     ApplyQuestRowState(frame, QuestsTab.selectedQuestID == frame.questID and
@@ -323,8 +364,9 @@ end
 -- Adopt the quest's first visible reward so the restored row highlights instead of
 -- looking unselected until the first click. Does not fire RECORD_SELECTED: a restored
 -- selection populates the preview on first hover/click, same as any other tab show.
--- Called on show and again once the index exists, because the tab can be restored
--- before catalog data loads. Idempotent: returns immediately once a reward is set.
+-- Called on show, once the index exists, and before visibility-triggered refreshes,
+-- because the tab can be restored before catalog data loads or while every reward is
+-- hidden. Idempotent: returns immediately once a reward is set.
 local function NormalizeSavedQuestSelection(self)
     if not self.selectedQuestID or self.selectedRecordID then return end
     local visibleRecords = addon:FilterVisibleDecorIds(addon:GetRecordsForQuest(self.selectedQuestID))
@@ -432,6 +474,7 @@ function QuestsTab:NavigateFromProgress(expansionKey, filter)
 end
 
 function QuestsTab:Hide()
+    self.hoveredQuestFrame = nil
     if self.frame then
         self.frame:Hide()
     end
@@ -515,7 +558,7 @@ function QuestsTab:SetupExpansionButton(frame, elementData)
         frame.bg = bg
 
         local border = frame:CreateTexture(nil, "ARTWORK")
-        border:SetWidth(3)
+        border:SetWidth(CONSTS.SELECTION_BORDER_WIDTH)
         border:SetPoint("TOPLEFT", 0, 0)
         border:SetPoint("BOTTOMLEFT", 0, 0)
         border:SetColorTexture(unpack(COLORS.GOLD))
@@ -997,7 +1040,15 @@ end)
 
 addon:RegisterInternalEvent(addon.Events.DECOR_VISIBILITY_CHANGED, function()
     if QuestsTab:IsShown() then
+        NormalizeSavedQuestSelection(QuestsTab)
         QuestsTab:RefreshDisplay()
+    end
+end)
+
+addon:RegisterWoWEvent("QUEST_DATA_LOAD_RESULT", function(questID, success)
+    local frame = QuestsTab.hoveredQuestFrame
+    if success and QuestsTab:IsShown() and frame and frame.questID == questID then
+        ShowQuestTooltip(frame)
     end
 end)
 

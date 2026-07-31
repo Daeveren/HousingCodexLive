@@ -2,6 +2,15 @@
 
 All notable changes to Housing Codex.
 
+**3.0.9** (2026-07-31)
+
+**Changed**
+- Preparations for the upcoming Patch 12.1
+
+**Fixed**
+- Quest tooltips now show full details more reliably
+- Improved how selected quests are preserved and restored
+
 **3.0.8** (2026-07-27)
 
 **Changed**

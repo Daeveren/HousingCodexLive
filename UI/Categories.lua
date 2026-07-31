@@ -367,7 +367,7 @@ function Categories:CreateCategoryButton(label, iconAtlas)
     -- Gold left border (for selection, hidden by default)
     if not btn.selectionBorder then
         local border = btn:CreateTexture(nil, "ARTWORK")
-        border:SetWidth(3)
+        border:SetWidth(CONSTS.SELECTION_BORDER_WIDTH)
         border:SetPoint("TOPLEFT", 0, 0)
         border:SetPoint("BOTTOMLEFT", 0, 0)
         border:SetColorTexture(unpack(COLOR_GOLD_BORDER))

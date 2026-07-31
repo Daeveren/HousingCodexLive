@@ -331,7 +331,7 @@ function ProfessionsTab:SetupProfessionButton(frame, elementData)
         frame.bg = bg
 
         local border = frame:CreateTexture(nil, "ARTWORK")
-        border:SetWidth(3)
+        border:SetWidth(CONSTS.SELECTION_BORDER_WIDTH)
         border:SetPoint("TOPLEFT", 0, 0)
         border:SetPoint("BOTTOMLEFT", 0, 0)
         border:SetColorTexture(unpack(COLORS.GOLD))

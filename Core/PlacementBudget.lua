@@ -152,6 +152,20 @@ local function GetCurrentContext()
     return nil
 end
 
+local function IsInsideOwnedBudgetContext()
+    if not C_Housing then return false end
+
+    -- Patch 12.1 adds an ownership-specific combined check. Keep the older
+    -- location check as a compatibility fallback for 12.0.7 clients.
+    local ownedContextCheck = C_Housing.IsInsideOwnedHouseOrPlot
+    if type(ownedContextCheck) == "function" then
+        return ownedContextCheck() == true
+    end
+
+    local legacyContextCheck = C_Housing.IsInsideHouseOrPlot
+    return type(legacyContextCheck) == "function" and legacyContextCheck() == true
+end
+
 local function GetPlotKey(plotID, neighborhoodGUID)
     if type(plotID) ~= "number" then return nil end
     if neighborhoodGUID ~= nil and neighborhoodGUID ~= "" then
@@ -588,7 +602,7 @@ end
 
 local function CaptureBudget(silent)
     if not addon.db or not C_Housing then return false end
-    if not C_Housing.IsInsideHouseOrPlot or not C_Housing.IsInsideHouseOrPlot() then return false end
+    if not IsInsideOwnedBudgetContext() then return false end
 
     local db = GetBudgetDB()
     if not db then return false end
@@ -790,11 +804,11 @@ function addon:GetPlacementBudget()
 end
 
 function addon:IsPlacementBudgetLiveContext()
-    return C_Housing and C_Housing.IsInsideHouseOrPlot and C_Housing.IsInsideHouseOrPlot() == true
+    return IsInsideOwnedBudgetContext()
 end
 
 function addon:GetCurrentPlacementBudgetContext()
-    if not C_Housing or not C_Housing.IsInsideHouseOrPlot or not C_Housing.IsInsideHouseOrPlot() then
+    if not IsInsideOwnedBudgetContext() then
         return nil, nil
     end
 

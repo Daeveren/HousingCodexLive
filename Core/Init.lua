@@ -68,6 +68,7 @@ addon.CONSTANTS = {
     HIERARCHY_ROW_HEIGHT = 26,          -- Quest/achievement row height
     HIERARCHY_HEADER_HEIGHT = 32,       -- Expansion/zone/category header height
     HIERARCHY_PANEL_WIDTH = 198,        -- Left panel width (expansions/categories)
+    SELECTION_BORDER_WIDTH = 3,         -- Gold selection bar used by hierarchy rows
     SOURCE_ROW_BASE_HEIGHT = 32,        -- Tier B source header height
     DECOR_ROW_HEIGHT = 24,              -- Tier B nested decor row height
 
