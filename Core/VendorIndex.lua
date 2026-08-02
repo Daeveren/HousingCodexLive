@@ -185,6 +185,20 @@ local function GetVendorDecorCost(vendorData, decorId)
     return addon:GetVendorDecorCostDetails(vendorData, decorId)
 end
 
+local function IsVendorFriendlyToBothFactions(npcId)
+    local locationData = addon.NPCLocationData and addon.NPCLocationData[npcId]
+    if not locationData then return false end
+
+    if type(locationData[1]) == "table" then
+        for _, location in ipairs(locationData) do
+            if not location.faction then return true end
+        end
+        return false
+    end
+
+    return not locationData.faction
+end
+
 local function BuildVendorDecorDetails(vendorData, zoneName, decorId)
     local cost, currencyName, hasItemCost, costComponents = GetVendorDecorCost(vendorData, decorId)
     local promoSet = addon.VendorPromotionalDecorIds
@@ -198,6 +212,7 @@ local function BuildVendorDecorDetails(vendorData, zoneName, decorId)
         cost = cost,
         currencyName = currencyName,
         costComponents = costComponents,
+        isFriendlyToBothFactions = IsVendorFriendlyToBothFactions(vendorData.npcId),
         isPromotional = promoSet and promoSet[decorId] == true,
         hasItemCost = hasItemCost,
     }
@@ -205,6 +220,10 @@ end
 
 local function IsBetterVendorDecorDetails(candidate, current)
     if not current then return true end
+
+    if candidate.isFriendlyToBothFactions ~= current.isFriendlyToBothFactions then
+        return candidate.isFriendlyToBothFactions
+    end
 
     if candidate.isPromotional ~= current.isPromotional then
         return not candidate.isPromotional
@@ -226,43 +245,40 @@ end
 function addon:BuildVendorSourceLookup()
     if not self.vendorHierarchy then return end
 
-    local vendorNamesByDecor = {}
-    local vendorDetailsByDecor = {}
+    local vendorDetailMapsByDecor = {}
     self.decorVendorSourceText = self.decorVendorSourceText or {}
     self.decorVendorDetails = self.decorVendorDetails or {}
+    self.decorVendorDetailLists = self.decorVendorDetailLists or {}
     wipe(self.decorVendorSourceText)
     wipe(self.decorVendorDetails)
+    wipe(self.decorVendorDetailLists)
 
     for _, expansionData in pairs(self.vendorHierarchy) do
         for zoneName, vendors in pairs(expansionData.zones or {}) do
             for _, vendorData in ipairs(vendors) do
                 local vendorName = vendorData.npcName
-                if vendorName and vendorData.decorIds then
+                if vendorData.npcId and vendorName and vendorData.decorIds then
                     for _, decorId in ipairs(vendorData.decorIds) do
-                        vendorNamesByDecor[decorId] = vendorNamesByDecor[decorId] or {}
-                        vendorNamesByDecor[decorId][vendorName] = true
-
                         local details = BuildVendorDecorDetails(vendorData, zoneName, decorId)
-                        if IsBetterVendorDecorDetails(details, vendorDetailsByDecor[decorId]) then
-                            vendorDetailsByDecor[decorId] = details
-                        end
+                        vendorDetailMapsByDecor[decorId] = vendorDetailMapsByDecor[decorId] or {}
+                        vendorDetailMapsByDecor[decorId][vendorData.npcId] = details
                     end
                 end
             end
         end
     end
 
-    for decorId, vendorNames in pairs(vendorNamesByDecor) do
-        local sortedNames = {}
-        for vendorName in pairs(vendorNames) do
-            sortedNames[#sortedNames + 1] = vendorName
+    for decorId, detailMap in pairs(vendorDetailMapsByDecor) do
+        local detailList = {}
+        for _, vendorDetails in pairs(detailMap) do
+            detailList[#detailList + 1] = vendorDetails
         end
-        table.sort(sortedNames)
-        local details = vendorDetailsByDecor[decorId]
+        table.sort(detailList, IsBetterVendorDecorDetails)
+        self.decorVendorDetailLists[decorId] = detailList
+
+        local details = detailList[1]
         self.decorVendorDetails[decorId] = details
-        self.decorVendorSourceText[decorId] = FormatVendorSourceText(
-            details and details.vendorName or sortedNames[1]
-        )
+        self.decorVendorSourceText[decorId] = FormatVendorSourceText(details.vendorName)
     end
 end
 
@@ -270,13 +286,7 @@ function addon:GetVendorSourceText(decorId)
     return self.decorVendorSourceText and self.decorVendorSourceText[decorId]
 end
 
-function addon:GetDefaultVendorDecorDetails(decorId)
-    if not decorId then return nil end
-    if not self.vendorIndexBuilt and self.BuildVendorIndex then
-        self:BuildVendorIndex()
-    end
-
-    local details = self.decorVendorDetails and self.decorVendorDetails[decorId]
+local function LocalizeVendorDecorDetails(details)
     if not details then return nil end
 
     return {
@@ -291,6 +301,33 @@ function addon:GetDefaultVendorDecorDetails(decorId)
         costComponents = details.costComponents,
         isPromotional = details.isPromotional,
     }
+end
+
+function addon:GetDefaultVendorDecorDetails(decorId)
+    if not decorId then return nil end
+    if not self.vendorIndexBuilt and self.BuildVendorIndex then
+        self:BuildVendorIndex()
+    end
+
+    local details = self.decorVendorDetails and self.decorVendorDetails[decorId]
+    if not details then return nil end
+
+    return LocalizeVendorDecorDetails(details)
+end
+
+function addon:GetAllVendorDecorDetails(decorId)
+    if not decorId then return {} end
+    if not self.vendorIndexBuilt and self.BuildVendorIndex then
+        self:BuildVendorIndex()
+    end
+
+    local localizedDetails = {}
+    for _, vendorDetails in ipairs(self.decorVendorDetailLists[decorId] or {}) do
+        localizedDetails[#localizedDetails + 1] =
+            LocalizeVendorDecorDetails(vendorDetails)
+    end
+
+    return localizedDetails
 end
 
 function addon:EnrichVendorSourceText()
@@ -829,14 +866,14 @@ function addon:GetNPCLocation(npcId)
     local locations = self:GetNPCLocations(npcId)
     if not locations then return nil end
     if #locations == 1 then return locations[1] end
-    -- Multi-location: prefer player faction match, then neutral, then first
-    local playerFaction = UnitFactionGroup("player") or "Neutral"
-    local neutral = nil
+    -- Multi-location: prefer player faction match, then a both-faction location, then first
+    local playerFaction = UnitFactionGroup("player") or ""
+    local bothFactions = nil
     for _, loc in ipairs(locations) do
         if loc.faction == playerFaction then return loc end
-        if not loc.faction then neutral = neutral or loc end
+        if not loc.faction then bothFactions = bothFactions or loc end
     end
-    return neutral or locations[1]
+    return bothFactions or locations[1]
 end
 
 function addon:GetVendorFaction(npcId)

@@ -132,7 +132,7 @@ local function BuildVendorMapIndex()
     addon:EnsurePlayerProfessionSkillLines()
 
     local vendorsByMapID = {}
-    local playerFaction = UnitFactionGroup("player") or "Neutral"
+    local playerFaction = UnitFactionGroup("player") or ""
 
     for npcId, vendorEntry in pairs(addon.vendorIndex or {}) do
         if addon:ShouldShowVendorForPlayerProfessionFilter(npcId) then

@@ -222,6 +222,19 @@ local function BuildRecord(entryID, info)
 end
 
 function addon:ScheduleRetry(reason)
+    -- Several async failure paths (search timeout, searcher released, empty results) can
+    -- each report the SAME failed attempt. The first report owns the retry; the rest
+    -- return untouched, so one attempt costs exactly one retry and duplicates never push
+    -- the pending timer further out. The guard must precede the loadingInProgress reset:
+    -- a late ResultsUpdatedCallback sets that flag for its batch build, and clearing it
+    -- here would let the pending retry start a second, cancelling load. dataLoadFailed
+    -- covers the final attempt, whose give-up branch below leaves retryTimer nil and would
+    -- otherwise re-fire DATA_LOAD_FAILED. ResetLoadState() clears both, so /hc retry works.
+    if self.retryTimer or self.dataLoadFailed then
+        self:Debug(string.format("Attempt already accounted for, ignoring duplicate: %s", reason or "unknown"))
+        return
+    end
+
     self.loadingInProgress = false
     self.loadRetryCount = self.loadRetryCount + 1
 
@@ -252,6 +265,15 @@ function addon:LoadData()
         self:Debug("Load already in progress, skipping")
         return
     end
+
+    -- A retry is already scheduled. PLAYER_ENTERING_WORLD re-fires on world transitions,
+    -- so without this guard a loading screen would start an extra attempt and burn the
+    -- retry allowance faster than the backoff intends.
+    if self.retryTimer then
+        self:Debug("Retry already pending, skipping")
+        return
+    end
+
     self.dataLoadFailed = false
     self:FireEvent(self.Events.DATA_LOAD_STARTED)
 

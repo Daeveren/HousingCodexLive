@@ -43,6 +43,12 @@ local function IsSecretValue(value)
     return type(issecretvalue) == "function" and issecretvalue(value)
 end
 
+local function IsFrameShown(targetFrame)
+    if not targetFrame then return false end
+    local shown = targetFrame:IsShown()
+    return not IsSecretValue(shown) and shown
+end
+
 local function IsAccessibleScale(value)
     return type(value) == "number" and not IsSecretValue(value) and value > 0
 end
@@ -101,6 +107,7 @@ local previewFrame = nil
 local previewModelScene = nil
 local expandedCategories = {}   -- categoryKey -> true/false
 local lastCategoryMapID = nil   -- reset on zone change
+local blockingUIPanels = setmetatable({}, { __mode = "k" })
 
 -- Animation constants
 local ANIM_EXPAND_DURATION = 0.25
@@ -332,7 +339,7 @@ local function CreateOverlayFrame()
 
     UpdateMapScaleFactor()
     frame = CreateFrame("Frame", "HousingCodexZoneOverlayFrame", UIParent, "BackdropTemplate")
-    frame:SetFrameStrata("TOOLTIP")
+    frame:SetFrameStrata("DIALOG")
     frame:SetClampedToScreen(true)
     frame:SetClipsChildren(true)
     frame:EnableMouse(false)  -- let clicks pass through to the map; titleBar and rows handle their own mouse
@@ -704,10 +711,32 @@ end
 --------------------------------------------------------------------------------
 local function HideOverlay()
     frame:Hide()
+    -- Forget the minimize state so the next show renders instantly. Keeping it would
+    -- let a state flip that happened while hidden animate from the stale geometry.
+    lastMinimizedState = nil
+end
+
+-- Secret visibility means "unknown", never "blocking" (IsFrameShown already has that
+-- polarity). Blizzard panel frames are permanent globals, so a sticky entry would pin the
+-- overlay hidden for the rest of the session; dropping it costs at most one frame of
+-- overlap, and the panel re-registers on its next ShowUIPanel.
+local function HasBlockingUIPanel()
+    for panel in pairs(blockingUIPanels) do
+        if IsFrameShown(panel) then
+            return true
+        end
+        blockingUIPanels[panel] = nil
+    end
+    return false
 end
 
 function ZoneOverlay:RefreshLayout()
     if not frame or not addon.db then return end
+
+    if HasBlockingUIPanel() then
+        HideOverlay()
+        return
+    end
 
     local scaleChanged = UpdateMapScaleFactor()
     if scaleChanged then
@@ -741,9 +770,13 @@ function ZoneOverlay:RefreshLayout()
         return
     end
 
-    -- Ensure frame is visible (may have been hidden by empty zone)
-    if db.settings.showZoneOverlay and WorldMapFrame:IsShown() then
-        if InCombatLockdown() then return end
+    -- Ensure frame is visible (may have been hidden by empty zone).
+    -- The combat guard suppresses only the Show: returning here instead would abandon
+    -- the rest of the layout, so a title-bar or category click during combat would flip
+    -- the persisted state while the visible rows and count kept their old values until
+    -- PLAYER_REGEN_ENABLED. Everything below acts on addon-owned frames, which are
+    -- unprotected and safe to lay out in combat.
+    if db.settings.showZoneOverlay and IsFrameShown(WorldMapFrame) and not InCombatLockdown() then
         frame:Show()
     end
 
@@ -772,7 +805,7 @@ function ZoneOverlay:RefreshLayout()
     if isMinimized then
         local targetArrow = isBottomRight and ARROW_EXPANDED or ARROW_COLLAPSED
         pendingShowScrollBar = false
-        if lastMinimizedState == false and frame:IsShown() then
+        if lastMinimizedState == false and IsFrameShown(frame) then
             -- Transition from expanded → minimized: animate
             StartAnimation(PANEL_WIDTH_MINIMIZED, COLLAPSED_HEIGHT, COLLAPSED_HEIGHT, 0, targetArrow, false)
         else
@@ -887,7 +920,7 @@ function ZoneOverlay:RefreshLayout()
     frame.dataProvider:InsertTable(flatData)
 
     local targetArrow = isBottomRight and ARROW_COLLAPSED or ARROW_EXPANDED
-    if lastMinimizedState == true and frame:IsShown() then
+    if lastMinimizedState == true and IsFrameShown(frame) then
         -- Transition from minimized → expanded: animate
         StartAnimation(PANEL_WIDTH, targetH, TITLE_BAR_HEIGHT, 1, targetArrow, true)
     else
@@ -939,12 +972,103 @@ end
 function ZoneOverlay:UpdateVisibility()
     if not frame or not addon.db then return end
 
-    if addon.db.settings.showZoneOverlay and WorldMapFrame:IsShown() then
+    if addon.db.settings.showZoneOverlay and IsFrameShown(WorldMapFrame) and not HasBlockingUIPanel() then
         if InCombatLockdown() then return end
         frame:Show()
         self:RefreshLayout()
     else
         HideOverlay()
+    end
+end
+
+-- The panel hooks are global, so they fire on every window the player opens anywhere in
+-- the game. Skip the work entirely unless the overlay could actually be on screen; the
+-- map's own Show hook re-seeds the panel set, so nothing is lost by ignoring panels
+-- opened while the map is closed.
+local function ShouldTrackPanels()
+    return addon.db and addon.db.settings.showZoneOverlay and IsFrameShown(WorldMapFrame)
+end
+
+-- Hook bodies run inside Blizzard's execution context, so defer the visibility work.
+-- Coalesced: HideUIPanel also triggers the panel's own Hide hook, and a bulk close
+-- fires for every open panel, so one update per frame is enough.
+local panelVisibilityUpdatePending = false
+
+local function SchedulePanelVisibilityUpdate()
+    if panelVisibilityUpdatePending then return end
+    panelVisibilityUpdatePending = true
+    C_Timer.After(0, function()
+        panelVisibilityUpdatePending = false
+        ZoneOverlay:UpdateVisibility()
+    end)
+end
+
+-- Panels reach us from any caller, so vet the frame before touching widget methods.
+-- Calling into a forbidden frame from addon code raises a hard error, and one raised
+-- during init would abort the remaining hook installs.
+local function IsTrackablePanel(panel)
+    if type(panel) ~= "table" or panel == WorldMapFrame then return false end
+    if type(panel.IsForbidden) ~= "function" or panel:IsForbidden() then return false end
+    return type(panel.IsShown) == "function"
+end
+
+-- Not weak-keyed: TrackPanelHide stores each panel in a closure that lives on the
+-- frame's hook chain for the session, so a weak key could never be collected anyway.
+local hookedPanels = {}
+
+-- A post-hook fires even when the hooked function did nothing: HideUIPanel bails on
+-- CheckProtectedFunctionsAllowed() in combat, and Frame:Hide() is itself protected.
+-- Clearing on the strength of the call alone would drop a still-open panel from the
+-- set, and nothing but a fresh ShowUIPanel ever puts it back.
+local function ClearPanelIfHidden(panel)
+    if not blockingUIPanels[panel] then return end
+    if IsFrameShown(panel) then return end
+    blockingUIPanels[panel] = nil
+    SchedulePanelVisibilityUpdate()
+end
+
+-- HideUIPanel is not the only close path: CloseSpecialWindows and panel-slot
+-- displacement call frame:Hide() directly. Mirror each tracked panel's own Hide so
+-- those paths still evict it instead of leaving the overlay suppressed.
+local function TrackPanelHide(panel)
+    if hookedPanels[panel] then return end
+    hookedPanels[panel] = true
+    hooksecurefunc(panel, "Hide", function()
+        ClearPanelIfHidden(panel)
+    end)
+end
+
+-- Recorded optimistically rather than verified: ShowUIPanel can be refused (combat,
+-- dead player, CanOpenPanels), and HasBlockingUIPanel() evicts on its next sweep when
+-- the panel did not open. The asymmetry with the hide path is deliberate: over-recording
+-- self-corrects, under-recording does not.
+local function OnUIPanelShown(panel)
+    if not ShouldTrackPanels() or not IsTrackablePanel(panel) then return end
+    blockingUIPanels[panel] = true
+    TrackPanelHide(panel)
+    SchedulePanelVisibilityUpdate()
+end
+
+local function OnUIPanelHidden(panel)
+    if not IsTrackablePanel(panel) then return end
+    ClearPanelIfHidden(panel)
+end
+
+-- Panel slots managed by Blizzard's UIParent panel manager (GetUIPanel keys).
+local UI_PANEL_SLOTS = { "left", "center", "right", "doublewide", "fullscreen" }
+
+-- Resync the tracked set from the panel manager. Needed at init and whenever the map
+-- opens, since the hooks only observe transitions and deliberately ignore panels opened
+-- while the map was closed. Known gap: ShowUIPanel shows frames with no "area" attribute
+-- via a direct Show(), and those never occupy a slot, so GetUIPanel cannot see them.
+local function SeedOpenUIPanels()
+    if type(GetUIPanel) ~= "function" then return end
+    for _, slot in ipairs(UI_PANEL_SLOTS) do
+        local panel = GetUIPanel(slot)
+        if IsTrackablePanel(panel) and IsFrameShown(panel) then
+            blockingUIPanels[panel] = true
+            TrackPanelHide(panel)
+        end
     end
 end
 
@@ -992,14 +1116,23 @@ local function InitializeOverlay()
     -- Hook zone changes
     hooksecurefunc(WorldMapFrame, "OnMapChanged", ScheduleMapUpdate)
 
+    -- A fixed strata cannot render above the map's own layers while remaining
+    -- below other UI panels. Suppress only our addon-owned overlay while another
+    -- managed panel is open, then restore it when that panel closes.
+    hooksecurefunc("ShowUIPanel", OnUIPanelShown)
+    hooksecurefunc("HideUIPanel", OnUIPanelHidden)
+    -- Seeded last: it walks foreign frames, and an error here must not cost us the
+    -- hooks above or the ones below.
+    SeedOpenUIPanels()
+
     -- Refresh data when map shows and mirror addon-owned overlay visibility.
     hooksecurefunc(WorldMapFrame, "Show", function()
         C_Timer.After(0, function()
-            if addon.db and addon.db.settings.showZoneOverlay and WorldMapFrame:IsShown() then
-                if InCombatLockdown() then return end
-                frame:Show()
+            SeedOpenUIPanels()
+            if addon.db and addon.db.settings.showZoneOverlay and IsFrameShown(WorldMapFrame) then
                 ScheduleMapUpdate()
             end
+            ZoneOverlay:UpdateVisibility()
         end)
     end)
 
@@ -1015,7 +1148,7 @@ local function InitializeOverlay()
 
     -- Refresh on ownership changes (debounced to coalesce rapid updates)
     addon:RegisterInternalEvent("ZONE_DECOR_CACHE_INVALIDATED", function()
-        if not frame or not frame:IsShown() then return end
+        if not IsFrameShown(frame) then return end
         if ownershipTimer then ownershipTimer:Cancel() end
         ownershipTimer = C_Timer.NewTimer(0.05, function()
             ownershipTimer = nil
@@ -1025,22 +1158,15 @@ local function InitializeOverlay()
 
     -- Recover after combat ends (combat guards may have blocked Show/RefreshLayout)
     addon:RegisterWoWEvent("PLAYER_REGEN_ENABLED", function()
-        if frame and WorldMapFrame:IsShown() and addon.db and addon.db.settings.showZoneOverlay then
-            if InCombatLockdown() then return end
-            frame:Show()
-            ZoneOverlay:RefreshLayout()
-        end
+        ZoneOverlay:UpdateVisibility()
     end)
 
     -- Initial state (deferred to clean execution context)
     C_Timer.After(0, function()
-        if WorldMapFrame:IsShown() and addon.db and addon.db.settings.showZoneOverlay then
-            if InCombatLockdown() then return end
-            frame:Show()
+        if addon.db and addon.db.settings.showZoneOverlay and IsFrameShown(WorldMapFrame) then
             ScheduleMapUpdate()
-        else
-            frame:Hide()
         end
+        ZoneOverlay:UpdateVisibility()
     end)
 
     addon:Debug("Zone overlay initialized")

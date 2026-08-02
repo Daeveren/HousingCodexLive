@@ -2,6 +2,16 @@
 
 All notable changes to Housing Codex.
 
+**3.0.10** (2026-08-02)
+
+**Changed**
+- Updated promotional decor vendor data
+- Decor details now list every known seller with zone and cost
+
+**Fixed**
+- Improved reliability of Housing data loading during retries
+- Fixed the world map zone overlay overlapping other UI panels
+
 **3.0.9** (2026-07-31)
 
 **Changed**

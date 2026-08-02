@@ -68,7 +68,11 @@ local function GetSelectedVendorDecorDetails(recordID)
     end
 
     if addon.GetDefaultVendorDecorDetails then
-        return addon:GetDefaultVendorDecorDetails(recordID)
+        local vendorDetails = addon:GetDefaultVendorDecorDetails(recordID)
+        if vendorDetails and addon.GetAllVendorDecorDetails then
+            vendorDetails.allVendors = addon:GetAllVendorDecorDetails(recordID)
+        end
+        return vendorDetails
     end
 
     return nil
@@ -199,6 +203,28 @@ local function FormatSelectedVendorSourceLine(label, value)
     return SOURCE_PREFIX_COLOR .. label .. ": " .. COLOR_RESET .. value
 end
 
+local function HasMultipleDefaultVendors(vendorDetails)
+    return vendorDetails
+        and vendorDetails.contextKind == "default"
+        and vendorDetails.allVendors
+        and #vendorDetails.allVendors > 1
+end
+
+local function FormatCompactVendorSourceLine(vendorDetails)
+    local parts = { vendorDetails.vendorName }
+    if vendorDetails.zoneName and vendorDetails.zoneName ~= "" then
+        parts[#parts + 1] = vendorDetails.zoneName
+    end
+
+    local costText = FormatSelectedVendorCost(vendorDetails)
+    if costText then parts[#parts + 1] = costText end
+
+    return FormatSelectedVendorSourceLine(
+        addon.L["DETAILS_SOURCE_VENDOR"],
+        table.concat(parts, " — ")
+    )
+end
+
 local function FormatSelectedVendorSource(vendorDetails)
     if not vendorDetails or not vendorDetails.vendorName then return nil end
 
@@ -211,15 +237,28 @@ local function FormatSelectedVendorSource(vendorDetails)
     local categoryLine = FormatSelectedVendorSourceLine(addon.L["DETAILS_SOURCE_CATEGORY"], category)
     if categoryLine then table.insert(lines, categoryLine) end
 
-    local vendorLine = FormatSelectedVendorSourceLine(addon.L["DETAILS_SOURCE_VENDOR"], vendorDetails.vendorName)
-    if vendorLine then table.insert(lines, vendorLine) end
+    if HasMultipleDefaultVendors(vendorDetails) then
+        for _, option in ipairs(vendorDetails.allVendors) do
+            local vendorLine = FormatCompactVendorSourceLine(option)
+            if vendorLine then table.insert(lines, vendorLine) end
+        end
+    else
+        local vendorLine = FormatSelectedVendorSourceLine(
+            addon.L["DETAILS_SOURCE_VENDOR"],
+            vendorDetails.vendorName
+        )
+        if vendorLine then table.insert(lines, vendorLine) end
 
-    local zoneLine = FormatSelectedVendorSourceLine(addon.L["DETAILS_SOURCE_ZONE"], vendorDetails.zoneName)
-    if zoneLine then table.insert(lines, zoneLine) end
+        local zoneLine = FormatSelectedVendorSourceLine(
+            addon.L["DETAILS_SOURCE_ZONE"],
+            vendorDetails.zoneName
+        )
+        if zoneLine then table.insert(lines, zoneLine) end
 
-    local costText = FormatSelectedVendorCost(vendorDetails)
-    local costLine = FormatSelectedVendorSourceLine(addon.L["DETAILS_SOURCE_COST"], costText)
-    if costLine then table.insert(lines, costLine) end
+        local costText = FormatSelectedVendorCost(vendorDetails)
+        local costLine = FormatSelectedVendorSourceLine(addon.L["DETAILS_SOURCE_COST"], costText)
+        if costLine then table.insert(lines, costLine) end
+    end
 
     return #lines > 0 and table.concat(lines, "\n") or nil
 end
@@ -227,6 +266,7 @@ end
 local function ShouldUseVendorSource(vendorDetails, record, isPromo)
     if not vendorDetails then return false end
     if vendorDetails.contextKind ~= "default" then return true end
+    if HasMultipleDefaultVendors(vendorDetails) then return true end
 
     return vendorDetails.cost ~= nil
         or not record.sourceText
