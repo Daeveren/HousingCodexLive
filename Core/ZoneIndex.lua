@@ -12,6 +12,7 @@ local _, addon = ...
 addon.ZONE_TO_EXPANSION = {
     -- Classic
     ["Blackrock Depths"] = "EXPANSION_CLASSIC",
+    ["Azshara"] = "EXPANSION_CLASSIC",
     ["Blasted Lands"] = "EXPANSION_CLASSIC",
     ["Burning Steppes"] = "EXPANSION_CLASSIC",
     ["Darnassus"] = "EXPANSION_CLASSIC",
@@ -50,8 +51,10 @@ addon.ZONE_TO_EXPANSION = {
     ["Winterspring"] = "EXPANSION_CLASSIC",
 
     -- TBC
+    ["Azuremyst Isle"] = "EXPANSION_TBC",
     ["Exile's Reach"] = "EXPANSION_TBC",
     ["Ghostlands"] = "EXPANSION_TBC",
+    ["Isle of Quel'Danas"] = "EXPANSION_TBC",
     ["Shattrath City"] = "EXPANSION_TBC",
 
     -- Wrath
@@ -70,6 +73,7 @@ addon.ZONE_TO_EXPANSION = {
     ["Twilight Highlands"] = "EXPANSION_CATA",
 
     -- MoP
+    ["Bizmo's Brawlpub"] = "EXPANSION_MOP",
     ["Brawl'gar Arena"] = "EXPANSION_MOP",
     ["Either Shrine in Vale of Eternal Blossoms"] = "EXPANSION_MOP",
     ["Kun-Lai Summit"] = "EXPANSION_MOP",
@@ -188,14 +192,18 @@ addon.ZONE_TO_EXPANSION = {
 
     -- Midnight
     ["Arcantina"] = "EXPANSION_MIDNIGHT",
+    ["Atal'Aman"] = "EXPANSION_MIDNIGHT",
     ["Eversong Woods"] = "EXPANSION_MIDNIGHT",
     ["Founder's Point"] = "EXPANSION_MIDNIGHT",
     ["Harandar"] = "EXPANSION_MIDNIGHT",
     ["Masters' Perch"] = "EXPANSION_MIDNIGHT",
+    ["Naigtal"] = "EXPANSION_MIDNIGHT",
     ["Razorwind Shores"] = "EXPANSION_MIDNIGHT",
     ["Satheril's Haven, Eversong Woods"] = "EXPANSION_MIDNIGHT",
     ["Silvermoon City"] = "EXPANSION_MIDNIGHT",
     ["The Bazaar, Silvermoon City"] = "EXPANSION_MIDNIGHT",
+    ["The Den"] = "EXPANSION_MIDNIGHT",
+    ["Val"] = "EXPANSION_MIDNIGHT",
     ["Voidstorm"] = "EXPANSION_MIDNIGHT",
     ["Zul'Aman"] = "EXPANSION_MIDNIGHT",
 }
@@ -210,6 +218,8 @@ local ZONE_NAME_ALIASES = {
 
 -- Runtime data
 local questsByZoneName = {}       -- zoneName -> { questKey1, questKey2, ... }
+local questsByMapID = {}          -- stable uiMapID -> { questKey1, questKey2, ... }
+local localizedQuestZoneNames = {} -- localized map/area name -> English scraper zone
 local treasureHuntQuestSet = {}   -- questID -> true (fast lookup for treasure hunt classification)
 local zoneDecorCache = {}         -- mapID -> { vendors = {...}, quests = {...}, treasures = {...} }
 local zoneProgressCache = {}      -- mapID -> { uncollected = n, total = n }
@@ -254,6 +264,12 @@ local function GetScraperZoneName(mapID)
         return aliased
     end
 
+    local localized = localizedQuestZoneNames[mapName]
+    if localized and questsByZoneName[localized] then
+        mapNameCache[mapID] = localized
+        return localized
+    end
+
     mapNameCache[mapID] = false
     return nil
 end
@@ -263,6 +279,10 @@ end
 --------------------------------------------------------------------------------
 local function BuildIndex()
     if indexBuilt then return end
+
+    if not addon.vendorIndexBuilt and addon.BuildVendorIndex then
+        addon:BuildVendorIndex()
+    end
 
     local startTime = debugprofilestop()
 
@@ -276,6 +296,8 @@ local function BuildIndex()
 
     -- 2. Build questsByZoneName reverse index from questAllZones (multi-zone support)
     wipe(questsByZoneName)
+    wipe(questsByMapID)
+    wipe(localizedQuestZoneNames)
     if addon.questAllZones then
         for questKey, zones in pairs(addon.questAllZones) do
             for _, zoneEntry in ipairs(zones) do
@@ -290,9 +312,29 @@ local function BuildIndex()
         end
     end
 
+
+    for zoneName, questKeys in pairs(questsByZoneName) do
+        local mapID = addon:GetMapIdForZone(zoneName)
+        if mapID then
+            questsByMapID[mapID] = questsByMapID[mapID] or {}
+            for _, questKey in ipairs(questKeys) do
+                table.insert(questsByMapID[mapID], questKey)
+            end
+        end
+
+        -- Area-only names such as The Great Sea have no unique uiMapID. Build
+        -- their current localized display alias from stable area metadata so the
+        -- compatibility fallback remains locale-safe.
+        local localizedName = addon:GetLocalizedZoneName(zoneName)
+        if localizedName then
+            local existing = localizedQuestZoneNames[localizedName]
+            localizedQuestZoneNames[localizedName] = existing and existing ~= zoneName and false or zoneName
+        end
+    end
+
     indexBuilt = true
 
-    addon:Debug(string.format("Built zone decor index in %d ms", debugprofilestop() - startTime))
+    addon:Debug(string.format("Built zone decor index in %d ms", math.floor(debugprofilestop() - startTime)))
 end
 
 --------------------------------------------------------------------------------
@@ -357,8 +399,11 @@ function addon:GetZoneDecorItems(mapID)
 
     -- Helper: collect quests and treasure hunts for a single mapID
     local function CollectQuestsAndTreasures(targetMapID)
-        local zoneName = GetScraperZoneName(targetMapID)
-        local zoneQuests = zoneName and questsByZoneName[zoneName]
+        local zoneQuests = questsByMapID[targetMapID]
+        if not zoneQuests then
+            local zoneName = GetScraperZoneName(targetMapID)
+            zoneQuests = zoneName and questsByZoneName[zoneName]
+        end
         if zoneQuests then
             for _, questKey in ipairs(zoneQuests) do
                 local questRecords = self.questIndex and self.questIndex[questKey]
@@ -458,6 +503,8 @@ end
 -- Called after BuildQuestIndex populates questAllZones/questIndex (which are lazy)
 function addon:ResetZoneIndex()
     wipe(questsByZoneName)
+    wipe(questsByMapID)
+    wipe(localizedQuestZoneNames)
     wipe(mapNameCache)
     indexBuilt = false
     self:InvalidateZoneDecorCache()

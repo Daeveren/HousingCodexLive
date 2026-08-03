@@ -1,8 +1,10 @@
 --[[
     Housing Codex - ZoneOverlay.lua
     World map overlay panel showing uncollected decor items for the current zone
-    Addon-owned UIParent frames anchored to the world map and visibility-mirrored
-    from WorldMapFrame.
+    The panel and its hover preview are both WorldMapFrame children, so they render
+    inside the map's framebuffer and composite with the map; other UI panels draw over
+    them without intervention. The preview is a sibling of the panel, not a child, so
+    the panel's SetClipsChildren does not crop it.
 ]]
 
 local _, addon = ...
@@ -35,9 +37,12 @@ local TITLE_FONT_SIZE = 11
 local ITEM_FONT_SIZE = 10
 local BACKDROP_ALPHA_FACTOR = 0.95  -- Reduce backdrop alpha slightly vs user setting for visual separation
 
--- UIParent-owned overlay frames do not inherit WorldMapFrame's scale. Compensate
--- by scaling dimensions and offsets to match the old WorldMapFrame-child size.
-local mapScaleFactor = 1
+-- Map pins start at 2000 and the top band ends at 2748 + C_QuestLog.GetMaxNumQuests(),
+-- because PIN_FRAME_LEVEL_ACTIVE_QUEST sizes itself from that runtime quest cap
+-- (Blizzard_WorldMap.lua, AddStandardDataProviders). Only used when the live pin-level
+-- query is unavailable, so keep wide headroom against a future cap increase rather than
+-- hugging today's total; the pin manager itself refuses to allocate past 9000.
+local OVERLAY_FRAME_LEVEL_FALLBACK = 5000
 
 local function IsSecretValue(value)
     return type(issecretvalue) == "function" and issecretvalue(value)
@@ -49,37 +54,39 @@ local function IsFrameShown(targetFrame)
     return not IsSecretValue(shown) and shown
 end
 
-local function IsAccessibleScale(value)
-    return type(value) == "number" and not IsSecretValue(value) and value > 0
+-- The panel is a WorldMapFrame child and inherits the map's scale directly, so fixed layout
+-- values are plain numbers and this is only a rounding clamp for the two genuinely
+-- fractional inputs: the expand/collapse tween and the user preview-scale setting.
+-- Re-applying a map/UIParent scale ratio here would square the map's scale on top of the
+-- inherited one.
+local function RoundMin(value, minimum)
+    return math.max(minimum or 1, math.floor((value or 0) + 0.5))
 end
 
-local function UpdateMapScaleFactor()
-    local nextScale = 1
-    if WorldMapFrame and UIParent then
-        local mapScale = WorldMapFrame:GetEffectiveScale()
-        local uiScale = UIParent:GetEffectiveScale()
-        if IsAccessibleScale(mapScale) and IsAccessibleScale(uiScale) then
-            nextScale = mapScale / uiScale
-        end
+-- One level above the topmost pin band, which places the panel over every map pin within
+-- the map's own strata. What keeps it *below* the map border and quest panel is strata,
+-- not this level: both are explicitly HIGH while we inherit the map's. GetValidFrameLevel
+-- clamps the index to the band's range, so math.huge resolves to that band's top level.
+--
+-- Re-read rather than cached: MapCanvasPinFrameLevelsManagerMixin:AddDefinition shifts
+-- existing bands upward when a new one is registered, so a data provider that appears
+-- after our init would otherwise end up above a one-shot level.
+local function GetOverlayFrameLevel()
+    if type(WorldMapFrame.GetPinFrameLevelsManager) ~= "function" then
+        return OVERLAY_FRAME_LEVEL_FALLBACK
     end
 
-    -- A wildly unexpected ratio means the scale read is not useful; preserve
-    -- usable defaults instead of producing an oversized or tiny overlay.
-    if nextScale < 0.5 or nextScale > 2.0 then
-        nextScale = 1
+    local manager = WorldMapFrame:GetPinFrameLevelsManager()
+    if not manager or type(manager.GetValidFrameLevel) ~= "function" then
+        return OVERLAY_FRAME_LEVEL_FALLBACK
     end
 
-    local changed = math.abs(nextScale - mapScaleFactor) > 0.001
-    mapScaleFactor = nextScale
-    return changed
-end
+    local topPinLevel = manager:GetValidFrameLevel("PIN_FRAME_LEVEL_TOPMOST", math.huge)
+    if type(topPinLevel) ~= "number" or IsSecretValue(topPinLevel) then
+        return OVERLAY_FRAME_LEVEL_FALLBACK
+    end
 
-local function S(value)
-    return math.floor((value or 0) * mapScaleFactor + 0.5)
-end
-
-local function SMin(value, minimum)
-    return math.max(minimum or 1, S(value))
+    return topPinLevel + 1
 end
 
 -- Model scene constants (same as tile display)
@@ -107,7 +114,6 @@ local previewFrame = nil
 local previewModelScene = nil
 local expandedCategories = {}   -- categoryKey -> true/false
 local lastCategoryMapID = nil   -- reset on zone change
-local blockingUIPanels = setmetatable({}, { __mode = "k" })
 
 -- Animation constants
 local ANIM_EXPAND_DURATION = 0.25
@@ -131,11 +137,11 @@ local CancelAnimation  -- forward declaration (called in OnHide, defined in Anim
 -- Helper: get preview size based on scale setting
 local function GetPreviewSize()
     local scale = addon.db and addon.db.settings.zoneOverlayPreviewScale or 1.0
-    return SMin(PREVIEW_SIZE * scale, 1)
+    return RoundMin(PREVIEW_SIZE * scale)
 end
 
 local function GetPreviewIconSize(size)
-    return math.max(1, size - S(16))
+    return RoundMin(size - 16)
 end
 
 -- Helper: place a map pin for a vendor NPC
@@ -169,11 +175,20 @@ end
 local function CreatePreviewFrame()
     if previewFrame then return end
 
-    UpdateMapScaleFactor()
     local size = GetPreviewSize()
-    previewFrame = CreateFrame("Frame", nil, UIParent, "BackdropTemplate")
-    previewFrame:SetFrameStrata("TOOLTIP")
-    previewFrame:SetSize(size + S(8), size + S(8))
+    -- A WorldMapFrame child, like the panel, so the popout composites with the map and
+    -- other UI panels draw over it. A sibling of the panel rather than a child: the panel
+    -- sets SetClipsChildren(true) for its expand animation, which would crop the popout.
+    -- Nothing clips it here — BlackoutFrame is a WorldMapFrame child anchored to the full
+    -- UIParent and renders unclipped, so the buffer sizes to subtree bounds, not the map rect.
+    -- DIALOG, not TOOLTIP: it must clear the panel and the map's HIGH BorderFrame, and no
+    -- Blizzard TOOLTIP-strata descendant of WorldMapFrame exists to model that on.
+    -- Blizzard precedent for the ModelScene: WorldMapThreatFrameTemplate is registered via
+    -- AddOverlayFrame (parent = WorldMapFrame) and holds two ModelScenes on this same
+    -- NonInteractableModelSceneMixinTemplate.
+    previewFrame = CreateFrame("Frame", nil, WorldMapFrame, "BackdropTemplate")
+    previewFrame:SetFrameStrata("DIALOG")
+    previewFrame:SetSize(size + 8, size + 8)
     previewFrame:SetBackdrop({
         bgFile = "Interface\\Buttons\\WHITE8x8",
         edgeFile = "Interface\\Tooltips\\UI-Tooltip-Border",
@@ -194,7 +209,6 @@ local function CreatePreviewFrame()
 end
 
 local function ShowPreview(itemRow, recordID)
-    UpdateMapScaleFactor()
     CreatePreviewFrame()
 
     local record = addon:GetRecord(recordID)
@@ -205,7 +219,7 @@ local function ShowPreview(itemRow, recordID)
 
     -- Apply current preview size
     local size = GetPreviewSize()
-    previewFrame:SetSize(size + S(8), size + S(8))
+    previewFrame:SetSize(size + 8, size + 8)
     local iconSize = GetPreviewIconSize(size)
     previewFrame.icon:SetSize(iconSize, iconSize)
 
@@ -213,9 +227,9 @@ local function ShowPreview(itemRow, recordID)
     previewFrame:ClearAllPoints()
     local db = addon.db
     if db and db.settings.zoneOverlayPosition == "bottomRight" then
-        previewFrame:SetPoint("BOTTOMRIGHT", frame, "BOTTOMLEFT", S(-4), 0)
+        previewFrame:SetPoint("BOTTOMRIGHT", frame, "BOTTOMLEFT", -4, 0)
     else
-        previewFrame:SetPoint("TOPLEFT", frame, "TOPRIGHT", S(4), 0)
+        previewFrame:SetPoint("TOPLEFT", frame, "TOPRIGHT", 4, 0)
     end
 
     -- Try 3D model first
@@ -239,8 +253,8 @@ local function ShowPreview(itemRow, recordID)
             end)
         end
         previewModelScene:ClearAllPoints()
-        previewModelScene:SetPoint("TOPLEFT", S(4), S(-4))
-        previewModelScene:SetPoint("BOTTOMRIGHT", S(-4), S(4))
+        previewModelScene:SetPoint("TOPLEFT", 4, -4)
+        previewModelScene:SetPoint("BOTTOMRIGHT", -4, 4)
 
         local actor = previewModelScene:GetActorByTag("decor") or previewModelScene:GetActorByTag("item")
         if actor then
@@ -271,76 +285,81 @@ end
 --------------------------------------------------------------------------------
 -- Frame creation
 --------------------------------------------------------------------------------
-local function ApplyStaticScale()
+local function ApplyStaticLayout()
     if not frame then return end
 
     if frame.titleBar then
-        frame.titleBar:SetHeight(S(TITLE_BAR_HEIGHT))
+        frame.titleBar:SetHeight(TITLE_BAR_HEIGHT)
     end
     if frame.titleIcon then
-        frame.titleIcon:SetSize(SMin(16), SMin(16))
+        frame.titleIcon:SetSize(16, 16)
         frame.titleIcon:ClearAllPoints()
-        frame.titleIcon:SetPoint("LEFT", S(8), 0)
+        frame.titleIcon:SetPoint("LEFT", 8, 0)
     end
     if frame.titleText then
         frame.titleText:ClearAllPoints()
-        frame.titleText:SetPoint("LEFT", frame.titleIcon, "RIGHT", S(6), 0)
-        frame.titleText:SetPoint("RIGHT", S(-28), 0)
-        addon:SetFontSize(frame.titleText, SMin(TITLE_FONT_SIZE), "")
+        frame.titleText:SetPoint("LEFT", frame.titleIcon, "RIGHT", 6, 0)
+        frame.titleText:SetPoint("RIGHT", -28, 0)
+        addon:SetFontSize(frame.titleText, TITLE_FONT_SIZE, "")
     end
     if frame.toggleBtn then
-        frame.toggleBtn:SetSize(SMin(20), SMin(20))
+        frame.toggleBtn:SetSize(20, 20)
         frame.toggleBtn:ClearAllPoints()
-        frame.toggleBtn:SetPoint("RIGHT", S(-4), 0)
+        frame.toggleBtn:SetPoint("RIGHT", -4, 0)
     end
     if frame.toggleArrow then
-        frame.toggleArrow:SetSize(SMin(12), SMin(12))
+        frame.toggleArrow:SetSize(12, 12)
         frame.toggleArrow:ClearAllPoints()
         frame.toggleArrow:SetPoint("CENTER")
     end
     if frame.scrollBox then
         frame.scrollBox:ClearAllPoints()
         frame.scrollBox:SetPoint("TOPLEFT", 0, 0)
-        frame.scrollBox:SetPoint("BOTTOMRIGHT", S(-10), 0)
+        frame.scrollBox:SetPoint("BOTTOMRIGHT", -10, 0)
     end
     if frame.scrollBar and frame.scrollBox then
         frame.scrollBar:ClearAllPoints()
-        frame.scrollBar:SetPoint("TOPLEFT", frame.scrollBox, "TOPRIGHT", S(-1), 0)
-        frame.scrollBar:SetPoint("BOTTOMLEFT", frame.scrollBox, "BOTTOMRIGHT", S(-1), 0)
+        frame.scrollBar:SetPoint("TOPLEFT", frame.scrollBox, "TOPRIGHT", -1, 0)
+        frame.scrollBar:SetPoint("BOTTOMLEFT", frame.scrollBox, "BOTTOMRIGHT", -1, 0)
         local track = frame.scrollBar:GetTrack()
         track:ClearAllPoints()
         track:SetPoint("TOP", 0, 0)
-        track:SetPoint("BOTTOM", 0, S(5))
+        track:SetPoint("BOTTOM", 0, 5)
     end
 end
 
-local function ApplyRowScale(row)
-    row.headerArrow:SetSize(SMin(10), SMin(10))
+local function ApplyRowLayout(row)
+    row.headerArrow:SetSize(10, 10)
     row.headerArrow:ClearAllPoints()
-    row.headerArrow:SetPoint("LEFT", S(PADDING), 0)
+    row.headerArrow:SetPoint("LEFT", PADDING, 0)
 
     row.headerText:ClearAllPoints()
-    row.headerText:SetPoint("LEFT", row.headerArrow, "RIGHT", S(4), 0)
-    row.headerText:SetPoint("RIGHT", S(-PADDING), 0)
-    addon:SetFontSize(row.headerText, SMin(ITEM_FONT_SIZE), "")
+    row.headerText:SetPoint("LEFT", row.headerArrow, "RIGHT", 4, 0)
+    row.headerText:SetPoint("RIGHT", -PADDING, 0)
+    addon:SetFontSize(row.headerText, ITEM_FONT_SIZE, "")
 
-    row.icon:SetSize(SMin(ICON_SIZE), SMin(ICON_SIZE))
+    row.icon:SetSize(ICON_SIZE, ICON_SIZE)
     row.icon:ClearAllPoints()
-    row.icon:SetPoint("LEFT", S(4), 0)
+    row.icon:SetPoint("LEFT", 4, 0)
 
     row.name:ClearAllPoints()
-    row.name:SetPoint("LEFT", row.icon, "RIGHT", S(4), 0)
-    row.name:SetPoint("RIGHT", S(-4), 0)
-    addon:SetFontSize(row.name, SMin(ITEM_FONT_SIZE), "")
+    row.name:SetPoint("LEFT", row.icon, "RIGHT", 4, 0)
+    row.name:SetPoint("RIGHT", -4, 0)
+    addon:SetFontSize(row.name, ITEM_FONT_SIZE, "")
 end
 
 local function CreateOverlayFrame()
     if frame then return end
 
-    UpdateMapScaleFactor()
-    frame = CreateFrame("Frame", "HousingCodexZoneOverlayFrame", UIParent, "BackdropTemplate")
-    frame:SetFrameStrata("DIALOG")
-    frame:SetClampedToScreen(true)
+    -- Parent to WorldMapFrame at creation only (SetParent is protected, never reparent
+    -- later) so the panel renders inside the map's framebuffer. Deliberately no strata:
+    -- the map re-applies a game-rule strata to itself on every OnShow, and an inherited
+    -- strata follows it, where a pinned one would break out of the map's ordering.
+    -- No SetClampedToScreen either: UpdatePosition single-point anchors the panel inside
+    -- ScrollContainer and ApplyLayout sizes it explicitly, so it cannot leave the map
+    -- canvas; screen clamping could only fight that anchor.
+    frame = CreateFrame("Frame", "HousingCodexZoneOverlayFrame", WorldMapFrame, "BackdropTemplate")
+    frame:SetFrameLevel(GetOverlayFrameLevel())
     frame:SetClipsChildren(true)
     frame:EnableMouse(false)  -- let clicks pass through to the map; titleBar and rows handle their own mouse
     frame:SetBackdrop({
@@ -445,7 +464,7 @@ local function CreateOverlayFrame()
 
     -- Mixed heights: headers vs items
     view:SetElementExtentCalculator(function(dataIndex, elementData)
-        return elementData.isHeader and SMin(HEADER_HEIGHT) or SMin(ITEM_ROW_HEIGHT)
+        return elementData.isHeader and HEADER_HEIGHT or ITEM_ROW_HEIGHT
     end)
 
     -- Single frame type, differentiated in initializer
@@ -547,7 +566,7 @@ local function CreateOverlayFrame()
                 end
             end)
         end
-        ApplyRowScale(row)
+        ApplyRowLayout(row)
 
         if elementData.isHeader then
             row.headerArrow:Show()
@@ -592,7 +611,7 @@ local function CreateOverlayFrame()
     local track = scrollBar:GetTrack()
     track:ClearAllPoints()
     track:SetPoint("TOP", 0, 0)
-    track:SetPoint("BOTTOM", 0, S(5))
+    track:SetPoint("BOTTOM", 0, 5)
 
     frame.scrollBox = scrollBox
     frame.scrollBar = scrollBar
@@ -601,13 +620,21 @@ local function CreateOverlayFrame()
     scrollBox:SetDataProvider(dp)
     frame.dataProvider = dp
 
-    -- Hide preview when overlay frame hides (e.g., empty zone or setting toggled off)
+    -- Fires on every hide: empty zone, setting toggled off, and WorldMapFrame hiding this
+    -- frame as its parent. Drops the preview, stops any animation, and forgets the minimize
+    -- state so the next show renders instantly — keeping that state would let a flip that
+    -- happened while hidden animate from stale geometry.
     frame:SetScript("OnHide", function()
         HidePreview()
         CancelAnimation()
+        lastMinimizedState = nil
     end)
 
-    ApplyStaticScale()
+    -- CreateFrame returns a shown frame. Nothing is laid out yet, so start hidden rather
+    -- than leaving IsFrameShown(frame) true until the deferred UpdateVisibility runs.
+    frame:Hide()
+
+    ApplyStaticLayout()
     ZoneOverlay:UpdatePosition()
     ZoneOverlay:UpdateAlpha()
 end
@@ -626,8 +653,8 @@ end
 -- Write all animated properties forward (never reads from frame)
 local function ApplyLayout(w, h, tbh, ca, aa)
     curWidth, curHeight, curTitleBarHeight, curContentAlpha, curArrowAngle = w, h, tbh, ca, aa
-    frame:SetSize(SMin(w), SMin(h))
-    frame.titleBar:SetHeight(SMin(tbh))
+    frame:SetSize(RoundMin(w), RoundMin(h))
+    frame.titleBar:SetHeight(RoundMin(tbh))
     frame.toggleArrow:SetRotation(aa)
     contentFrame:SetAlpha(ca)
 end
@@ -709,40 +736,18 @@ end
 --------------------------------------------------------------------------------
 -- Layout refresh
 --------------------------------------------------------------------------------
+-- OnHide carries the minimize-state reset so a parent-driven hide (WorldMapFrame closing)
+-- is covered too. Reset here as well rather than relying on it: Hide() on an already-hidden
+-- frame does not fire OnHide, and a refresh that ran while hidden can have repopulated the
+-- state in between. Both paths are idempotent.
 local function HideOverlay()
+    if not frame then return end
     frame:Hide()
-    -- Forget the minimize state so the next show renders instantly. Keeping it would
-    -- let a state flip that happened while hidden animate from the stale geometry.
     lastMinimizedState = nil
-end
-
--- Secret visibility means "unknown", never "blocking" (IsFrameShown already has that
--- polarity). Blizzard panel frames are permanent globals, so a sticky entry would pin the
--- overlay hidden for the rest of the session; dropping it costs at most one frame of
--- overlap, and the panel re-registers on its next ShowUIPanel.
-local function HasBlockingUIPanel()
-    for panel in pairs(blockingUIPanels) do
-        if IsFrameShown(panel) then
-            return true
-        end
-        blockingUIPanels[panel] = nil
-    end
-    return false
 end
 
 function ZoneOverlay:RefreshLayout()
     if not frame or not addon.db then return end
-
-    if HasBlockingUIPanel() then
-        HideOverlay()
-        return
-    end
-
-    local scaleChanged = UpdateMapScaleFactor()
-    if scaleChanged then
-        ApplyStaticScale()
-        self:UpdatePreviewSize()
-    end
 
     local db = addon.db
     local isMinimized = db.settings.zoneOverlayMinimized
@@ -770,13 +775,10 @@ function ZoneOverlay:RefreshLayout()
         return
     end
 
-    -- Ensure frame is visible (may have been hidden by empty zone).
-    -- The combat guard suppresses only the Show: returning here instead would abandon
-    -- the rest of the layout, so a title-bar or category click during combat would flip
-    -- the persisted state while the visible rows and count kept their old values until
-    -- PLAYER_REGEN_ENABLED. Everything below acts on addon-owned frames, which are
-    -- unprotected and safe to lay out in combat.
-    if db.settings.showZoneOverlay and IsFrameShown(WorldMapFrame) and not InCombatLockdown() then
+    -- Ensure frame is visible (may have been hidden by empty zone). No combat guard: the
+    -- panel is map content rather than a standalone window, and everything here acts on
+    -- addon-owned unprotected frames. See UpdateVisibility for the full rationale.
+    if db.settings.showZoneOverlay and IsFrameShown(WorldMapFrame) then
         frame:Show()
     end
 
@@ -915,7 +917,7 @@ function ZoneOverlay:RefreshLayout()
 
     -- Set content height and populate data before animation
     -- (content renders at target size, clipped by parent during expand)
-    contentFrame:SetHeight(SMin(visibleHeight + PADDING))
+    contentFrame:SetHeight(visibleHeight + PADDING)
     frame.dataProvider:Flush()
     frame.dataProvider:InsertTable(flatData)
 
@@ -942,12 +944,12 @@ function ZoneOverlay:UpdatePosition()
     frame:ClearAllPoints()
     local pos = addon.db.settings.zoneOverlayPosition
     if pos == "bottomRight" then
-        frame:SetPoint("BOTTOMRIGHT", WorldMapFrame.ScrollContainer, "BOTTOMRIGHT", S(-35), S(5))
+        frame:SetPoint("BOTTOMRIGHT", WorldMapFrame.ScrollContainer, "BOTTOMRIGHT", -35, 5)
     else
         -- Shift down if current map has a floor dropdown (multi-level maps like Dalaran)
         local groupID = currentMapID and C_Map.GetMapGroupID(currentMapID)
         local yOffset = groupID and -31 or -6
-        frame:SetPoint("TOPLEFT", WorldMapFrame.ScrollContainer, "TOPLEFT", S(7), S(yOffset))
+        frame:SetPoint("TOPLEFT", WorldMapFrame.ScrollContainer, "TOPLEFT", 7, yOffset)
     end
 end
 
@@ -960,115 +962,32 @@ function ZoneOverlay:UpdateAlpha()
 end
 
 function ZoneOverlay:UpdatePreviewSize()
-    UpdateMapScaleFactor()
     if not previewFrame then return end
     local size = GetPreviewSize()
-    previewFrame:SetSize(size + S(8), size + S(8))
+    previewFrame:SetSize(size + 8, size + 8)
     local iconSize = GetPreviewIconSize(size)
     previewFrame.icon:SetSize(iconSize, iconSize)
 end
 
--- Combat guard: overlay is a top-level addon frame anchored to the map; EnableMouse(false) so purely visual
+-- Deliberately no combat guard. The project suppresses its standalone *windows* mid-combat,
+-- but this panel is map content: the map itself opens in combat, so blanking part of it only
+-- removes information. Verified in game (2026-08-04) — the frame is unprotected (no secure
+-- template or attribute, EnableMouse(false)), so showing, expanding and hovering all work
+-- under lockdown with no ADDON_ACTION_BLOCKED. The guard's only observable effect was that
+-- reopening the map mid-combat left the panel hidden until PLAYER_REGEN_ENABLED, while a
+-- panel already open stayed fully interactive — same state, different outcome.
+--
+-- The PLAYER_REGEN_ENABLED handler in InitializeOverlay stays as a self-heal: if this frame
+-- ever gains a secure template and Show() becomes genuinely blockable, it recovers instead
+-- of staying stuck.
 function ZoneOverlay:UpdateVisibility()
     if not frame or not addon.db then return end
 
-    if addon.db.settings.showZoneOverlay and IsFrameShown(WorldMapFrame) and not HasBlockingUIPanel() then
-        if InCombatLockdown() then return end
+    if addon.db.settings.showZoneOverlay and IsFrameShown(WorldMapFrame) then
         frame:Show()
         self:RefreshLayout()
     else
         HideOverlay()
-    end
-end
-
--- The panel hooks are global, so they fire on every window the player opens anywhere in
--- the game. Skip the work entirely unless the overlay could actually be on screen; the
--- map's own Show hook re-seeds the panel set, so nothing is lost by ignoring panels
--- opened while the map is closed.
-local function ShouldTrackPanels()
-    return addon.db and addon.db.settings.showZoneOverlay and IsFrameShown(WorldMapFrame)
-end
-
--- Hook bodies run inside Blizzard's execution context, so defer the visibility work.
--- Coalesced: HideUIPanel also triggers the panel's own Hide hook, and a bulk close
--- fires for every open panel, so one update per frame is enough.
-local panelVisibilityUpdatePending = false
-
-local function SchedulePanelVisibilityUpdate()
-    if panelVisibilityUpdatePending then return end
-    panelVisibilityUpdatePending = true
-    C_Timer.After(0, function()
-        panelVisibilityUpdatePending = false
-        ZoneOverlay:UpdateVisibility()
-    end)
-end
-
--- Panels reach us from any caller, so vet the frame before touching widget methods.
--- Calling into a forbidden frame from addon code raises a hard error, and one raised
--- during init would abort the remaining hook installs.
-local function IsTrackablePanel(panel)
-    if type(panel) ~= "table" or panel == WorldMapFrame then return false end
-    if type(panel.IsForbidden) ~= "function" or panel:IsForbidden() then return false end
-    return type(panel.IsShown) == "function"
-end
-
--- Not weak-keyed: TrackPanelHide stores each panel in a closure that lives on the
--- frame's hook chain for the session, so a weak key could never be collected anyway.
-local hookedPanels = {}
-
--- A post-hook fires even when the hooked function did nothing: HideUIPanel bails on
--- CheckProtectedFunctionsAllowed() in combat, and Frame:Hide() is itself protected.
--- Clearing on the strength of the call alone would drop a still-open panel from the
--- set, and nothing but a fresh ShowUIPanel ever puts it back.
-local function ClearPanelIfHidden(panel)
-    if not blockingUIPanels[panel] then return end
-    if IsFrameShown(panel) then return end
-    blockingUIPanels[panel] = nil
-    SchedulePanelVisibilityUpdate()
-end
-
--- HideUIPanel is not the only close path: CloseSpecialWindows and panel-slot
--- displacement call frame:Hide() directly. Mirror each tracked panel's own Hide so
--- those paths still evict it instead of leaving the overlay suppressed.
-local function TrackPanelHide(panel)
-    if hookedPanels[panel] then return end
-    hookedPanels[panel] = true
-    hooksecurefunc(panel, "Hide", function()
-        ClearPanelIfHidden(panel)
-    end)
-end
-
--- Recorded optimistically rather than verified: ShowUIPanel can be refused (combat,
--- dead player, CanOpenPanels), and HasBlockingUIPanel() evicts on its next sweep when
--- the panel did not open. The asymmetry with the hide path is deliberate: over-recording
--- self-corrects, under-recording does not.
-local function OnUIPanelShown(panel)
-    if not ShouldTrackPanels() or not IsTrackablePanel(panel) then return end
-    blockingUIPanels[panel] = true
-    TrackPanelHide(panel)
-    SchedulePanelVisibilityUpdate()
-end
-
-local function OnUIPanelHidden(panel)
-    if not IsTrackablePanel(panel) then return end
-    ClearPanelIfHidden(panel)
-end
-
--- Panel slots managed by Blizzard's UIParent panel manager (GetUIPanel keys).
-local UI_PANEL_SLOTS = { "left", "center", "right", "doublewide", "fullscreen" }
-
--- Resync the tracked set from the panel manager. Needed at init and whenever the map
--- opens, since the hooks only observe transitions and deliberately ignore panels opened
--- while the map was closed. Known gap: ShowUIPanel shows frames with no "area" attribute
--- via a direct Show(), and those never occupy a slot, so GetUIPanel cannot see them.
-local function SeedOpenUIPanels()
-    if type(GetUIPanel) ~= "function" then return end
-    for _, slot in ipairs(UI_PANEL_SLOTS) do
-        local panel = GetUIPanel(slot)
-        if IsTrackablePanel(panel) and IsFrameShown(panel) then
-            blockingUIPanels[panel] = true
-            TrackPanelHide(panel)
-        end
     end
 end
 
@@ -1116,19 +1035,20 @@ local function InitializeOverlay()
     -- Hook zone changes
     hooksecurefunc(WorldMapFrame, "OnMapChanged", ScheduleMapUpdate)
 
-    -- A fixed strata cannot render above the map's own layers while remaining
-    -- below other UI panels. Suppress only our addon-owned overlay while another
-    -- managed panel is open, then restore it when that panel closes.
-    hooksecurefunc("ShowUIPanel", OnUIPanelShown)
-    hooksecurefunc("HideUIPanel", OnUIPanelHidden)
-    -- Seeded last: it walks foreign frames, and an error here must not cost us the
-    -- hooks above or the ones below.
-    SeedOpenUIPanels()
+    -- No panel-occlusion tracking is needed: as a WorldMapFrame child the panel renders
+    -- inside the map's framebuffer, so CharacterFrame, AchievementFrame and other panels
+    -- draw over it on their own.
 
-    -- Refresh data when map shows and mirror addon-owned overlay visibility.
+    -- Refresh data when the map shows. The panel itself follows its parent's visibility;
+    -- this restores it after an explicit hide (empty zone, setting off, combat guard).
     hooksecurefunc(WorldMapFrame, "Show", function()
         C_Timer.After(0, function()
-            SeedOpenUIPanels()
+            -- Re-assert the level each open: a data provider registering after our init
+            -- shifts the pin bands upward, which would leave a level captured at creation
+            -- underneath them.
+            if frame then
+                frame:SetFrameLevel(GetOverlayFrameLevel())
+            end
             if addon.db and addon.db.settings.showZoneOverlay and IsFrameShown(WorldMapFrame) then
                 ScheduleMapUpdate()
             end
@@ -1136,19 +1056,23 @@ local function InitializeOverlay()
         end)
     end)
 
-    -- Hide addon-owned overlay surfaces when map closes.
+    -- The parent hide already blanks both surfaces, but IsShown() stays true for a child
+    -- hidden via its parent, and IsFrameShown(frame) guards elsewhere key off it. Hide
+    -- both explicitly so those guards stay meaningful.
     hooksecurefunc(WorldMapFrame, "Hide", function()
         C_Timer.After(0, function()
             HidePreview()
-            if frame then
-                HideOverlay()
-            end
+            HideOverlay()
         end)
     end)
 
     -- Refresh on ownership changes (debounced to coalesce rapid updates)
     addon:RegisterInternalEvent("ZONE_DECOR_CACHE_INVALIDATED", function()
-        if not IsFrameShown(frame) then return end
+        -- Test the map too, not just our own shown flag. A child hidden through its parent
+        -- keeps IsShown() true, and the map's Hide hook that resyncs the flag is one frame
+        -- late and never runs at all when the map goes away without Hide() being called
+        -- (UIParent:Hide() during cinematics or pet battles).
+        if not IsFrameShown(frame) or not IsFrameShown(WorldMapFrame) then return end
         if ownershipTimer then ownershipTimer:Cancel() end
         ownershipTimer = C_Timer.NewTimer(0.05, function()
             ownershipTimer = nil

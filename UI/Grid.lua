@@ -491,34 +491,6 @@ function Grid:CreateScrollBox(parent, tileSize)
     addon:Debug("Grid created with " .. columns .. " columns, tile size " .. tileSize)
 end
 
-function Grid:DestroyScrollBox()
-    -- Cancel pending resize timer to prevent errors after teardown
-    if self.resizeTimer then
-        self.resizeTimer:Cancel()
-        self.resizeTimer = nil
-    end
-
-    if self.scrollBox then
-        addon:UnregisterFontStrings(self.scrollBox)
-        self.scrollBox:Hide()
-        self.scrollBox:SetParent(nil)
-        self.scrollBox = nil
-    end
-    if self.scrollBar then
-        self.scrollBar:Hide()
-        self.scrollBar:SetParent(nil)
-        self.scrollBar = nil
-    end
-    if self.container then
-        addon:UnregisterFontStrings(self.container)
-        self.container:Hide()
-        self.container:SetParent(nil)
-        self.container = nil
-    end
-    self.view = nil
-    self.dataProvider = nil
-end
-
 function Grid:Create(parent)
     if self.toolbar and self.scrollBox then return end
 
@@ -746,7 +718,7 @@ function Grid:SetData(recordIDs)
     -- PassesSearcherFilters doesn't replicate those searcher-side rules, so
     -- augmented IDs would bypass the user's narrowed scope.
     local candidates = self.unfilteredRecordIDs
-    local searchText = strtrim(addon.SearchBox and addon.SearchBox:GetText() or "")
+    local searchText = addon:NormalizeSearchText(addon.SearchBox and addon.SearchBox:GetText() or "")
     if addon.Filters.showPromoOnly and addon.PromotionalDecorIds and searchText == ""
        and addon.Filters:AreAdvancedFiltersAtDefault() then
         candidates = MergeAugmentedCandidates(candidates, addon.PromotionalDecorIds, function(promoId)
@@ -972,7 +944,7 @@ addon:RegisterInternalEvent("SEARCH_RESULTS_UPDATED", function(recordIDs)
     -- queries containing those characters from reaching SearchByText at all.
     -- Periods are allowed so exact patch-version searches like 12.0.7 can
     -- match Added in patch metadata through SearchByText.
-    local searchText = strtrim(addon.SearchBox and addon.SearchBox:GetText() or "")
+    local searchText = addon:NormalizeSearchText(addon.SearchBox and addon.SearchBox:GetText() or "")
     if #searchText >= 3 and not string.find(searchText, "[^%w%s'\"%-%.]") and addon.indexesBuilt
        and addon.Filters:AreAdvancedFiltersAtDefault()
        and not IS_CJK_LOCALE then

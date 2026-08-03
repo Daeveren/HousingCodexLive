@@ -5,6 +5,11 @@
 
 local ADDON_NAME, addon = ...
 
+local CONTENT_TRACKING_TYPE = Enum and Enum.ContentTrackingType
+local CONTENT_TRACKING_ERROR = Enum and Enum.ContentTrackingError
+local CONTENT_TRACKING_STOP_TYPE = Enum and Enum.ContentTrackingStopType
+local CONTENT_TRACKING_CONSTANTS = Constants and Constants.ContentTrackingConsts
+
 -- Export addon table globally for other files and debugging
 HousingCodex = addon
 
@@ -118,8 +123,13 @@ addon.CONSTANTS = {
     FONT_PATH = "Interface\\AddOns\\HousingCodex\\Fonts\\Roboto_Condensed_semibold.ttf",
 
     -- Content tracking (Blizzard enums resolved at load time)
-    TRACKING_TYPE_DECOR = Enum.ContentTrackingType.Decor,
-    MAX_TRACKED = Constants.ContentTrackingConsts.MaxTrackedCollectableSources,
+    TRACKING_TYPE_DECOR = CONTENT_TRACKING_TYPE and CONTENT_TRACKING_TYPE.Decor,
+    TRACKING_TYPE_ACHIEVEMENT = CONTENT_TRACKING_TYPE and CONTENT_TRACKING_TYPE.Achievement,
+    TRACKING_ERROR_MAX = CONTENT_TRACKING_ERROR and CONTENT_TRACKING_ERROR.MaxTracked,
+    TRACKING_ERROR_UNTRACKABLE = CONTENT_TRACKING_ERROR and CONTENT_TRACKING_ERROR.Untrackable,
+    TRACKING_ERROR_ALREADY_TRACKED = CONTENT_TRACKING_ERROR and CONTENT_TRACKING_ERROR.AlreadyTracked,
+    TRACKING_STOP_MANUAL = CONTENT_TRACKING_STOP_TYPE and CONTENT_TRACKING_STOP_TYPE.Manual,
+    MAX_TRACKED = CONTENT_TRACKING_CONSTANTS and CONTENT_TRACKING_CONSTANTS.MaxTrackedCollectableSources,
     WAYPOINT_MATCH_EPSILON = 0.0001, -- Tolerance for comparing waypoint coordinates
     WAYPOINT_OWNER_GENERIC = "generic",
     WAYPOINT_OWNER_TREASURE_HUNT = "treasure-hunt",
@@ -227,6 +237,12 @@ addon.CONSTANTS = {
         QUEST_REFRESH_DEBOUNCE = 0.1,     -- Quest event coalescing (completion + cache invalidation)
         STORAGE_UPDATE_DEBOUNCE = 0.5,    -- Housing storage event coalescing
         HISTORY_DEBOUNCE = 2.0,           -- Collection-history snapshot coalescing
+        BUDGET_CAPTURE_DEBOUNCE = 0.05,   -- Coalesce bursts before the first placement-budget retry
+        BUDGET_CAPTURE_RETRY_SHORT = 0.25,
+        BUDGET_CAPTURE_RETRY_LONG = 1.0,
+        BUDGET_OWNED_LIST_RETRY_DELAY = 1.0,
+        BUDGET_OWNED_LIST_MAX_RETRIES = 2,
+        BUDGET_OWNED_LIST_FALLBACK_DELAY = 10.0,
     },
 
     -- Progress sidebar additions
@@ -662,13 +678,36 @@ function addon:PrintTrackingResult(errorCode, startedKey, failedKey, maxKey, alr
     local L = self.L
     if errorCode == nil then
         self:Print(L[startedKey])
-    elseif errorCode == Enum.ContentTrackingError.MaxTracked then
+    elseif self.CONSTANTS.TRACKING_ERROR_MAX and errorCode == self.CONSTANTS.TRACKING_ERROR_MAX then
         self:Print(L[maxKey])
-    elseif errorCode == Enum.ContentTrackingError.AlreadyTracked then
+    elseif self.CONSTANTS.TRACKING_ERROR_ALREADY_TRACKED and errorCode == self.CONSTANTS.TRACKING_ERROR_ALREADY_TRACKED then
         self:Print(L[alreadyKey])
     else
         self:Print(L[failedKey])
     end
+end
+
+local SEARCH_PUNCTUATION_REPLACEMENTS = {
+    ["‘"] = "'",
+    ["’"] = "'",
+    ["“"] = '"',
+    ["”"] = '"',
+    ["‐"] = "-",
+    ["‑"] = "-",
+    ["‒"] = "-",
+    ["–"] = "-",
+    ["—"] = "-",
+    ["−"] = "-",
+}
+
+-- Canonicalize punctuation commonly introduced by websites, chat, and rich text.
+-- Both query and candidate text must pass through this helper before comparison.
+function addon:NormalizeSearchText(text)
+    local normalized = tostring(text or "")
+    for source, replacement in pairs(SEARCH_PUNCTUATION_REPLACEMENTS) do
+        normalized = normalized:gsub(source, replacement)
+    end
+    return strlower(strtrim(normalized))
 end
 
 function addon.IsValidMapId(mapId)

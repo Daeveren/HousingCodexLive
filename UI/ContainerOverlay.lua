@@ -135,7 +135,7 @@ function ContainerOverlay:UpdateButton(button, itemID)
         return
     end
 
-    if catalogInfo.entryID and not addon:ShouldDisplayDecor(catalogInfo.entryID.recordID) then
+    if catalogInfo.recordID and not addon:ShouldDisplayDecor(catalogInfo.recordID) then
         HideButtonOverlay(button)
         return
     end

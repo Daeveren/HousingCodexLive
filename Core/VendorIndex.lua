@@ -788,9 +788,10 @@ end
 function addon:IsVendorDecorResolvable(decorId, requireRecord)
     if self:ResolveRecord(decorId) then return true end
     if requireRecord then return false end
-    if C_HousingDecor and C_HousingDecor.GetDecorIcon then
+    local isSecret = type(issecretvalue) == "function" and issecretvalue(decorId)
+    if C_HousingDecor and C_HousingDecor.GetDecorIcon and decorId and not isSecret then
         local icon = C_HousingDecor.GetDecorIcon(decorId)
-        if icon then return true end
+        if type(icon) == "number" and icon > 0 then return true end
     end
     local fallback = self.VendorItemFallback and self.VendorItemFallback[decorId]
     return fallback and fallback.name ~= nil

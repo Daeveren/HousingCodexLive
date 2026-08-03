@@ -85,11 +85,11 @@ function addon:BuildWordIndex()
 
     local function IndexRecord(recordID, record)
         if record.name then
-            TokenizeIntoIndex(string.lower(record.name), recordID)
+            TokenizeIntoIndex(self:NormalizeSearchText(record.name), recordID)
         end
 
         if record.sourceText and record.sourceText ~= "" then
-            TokenizeIntoIndex(string.lower(StripSourceMarkup(record.sourceText)), recordID)
+            TokenizeIntoIndex(self:NormalizeSearchText(StripSourceMarkup(record.sourceText)), recordID)
         end
 
         if addon:IsPromoDecor(recordID) then
@@ -118,7 +118,7 @@ function addon:BuildWordIndex()
     if self.vendorIndexBuilt then
         for _, vendorEntry in pairs(self.vendorIndex) do
             if vendorEntry.npcName and vendorEntry.decorIds then
-                local nameLower = string.lower(vendorEntry.npcName)
+                local nameLower = self:NormalizeSearchText(vendorEntry.npcName)
                 for _, decorId in ipairs(vendorEntry.decorIds) do
                     TokenizeIntoIndex(nameLower, decorId)
                 end
@@ -138,7 +138,7 @@ function addon:SearchByText(searchText)
     end
 
     local results = {}
-    local searchLower = string.lower(searchText)
+    local searchLower = self:NormalizeSearchText(searchText)
     if string.match(searchLower, "^%d+%.%d+$") or string.match(searchLower, "^%d+%.%d+%.%d+$") then
         local seen = {}
         for recordID, patch in pairs(self.DecorAddedPatchByRecordID or {}) do
@@ -188,7 +188,7 @@ function addon:SearchByText(searchText)
         if not record.sourceText or record.sourceText == "" then return nil end
         local cached = cleanedSourceCache[record]
         if cached then return cached end
-        local lower = string.lower(StripSourceMarkup(record.sourceText))
+        local lower = self:NormalizeSearchText(StripSourceMarkup(record.sourceText))
         cleanedSourceCache[record] = lower
         return lower
     end
@@ -208,7 +208,7 @@ function addon:SearchByText(searchText)
                 -- Use GetRecord so fallbackRecords (hidden-catalog items) are covered.
                 local record = self:GetRecord(recordID)
                 if record then
-                    if record.name and string.find(string.lower(record.name), word, 1, true) then
+                    if record.name and string.find(self:NormalizeSearchText(record.name), word, 1, true) then
                         found = true
                     elseif record.sourceText then
                         local cleanSource = getCleanedSource(record)

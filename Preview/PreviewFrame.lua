@@ -183,12 +183,49 @@ local function FormatVendorCostComponent(cost, currencyName)
     return string.format(addon.L["CURRENCY_GOLD_FORMAT"], tostring(cost))
 end
 
+local function FormatItemCostComponent(component)
+    local itemID = component and component.itemID
+    local amount = component and component.amount
+    if type(itemID) ~= "number" or itemID <= 0 or IsSecretValue(itemID)
+        or amount == nil or IsSecretValue(amount)
+    then
+        return nil
+    end
+
+    local itemName
+    if C_Item and C_Item.GetItemNameByID then
+        local ok, name = pcall(C_Item.GetItemNameByID, itemID)
+        if ok and type(name) == "string" and name ~= "" and not IsSecretValue(name) then
+            itemName = name
+        end
+    end
+
+    local iconFileID
+    if C_Item and C_Item.GetItemIconByID then
+        local ok, icon = pcall(C_Item.GetItemIconByID, itemID)
+        if ok and type(icon) == "number" and icon > 0 and not IsSecretValue(icon) then
+            iconFileID = icon
+        end
+    end
+
+    local label = itemName or ("item:" .. itemID)
+    local iconMarkup = FormatTextureMarkup(iconFileID)
+    local tokenText = iconMarkup and (iconMarkup .. " " .. label) or label
+    local itemToken = string.format("|cffffffff|Hitem:%d::::::::|h%s|h|r", itemID, tokenText)
+    return tostring(amount) .. " " .. itemToken
+end
+
 local function FormatSelectedVendorCost(vendorDetails)
     if not vendorDetails then return nil end
 
     local formatted = {}
     for _, component in ipairs(vendorDetails.costComponents or {}) do
-        local text = FormatVendorCostComponent(component.amount, component.currencyName)
+        local text
+        if component.kind == "item" and component.itemID then
+            text = FormatItemCostComponent(component)
+        else
+            text = FormatVendorCostComponent(component.amount, component.currencyName)
+        end
         if text then table.insert(formatted, text) end
     end
     if #formatted > 0 then

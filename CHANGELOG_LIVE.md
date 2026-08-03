@@ -2,6 +2,18 @@
 
 All notable changes to Housing Codex.
 
+**3.0.11** (2026-08-04)
+
+**Changed**
+- Updated decor vendor prices, locations, and quest source data
+- Improved cost details for decor available from multiple sellers
+
+**Fixed**
+- Improved Housing data refreshes and plot decor budget history
+- Improved catalog, achievement, and decor tracking reliability
+- Search is now more tolerant of punctuation differences — for example, `Val'sharah` and `Val’sharah` match the same results
+- Fixed the world map zone overlay and its 3D preview overlapping other UI panels
+
 **3.0.10** (2026-08-02)
 
 **Changed**

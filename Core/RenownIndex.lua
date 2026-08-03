@@ -190,7 +190,7 @@ local function GetStandardStanding(factionID)
     local currentValue = data.currentStanding or 0
     local minValue = data.currentReactionThreshold or 0
     local maxValue = data.nextReactionThreshold or 1
-    local isMaxed = reaction == 8  -- Exalted
+    local isMaxed = reaction == (MAX_REPUTATION_REACTION or 8)  -- Exalted
     local range = maxValue - minValue
     local progressMax = isMaxed and 1 or (range > 0 and range or 1)
     local progress = isMaxed and 1 or (range > 0 and ClampProgress(currentValue - minValue, progressMax) or 0)

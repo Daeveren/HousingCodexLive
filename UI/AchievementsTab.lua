@@ -183,13 +183,14 @@ AchievementRowOnMouseDown = function(frame, button)
         return
     end
 
-    if C_ContentTracking and IsShiftKeyDown() and elementData.achievementID then
+    local trackingType = addon.CONSTANTS.TRACKING_TYPE_ACHIEVEMENT
+    if C_ContentTracking and trackingType and IsShiftKeyDown() and elementData.achievementID then
         local achievementID = elementData.achievementID
-        local trackingType = Enum.ContentTrackingType.Achievement
-        if C_ContentTracking.IsTracking(trackingType, achievementID) then
-            C_ContentTracking.StopTracking(trackingType, achievementID, Enum.ContentTrackingStopType.Manual)
+        if C_ContentTracking.IsTracking and C_ContentTracking.IsTracking(trackingType, achievementID) then
+            if not C_ContentTracking.StopTracking or not addon.CONSTANTS.TRACKING_STOP_MANUAL then return end
+            C_ContentTracking.StopTracking(trackingType, achievementID, addon.CONSTANTS.TRACKING_STOP_MANUAL)
             addon:Print(addon.L["ACHIEVEMENTS_TRACKING_STOPPED"])
-        else
+        elseif C_ContentTracking.StartTracking then
             local err = C_ContentTracking.StartTracking(trackingType, achievementID)
             addon:PrintTrackingResult(err, "ACHIEVEMENTS_TRACKING_STARTED_ACHIEVEMENT", "ACHIEVEMENTS_TRACKING_FAILED", "ACHIEVEMENTS_TRACKING_MAX_REACHED", "ACHIEVEMENTS_TRACKING_ALREADY")
         end

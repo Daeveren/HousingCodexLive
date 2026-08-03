@@ -199,6 +199,8 @@ local zoneNameCache = {}  -- englishZoneName -> localized name (positive only)
 -- Static mapIDs for zones that have no vendor NPC location data (quest-only zones)
 -- Source: WoW uiMapID values from C_Map.GetMapChildrenInfo traversal
 local ZONE_TO_MAP_ID = {
+    ["Atal'Aman"] = 2536,
+    ["Azshara"] = 76,
     ["Azj-Kahet"] = 2255,
     ["Blasted Lands"] = 17,
     ["Drustvar"] = 896,
@@ -209,6 +211,10 @@ local ZONE_TO_MAP_ID = {
     ["Felwood"] = 77,
     ["Frostfire Ridge"] = 525,
     ["Gilneas"] = 217,
+    ["Boralus Harbor"] = 1161,
+    ["Isle of Quel'Danas"] = 2424,
+    ["K'aresh"] = 2371,
+    ["Krokuun"] = 830,
     ["Loch Modan"] = 48,
     ["Mulgore"] = 7,
     ["Nagrand"] = 550,
@@ -232,6 +238,10 @@ local ZONE_AREA_ID = {
 local function getMapIdForZone(self, zoneName)
     return (self.vendorZoneToMapId and self.vendorZoneToMapId[zoneName])
         or ZONE_TO_MAP_ID[zoneName]
+end
+
+function addon:GetMapIdForZone(zoneName)
+    return getMapIdForZone(self, zoneName)
 end
 
 -- Resolve a uiMapID to a localized zone name via C_Map

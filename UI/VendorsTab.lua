@@ -1084,7 +1084,7 @@ local function SortDecorIdsByName(decorIds)
 
         local record = addon:ResolveRecord(decorId)
         local name = addon:ResolveDecorName(decorId, record)
-        cached = strlower(tostring(name or decorId))
+        cached = addon:NormalizeSearchText(tostring(name or decorId))
         sortNames[decorId] = cached
         return cached
     end
@@ -1687,14 +1687,14 @@ end
 local function CurrencyKeyMatchesSearch(currencyKey, searchText)
     local rawCurrency = currencyKey == VENDOR_CURRENCY_GOLD_KEY and addon.L["CURRENCY_GOLD"] or currencyKey
 
-    if rawCurrency and strlower(rawCurrency):find(searchText, 1, true) then
+    if rawCurrency and addon:NormalizeSearchText(rawCurrency):find(searchText, 1, true) then
         return true
     end
 
     local localizedCurrency = VendorsTab:GetCurrencyLabel(currencyKey)
     return localizedCurrency
         and localizedCurrency ~= rawCurrency
-        and strlower(localizedCurrency):find(searchText, 1, true) ~= nil
+        and addon:NormalizeSearchText(localizedCurrency):find(searchText, 1, true) ~= nil
 end
 
 local function VendorCurrencyMatchesSearch(vendorData, searchText)
@@ -1716,15 +1716,15 @@ local function VendorMatchesSearch(vendorData, searchText, zoneName, expansionKe
     local localizedNpcName = addon:GetLocalizedNPCName(vendorData.npcId, vendorData.npcName)
     local result = false
 
-    if vendorData.npcName and strlower(vendorData.npcName):find(searchText, 1, true) then
+    if vendorData.npcName and addon:NormalizeSearchText(vendorData.npcName):find(searchText, 1, true) then
         result = true
-    elseif localizedNpcName and localizedNpcName ~= vendorData.npcName and strlower(localizedNpcName):find(searchText, 1, true) then
+    elseif localizedNpcName and localizedNpcName ~= vendorData.npcName and addon:NormalizeSearchText(localizedNpcName):find(searchText, 1, true) then
         result = true
-    elseif strlower(zoneName):find(searchText, 1, true) then
+    elseif addon:NormalizeSearchText(zoneName):find(searchText, 1, true) then
         result = true
-    elseif localizedZoneName ~= zoneName and strlower(localizedZoneName):find(searchText, 1, true) then
+    elseif localizedZoneName ~= zoneName and addon:NormalizeSearchText(localizedZoneName):find(searchText, 1, true) then
         result = true
-    elseif strlower(addon.L[expansionKey] or expansionKey):find(searchText, 1, true) then
+    elseif addon:NormalizeSearchText(addon.L[expansionKey] or expansionKey):find(searchText, 1, true) then
         result = true
     elseif VendorCurrencyMatchesSearch(vendorData, searchText) then
         result = true
@@ -1734,13 +1734,13 @@ local function VendorMatchesSearch(vendorData, searchText, zoneName, expansionKe
         for _, decorId in ipairs(GetVisibleVendorDecorIds(vendorData)) do
             local record = addon:GetRecord(decorId)
             local resolvedName = addon:ResolveDecorName(decorId, record)
-            if resolvedName and strlower(resolvedName):find(searchText, 1, true) then
+            if resolvedName and addon:NormalizeSearchText(resolvedName):find(searchText, 1, true) then
                 result = true
                 break
             end
             local fallback = not record and addon.VendorItemFallback and addon.VendorItemFallback[decorId]
             if fallback and fallback.name and fallback.name ~= resolvedName
-                and strlower(fallback.name):find(searchText, 1, true) then
+                and addon:NormalizeSearchText(fallback.name):find(searchText, 1, true) then
                 result = true
                 break
             end
@@ -1834,7 +1834,7 @@ function VendorsTab:BuildExpansionDisplay()
 
     local elements = {}
     local filter = self:GetCompletionFilter()
-    local searchText = strlower(strtrim(self.searchBox and self.searchBox:GetText() or ""))
+    local searchText = addon:NormalizeSearchText(self.searchBox and self.searchBox:GetText() or "")
 
     local zoneFilterActive = self.currentZoneOnly
 
@@ -1891,7 +1891,7 @@ function VendorsTab:BuildVendorDisplay()
 
     if expansionKey then
         local filter = self:GetCompletionFilter()
-        local searchText = strlower(strtrim(self.searchBox and self.searchBox:GetText() or ""))
+        local searchText = addon:NormalizeSearchText(self.searchBox and self.searchBox:GetText() or "")
         local zoneFilterActive = self.currentZoneOnly
         local isForceExpanded = zoneFilterActive or searchText ~= "" or self:HasActiveCurrencyFilter(true)
 

@@ -7,12 +7,12 @@ local _, addon = ...
 
 local ROOM_ENTRY_TYPE = Enum.HousingCatalogEntryType and Enum.HousingCatalogEntryType.Room or 2
 
+addon.ShopDecorIds = addon.ShopDecorIds or {}
+addon.shopDecorLookupBuilt = false
+
 local SHOP_CURRENCY_TOKENS = {
     ["hearthsteel"] = true,
 }
-
-addon.ShopDecorIds = addon.ShopDecorIds or {}
-addon.shopDecorLookupBuilt = false
 
 local function NormalizeDecorID(recordID)
     local id = tonumber(recordID)
@@ -21,12 +21,6 @@ end
 
 local function IsRoomRecord(record)
     return record and record.entryID and record.entryID.entryType == ROOM_ENTRY_TYPE
-end
-
-local function IsShopCurrency(currencyName)
-    if type(currencyName) ~= "string" then return false end
-    local normalized = strlower(strtrim(currencyName))
-    return SHOP_CURRENCY_TOKENS[normalized] == true
 end
 
 local function MarkDecorSet(target, decorIds)
@@ -43,11 +37,20 @@ local function MarkDropShopSources(target)
     for category, sources in pairs(dropData) do
         local isShopCategory = strlower(tostring(category or "")) == "shop"
         for _, sourceData in ipairs(sources or {}) do
-            if isShopCategory or IsShopCurrency(sourceData.currencyName) then
+            -- Drop-side shop membership is curated by source category. The drop
+            -- generator does not emit vendor cost metadata on grouped sources.
+            if isShopCategory then
                 MarkDecorSet(target, sourceData.decorIds)
             end
         end
     end
+end
+
+-- Vendor rows carry real cost metadata, so currency-based shop classification
+-- remains valid here even though the equivalent drop-source branch was removed.
+local function IsShopCurrency(currencyName)
+    if type(currencyName) ~= "string" then return false end
+    return SHOP_CURRENCY_TOKENS[strlower(strtrim(currencyName))] == true
 end
 
 local function MarkVendorShopSources(target)

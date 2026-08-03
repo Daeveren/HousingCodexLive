@@ -184,12 +184,15 @@ local function BuildRecordFields(entryID, info, options)
     local isTrackable, isTracking = false, false
     if options and options.resolveTracking then
         local ct = C_ContentTracking
-        isTrackable = ct and ct.IsTrackable and ct.IsTrackable(TRACKING_TYPE_DECOR, recordID) or false
-        isTracking  = ct and ct.IsTracking  and ct.IsTracking(TRACKING_TYPE_DECOR, recordID)  or false
+        isTrackable = ct and TRACKING_TYPE_DECOR and ct.IsTrackable and ct.IsTrackable(TRACKING_TYPE_DECOR, recordID) or false
+        isTracking  = ct and TRACKING_TYPE_DECOR and ct.IsTracking  and ct.IsTracking(TRACKING_TYPE_DECOR, recordID)  or false
     end
 
     return {
-        entryID = entryID,
+        -- Keep one stable HousingCatalogEntryID-shaped identity on every record.
+        -- Native search results may include variantIdentifier, while direct record
+        -- lookups do not; no consumer needs the variant-specific field here.
+        entryID = { recordID = recordID, entryType = entryID.entryType },
         recordID = recordID,
         name = info.name or "",
         icon = icon,
@@ -511,7 +514,7 @@ end
 -- 1. Record name (catalog or resolved)  2. C_HousingDecor API  3. VendorItemFallback  4. Scraped DropDecorNames  5. "Decor #XXXX"
 function addon:ResolveDecorName(decorId, record)
     if record and record.name and record.name ~= "" then return record.name end
-    if C_HousingDecor and C_HousingDecor.GetDecorName then
+    if C_HousingDecor and C_HousingDecor.GetDecorName and decorId and not IsSecretValue(decorId) then
         local name = C_HousingDecor.GetDecorName(decorId)
         if name then return name end
     end
@@ -546,7 +549,7 @@ function addon:ResolveRecord(recordID)
     if cached ~= nil then return cached ~= false and cached or nil end
 
     -- Try direct API lookup (bypasses catalog search filter)
-    local entryType = Enum.HousingCatalogEntryType.Decor
+    local entryType = Enum and Enum.HousingCatalogEntryType and Enum.HousingCatalogEntryType.Decor
     if not HasValidCatalogRecordLookupArgs(entryType, recordID)
         or not C_HousingCatalog
         or not C_HousingCatalog.GetCatalogEntryInfoByRecordID
@@ -721,7 +724,7 @@ function addon:GetAllRecordIDs()
 end
 
 function addon:UpdateAllTrackingStatus()
-    if not C_ContentTracking then return end
+    if not C_ContentTracking or not TRACKING_TYPE_DECOR then return end
 
     local IsTrackable = C_ContentTracking.IsTrackable
     local IsTracking = C_ContentTracking.IsTracking
@@ -770,7 +773,7 @@ end
 
 function addon:UpdateRecordTrackingStatus(recordID, isTrackedHint)
     local record = self:GetRecord(recordID)
-    if not record or not C_ContentTracking then return end
+    if not record or not C_ContentTracking or not TRACKING_TYPE_DECOR then return end
 
     local wasTracking = record.isTracking
 
@@ -792,29 +795,35 @@ end
 
 -- Check if a record is currently being tracked
 function addon:IsRecordTracked(recordID)
-    return C_ContentTracking and
-        C_ContentTracking.IsTracking(TRACKING_TYPE_DECOR, recordID)
+    return C_ContentTracking
+        and C_ContentTracking.IsTracking
+        and TRACKING_TYPE_DECOR
+        and C_ContentTracking.IsTracking(TRACKING_TYPE_DECOR, recordID)
+        or false
 end
 
 -- Set super tracking for map pin auto-select
 local function SetSuperTracking(recordID)
-    if C_SuperTrack and C_SuperTrack.SetSuperTrackedContent then
+    if C_SuperTrack and C_SuperTrack.SetSuperTrackedContent and TRACKING_TYPE_DECOR then
         C_SuperTrack.SetSuperTrackedContent(TRACKING_TYPE_DECOR, recordID)
     end
 end
 
 -- Error code to locale key mapping (hoisted for reuse)
-local TRACKING_ERROR_MESSAGES = {
-    [Enum.ContentTrackingError.MaxTracked] = "TRACKING_ERROR_MAX",
-    [Enum.ContentTrackingError.Untrackable] = "TRACKING_ERROR_UNTRACKABLE",
-}
+local TRACKING_ERROR_MESSAGES = {}
+if addon.CONSTANTS.TRACKING_ERROR_MAX then
+    TRACKING_ERROR_MESSAGES[addon.CONSTANTS.TRACKING_ERROR_MAX] = "TRACKING_ERROR_MAX"
+end
+if addon.CONSTANTS.TRACKING_ERROR_UNTRACKABLE then
+    TRACKING_ERROR_MESSAGES[addon.CONSTANTS.TRACKING_ERROR_UNTRACKABLE] = "TRACKING_ERROR_UNTRACKABLE"
+end
 
 -- Shared tracking toggle (used by Preview track button and Grid shift-click)
 function addon:ToggleTracking(recordID)
     local record = recordID and self:GetRecord(recordID)
     if not record or not record.isTrackable then return end
 
-    if not C_ContentTracking then
+    if not C_ContentTracking or not TRACKING_TYPE_DECOR then
         self:Print(self.L["ERROR_API_UNAVAILABLE"])
         return
     end
@@ -823,16 +832,24 @@ function addon:ToggleTracking(recordID)
 
     -- Stop tracking if already tracked
     if self:IsRecordTracked(recordID) then
-        C_ContentTracking.StopTracking(TRACKING_TYPE_DECOR, recordID, Enum.ContentTrackingStopType.Manual)
+        if not C_ContentTracking.StopTracking or not self.CONSTANTS.TRACKING_STOP_MANUAL then
+            self:Print(self.L["ERROR_API_UNAVAILABLE"])
+            return
+        end
+        C_ContentTracking.StopTracking(TRACKING_TYPE_DECOR, recordID, self.CONSTANTS.TRACKING_STOP_MANUAL)
         self:Print(string.format(self.L["TRACKING_STOPPED"], coloredName))
         self:FireEvent("TRACKING_CHANGED", recordID)
         return
     end
 
     -- Start tracking
+    if not C_ContentTracking.StartTracking then
+        self:Print(self.L["ERROR_API_UNAVAILABLE"])
+        return
+    end
     local err = C_ContentTracking.StartTracking(TRACKING_TYPE_DECOR, recordID)
 
-    if not err or err == Enum.ContentTrackingError.AlreadyTracked then
+    if not err or (self.CONSTANTS.TRACKING_ERROR_ALREADY_TRACKED and err == self.CONSTANTS.TRACKING_ERROR_ALREADY_TRACKED) then
         SetSuperTracking(recordID)
         if not err then
             self:Print(string.format(self.L["TRACKING_STARTED"], coloredName))
@@ -984,10 +1001,11 @@ addon:RegisterWoWEvent("HOUSING_STORAGE_ENTRY_UPDATED", function(entryVariantID)
 end)
 
 local storageUpdateTimer = nil
+local storageUpdateGeneration = 0
 
-local function ProcessStorageUpdate()
+local function ProcessStorageUpdate(generation)
     storageUpdateTimer = nil
-    if not addon.dataLoaded then return end
+    if not addon.dataLoaded or generation ~= storageUpdateGeneration then return end
     addon:CountDebug("ownership", "bulk")
 
     -- Wipe fallback records so ResolveRecord re-queries with fresh ownership
@@ -995,50 +1013,81 @@ local function ProcessStorageUpdate()
     ResetFallbackRecords(addon)
     addon.craftingIndexBuilt = false
 
-    -- Refresh ownership fields BEFORE rebuilding indexes so collected counts are accurate
-    for _, record in pairs(addon.decorRecords) do
-        -- Use per-record entryType so both Decor (1) and Room (2) records refresh correctly.
-        local entryID = record.entryID
-        local info = entryID and GetCatalogEntryInfoByRecordID(entryID.entryType, record.recordID)
-        if info then
-            RefreshRecordOwnership(record, info)
+    local records = addon.decorRecords
+    local recordID = nil
+
+    local function FinishStorageUpdate()
+        if generation ~= storageUpdateGeneration or records ~= addon.decorRecords then return end
+
+        -- ALWAYS: Lightweight collected index rebuild (needed by LDB, merchant overlay)
+        addon:BuildCollectedIndex()
+
+        -- ALWAYS: Re-resolve crafting fallback records (hidden-in-catalog recipes).
+        -- The wipe above cleared fallbackRecords; without this rebuild, hidden-only
+        -- crafting items would drop out of main-search word index and GetAllRecordIDs
+        -- until the user opens Professions/Progress.
+        addon.craftingIndexBuilt = false
+        addon:BuildCraftingIndex()
+
+        -- ALWAYS: Fire ownership event (needed by LDB, WishlistFrame, QuestsTab, AchievementsTab)
+        addon:FireEvent("RECORD_OWNERSHIP_UPDATED", nil, true, "bulk")
+
+        -- CONDITIONAL: Heavy search only when MainFrame visible
+        if addon.MainFrame and addon.MainFrame:IsShown() then
+            addon:Debug("Storage updated (visible), re-running search")
+            addon:RunSearchNow("storage updated")
+        else
+            addon:Debug("Storage updated (hidden), deferring search")
+            addon.needsFullRefresh = true
         end
     end
 
-    -- ALWAYS: Lightweight collected index rebuild (needed by LDB, merchant overlay)
-    addon:BuildCollectedIndex()
+    local function ProcessBatch()
+        if generation ~= storageUpdateGeneration or records ~= addon.decorRecords or not addon.dataLoaded then
+            return
+        end
 
-    -- ALWAYS: Re-resolve crafting fallback records (hidden-in-catalog recipes).
-    -- The wipe above cleared fallbackRecords; without this rebuild, hidden-only
-    -- crafting items would drop out of main-search word index and GetAllRecordIDs
-    -- until the user opens Professions/Progress.
-    addon:BuildCraftingIndex()
+        local processed = 0
+        while processed < CATALOG_BUILD_BATCH_SIZE do
+            local record
+            recordID, record = next(records, recordID)
+            if recordID == nil then
+                FinishStorageUpdate()
+                return
+            end
 
-    -- ALWAYS: Fire ownership event (needed by LDB, WishlistFrame, QuestsTab, AchievementsTab)
-    addon:FireEvent("RECORD_OWNERSHIP_UPDATED", nil, true, "bulk")
+            -- Use per-record entryType so both Decor (1) and Room (2) records refresh correctly.
+            local entryID = record.entryID
+            local info = entryID and GetCatalogEntryInfoByRecordID(entryID.entryType, record.recordID)
+            if info then
+                RefreshRecordOwnership(record, info)
+            end
+            processed = processed + 1
+        end
 
-    -- CONDITIONAL: Heavy search only when MainFrame visible
-    if addon.MainFrame and addon.MainFrame:IsShown() then
-        addon:Debug("Storage updated (visible), re-running search")
-        addon:RunSearchNow("storage updated")
-    else
-        addon:Debug("Storage updated (hidden), deferring search")
-        addon.needsFullRefresh = true
+        C_Timer.After(0, ProcessBatch)
     end
+
+    ProcessBatch()
 end
 
 -- Bulk storage update (refresh record data and re-run searcher)
 addon:RegisterWoWEvent("HOUSING_STORAGE_UPDATED", function()
     if not addon.dataLoaded then return end
+    storageUpdateGeneration = storageUpdateGeneration + 1
+    local generation = storageUpdateGeneration
     if storageUpdateTimer then
         storageUpdateTimer:Cancel()
     end
-    storageUpdateTimer = C_Timer.NewTimer(addon.CONSTANTS.TIMER.STORAGE_UPDATE_DEBOUNCE, ProcessStorageUpdate)
+    storageUpdateTimer = C_Timer.NewTimer(addon.CONSTANTS.TIMER.STORAGE_UPDATE_DEBOUNCE, function()
+        ProcessStorageUpdate(generation)
+    end)
 end)
 
 -- Reset load state for /hc retry recovery (clears stuck guards and stale refs)
 function addon:ResetLoadState()
     self.searcherGeneration = (self.searcherGeneration or 0) + 1
+    storageUpdateGeneration = storageUpdateGeneration + 1
     self.loadRetryCount = 0
     self.dataLoadFailed = false
     if self.searchTimeoutTimer then

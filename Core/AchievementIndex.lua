@@ -214,8 +214,10 @@ end
 -- Get achievement name (prefers localized API name)
 function addon:GetAchievementName(achievementId)
     -- Prefer localized API name
-    local _, name = GetAchievementInfo(achievementId)
-    if name then return name end
+    if type(GetAchievementInfo) == "function" then
+        local ok, _, name = pcall(GetAchievementInfo, achievementId)
+        if ok and name then return name end
+    end
 
     -- Fallback to scraped data if API unavailable
     local achievementData = self.AchievementSourceData and self.AchievementSourceData[achievementId]
@@ -236,15 +238,17 @@ function addon:IsAchievementCompleted(achievementId)
     if cached ~= nil then return cached end
 
     -- Validate achievement exists before querying
-    if not C_AchievementInfo.IsValidAchievement(achievementId) then
+    if not C_AchievementInfo
+        or not C_AchievementInfo.IsValidAchievement
+        or not C_AchievementInfo.IsValidAchievement(achievementId)
+    then
         return nil  -- Don't cache invalid - may become valid in future patch
     end
 
     -- Query WoW API: GetAchievementInfo returns: id, name, points, completed, ...
-    local achievementInfoID, _, _, completed = GetAchievementInfo(achievementId)
-    if not achievementInfoID and completed == nil then
-        return false -- Valid achievement, but info is not ready yet; do not cache.
-    end
+    if type(GetAchievementInfo) ~= "function" then return nil end
+    local ok, achievementInfoID, _, _, completed = pcall(GetAchievementInfo, achievementId)
+    if not ok or completed == nil then return nil end -- Info is not ready; do not cache.
 
     local isComplete = completed == true
 

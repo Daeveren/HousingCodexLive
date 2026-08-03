@@ -551,7 +551,7 @@ end
 -- Build Popup (variant = "whatsnew" or "welcome")
 --------------------------------------------------------------------------------
 
--- Detach a frame child created during a previous Build (Blizzard pool pattern)
+-- Detach a frame child created during a previous variant build.
 local function ReleaseChild(child)
     addon:UnregisterFontStrings(child)
     child:Hide()
@@ -575,6 +575,12 @@ function WhatsNew:Build(variant)
     end
     StopTypewriter()
     if self.contentArea then ReleaseChild(self.contentArea); self.contentArea = nil end
+
+    -- Drop references owned only by the released variant trees.
+    frame.dontShowCheckbox = nil
+    frame.exploreButton = nil
+    frame.startButton = nil
+    frame.featureList = nil
 
     -- Reset state
     self.currentVariant = variant

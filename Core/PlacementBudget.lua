@@ -11,6 +11,14 @@ local CONTEXT_OUTDOOR = "outdoor"
 local CONTEXT_PLOTS_BY_ID = "plotsByID"
 local CONTEXT_KNOWN_PLOTS = "knownPlots"
 local levelRequestTimes = {}
+local ownedHouseKeys = {}
+local ownedHouseListReady = false
+local ownedHouseListRetryTimer = nil
+local ownedHouseListRetryCount = 0
+local ownedHouseListRequestGeneration = 0
+local captureTimers = {}
+local captureScheduleGeneration = 0
+local lastBudgetCaptureBlockReason = nil
 local MergeDuplicateNoGUIDRows
 local RepairResolvedPlotSnapshots
 
@@ -141,6 +149,17 @@ local function GetBudgetDB()
     return db, normalizedChanged
 end
 
+local function SafeCall(func, ...)
+    if type(func) ~= "function" then return nil end
+    local ok, result = pcall(func, ...)
+    if ok then return result end
+    return nil
+end
+
+local function IsSecretValue(value)
+    return value ~= nil and type(issecretvalue) == "function" and issecretvalue(value)
+end
+
 local function GetCurrentContext()
     if not C_Housing then return nil end
     if C_Housing.IsInsideHouse and C_Housing.IsInsideHouse() then
@@ -150,20 +169,6 @@ local function GetCurrentContext()
         return CONTEXT_OUTDOOR
     end
     return nil
-end
-
-local function IsInsideOwnedBudgetContext()
-    if not C_Housing then return false end
-
-    -- Patch 12.1 adds an ownership-specific combined check. Keep the older
-    -- location check as a compatibility fallback for 12.0.7 clients.
-    local ownedContextCheck = C_Housing.IsInsideOwnedHouseOrPlot
-    if type(ownedContextCheck) == "function" then
-        return ownedContextCheck() == true
-    end
-
-    local legacyContextCheck = C_Housing.IsInsideHouseOrPlot
-    return type(legacyContextCheck) == "function" and legacyContextCheck() == true
 end
 
 local function GetPlotKey(plotID, neighborhoodGUID)
@@ -180,6 +185,115 @@ local function GetHouseKey(houseInfo)
         return "house:" .. tostring(houseInfo.houseGUID)
     end
     return GetPlotKey(houseInfo.plotID, houseInfo.neighborhoodGUID)
+end
+
+local function GetCurrentHouseIdentity()
+    if not C_Housing or type(C_Housing.GetCurrentHouseInfo) ~= "function" then
+        return nil, nil
+    end
+
+    local houseInfo = SafeCall(C_Housing.GetCurrentHouseInfo)
+    if type(houseInfo) ~= "table" then return nil, nil end
+
+    local houseKey = GetHouseKey(houseInfo)
+    if houseKey then return houseInfo, houseKey end
+    if type(houseInfo.plotID) ~= "number" or type(C_Housing.GetCurrentNeighborhoodGUID) ~= "function" then
+        return houseInfo, nil
+    end
+
+    local neighborhoodGUID = SafeCall(C_Housing.GetCurrentNeighborhoodGUID)
+    if neighborhoodGUID == nil or neighborhoodGUID == "" or IsSecretValue(neighborhoodGUID) then
+        return houseInfo, nil
+    end
+
+    local resolvedHouseInfo = {}
+    for field, value in pairs(houseInfo) do
+        resolvedHouseInfo[field] = value
+    end
+    resolvedHouseInfo.neighborhoodGUID = neighborhoodGUID
+    return resolvedHouseInfo, GetHouseKey(resolvedHouseInfo)
+end
+
+local function AddHouseIdentityKeys(keys, houseInfo)
+    local houseKey = GetHouseKey(houseInfo)
+    if houseKey then
+        keys[houseKey] = true
+    end
+
+    local plotKey = type(houseInfo) == "table" and GetPlotKey(houseInfo.plotID, houseInfo.neighborhoodGUID) or nil
+    if plotKey then
+        keys[plotKey] = true
+    end
+end
+
+local function HasOwnedHouseIdentity(houseInfo)
+    local houseKey = GetHouseKey(houseInfo)
+    if houseKey and ownedHouseKeys[houseKey] then
+        return true
+    end
+
+    local plotKey = type(houseInfo) == "table" and GetPlotKey(houseInfo.plotID, houseInfo.neighborhoodGUID) or nil
+    return plotKey ~= nil and ownedHouseKeys[plotKey] == true
+end
+
+local function IsVisitingAnotherPlayersHousing()
+    local neighborhoodCheck = C_HousingNeighborhood and C_HousingNeighborhood.IsPlayerInOtherPlayersPlot
+    if type(neighborhoodCheck) == "function" and neighborhoodCheck() == true then
+        return true
+    end
+
+    local insideHouseCheck = C_Housing and C_Housing.IsInsideHouse
+    local insideOwnHouseCheck = C_Housing and C_Housing.IsInsideOwnHouse
+    return type(insideHouseCheck) == "function"
+        and type(insideOwnHouseCheck) == "function"
+        and insideHouseCheck() == true
+        and insideOwnHouseCheck() ~= true
+end
+
+local function GetOwnedBudgetContext()
+    if not C_Housing then return false, nil, nil, "housing API unavailable" end
+
+    -- Prefer the ownership-specific combined check when a future client exposes it.
+    local ownedContextCheck = C_Housing.IsInsideOwnedHouseOrPlot
+    if type(ownedContextCheck) == "function" then
+        local isOwned = SafeCall(ownedContextCheck)
+        if IsSecretValue(isOwned) or isOwned ~= true then
+            return false, nil, nil, "not inside owned housing"
+        end
+    else
+        local legacyContextCheck = C_Housing.IsInsideHouseOrPlot
+        if type(legacyContextCheck) ~= "function" or legacyContextCheck() ~= true then
+            return false, nil, nil, "outside housing"
+        end
+    end
+
+    if IsVisitingAnotherPlayersHousing() then
+        return false, nil, nil, "visiting another player's housing"
+    end
+    if not ownedHouseListReady then
+        return false, nil, nil, "owned house list unavailable"
+    end
+
+    local houseInfo, houseKey = GetCurrentHouseIdentity()
+    if not houseKey then
+        return false, houseInfo, nil, "stable house identity unavailable"
+    end
+    if not HasOwnedHouseIdentity(houseInfo) then
+        return false, houseInfo, houseKey, "owned house identity not confirmed"
+    end
+    return true, houseInfo, houseKey
+end
+
+local function DebugBudgetCaptureBlock(reason)
+    if reason ~= "owned house list unavailable"
+        and reason ~= "stable house identity unavailable"
+        and reason ~= "owned house identity not confirmed" then
+        return
+    end
+    if lastBudgetCaptureBlockReason == reason then return end
+
+    lastBudgetCaptureBlockReason = reason
+    addon:Debug("Placement budget capture paused: " .. reason)
 end
 
 local function HasHouseGUID(plotInfo)
@@ -350,10 +464,6 @@ local function PruneSamePlotNoGUIDRows(db, knownPlots, plotKey, plotInfo, plotID
     return changed
 end
 
-local function IsSecretValue(value)
-    return value ~= nil and type(issecretvalue) == "function" and issecretvalue(value)
-end
-
 local function GetPlayerFactionInfo()
     if type(UnitFactionGroup) ~= "function" then return nil, nil end
 
@@ -484,18 +594,6 @@ local function RememberHouseInfo(db, houseInfo, markVisited)
     return plotKey, changed
 end
 
-local function RememberCurrentHouseInfo(db, markVisited)
-    if not C_Housing or not C_Housing.GetCurrentHouseInfo then return nil, false end
-    return RememberHouseInfo(db, C_Housing.GetCurrentHouseInfo(), markVisited)
-end
-
-local function SafeCall(func, ...)
-    if type(func) ~= "function" then return nil end
-    local ok, result = pcall(func, ...)
-    if ok then return result end
-    return nil
-end
-
 local function RequestHouseLevelFavor(plotInfo, force)
     if type(plotInfo) ~= "table" or not plotInfo.houseGUID then return end
     if not C_Housing or not C_Housing.GetCurrentHouseLevelFavor then return end
@@ -602,17 +700,24 @@ end
 
 local function CaptureBudget(silent)
     if not addon.db or not C_Housing then return false end
-    if not IsInsideOwnedBudgetContext() then return false end
+    local isOwnedContext, houseInfo, ownedHouseKey, blockReason = GetOwnedBudgetContext()
+    if not isOwnedContext then
+        DebugBudgetCaptureBlock(blockReason)
+        return false
+    end
+    lastBudgetCaptureBlockReason = nil
 
     local db = GetBudgetDB()
     if not db then return false end
 
-    local plotKey, metadataChanged = RememberCurrentHouseInfo(db, true)
-    local changed = metadataChanged == true
-    if plotKey then
-        local knownPlots = NormalizeKnownPlots(db)
-        RequestHouseLevelFavor(knownPlots[plotKey], false)
+    local plotKey, metadataChanged = RememberHouseInfo(db, houseInfo, true)
+    if not plotKey or plotKey ~= ownedHouseKey then
+        DebugBudgetCaptureBlock("stable house identity unavailable")
+        return false
     end
+    local changed = metadataChanged == true
+    local knownPlots = NormalizeKnownPlots(db)
+    RequestHouseLevelFavor(knownPlots[plotKey], false)
 
     local context = GetCurrentContext()
     if not context or not C_HousingDecor then
@@ -664,23 +769,18 @@ local function CaptureBudget(silent)
             changed = true
         end
 
-        if plotKey then
-            local plotsByID = NormalizePlotsByID(db)
-            if ShouldSaveSnapshot(plotsByID[plotKey], spent, maxBudget, now, plotKey) then
-                plotsByID[plotKey] = snapshot
-                changed = true
-            end
+        local plotsByID = NormalizePlotsByID(db)
+        if ShouldSaveSnapshot(plotsByID[plotKey], spent, maxBudget, now, plotKey) then
+            plotsByID[plotKey] = snapshot
+            changed = true
         end
     end
 
-    if plotKey then
-        local knownPlots = NormalizeKnownPlots(db)
-        local plotInfo = knownPlots[plotKey]
-        if plotInfo then
-            if ShouldSaveSnapshot(plotInfo.budgets[context], spent, maxBudget, now, plotKey) then
-                plotInfo.budgets[context] = snapshot
-                changed = true
-            end
+    local plotInfo = knownPlots[plotKey]
+    if plotInfo then
+        if ShouldSaveSnapshot(plotInfo.budgets[context], spent, maxBudget, now, plotKey) then
+            plotInfo.budgets[context] = snapshot
+            changed = true
         end
     end
 
@@ -697,19 +797,93 @@ local function CaptureBudgetAndRefresh()
     end
 end
 
-local function ScheduleCaptureBudget()
-    CaptureBudgetAndRefresh()
-    if C_Timer and C_Timer.After then
-        C_Timer.After(0.25, CaptureBudgetAndRefresh)
-        C_Timer.After(1.0, CaptureBudgetAndRefresh)
+local function CancelScheduledCaptures()
+    for slot, timer in pairs(captureTimers) do
+        timer:Cancel()
+        captureTimers[slot] = nil
     end
 end
 
+local function ScheduleCaptureBudget()
+    CaptureBudgetAndRefresh()
+    if not C_Timer or not C_Timer.NewTimer then
+        return
+    end
+
+    captureScheduleGeneration = captureScheduleGeneration + 1
+    local generation = captureScheduleGeneration
+    CancelScheduledCaptures()
+
+    local function Schedule(slot, delay)
+        captureTimers[slot] = C_Timer.NewTimer(delay, function()
+            captureTimers[slot] = nil
+            if generation == captureScheduleGeneration then
+                CaptureBudgetAndRefresh()
+            end
+        end)
+    end
+
+    local timers = addon.CONSTANTS.TIMER
+    Schedule("debounce", timers.BUDGET_CAPTURE_DEBOUNCE)
+    Schedule("shortRetry", timers.BUDGET_CAPTURE_RETRY_SHORT)
+    Schedule("longRetry", timers.BUDGET_CAPTURE_RETRY_LONG)
+end
+
+local function CancelOwnedHouseListRetry()
+    if ownedHouseListRetryTimer then
+        ownedHouseListRetryTimer:Cancel()
+        ownedHouseListRetryTimer = nil
+    end
+end
+
+local function ScheduleOwnedHouseListRetry(generation)
+    if generation ~= ownedHouseListRequestGeneration or ownedHouseListReady then return end
+
+    local timers = addon.CONSTANTS and addon.CONSTANTS.TIMER
+    if not C_Timer or type(C_Timer.NewTimer) ~= "function" or not timers then return end
+
+    local exhaustedFastRetries = ownedHouseListRetryCount >= timers.BUDGET_OWNED_LIST_MAX_RETRIES
+    local delay = exhaustedFastRetries
+        and timers.BUDGET_OWNED_LIST_FALLBACK_DELAY
+        or timers.BUDGET_OWNED_LIST_RETRY_DELAY
+    ownedHouseListRetryTimer = C_Timer.NewTimer(delay, function()
+        ownedHouseListRetryTimer = nil
+        if generation ~= ownedHouseListRequestGeneration or ownedHouseListReady then return end
+        if not C_Housing or type(C_Housing.GetPlayerOwnedHouses) ~= "function" then return end
+
+        if exhaustedFastRetries then
+            addon:Debug("Owned house list unavailable; issuing fallback recovery request")
+        else
+            ownedHouseListRetryCount = ownedHouseListRetryCount + 1
+            addon:Debug("Retrying owned house list request (" .. tostring(ownedHouseListRetryCount) .. ")")
+        end
+
+        C_Housing.GetPlayerOwnedHouses()
+        ScheduleOwnedHouseListRetry(generation)
+    end)
+end
+
 local function SyncKnownPlots(houseInfos)
-    if type(houseInfos) ~= "table" then return end
+    if type(houseInfos) ~= "table" then
+        addon:Debug("Ignoring invalid owned house list payload")
+        return
+    end
+
+    ownedHouseListRequestGeneration = ownedHouseListRequestGeneration + 1
+    CancelOwnedHouseListRetry()
+    ownedHouseListRetryCount = 0
+    local nextOwnedHouseKeys = {}
+    for _, houseInfo in ipairs(houseInfos) do
+        AddHouseIdentityKeys(nextOwnedHouseKeys, houseInfo)
+    end
+    ownedHouseKeys = nextOwnedHouseKeys
+    ownedHouseListReady = true
 
     local db, normalizedChanged = GetBudgetDB()
-    if not db then return false end
+    if not db then
+        ScheduleCaptureBudget()
+        return false
+    end
 
     local knownPlots = NormalizeKnownPlots(db)
     local seen = {}
@@ -751,6 +925,7 @@ local function SyncKnownPlots(houseInfos)
     if changed then
         addon:FireEvent(addon.Events.PLACEMENT_BUDGET_UPDATED)
     end
+    ScheduleCaptureBudget()
 end
 
 local function OnHouseLevelFavorUpdated(houseLevelFavor)
@@ -760,9 +935,19 @@ local function OnHouseLevelFavorUpdated(houseLevelFavor)
 end
 
 local function RequestPlayerOwnedHouses()
-    if C_Housing and C_Housing.GetPlayerOwnedHouses then
-        C_Housing.GetPlayerOwnedHouses()
-    end
+    if not C_Housing or type(C_Housing.GetPlayerOwnedHouses) ~= "function" then return end
+
+    -- The generated docs expose no direct return or completion cross-link, so
+    -- use fast retries followed by a low-frequency recovery request without
+    -- ever opening the ownership gate speculatively.
+    ownedHouseListRequestGeneration = ownedHouseListRequestGeneration + 1
+    local generation = ownedHouseListRequestGeneration
+    CancelOwnedHouseListRetry()
+    ownedHouseListRetryCount = 0
+    ownedHouseKeys = {}
+    ownedHouseListReady = false
+    C_Housing.GetPlayerOwnedHouses()
+    ScheduleOwnedHouseListRetry(generation)
 end
 
 local function NotifyBudgetUpdated()
@@ -804,26 +989,24 @@ function addon:GetPlacementBudget()
 end
 
 function addon:IsPlacementBudgetLiveContext()
-    return IsInsideOwnedBudgetContext()
+    local isOwnedContext = GetOwnedBudgetContext()
+    return isOwnedContext
 end
 
 function addon:GetCurrentPlacementBudgetContext()
-    if not IsInsideOwnedBudgetContext() then
+    local isOwnedContext, houseInfo, houseKey = GetOwnedBudgetContext()
+    if not isOwnedContext then
         return nil, nil
     end
 
     local context = GetCurrentContext()
     if not context then return nil, nil, nil end
 
-    local houseInfo = C_Housing.GetCurrentHouseInfo and C_Housing.GetCurrentHouseInfo()
     local neighborhoodGUID = type(houseInfo) == "table" and houseInfo.neighborhoodGUID or nil
-    if (neighborhoodGUID == nil or neighborhoodGUID == "") and C_Housing.GetCurrentNeighborhoodGUID then
-        neighborhoodGUID = SafeCall(C_Housing.GetCurrentNeighborhoodGUID)
-    end
     if IsSecretValue(neighborhoodGUID) then
         neighborhoodGUID = nil
     end
-    return GetHouseKey(houseInfo), context, neighborhoodGUID
+    return houseKey, context, neighborhoodGUID
 end
 
 addon:RegisterWoWEvent("HOUSE_PLOT_ENTERED", ScheduleCaptureBudget)

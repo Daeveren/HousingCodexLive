@@ -223,7 +223,7 @@ function MerchantOverlay:UpdateMerchantButtons()
             end
 
             local isDecor = catalogInfo ~= nil
-            if isDecor and catalogInfo.entryID and not addon:ShouldDisplayDecor(catalogInfo.entryID.recordID) then
+            if isDecor and catalogInfo.recordID and not addon:ShouldDisplayDecor(catalogInfo.recordID) then
                 isDecor = false
             end
             local isOwned = isDecor and addon.IsDecorOwned(catalogInfo)
