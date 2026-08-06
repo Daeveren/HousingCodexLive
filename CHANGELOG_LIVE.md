@@ -2,6 +2,12 @@
 
 All notable changes to Housing Codex.
 
+**3.0.12** (2026-08-06)
+
+**Changed**
+- Preparations for the upcoming Patch 12.1
+- Updated Quest tab data with additional decor reward sources
+
 **3.0.11** (2026-08-04)
 
 **Changed**
