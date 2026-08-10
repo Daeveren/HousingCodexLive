@@ -2,6 +2,16 @@
 
 All notable changes to Housing Codex.
 
+**3.1.0** (2026-08-10)
+
+**Changed**
+- Updated for Patch 12.1 API
+- The addon now supports both Patch 12.0.7 and Patch 12.1
+- New Patch 12.1 decor will be added in a follow-up update after launch
+
+**Fixed**
+- Improved button font consistency throughout the addon
+
 **3.0.12** (2026-08-06)
 
 **Changed**

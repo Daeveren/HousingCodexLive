@@ -12,6 +12,7 @@ local FONT_TEMPLATES = {
     "GameFontHighlightSmall",
     "GameFontNormal",
     "GameFontHighlight",
+    "GameFontDisable",
     "GameFontNormalLarge",
     "GameFontHighlightLarge",
     "GameFontNormalHuge",
@@ -96,6 +97,31 @@ function addon:RegisterFontString(fontString, templateName)
     }
 end
 
+local function ApplyButtonFontObjects(button, normalTemplateName, highlightTemplateName, disabledTemplateName)
+    button:SetNormalFontObject(addon:GetFontObject(normalTemplateName))
+    button:SetHighlightFontObject(addon:GetFontObject(highlightTemplateName))
+    button:SetDisabledFontObject(addon:GetFontObject(disabledTemplateName))
+end
+
+-- Register a template button's built-in label and state fonts with the addon font system.
+function addon:RegisterButtonFont(button, normalTemplateName, highlightTemplateName, disabledTemplateName)
+    if not button then return end
+    local fontString = button:GetFontString()
+    if not fontString then return end
+
+    normalTemplateName = normalTemplateName or "GameFontNormal"
+    highlightTemplateName = highlightTemplateName or "GameFontHighlight"
+    disabledTemplateName = disabledTemplateName or "GameFontDisable"
+
+    ApplyButtonFontObjects(button, normalTemplateName, highlightTemplateName, disabledTemplateName)
+    self:RegisterFontString(fontString, normalTemplateName)
+
+    local entry = self.fontStringRegistry[fontString.hcFontRegistryID]
+    entry.button = button
+    entry.highlightTemplateName = highlightTemplateName
+    entry.disabledTemplateName = disabledTemplateName
+end
+
 -- Register an existing FontString with custom size/flags (for toggle support)
 function addon:RegisterFontStringWithSize(fontString, templateName, size, flags)
     self:RegisterFontString(fontString, templateName)
@@ -137,7 +163,14 @@ function addon:ApplyFontSettings()
     for id, entry in pairs(self.fontStringRegistry) do
         local fs = entry.fontString
         if fs and fs:IsObjectType("FontString") then
-            if entry.customSize then
+            if entry.button then
+                ApplyButtonFontObjects(
+                    entry.button,
+                    entry.templateName,
+                    entry.highlightTemplateName,
+                    entry.disabledTemplateName
+                )
+            elseif entry.customSize then
                 fs:SetFont(fontPath, entry.customSize, entry.customFlags or "")
             elseif useCustom and self.customFonts[entry.templateName] then
                 fs:SetFontObject(self.customFonts[entry.templateName])

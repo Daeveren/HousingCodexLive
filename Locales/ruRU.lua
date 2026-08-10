@@ -597,7 +597,6 @@ L["OPTIONS_ZONE_OVERLAY_TOOLTIP"] = "Отображать на карте мир
 L["WHATSNEW_TITLE"] = "Что нового в Housing Codex"
 L["WHATSNEW_DONT_SHOW"] = "Не показывать снова для v%s"
 L["WHATSNEW_EXPLORE"] = "Посмотреть Housing Codex"
-L["WHATSNEW_NO_IMAGE"] = "Скриншот"
 
 --------------------------------------------------------------------------------
 -- Welcome Popup

@@ -596,7 +596,6 @@ L["OPTIONS_ZONE_OVERLAY_TOOLTIP"] = "Afficher un panneau sur la carte du monde m
 L["WHATSNEW_TITLE"] = "Nouveautés de Housing Codex"
 L["WHATSNEW_DONT_SHOW"] = "Ne plus afficher pour la v%s"
 L["WHATSNEW_EXPLORE"] = "Explorer Housing Codex"
-L["WHATSNEW_NO_IMAGE"] = "Capture d'écran"
 
 --------------------------------------------------------------------------------
 -- Welcome Popup

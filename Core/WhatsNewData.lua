@@ -13,22 +13,18 @@ addon.WhatsNewVersions = {
             {
                 titleKey = "WHATSNEW_V150_F1_TITLE",
                 descKey = "WHATSNEW_V150_F1_DESC",
-                image = "Interface\\AddOns\\HousingCodex\\Textures\\whatsnew_progress",
             },
             {
                 titleKey = "WHATSNEW_V150_F2_TITLE",
                 descKey = "WHATSNEW_V150_F2_DESC",
-                image = "Interface\\AddOns\\HousingCodex\\Textures\\whatsnew_progress",
             },
             {
                 titleKey = "WHATSNEW_V150_F3_TITLE",
                 descKey = "WHATSNEW_V150_F3_DESC",
-                image = "Interface\\AddOns\\HousingCodex\\Textures\\whatsnew_progress",
             },
             {
                 titleKey = "WHATSNEW_V150_F4_TITLE",
                 descKey = "WHATSNEW_V150_F4_DESC",
-                image = "Interface\\AddOns\\HousingCodex\\Textures\\whatsnew_progress",
             },
         },
     },

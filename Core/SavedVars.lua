@@ -31,13 +31,13 @@ end
 local defaults = {
     version = CURRENT_DB_VERSION,
     framePosition = { point = "TOPLEFT", relativePoint = "TOPLEFT", xOfs = 100, yOfs = -100 },
-    frameSize = { width = 1200, height = 800 },
+    frameSize = { width = 912, height = 800 },
     preview = {
         width = 500,     -- Docked panel width (middle preset)
     },
     browser = {
         lastTab = "DECOR",
-        tileSize = 180,
+        tileSize = 168,
         sortType = 0,  -- Enum.HousingCatalogSortType.DateAdded
         filters = {
             showCollected = true,

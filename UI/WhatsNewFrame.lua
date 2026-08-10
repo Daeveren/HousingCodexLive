@@ -195,10 +195,10 @@ local function CreateHeader(frame)
 end
 
 --------------------------------------------------------------------------------
--- Feature List (left column in What's New)
+-- Feature List (What's New)
 --------------------------------------------------------------------------------
 
-local function CreateFeatureEntry(parent, index, feature, hasImage)
+local function CreateFeatureEntry(parent, index, feature)
     local entry = CreateFrame("Frame", nil, parent)
     entry:SetHeight(1)  -- Auto-sized by content
 
@@ -243,9 +243,6 @@ local function CreateFeatureEntry(parent, index, feature, hasImage)
     entry:SetScript("OnEnter", function()
         if WhatsNew.selectedIndex ~= index then
             hoverBg:SetColorTexture(0.1, 0.1, 0.12, 0.6)
-        end
-        if hasImage and feature.image then
-            WhatsNew:SetShowcaseImage(feature.image)
         end
         WhatsNew:SelectFeature(index)
     end)
@@ -446,6 +443,7 @@ local function CreateFooter(frame, variant)
         btn:SetPoint("RIGHT", -14, 0)
         btn:SetSize(180, 28)
         btn:SetText(L["WHATSNEW_EXPLORE"])
+        addon:RegisterButtonFont(btn, "GameFontNormal")
         btn:SetScript("OnClick", function()
             WhatsNew:OnExploreClick()
         end)
@@ -456,6 +454,7 @@ local function CreateFooter(frame, variant)
         btn:SetPoint("CENTER", 0, 0)
         btn:SetSize(180, 32)
         btn:SetText(L["WELCOME_START"])
+        addon:RegisterButtonFont(btn, "GameFontNormal")
         btn:SetScript("OnClick", function()
             WhatsNew:OnStartExploringClick()
         end)
@@ -465,31 +464,6 @@ local function CreateFooter(frame, variant)
     return footer
 end
 
---------------------------------------------------------------------------------
--- Showcase Image (right column in What's New)
---------------------------------------------------------------------------------
-
-local function CreateShowcase(frame)
-    local showcase = CreateFrame("Frame", nil, frame)
-    frame.showcase = showcase
-
-    -- Image texture
-    local img = showcase:CreateTexture(nil, "ARTWORK")
-    img:SetAllPoints()
-    img:SetTexCoord(0, 1, 0, 1)
-    frame.showcaseImage = img
-
-    -- Placeholder text (when no image available)
-    local placeholder = addon:CreateFontString(showcase, "OVERLAY", "GameFontNormal")
-    placeholder:SetPoint("CENTER")
-    placeholder:SetText(L["WHATSNEW_NO_IMAGE"])
-    placeholder:SetTextColor(0.4, 0.4, 0.4, 1)
-    frame.showcasePlaceholder = placeholder
-
-    return showcase
-end
-
---------------------------------------------------------------------------------
 -- Welcome: Good to Know Row (instructional)
 --------------------------------------------------------------------------------
 
@@ -565,10 +539,6 @@ function WhatsNew:Build(variant)
     -- Detach previous variant's children before rebuilding
     if self.header then ReleaseChild(self.header); self.header = nil end
     if self.footer then ReleaseChild(self.footer); self.footer = nil end
-    if self.showcase then
-        ReleaseChild(self.showcase); self.showcase = nil
-        frame.showcase = nil; frame.showcaseImage = nil; frame.showcasePlaceholder = nil
-    end
     if self.sweepDriver then
         self.sweepDriver:SetScript("OnUpdate", nil)
         self.sweepDriver = nil
@@ -632,38 +602,26 @@ function WhatsNew:Build(variant)
 end
 
 function WhatsNew:BuildWhatsNewContent(content)
-    local features, latestVersion = GetFeaturesForUpdate(
+    local features = GetFeaturesForUpdate(
         addon.db and addon.db.whatsNew and addon.db.whatsNew.lastSeenVersion
     )
 
     -- Use all features from latest version if no specific update features
     if #features == 0 and addon.WhatsNewVersions[1] then
         features = addon.WhatsNewVersions[1].features
-        latestVersion = addon.WhatsNewVersions[1].version
     end
 
-    -- Left column: feature list (use known frame width for initial sizing)
+    -- Feature list fills the content area.
     local featureList = CreateFrame("Frame", nil, content)
     featureList:SetPoint("TOPLEFT", 0, 0)
-    featureList:SetPoint("BOTTOMLEFT", 0, 0)
-    local contentWidth = WN.WIDTH - 6  -- frame width minus border insets
-    featureList:SetWidth(contentWidth * WN.FEATURE_LIST_RATIO)
+    featureList:SetPoint("BOTTOMRIGHT", 0, 0)
     self.frame.featureList = featureList
-
-    -- Right column: showcase image
-    local showcase = CreateShowcase(self.frame)
-    self.showcase = showcase
-    showcase:SetPoint("TOPLEFT", featureList, "TOPRIGHT", 0, -8)
-    showcase:SetPoint("BOTTOMRIGHT", content, "BOTTOMRIGHT", -8, 8)
 
     -- Lay out feature entries
     local yOffset = -8
-    local hasImages = false
 
     for i, feature in ipairs(features) do
-        if feature.image then hasImages = true end
-
-        local entry = CreateFeatureEntry(featureList, i, feature, hasImages)
+        local entry = CreateFeatureEntry(featureList, i, feature)
         entry:SetPoint("TOPLEFT", WN.ENTRY_PADDING, yOffset)
         entry:SetPoint("RIGHT", featureList, "RIGHT", -WN.ENTRY_PADDING, 0)
 
@@ -690,10 +648,6 @@ function WhatsNew:BuildWhatsNewContent(content)
         end
     end)
 
-    -- Anchor feature list width from content
-    content:SetScript("OnSizeChanged", function(_, width)
-        featureList:SetWidth(width * WN.FEATURE_LIST_RATIO)
-    end)
 end
 
 function WhatsNew:BuildWelcomeContent(content, frame)
@@ -783,29 +737,11 @@ function WhatsNew:SelectFeature(index)
         current.accent:Show()
         current.hoverBg:SetColorTexture(0.1, 0.1, 0.12, 0.6)
 
-        -- Update showcase image
-        local feature = self.featureEntries[index].feature
-        if feature.image then
-            self:SetShowcaseImage(feature.image)
-        end
-
         -- Typewriter the description text (title stays instant)
         StartTypewriter(current.desc, current.descText)
     end
 end
 
--- WoW has no callback for texture load success, so we always show the image unconditionally
-function WhatsNew:SetShowcaseImage(imagePath)
-    if not self.frame or not self.frame.showcaseImage then return end
-
-    self.frame.showcaseImage:SetTexture(imagePath)
-    self.frame.showcaseImage:Show()
-    if self.frame.showcasePlaceholder then
-        self.frame.showcasePlaceholder:Hide()
-    end
-end
-
---------------------------------------------------------------------------------
 -- Animations
 --------------------------------------------------------------------------------
 

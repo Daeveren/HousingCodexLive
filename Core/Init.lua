@@ -30,12 +30,12 @@ addon.CONSTANTS = {
     -- Grid system
     GRID_OUTER_PAD = 6,
     GRID_CELL_GAP = 4,
-    DEFAULT_TILE_SIZE = 180,
+    DEFAULT_TILE_SIZE = 168,
     MIN_TILE_SIZE = 64,
     MAX_TILE_SIZE = 350,
 
     -- Frame dimensions
-    DEFAULT_FRAME_WIDTH = 1200,
+    DEFAULT_FRAME_WIDTH = 912,
     DEFAULT_FRAME_HEIGHT = 800,
     MIN_FRAME_WIDTH = 400,
     MIN_FRAME_HEIGHT = 400,
@@ -260,8 +260,6 @@ addon.CONSTANTS = {
         HEIGHT = 460,
         WELCOME_WIDTH = 800,
         WELCOME_HEIGHT = 560,
-        FEATURE_LIST_RATIO = 0.55,
-        SHOWCASE_RATIO = 0.45,
         HEADER_HEIGHT = 52,
         FOOTER_HEIGHT = 50,
         ENTRY_SPACING = 12,
