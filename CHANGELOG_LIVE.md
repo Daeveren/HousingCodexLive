@@ -2,6 +2,12 @@
 
 All notable changes to Housing Codex.
 
+**3.1.1** (2026-08-13)
+
+**Fixed**
+- Improved native map waypoint and Treasure Hunt tracking reliability on Patch 12.1
+- Improved reliability of map, vendor, bag, and bank integrations on Patch 12.1
+
 **3.1.0** (2026-08-10)
 
 **Changed**

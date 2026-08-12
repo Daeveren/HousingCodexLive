@@ -716,6 +716,21 @@ function addon.HasValidCoordinates(data)
     return type(data.x) == "number" and type(data.y) == "number"
 end
 
+-- IsShown() can return a secret value on frames carrying the Shown aspect.
+-- Treat that state as not safely visible instead of comparing or reusing it.
+function addon.IsFrameShown(targetFrame)
+    if not targetFrame or type(targetFrame.IsShown) ~= "function" then
+        return false
+    end
+
+    local shown = targetFrame:IsShown()
+    if type(issecretvalue) == "function" and issecretvalue(shown) then
+        return false
+    end
+
+    return shown == true
+end
+
 -- Creates a text-based action button (same style as Collected/Uncollected filters)
 -- @param parent: Parent frame
 -- @param label: Button text

@@ -304,7 +304,7 @@ end
 
 local function ScheduleRefresh(provider)
     local map = provider:GetMap()
-    if not map or not map:IsShown() then
+    if not addon.IsFrameShown(map) then
         return
     end
 
@@ -316,7 +316,7 @@ local function ScheduleRefresh(provider)
     C_Timer.After(C.REFRESH_DEBOUNCE, function()
         provider.refreshPending = false
         local currentMap = provider:GetMap()
-        if not currentMap or not currentMap:IsShown() then
+        if not addon.IsFrameShown(currentMap) then
             return
         end
         provider:RefreshAllData()

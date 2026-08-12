@@ -80,6 +80,9 @@ local function SetWaypoint(questId)
     if not addon.Waypoints:Set(loc.mapID, loc.x, loc.y, addon.L["TREASURE_HUNT_WAYPOINT_TITLE"], {
         owner = WAYPOINT_OWNER_TREASURE_HUNT,
     }) then
+        if not addon.Waypoints:GetActive() then
+            activeQuestId = nil
+        end
         addon:Debug(string.format("Treasure Hunt: Cannot set waypoint on map %d", loc.mapID))
         return
     end

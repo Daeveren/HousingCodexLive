@@ -84,7 +84,7 @@ local function RefreshVisibleVendorMapPins()
     if not provider then return end
 
     local map = provider:GetMap()
-    if map and map:IsShown() then
+    if addon.IsFrameShown(map) then
         provider:RefreshAllData()
     end
 end

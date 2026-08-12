@@ -166,13 +166,13 @@ end
 
 -- Update all buttons in a container frame
 function ContainerOverlay:UpdateContainerFrame(frame)
-    if not frame or not frame:IsShown() then return end
+    if not addon.IsFrameShown(frame) then return end
     if not frame.EnumerateValidItems then return end
 
     self:HideContainerFrameOverlays(frame)
 
     for _, itemButton in frame:EnumerateValidItems() do
-        if itemButton:IsShown() then
+        if addon.IsFrameShown(itemButton) then
             local bagID = itemButton:GetBagID()
             local slotID = itemButton:GetID()
             local itemID
@@ -189,18 +189,18 @@ end
 
 -- Check if any container frame is currently visible (combined bags mode first, then individual)
 local function AreBagsVisible()
-    if ContainerFrameCombinedBags and ContainerFrameCombinedBags:IsShown() then
+    if addon.IsFrameShown(ContainerFrameCombinedBags) then
         return true
     end
     for i = 1, NUM_CONTAINER_FRAMES do
         local f = _G["ContainerFrame"..i]
-        if f and f:IsShown() then return true end
+        if addon.IsFrameShown(f) then return true end
     end
     return false
 end
 
 local function IsBankPanelVisible()
-    return BankFrame and BankFrame.BankPanel and BankFrame.BankPanel:IsShown()
+    return BankFrame and addon.IsFrameShown(BankFrame.BankPanel)
 end
 
 -- Flush deferred cache invalidation (called before updating any visible container)
@@ -229,7 +229,7 @@ end
 -- Refresh visible bank panel buttons via Blizzard's bulk API.
 -- BankFrame.BankPanel hosts both character and account (warband) bank tabs.
 function ContainerOverlay:UpdateVisibleBankPanel()
-    if BankFrame and BankFrame.BankPanel and BankFrame.BankPanel:IsShown() then
+    if BankFrame and addon.IsFrameShown(BankFrame.BankPanel) then
         BankFrame.BankPanel:RefreshAllItemsForSelectedTab()
     end
 end
@@ -269,7 +269,7 @@ function ContainerOverlay:Initialize()
     -- cached bag items. A one-frame delay ensures UpdateItems() has finished.
     hooksecurefunc("ContainerFrame_OnShow", function(frame)
         C_Timer.After(0, function()
-            if frame:IsShown() then
+            if addon.IsFrameShown(frame) then
                 FlushDirtyCache()
                 self:UpdateContainerFrame(frame)
             end

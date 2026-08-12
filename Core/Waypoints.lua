@@ -10,6 +10,8 @@ local Waypoints = {}
 addon.Waypoints = Waypoints
 
 local WAYPOINT_OWNER_GENERIC = addon.CONSTANTS.WAYPOINT_OWNER_GENERIC
+local _, _, _, interfaceVersion = GetBuildInfo()
+local SET_USER_WAYPOINT_RETURNS_RESULT = type(interfaceVersion) == "number" and interfaceVersion >= 120100
 
 -- State
 local tomtomAvailable = false
@@ -102,8 +104,14 @@ function Waypoints:Set(mapID, normX, normY, title, options)
     self:Clear(options)
     local point = UiMapPoint.CreateFromCoordinates(mapID, normX, normY)
     isSettingWaypoint = true
-    C_Map.SetUserWaypoint(point)
+    local callSucceeded, wasSet = pcall(C_Map.SetUserWaypoint, point)
     isSettingWaypoint = false
+    if not callSucceeded or wasSet == false or (SET_USER_WAYPOINT_RETURNS_RESULT and wasSet ~= true) then
+        -- The previous addon waypoint was deliberately cleared before replacement.
+        -- Keep that cleared state on failure rather than restoring stale ownership.
+        ShowInvalidMapFeedback()
+        return false
+    end
     C_SuperTrack.SetSuperTrackedUserWaypoint(true)
     ownsNativeWaypoint = true
     activeWaypoint = { mapID = mapID, x = normX, y = normY, title = title, owner = owner }
@@ -146,7 +154,9 @@ local function ReconcileOwnership()
     local point = C_Map.GetUserWaypoint()
     if not point or not point.position or not activeWaypoint then return DropOwnership() end
 
-    local x, y = point.position:GetXY()
+    -- GetUserWaypoint() positions expose x/y directly. Calling the Vector2D
+    -- mixin method can route through Blizzard's error handler on 12.1.
+    local x, y = point.position.x, point.position.y
     local EPSILON = addon.CONSTANTS.WAYPOINT_MATCH_EPSILON
     if x == nil or y == nil
         or point.uiMapID ~= activeWaypoint.mapID

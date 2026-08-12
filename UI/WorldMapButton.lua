@@ -109,7 +109,7 @@ function HousingCodexWorldMapButtonMixin:Refresh()
                 local provider = addon.vendorMapProvider
                 if provider then
                     local map = provider:GetMap()
-                    if map and map:IsShown() then
+                    if addon.IsFrameShown(map) then
                         provider:RefreshAllData()
                     end
                 end
@@ -180,7 +180,7 @@ local function UpdateWorldMapButtonVisibility()
     local button = addon.worldMapButton
     if not button then return end
 
-    if WorldMapFrame and WorldMapFrame:IsShown() then
+    if addon.IsFrameShown(WorldMapFrame) then
         if InCombatLockdown() then return end
         button:Show()
         if button.Refresh then

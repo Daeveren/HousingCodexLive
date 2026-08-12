@@ -48,11 +48,7 @@ local function IsSecretValue(value)
     return type(issecretvalue) == "function" and issecretvalue(value)
 end
 
-local function IsFrameShown(targetFrame)
-    if not targetFrame then return false end
-    local shown = targetFrame:IsShown()
-    return not IsSecretValue(shown) and shown
-end
+local IsFrameShown = addon.IsFrameShown
 
 -- The panel is a WorldMapFrame child and inherits the map's scale directly, so fixed layout
 -- values are plain numbers and this is only a rounding clamp for the two genuinely

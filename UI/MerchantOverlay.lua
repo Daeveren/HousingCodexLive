@@ -151,7 +151,7 @@ end
 
 -- Update merchant buttons with decor indicators
 function MerchantOverlay:UpdateMerchantButtons()
-    if not MerchantFrame or not MerchantFrame:IsShown() then
+    if not addon.IsFrameShown(MerchantFrame) then
         self:HideAllOverlays()
         return
     end
@@ -199,7 +199,7 @@ function MerchantOverlay:UpdateMerchantButtons()
 
     for i = 1, scanCount do
         local button = _G["MerchantItem"..i.."ItemButton"]
-        if button and button:IsShown() then
+        if addon.IsFrameShown(button) then
             local buttonID = button:GetID()
             local displayIndex
             if buttonID ~= nil and not IsSecretValue(buttonID) and type(buttonID) == "number" and buttonID > 0 and buttonID <= numItems then
@@ -291,7 +291,7 @@ function MerchantOverlay:Initialize()
             -- Fallback timer in case event doesn't fire
             marketFallbackTimer = C_Timer.NewTimer(0.5, function()
                 marketFallbackTimer = nil
-                if waitingForMarketData and MerchantFrame and MerchantFrame:IsShown() then
+                if waitingForMarketData and addon.IsFrameShown(MerchantFrame) then
                     waitingForMarketData = false
                     ClearSessionCache()
                     self:ScheduleUpdateMerchantButtons()
@@ -301,7 +301,7 @@ function MerchantOverlay:Initialize()
             -- Market data is now ready - always clear flag, refresh if merchant open
             waitingForMarketData = false
             CancelMarketFallbackTimer()
-            if MerchantFrame and MerchantFrame:IsShown() then
+            if addon.IsFrameShown(MerchantFrame) then
                 ClearSessionCache()
                 self:ScheduleUpdateMerchantButtons()
             end
@@ -316,7 +316,7 @@ function MerchantOverlay:Initialize()
     -- Listen for internal ownership updates
     addon:RegisterInternalEvent("RECORD_OWNERSHIP_UPDATED", function(recordID, collectionStateChanged)
         if not collectionStateChanged then return end
-        if not MerchantFrame or not MerchantFrame:IsShown() then return end
+        if not addon.IsFrameShown(MerchantFrame) then return end
         -- Clear session cache to force fresh ownership checks
         ClearSessionCache()
         self:ScheduleUpdateMerchantButtons()
