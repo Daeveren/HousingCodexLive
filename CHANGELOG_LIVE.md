@@ -2,6 +2,12 @@
 
 All notable changes to Housing Codex.
 
+**3.1.2** (2026-08-15)
+
+**Changed**
+- Updated Patch 12.1 neighborhood vendor prices and tracking
+- New Patch 12.1 decor now appears in "Added in Patch" filters
+
 **3.1.1** (2026-08-13)
 
 **Fixed**
