@@ -60,6 +60,7 @@ local CURRENCY_NAME_TO_ID = {
     ["Brimming Arcana"] = 3379,
     ["Bronze"] = 2778,
     ["Community Coupons"] = 3363,
+    ["Corrosive Coin"] = 3448,
     ["Dragon Isles Supplies"] = 2003,
     ["Echoes of Ny'alotha"] = 1803,
     ["Elemental Overflow"] = 2118,

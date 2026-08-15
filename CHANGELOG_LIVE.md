@@ -2,6 +2,11 @@
 
 All notable changes to Housing Codex.
 
+**3.1.3** (2026-08-16)
+
+**Changed**
+- Updated Patch 12.1 decor vendor sources, prices, and waypoints
+
 **3.1.2** (2026-08-15)
 
 **Changed**

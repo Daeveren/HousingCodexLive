@@ -202,8 +202,10 @@ addon.ZONE_TO_EXPANSION = {
     ["Satheril's Haven, Eversong Woods"] = "EXPANSION_MIDNIGHT",
     ["Silvermoon City"] = "EXPANSION_MIDNIGHT",
     ["The Bazaar, Silvermoon City"] = "EXPANSION_MIDNIGHT",
+    ["The Coiled Isle"] = "EXPANSION_MIDNIGHT",
     ["The Den"] = "EXPANSION_MIDNIGHT",
     ["Val"] = "EXPANSION_MIDNIGHT",
+    ["Vaults of Atal'Utek"] = "EXPANSION_MIDNIGHT",
     ["Voidstorm"] = "EXPANSION_MIDNIGHT",
     ["Zul'Aman"] = "EXPANSION_MIDNIGHT",
 }
