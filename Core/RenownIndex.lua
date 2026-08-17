@@ -89,9 +89,19 @@ addon.renownIndexBuilt = false
 addon.renownProgressCache = {}     -- { [factionID] = { owned, total } }
 addon.renownExpansionProgressCache = {}
 addon.renownStandingCache = {}     -- { [factionID] = standing info }
+addon.renownSourcesByDecorID = {}  -- { [decorId] = { sourceAssociation, ... } }
+addon.renownFactionsByVendorNPCID = {} -- { [npcId] = { factionEntry, ... } }
+addon.renownSourcesByVendorDecorID = {} -- { [npcId] = { [decorId] = { sourceAssociation, ... } } }
 
 -- NPC ID → decorIds lookup built from VendorSourceData
 local vendorNPCDecorLookup = nil   -- { [npcId] = { decorId1, decorId2, ... } }
+
+local function GetRequirementSortValue(kind, requiredStanding, requiredRankLevel)
+    if requiredRankLevel then return tonumber(requiredRankLevel) end
+    if not requiredStanding then return nil end
+    if kind == "standard" then return STANDING_REACTION[requiredStanding] end
+    return tonumber(requiredStanding:match("%d+"))
+end
 
 --------------------------------------------------------------------------------
 -- Vendor Cross-Reference
@@ -131,17 +141,25 @@ local function ResolveDecorEntriesForFaction(factionData)
     BuildVendorNPCLookup()
 
     local entries = {}   -- { { decorId = N, requiredStanding = "Standing" }, ... }
-    local plainIds = {}  -- parallel plain list for progress tracking
     local seen = {}
+    local sourceOrder = 0
+
+    local function addEntry(decorId, requiredStanding, requiredRankLevel)
+        if not decorId or seen[decorId] then return end
+        sourceOrder = sourceOrder + 1
+        table.insert(entries, {
+            decorId = decorId,
+            requiredStanding = requiredStanding,
+            requiredRankLevel = requiredRankLevel,
+            sourceOrder = sourceOrder,
+        })
+        seen[decorId] = true
+    end
 
     -- First: check static rewards for pre-populated decorIds with per-item standing
     if factionData.rewards then
         for _, reward in ipairs(factionData.rewards) do
-            if reward.decorId and not seen[reward.decorId] then
-                table.insert(entries, { decorId = reward.decorId, requiredStanding = reward.requiredStanding, requiredRankLevel = reward.requiredRankLevel })
-                table.insert(plainIds, reward.decorId)
-                seen[reward.decorId] = true
-            end
+            addEntry(reward.decorId, reward.requiredStanding, reward.requiredRankLevel)
         end
     end
 
@@ -152,11 +170,7 @@ local function ResolveDecorEntriesForFaction(factionData)
     if factionData.vendors and vendorNPCDecorLookup then
         local function addDecorList(list)
             for _, decorId in ipairs(list) do
-                if not seen[decorId] then
-                    table.insert(entries, { decorId = decorId, requiredStanding = factionReq })
-                    table.insert(plainIds, decorId)
-                    seen[decorId] = true
-                end
+                addEntry(decorId, factionReq)
             end
         end
         for _, vendor in ipairs(factionData.vendors) do
@@ -171,7 +185,97 @@ local function ResolveDecorEntriesForFaction(factionData)
         end
     end
 
+    -- Show progressive reward families in unlock order while preserving the
+    -- generated order for ties and for rows without a known requirement.
+    table.sort(entries, function(a, b)
+        local aRequirement = GetRequirementSortValue(
+            factionData.kind, a.requiredStanding, a.requiredRankLevel)
+        local bRequirement = GetRequirementSortValue(
+            factionData.kind, b.requiredStanding, b.requiredRankLevel)
+        if aRequirement ~= bRequirement then
+            if aRequirement == nil then return false end
+            if bRequirement == nil then return true end
+            return aRequirement < bRequirement
+        end
+        return a.sourceOrder < b.sourceOrder
+    end)
+
+    local plainIds = {}
+    for _, entry in ipairs(entries) do
+        entry.sourceOrder = nil
+        table.insert(plainIds, entry.decorId)
+    end
+
     return entries, plainIds
+end
+
+local function AddToListMap(index, key, value)
+    if not key then return end
+    local list = index[key]
+    if not list then
+        list = {}
+        index[key] = list
+    end
+    table.insert(list, value)
+end
+
+local function AddFactionToVendorIndex(index, npcId, factionEntry)
+    if not npcId then return end
+    local factions = index[npcId]
+    if not factions then
+        factions = {}
+        index[npcId] = factions
+    end
+    for _, existing in ipairs(factions) do
+        if existing.factionID == factionEntry.factionID then return end
+    end
+    table.insert(factions, factionEntry)
+end
+
+local function IndexFactionSources(factionEntry)
+    local associationsByDecorID = {}
+    for _, decorEntry in ipairs(factionEntry.resolvedDecorEntries or {}) do
+        local association = {
+            faction = factionEntry,
+            requiredStanding = decorEntry.requiredStanding,
+            requiredRankLevel = decorEntry.requiredRankLevel,
+        }
+        associationsByDecorID[decorEntry.decorId] = association
+        AddToListMap(addon.renownSourcesByDecorID, decorEntry.decorId, association)
+    end
+
+    for _, vendor in ipairs(factionEntry.vendors or {}) do
+        AddFactionToVendorIndex(addon.renownFactionsByVendorNPCID, vendor.npcId, factionEntry)
+        local vendorDecorIDs = vendor.decorIds or factionEntry.resolvedDecorIds or {}
+        for _, decorId in ipairs(vendorDecorIDs) do
+            local association = associationsByDecorID[decorId]
+            if association then
+                local vendorSources = addon.renownSourcesByVendorDecorID[vendor.npcId]
+                if not vendorSources then
+                    vendorSources = {}
+                    addon.renownSourcesByVendorDecorID[vendor.npcId] = vendorSources
+                end
+                AddToListMap(vendorSources, decorId, association)
+            end
+        end
+    end
+end
+
+local function SortSourceAssociationLists(index)
+    for _, associations in pairs(index) do
+        table.sort(associations, function(a, b)
+            local aValue = GetRequirementSortValue(
+                a.faction.kind, a.requiredStanding, a.requiredRankLevel)
+            local bValue = GetRequirementSortValue(
+                b.faction.kind, b.requiredStanding, b.requiredRankLevel)
+            if aValue ~= bValue then
+                if aValue == nil then return false end
+                if bValue == nil then return true end
+                return aValue < bValue
+            end
+            return a.faction.factionID < b.faction.factionID
+        end)
+    end
 end
 
 --------------------------------------------------------------------------------
@@ -417,6 +521,9 @@ function addon:BuildRenownIndex()
     wipe(self.renownProgressCache)
     wipe(self.renownExpansionProgressCache)
     wipe(self.renownStandingCache)
+    wipe(self.renownSourcesByDecorID)
+    wipe(self.renownFactionsByVendorNPCID)
+    wipe(self.renownSourcesByVendorDecorID)
     vendorNPCDecorLookup = nil  -- Force rebuild on next access
 
     local factionCount, resolvedCount = 0, 0
@@ -444,6 +551,7 @@ function addon:BuildRenownIndex()
             }
             table.insert(self.renownHierarchy[expKey].factions, entry)
             self.renownFactionByID[factionID] = entry
+            IndexFactionSources(entry)
             factionCount = factionCount + 1
             if #resolvedDecorIds > 0 then
                 resolvedCount = resolvedCount + 1
@@ -460,11 +568,51 @@ function addon:BuildRenownIndex()
         end)
     end
 
+    SortSourceAssociationLists(self.renownSourcesByDecorID)
+    for _, vendorSources in pairs(self.renownSourcesByVendorDecorID) do
+        SortSourceAssociationLists(vendorSources)
+    end
+
     self.renownIndexBuilt = true
+    self.byWordIndexBuilt = false
     self:InvalidateProgressCache()
 
     self:Debug(string.format("Built Renown index: %d factions (%d with resolved decor) in %d ms",
         factionCount, resolvedCount, math.floor(debugprofilestop() - startTime)))
+end
+
+local function EnsureRenownIndex()
+    if not addon.renownIndexBuilt then addon:BuildRenownIndex() end
+    return addon.renownIndexBuilt
+end
+
+function addon:GetRenownSourcesForDecor(decorId)
+    if not EnsureRenownIndex() then return {} end
+    return self.renownSourcesByDecorID[decorId] or {}
+end
+
+function addon:GetVendorDecorRenownSource(npcId, decorId)
+    if not EnsureRenownIndex() then return nil end
+    local vendorSources = self.renownSourcesByVendorDecorID[npcId]
+    local sources = vendorSources and vendorSources[decorId]
+    return sources and sources[1] or nil
+end
+
+function addon:RenownVendorMatchesSearch(npcId, searchText)
+    if not npcId or not searchText or searchText == "" then return false end
+    if not EnsureRenownIndex() then return false end
+
+    for _, faction in ipairs(self.renownFactionsByVendorNPCID[npcId] or {}) do
+        if faction.label
+            and self:NormalizeSearchText(faction.label):find(searchText, 1, true) then
+            return true
+        end
+        if faction.localizedLabel and faction.localizedLabel ~= faction.label
+            and self:NormalizeSearchText(faction.localizedLabel):find(searchText, 1, true) then
+            return true
+        end
+    end
+    return false
 end
 
 -- Return the best available display name for a faction. Prefers the live
@@ -491,6 +639,7 @@ function addon:RefreshFactionLocalizedLabel(factionID)
             for _, entry in ipairs(expData.factions) do
                 if entry.factionID == factionID then
                     entry.localizedLabel = ResolveFactionLocalizedName(factionID)
+                    self.byWordIndexBuilt = false
                     return
                 end
             end

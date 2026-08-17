@@ -603,7 +603,7 @@ function TabBaseMixin:SetupCategoryButton(frame, elementData)
     addon:SetFontSize(frame.percentLabel, 11, "")
 end
 
-function TabBaseMixin:SelectCategory(category)
+function TabBaseMixin:SetCommittedCategory(category)
     local prevSelected = self.selectedCategory
     local categoryChanged = prevSelected ~= category
 
@@ -620,6 +620,10 @@ function TabBaseMixin:SelectCategory(category)
 
     self:UpdateHierarchySelection(self.categoryScrollBox, "category", prevSelected, category,
         function() return self.selectedCategory end)
+end
+
+function TabBaseMixin:SelectCategory(category)
+    self:SetCommittedCategory(category)
 
     self:BuildSourceDisplay()
 
@@ -793,6 +797,11 @@ function TabBaseMixin:UpdateDecorSelectionVisual(row, isSelected, textBrightness
 end
 
 function TabBaseMixin:HandleItemSelection(params)
+    if self.selectedCategory ~= params.sourceCategoryKey then
+        self:SetCommittedCategory(params.sourceCategoryKey)
+        self.usingSearchFallbackCategory = false
+    end
+
     local isCurrentlySelected = self.selectedCategory == params.sourceCategoryKey
         and self.selectedSourceName == params.sourceNameKey
         and self.selectedDecorId == params.decorId
@@ -840,6 +849,10 @@ function TabBaseMixin:HandleItemSelection(params)
 end
 
 function TabBaseMixin:RestoreSelectionOnLeave()
+    if self.usingSearchFallbackCategory then
+        addon:FireEvent("RECORD_SELECTED", nil)
+        return
+    end
     addon:FireEvent("RECORD_SELECTED", self.selectedDecorId)
 end
 
@@ -1119,12 +1132,35 @@ function TabBaseMixin:BuildSourceDisplay(visCache)
     if not self.sourceScrollBox or not self.sourceDataProvider then return end
 
     local elements = {}
+    local filter = self:GetCompletionFilter()
+    local searchText = strlower(strtrim(self.searchBox and self.searchBox:GetText() or ""))
     local category = self.selectedCategory
+    local usingSearchFallback = false
+
+    local function HasVisibleSource(candidateCategory)
+        if not candidateCategory then return false end
+        for _, sourceData in ipairs(self.cfg.getSourcesForCategory(candidateCategory)) do
+            if self:GetVisibleSourceElement(sourceData, candidateCategory, filter, searchText, visCache) then
+                return true
+            end
+        end
+        return false
+    end
+
+    -- Drops searches span all source categories. When the committed category has
+    -- no match, render the first matching category without changing saved/user
+    -- selection; clearing the search restores the committed category.
+    if searchText ~= "" and self.cfg.searchFallbackToVisibleCategory and not HasVisibleSource(category) then
+        for _, candidateCategory in ipairs(self.cfg.getSortedCategories()) do
+            if HasVisibleSource(candidateCategory) then
+                category = candidateCategory
+                usingSearchFallback = category ~= self.selectedCategory
+                break
+            end
+        end
+    end
 
     if category then
-        local filter = self:GetCompletionFilter()
-        local searchText = strlower(strtrim(self.searchBox and self.searchBox:GetText() or ""))
-
         for _, sourceData in ipairs(self.cfg.getSourcesForCategory(category)) do
             local visibleSourceData = self:GetVisibleSourceElement(sourceData, category, filter, searchText, visCache)
             if visibleSourceData then
@@ -1138,7 +1174,10 @@ function TabBaseMixin:BuildSourceDisplay(visCache)
         self.sourceDataProvider:InsertTable(elements)
     end
 
-    self:RestoreSuppressedPreview(#elements > 0, self.selectedDecorId)
+    self.usingSearchFallbackCategory = usingSearchFallback
+    if not usingSearchFallback then
+        self:RestoreSuppressedPreview(#elements > 0, self.selectedDecorId)
+    end
     self:UpdateEmptyStates()
 end
 
@@ -1197,7 +1236,7 @@ function TabBaseMixin:UpdateEmptyStates()
         and (hasSelection or hasActiveFilter or not hasVisibleCategories)
     local showNoCategory = hasSources and hasVisibleCategories and not hasSelection and not hasActiveFilter
 
-    if not hasResults then
+    if not hasResults or self.usingSearchFallbackCategory then
         self:SuppressPreviewWhileEmpty(self.selectedDecorId ~= nil)
     end
 

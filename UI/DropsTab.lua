@@ -40,6 +40,7 @@ DropsTab.cfg = {
     emptyNoSourcesDescKey = "DROPS_EMPTY_NO_SOURCES_DESC",
     emptySelectCategoryKey= "DROPS_SELECT_CATEGORY",
     emptyNoResultsKey     = "DROPS_EMPTY_NO_RESULTS",
+    searchFallbackToVisibleCategory = true,
 }
 
 -- Instance state (must be per-tab, not on mixin)

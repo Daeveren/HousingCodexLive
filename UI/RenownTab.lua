@@ -393,6 +393,12 @@ local function DecorRowOnEnter(row)
     if row.isCollected then
         GameTooltip:AddLine(addon.L["FILTER_COLLECTED"], 0.4, 0.9, 0.4)
     end
+    if row.requiredStandingText then
+        local color = row.requirementMet and { 0.4, 0.9, 0.4 } or { 0.8, 0.4, 0.2 }
+        GameTooltip:AddLine(
+            string.format(addon.L["RENOWN_REQUIRED"], row.requiredStandingText),
+            color[1], color[2], color[3])
+    end
     if row.vendors then
         for _, vendor in ipairs(row.vendors) do
             local name = addon:GetLocalizedNPCName(vendor.npcId, vendor.name)
@@ -499,7 +505,7 @@ function RenownTab:SetupFactionCard(frame, elementData)
     if isOpposingFaction then
         local key = factionData.factionSide == "Horde" and "RENOWN_NEEDS_HORDE" or "RENOWN_NEEDS_ALLIANCE"
         frame.standingLabel:SetText(L[key])
-        frame.standingLabel:SetTextColor(0.8, 0.4, 0.19, 1)
+        frame.standingLabel:SetTextColor(unpack(COLORS.WARNING_ORANGE))
     elseif hasMet then
         frame.standingLabel:SetText(L["RENOWN_REP_MET"])
         frame.standingLabel:SetTextColor(0.4, 0.9, 0.4, 1)
@@ -521,7 +527,7 @@ function RenownTab:SetupFactionCard(frame, elementData)
         end
         local text = reqPart ~= "" and (reqPart .. ", " .. statusPart) or statusPart
         frame.standingLabel:SetText(text)
-        frame.standingLabel:SetTextColor(0.7, 0.7, 0.7, 1)
+        frame.standingLabel:SetTextColor(unpack(isUnlocked and COLORS.TEXT_TERTIARY or COLORS.WARNING_ORANGE))
     end
     addon:SetFontSize(frame.standingLabel, 12, "")
 
@@ -675,19 +681,25 @@ function RenownTab:SetupDecorRows(frame, entries, factionID, vendors)
 
         row.checkIcon:SetShown(row.isCollected)
 
-        -- Check if this item's specific standing requirement is unmet
-        local itemRepUnmet = false
+        -- Show each item's exact standing requirement and whether it is met.
+        local requirementText = itemReqStanding and addon:LocalizeRequiredStanding(
+            itemReqStanding,
+            addon.RenownSourceData[factionID] and addon.RenownSourceData[factionID].kind,
+            factionID)
+        local requirementMet = requirementText == nil or row.isCollected
         if itemReqStanding and not row.isCollected then
-            itemRepUnmet = not addon:HasMetItemStandingRequirement(factionID, itemReqStanding, itemReqRankLevel)
+            requirementMet = addon:HasMetItemStandingRequirement(
+                factionID, itemReqStanding, itemReqRankLevel)
         end
 
         local textBrightness = row.isCollected and 0.4 or 0.7
         row.textBrightness = textBrightness
-        row.itemRepUnmet = itemRepUnmet
+        row.requiredStandingText = requirementText
+        row.requirementMet = requirementMet
         local displayName = addon:ResolveDecorName(decorId, record)
-        -- Append " *" for items with unmet per-item reputation
-        if itemRepUnmet then
-            displayName = displayName .. "  |cFFCC6630*|r"
+        if requirementText then
+            local color = requirementMet and "|cFF66AA66" or "|cFFCC6630"
+            displayName = displayName .. "  " .. color .. requirementText .. "|r"
         end
         row.name:SetText(displayName)
         addon:SetFontSize(row.name, 13, "")

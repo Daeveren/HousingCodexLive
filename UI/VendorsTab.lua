@@ -667,6 +667,12 @@ local function VendorDecorRowOnEnter(row)
             GameTooltip:AddLine(addon:GetLocalizedCategory(fallback.category), 0.7, 0.7, 0.7)
         end
     end
+    if row.requiredStandingText then
+        local color = row.requirementMet and { 0.4, 0.9, 0.4 } or { 0.8, 0.4, 0.2 }
+        GameTooltip:AddLine(
+            string.format(L["RENOWN_REQUIRED"], row.requiredStandingText),
+            color[1], color[2], color[3])
+    end
     GameTooltip:Show()
 end
 
@@ -1255,6 +1261,8 @@ function VendorsTab:SetupDecorRows(frame, decorIds)
         row.isCollected = record and record.isCollected
         row.npcId = frame.npcId
         row.zoneName = frame.zoneName
+        row.requiredStandingText = nil
+        row.requirementMet = nil
 
         if record then
             if record.iconType == "atlas" then
@@ -1270,8 +1278,21 @@ function VendorsTab:SetupDecorRows(frame, decorIds)
 
         local textBrightness = row.isCollected and 0.4 or 0.7
         row.textBrightness = textBrightness
+        local displayName = addon:ResolveDecorName(decorId, record)
+        local renownSource = addon:GetVendorDecorRenownSource(frame.npcId, decorId)
+        if renownSource and renownSource.requiredStanding then
+            local faction = renownSource.faction
+            row.requiredStandingText = addon:LocalizeRequiredStanding(
+                renownSource.requiredStanding, faction.kind, faction.factionID)
+            row.requirementMet = row.isCollected or addon:HasMetItemStandingRequirement(
+                faction.factionID,
+                renownSource.requiredStanding,
+                renownSource.requiredRankLevel)
+            local color = row.requirementMet and "|cFF66AA66" or "|cFFCC6630"
+            displayName = displayName .. "  " .. color .. row.requiredStandingText .. "|r"
+        end
         -- Keep rows compact: selecting an item shows source/cost details in PreviewFrame.
-        row.name:SetText(addon:ResolveDecorName(decorId, record))
+        row.name:SetText(displayName)
         addon:SetFontSize(row.name, 13, "")
 
         -- Check if this item is currently selected (composite key: vendor + decor)
@@ -1725,6 +1746,8 @@ local function VendorMatchesSearch(vendorData, searchText, zoneName, expansionKe
     elseif localizedZoneName ~= zoneName and addon:NormalizeSearchText(localizedZoneName):find(searchText, 1, true) then
         result = true
     elseif addon:NormalizeSearchText(addon.L[expansionKey] or expansionKey):find(searchText, 1, true) then
+        result = true
+    elseif addon:RenownVendorMatchesSearch(vendorData.npcId, searchText) then
         result = true
     elseif VendorCurrencyMatchesSearch(vendorData, searchText) then
         result = true

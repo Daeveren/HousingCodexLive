@@ -126,6 +126,23 @@ function addon:BuildWordIndex()
         end
     end
 
+    -- Reputation/friendship faction tokens: Decor search should understand the
+    -- gated source name as well as the merchant NPC that physically sells it.
+    if self.GetRenownSourcesForDecor then
+        if not self.renownIndexBuilt then self:BuildRenownIndex() end
+        for decorId, sources in pairs(self.renownSourcesByDecorID or {}) do
+            for _, source in ipairs(sources) do
+                local faction = source.faction
+                if faction and faction.label then
+                    TokenizeIntoIndex(self:NormalizeSearchText(faction.label), decorId)
+                end
+                if faction and faction.localizedLabel and faction.localizedLabel ~= faction.label then
+                    TokenizeIntoIndex(self:NormalizeSearchText(faction.localizedLabel), decorId)
+                end
+            end
+        end
+    end
+
     self.byWordIndexBuilt = true
 
     local elapsedMs = math.floor(debugprofilestop() - startTime)

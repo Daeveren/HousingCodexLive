@@ -457,13 +457,17 @@ function QuestsTab:Show()
     self:SetCompletionFilter(saved and saved.completionFilter or "all", skipRefresh)
 end
 
+local function GetNormalizedSearchText(tab)
+    return addon:NormalizeSearchText(tab.searchBox and tab.searchBox:GetText() or "")
+end
+
 function QuestsTab:NavigateFromProgress(expansionKey, filter)
     if self.searchBox then
         self.searchBox:SetText("")
     end
     self:SetCompletionFilter(filter or "all", true)
     local activeFilter = self:GetCompletionFilter()
-    local searchText = strlower(strtrim(self.searchBox and self.searchBox:GetText() or ""))
+    local searchText = GetNormalizedSearchText(self)
     local visibilityCache = self:BuildQuestVisibilityCache(activeFilter, searchText)
     self:BuildExpansionDisplay(visibilityCache)
     if not expansionKey then
@@ -504,7 +508,7 @@ end
 function QuestsTab:RefreshDisplay()
     addon:CountDebug("rebuild", "QuestsTab")
     local filter = self:GetCompletionFilter()
-    local searchText = strlower(strtrim(self.searchBox and self.searchBox:GetText() or ""))
+    local searchText = GetNormalizedSearchText(self)
     local visibilityCache = self:BuildQuestVisibilityCache(filter, searchText)
     if not self:BuildExpansionDisplay(visibilityCache) then
         self:BuildZoneQuestDisplay(visibilityCache)
@@ -708,22 +712,22 @@ local function QuestMatchesSearch(questKey, searchText, zoneName, expansionKey)
     if searchText == "" then return true end
 
     -- Check quest title (API/localized)
-    local title = strlower(addon:GetQuestTitle(questKey) or "")
+    local title = addon:NormalizeSearchText(addon:GetQuestTitle(questKey) or "")
     if title:find(searchText, 1, true) then return true end
 
     -- Also check scraped English name for numeric keys (API title may differ or be unavailable)
     if type(questKey) == "number" then
         local fallback = addon.questTitleFallback and addon.questTitleFallback[questKey]
-        if fallback and strlower(fallback):find(searchText, 1, true) then return true end
+        if fallback and addon:NormalizeSearchText(fallback):find(searchText, 1, true) then return true end
     end
 
     -- Check zone name (English and localized)
-    if strlower(zoneName):find(searchText, 1, true) then return true end
+    if addon:NormalizeSearchText(zoneName):find(searchText, 1, true) then return true end
     local localizedZone = addon:GetLocalizedZoneName(zoneName)
-    if localizedZone ~= zoneName and strlower(localizedZone):find(searchText, 1, true) then return true end
+    if localizedZone ~= zoneName and addon:NormalizeSearchText(localizedZone):find(searchText, 1, true) then return true end
 
     -- Check expansion name
-    local expName = strlower(addon.L[expansionKey] or expansionKey)
+    local expName = addon:NormalizeSearchText(addon.L[expansionKey] or expansionKey)
     if expName:find(searchText, 1, true) then return true end
 
     -- Check reward names
@@ -731,7 +735,7 @@ local function QuestMatchesSearch(questKey, searchText, zoneName, expansionKey)
     for _, recordID in ipairs(records or {}) do
         local record = addon:GetRecord(recordID)
         if addon:ShouldDisplayDecor(recordID, record)
-            and record and record.name and strlower(record.name):find(searchText, 1, true) then
+            and record and record.name and addon:NormalizeSearchText(record.name):find(searchText, 1, true) then
             return true
         end
     end
@@ -802,7 +806,7 @@ function QuestsTab:BuildExpansionDisplay(visibilityCache)
 
     local elements = {}
     local filter = self:GetCompletionFilter()
-    local searchText = strlower(strtrim(self.searchBox and self.searchBox:GetText() or ""))
+    local searchText = GetNormalizedSearchText(self)
 
     for _, expansionKey in ipairs(addon:GetSortedExpansions()) do
         local hasVisibleContent = false
@@ -863,7 +867,7 @@ function QuestsTab:BuildZoneQuestDisplay(visibilityCache)
 
     if expansionKey then
         local filter = self:GetCompletionFilter()
-        local searchText = strlower(strtrim(self.searchBox and self.searchBox:GetText() or ""))
+        local searchText = GetNormalizedSearchText(self)
 
         for _, zoneName in ipairs(addon:GetSortedZones(expansionKey)) do
             local zoneQuests = {}

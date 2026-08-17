@@ -2,6 +2,16 @@
 
 All notable changes to Housing Codex.
 
+**3.1.4** (2026-08-17)
+
+**Changed**
+- More Patch 12.1 decor updates: vendor, quest, Renown, Profession, and dungeon sources
+- Reputation names and unlock requirements are now clearer across Decor, Vendors, and Renown
+
+**Fixed**
+- Quest search now handles curly apostrophes and other smart punctuation
+- Improved Drops search results across categories
+
 **3.1.3** (2026-08-16)
 
 **Changed**

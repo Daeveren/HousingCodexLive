@@ -94,6 +94,7 @@ addon.CONSTANTS = {
         TEXT_SECONDARY = { 0.9, 0.9, 0.9, 1 },
         TEXT_TERTIARY = { 0.7, 0.7, 0.7, 1 },
         TEXT_DISABLED = { 0.5, 0.5, 0.5, 1 },
+        WARNING_ORANGE = { 0.8, 0.4, 0.19, 1 },
         BORDER = { 0.3, 0.3, 0.3, 1 },
 
         -- Progress indicators (hierarchy tabs)
