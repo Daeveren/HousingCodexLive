@@ -1271,7 +1271,8 @@ function VendorsTab:SetupDecorRows(frame, decorIds)
                 row.icon:SetTexture(record.icon)
             end
         else
-            row.icon:SetTexture(addon:ResolveDecorIcon(decorId))
+            local fallbackIcon, fallbackIconType = addon:ResolveDecorIcon(decorId)
+            addon:SetIcon(row.icon, fallbackIcon, fallbackIconType)
         end
 
         row.checkIcon:SetShown(row.isCollected)

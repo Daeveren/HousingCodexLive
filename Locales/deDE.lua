@@ -472,6 +472,7 @@ L["DROPS_EMPTY_NO_RESULTS"] = "Keine Beutequellen entsprechen deinen aktuellen F
 L["DROPS_CATEGORY_DROP"] = "Beute"
 L["DROPS_CATEGORY_ENCOUNTER"] = "Bosse"
 L["DROPS_CATEGORY_TREASURE"] = "Schätze"
+L["DROPS_CATEGORY_ENDEAVOR"] = "Unterfangen"
 L["DROPS_CATEGORY_SHOP"] = "Shop"
 
 -- Drop source display
@@ -734,6 +735,8 @@ L["RENOWN_FACTION_UNKNOWN_FORMAT"] = "Fraktion Nr. %d"
 local SN = addon.sourceNameLocale
 
 -- Drops
+SN["Home: Grift the Griftah"] = "Zuhause: Griftah überlisten"
+SN["Knock-off Amani"] = "Amani-Nachahmungen"
 SN["Darkshore (BfA phase) Rare Drop"] = "Seltener Beutedrop an der Dunkelküste (BfA-Phase)"
 SN["Highmountain Tauren Paragon Chest"] = "Paragontruhe der Tauren von Hochberg"
 SN["In-Game Shop"] = "Ingame-Shop"

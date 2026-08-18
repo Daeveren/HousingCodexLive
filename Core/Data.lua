@@ -13,6 +13,7 @@ end
 
 -- Fallback icon for items without valid 2D icon (model-only items)
 local FALLBACK_ICON = "Interface\\Icons\\INV_Misc_QuestionMark"
+local FALLBACK_ICON_FILE_ID = GetFileIDFromPath(FALLBACK_ICON)
 local ALL_CATEGORY_ATLAS = "category-icons_all_inactive"
 
 -- Use constant from Init.lua
@@ -46,6 +47,11 @@ local function IsValidTexturePath(path)
     return type(path) == "string" and path ~= ""
 end
 
+local function IsUsableDecorTexture(icon)
+    if icon == FALLBACK_ICON_FILE_ID or icon == FALLBACK_ICON then return false end
+    return IsValidFileID(icon) or IsValidTexturePath(icon)
+end
+
 local function IsValidAtlas(atlas)
     -- Atlas names should be non-empty strings
     return type(atlas) == "string" and atlas ~= ""
@@ -68,6 +74,16 @@ local function GetCatalogEntryInfoByRecordID(entryType, recordID)
         return nil
     end
     return C_HousingCatalog.GetCatalogEntryInfoByRecordID(entryType, recordID)
+end
+
+local function GetCatalogEntryInfoByItem(itemID)
+    if not C_HousingCatalog or not C_HousingCatalog.GetCatalogEntryInfoByItem then
+        return nil
+    end
+    if not itemID or IsSecretValue(itemID) then
+        return nil
+    end
+    return C_HousingCatalog.GetCatalogEntryInfoByItem(itemID)
 end
 
 -- Calculate total owned from all sources (placed + storage + redeemable).
@@ -131,10 +147,8 @@ local function GetEntryIcon(info)
     -- Priority 1: iconTexture (FileAsset - number fileID or string path)
     -- Must validate because invalid values render as bright green tiles
     local iconTex = info.iconTexture
-    if iconTex then
-        if IsValidFileID(iconTex) or IsValidTexturePath(iconTex) then
-            return iconTex, "texture"
-        end
+    if iconTex and IsUsableDecorTexture(iconTex) then
+        return iconTex, "texture"
     end
 
     -- Priority 2: iconAtlas
@@ -528,12 +542,17 @@ end
 function addon:ResolveDecorIcon(decorId)
     if C_HousingDecor and C_HousingDecor.GetDecorIcon and decorId and not IsSecretValue(decorId) then
         local icon = C_HousingDecor.GetDecorIcon(decorId)
-        if IsValidFileID(icon) or IsValidTexturePath(icon) then return icon end
+        if IsUsableDecorTexture(icon) then return icon, "texture" end
     end
-    return FALLBACK_ICON
+    local itemID = self.DropDecorItemIDs and self.DropDecorItemIDs[decorId]
+    if C_Item and C_Item.GetItemIconByID and itemID and not IsSecretValue(itemID) then
+        local icon = C_Item.GetItemIconByID(itemID)
+        if IsUsableDecorTexture(icon) then return icon, "texture" end
+    end
+    return ALL_CATEGORY_ATLAS, "atlas"
 end
 
--- Resolve a record by trying direct API lookup when not in catalog search results.
+-- Resolve a record by trying direct record and item API lookups when not in catalog search results.
 -- Used for items with HiddenInCatalog flag (e.g., boss drops not yet in catalog browser).
 -- Successful lookups are cached in fallbackRecords; failures are negative-cached
 -- only after DATA_LOADED so early API misses remain retryable.
@@ -557,7 +576,15 @@ function addon:ResolveRecord(recordID)
         return nil
     end
 
+    local fallbackItemID
     local info = GetCatalogEntryInfoByRecordID(entryType, recordID)
+    if not info then
+        fallbackItemID = self.DropDecorItemIDs and self.DropDecorItemIDs[recordID]
+        info = GetCatalogEntryInfoByItem(fallbackItemID)
+        if info and info.recordID and info.recordID ~= recordID then
+            info = nil
+        end
+    end
     if not info then
         CacheFallbackMiss(self, recordID)
         return nil
@@ -572,6 +599,7 @@ function addon:ResolveRecord(recordID)
     }
 
     record = BuildRecordFields(entryID, info, { resolveTracking = true })
+    if not record.itemID then record.itemID = fallbackItemID end
 
     if not record.sourceText or record.sourceText == "" then
         local dropSource = self:GetDropSourceText(recordID)

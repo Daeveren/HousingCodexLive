@@ -109,8 +109,13 @@ local function SetupRow(row, elementData)
             row.icon:SetTexCoord(unpack(ICON_CROP_COORDS))
         end
     else
-        row.icon:SetTexture(addon:ResolveDecorIcon(recordID))
-        row.icon:SetTexCoord(unpack(ICON_CROP_COORDS))
+        local fallbackIcon, fallbackIconType = addon:ResolveDecorIcon(recordID)
+        addon:SetIcon(row.icon, fallbackIcon, fallbackIconType)
+        if fallbackIconType == "atlas" then
+            row.icon:SetTexCoord(0, 1, 0, 1)
+        else
+            row.icon:SetTexCoord(unpack(ICON_CROP_COORDS))
+        end
     end
 
     row.name:SetText(addon:ResolveDecorName(recordID, record))

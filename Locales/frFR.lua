@@ -473,6 +473,7 @@ L["DROPS_EMPTY_NO_RESULTS"] = "Aucune source de butin ne correspond à vos filtr
 L["DROPS_CATEGORY_DROP"] = "Butins"
 L["DROPS_CATEGORY_ENCOUNTER"] = "Boss"
 L["DROPS_CATEGORY_TREASURE"] = "Trésors"
+L["DROPS_CATEGORY_ENDEAVOR"] = "Initiatives"
 L["DROPS_CATEGORY_SHOP"] = "Boutique"
 
 -- Drop source display
@@ -735,6 +736,8 @@ L["RENOWN_FACTION_UNKNOWN_FORMAT"] = "Faction n°%d"
 local SN = addon.sourceNameLocale
 
 -- Drops
+SN["Home: Grift the Griftah"] = "Maison : arnaquer Griftah"
+SN["Knock-off Amani"] = "Imitations amani"
 SN["Darkshore (BfA phase) Rare Drop"] = "Butin rare de Sombrivage (phase BfA)"
 SN["Highmountain Tauren Paragon Chest"] = "Coffre de parangon des Taurens de Haut-Roc"
 SN["In-Game Shop"] = "Boutique en jeu"

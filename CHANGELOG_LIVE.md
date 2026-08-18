@@ -2,6 +2,16 @@
 
 All notable changes to Housing Codex.
 
+**3.1.5** (2026-08-18)
+
+**Changed**
+- Added source details for 46 more Patch 12.1 decor items
+- Updated Patch 12.1 vendor prices and source details
+
+**Fixed**
+- Drops and PvP searches now find names even when their punctuation differs
+- Improved information and icons for decor not yet in the Housing catalog
+
 **3.1.4** (2026-08-17)
 
 **Changed**

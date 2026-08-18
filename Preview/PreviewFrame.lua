@@ -1093,8 +1093,20 @@ function Preview:ShowDecor(recordID)
         self:UpdateActionButtons(nil)
         self.detailsName:SetText(addon:ResolveDecorName(recordID, nil))
         self.detailsName:SetTextColor(1, 1, 1)
+        local sourceText = addon:GetDropSourceText(recordID)
+        if sourceText and sourceText ~= "" then
+            self.detailsSource:SetText(sourceText)
+            self.sourceContainer:SetHeight(self.detailsSource:GetStringHeight() or 20)
+        end
+        local addedPatch = addon.DecorAddedPatchByRecordID and addon.DecorAddedPatchByRecordID[recordID]
+        if addedPatch and addedPatch ~= "" then
+            self.detailsAddedPatch:SetText(addedPatch)
+            self.detailsAddedPatch:Show()
+            self.detailsAddedPatchLabel:Show()
+        end
         self:RecalculateDetailsHeight()
-        self:ShowFallback(addon.L["PREVIEW_NOT_IN_CATALOG"])
+        local fallbackIcon, fallbackIconType = addon:ResolveDecorIcon(recordID)
+        self:ShowFallback(addon.L["PREVIEW_NOT_IN_CATALOG"], fallbackIcon, fallbackIconType)
         self.modelReloadNeeded = false
         return
     end

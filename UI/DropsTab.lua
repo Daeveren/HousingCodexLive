@@ -79,18 +79,19 @@ end
 local function SourceHeaderMatchesSearch(sourceData, searchText, category)
     if searchText == "" then return true end
 
-    if sourceData.sourceName and strlower(sourceData.sourceName):find(searchText, 1, true) then
+    if sourceData.sourceName and addon:NormalizeSearchText(sourceData.sourceName):find(searchText, 1, true) then
         return true
     end
 
     local localizedName = addon:GetLocalizedSourceName(sourceData.sourceName)
-    if localizedName and localizedName ~= sourceData.sourceName and strlower(localizedName):find(searchText, 1, true) then
+    if localizedName and localizedName ~= sourceData.sourceName
+        and addon:NormalizeSearchText(localizedName):find(searchText, 1, true) then
         return true
     end
 
     local catInfo = DropsTab.cfg.getCategoryInfo(category)
     if catInfo then
-        local catLabel = strlower(addon.L[catInfo.labelKey] or "")
+        local catLabel = addon:NormalizeSearchText(addon.L[catInfo.labelKey] or "")
         if catLabel:find(searchText, 1, true) then return true end
     end
 
@@ -146,7 +147,7 @@ function DropsTab:GetVisibleSourceElement(sourceData, category, filter, searchTe
         local matchingDecorIds = {}
         for _, decorId in ipairs(visibleSourceData.decorIds or {}) do
             local name = addon:ResolveDecorName(decorId, addon:GetRecord(decorId))
-            if name and strlower(name):find(searchText, 1, true) then
+            if name and addon:NormalizeSearchText(name):find(searchText, 1, true) then
                 matchingDecorIds[#matchingDecorIds + 1] = decorId
             end
         end

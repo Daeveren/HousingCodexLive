@@ -471,6 +471,7 @@ L["DROPS_EMPTY_NO_RESULTS"] = "没有符合当前筛选条件的掉落来源"
 L["DROPS_CATEGORY_DROP"] = "掉落"
 L["DROPS_CATEGORY_ENCOUNTER"] = "首领"
 L["DROPS_CATEGORY_TREASURE"] = "宝箱"
+L["DROPS_CATEGORY_ENDEAVOR"] = "睦邻活动"
 L["DROPS_CATEGORY_SHOP"] = "商店"
 
 -- Drop source display
@@ -733,6 +734,8 @@ L["RENOWN_FACTION_UNKNOWN_FORMAT"] = "阵营 #%d"
 local SN = addon.sourceNameLocale
 
 -- Drops
+SN["Home: Grift the Griftah"] = "住宅：骗过格里伏塔"
+SN["Knock-off Amani"] = "仿冒阿曼尼"
 SN["Darkshore (BfA phase) Rare Drop"] = "黑海岸（争霸艾泽拉斯）稀有掉落"
 SN["Highmountain Tauren Paragon Chest"] = "至高岭牛头人巅峰宝箱"
 SN["In-Game Shop"] = "游戏内商店"

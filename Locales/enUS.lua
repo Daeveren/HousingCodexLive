@@ -473,6 +473,7 @@ L["DROPS_EMPTY_NO_RESULTS"] = "No drop sources match your current filters"
 L["DROPS_CATEGORY_DROP"] = "Drops"
 L["DROPS_CATEGORY_ENCOUNTER"] = "Bosses"
 L["DROPS_CATEGORY_TREASURE"] = "Treasure"
+L["DROPS_CATEGORY_ENDEAVOR"] = "Endeavors"
 L["DROPS_CATEGORY_SHOP"] = "Shop"
 
 -- Drop source display
@@ -737,6 +738,8 @@ L["RENOWN_EMPTY_NO_DATA"] = "Reputation data is loading..."
 local SN = addon.sourceNameLocale
 
 -- Drops
+SN["Home: Grift the Griftah"] = "Home: Grift the Griftah"
+SN["Knock-off Amani"] = "Knock-off Amani"
 SN["Darkshore (BfA phase) Rare Drop"] = "Darkshore (BfA phase) Rare Drop"
 SN["Highmountain Tauren Paragon Chest"] = "Highmountain Tauren Paragon Chest"
 SN["In-Game Shop"] = "In-Game Shop"

@@ -474,6 +474,7 @@ L["DROPS_EMPTY_NO_RESULTS"] = "Нет источников добычи, соо�
 L["DROPS_CATEGORY_DROP"] = "Добыча"
 L["DROPS_CATEGORY_ENCOUNTER"] = "Боссы"
 L["DROPS_CATEGORY_TREASURE"] = "Сокровища"
+L["DROPS_CATEGORY_ENDEAVOR"] = "Начинания"
 L["DROPS_CATEGORY_SHOP"] = "Магазин"
 
 -- Drop source display
@@ -738,6 +739,8 @@ L["RENOWN_EMPTY_NO_DATA"] = "Загрузка данных о репутации
 local SN = addon.sourceNameLocale
 
 -- Drops
+SN["Home: Grift the Griftah"] = "Дом: перехитрить Грифта"
+SN["Knock-off Amani"] = "Поддельные товары амани"
 SN["Darkshore (BfA phase) Rare Drop"] = "Редкая добыча: Темные берега (фаза BfA)"
 SN["Highmountain Tauren Paragon Chest"] = "Сундук идеала тауренов Крутогорья"
 SN["In-Game Shop"] = "Внутриигровой магазин"

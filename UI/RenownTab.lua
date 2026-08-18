@@ -675,8 +675,13 @@ function RenownTab:SetupDecorRows(frame, entries, factionID, vendors)
                 row.icon:SetTexCoord(unpack(ICON_CROP_COORDS))
             end
         else
-            row.icon:SetTexture(addon:ResolveDecorIcon(decorId))
-            row.icon:SetTexCoord(unpack(ICON_CROP_COORDS))
+            local fallbackIcon, fallbackIconType = addon:ResolveDecorIcon(decorId)
+            addon:SetIcon(row.icon, fallbackIcon, fallbackIconType)
+            if fallbackIconType == "atlas" then
+                row.icon:SetTexCoord(0, 1, 0, 1)
+            else
+                row.icon:SetTexCoord(unpack(ICON_CROP_COORDS))
+            end
         end
 
         row.checkIcon:SetShown(row.isCollected)

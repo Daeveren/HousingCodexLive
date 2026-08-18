@@ -27,18 +27,24 @@ local SOURCE_CATEGORY_INFO = {
         labelKey = "DROPS_CATEGORY_TREASURE",
         order = 3,
     },
+    ["endeavor"] = {
+        icon = "Interface\\Icons\\INV_Misc_Coin_17",
+        labelKey = "DROPS_CATEGORY_ENDEAVOR",
+        order = 4,
+    },
     ["shop"] = {
         icon = "Interface\\Icons\\INV_Misc_Coin_17",
         labelKey = "DROPS_CATEGORY_SHOP",
-        order = 4,
+        order = 5,
     },
 }
 
 local SOURCE_TEXT_PRIORITY = {
     ["encounter"] = 1,
     ["treasure"] = 2,
-    ["drop"] = 3,
-    ["shop"] = 4,
+    ["endeavor"] = 3,
+    ["drop"] = 4,
+    ["shop"] = 5,
 }
 
 -- Runtime data structures

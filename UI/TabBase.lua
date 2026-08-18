@@ -968,7 +968,8 @@ function TabBaseMixin:SetupDecorRows(frame, decorIds)
                 row.icon:SetTexture(record.icon)
             end
         else
-            row.icon:SetTexture(addon:ResolveDecorIcon(decorId))
+            local fallbackIcon, fallbackIconType = addon:ResolveDecorIcon(decorId)
+            addon:SetIcon(row.icon, fallbackIcon, fallbackIconType)
         end
 
         row.checkIcon:SetShown(row.isCollected)
@@ -993,24 +994,25 @@ end
 function TabBaseMixin:SourceMatchesSearch(sourceData, searchText, category)
     if searchText == "" then return true end
 
-    if sourceData.sourceName and strlower(sourceData.sourceName):find(searchText, 1, true) then
+    if sourceData.sourceName and addon:NormalizeSearchText(sourceData.sourceName):find(searchText, 1, true) then
         return true
     end
 
     local localizedName = addon:GetLocalizedSourceName(sourceData.sourceName)
-    if localizedName and localizedName ~= sourceData.sourceName and strlower(localizedName):find(searchText, 1, true) then
+    if localizedName and localizedName ~= sourceData.sourceName
+        and addon:NormalizeSearchText(localizedName):find(searchText, 1, true) then
         return true
     end
 
     local catInfo = self.cfg.getCategoryInfo(category)
     if catInfo then
-        local catLabel = strlower(addon.L[catInfo.labelKey] or "")
+        local catLabel = addon:NormalizeSearchText(addon.L[catInfo.labelKey] or "")
         if catLabel:find(searchText, 1, true) then return true end
     end
 
     for _, decorId in ipairs(sourceData.decorIds or {}) do
         local name = addon:ResolveDecorName(decorId, addon:GetRecord(decorId))
-        if name and strlower(name):find(searchText, 1, true) then
+        if name and addon:NormalizeSearchText(name):find(searchText, 1, true) then
             return true
         end
     end
@@ -1101,7 +1103,7 @@ function TabBaseMixin:BuildCategoryDisplay(visCache)
 
     local elements = {}
     local filter = self:GetCompletionFilter()
-    local searchText = strlower(strtrim(self.searchBox and self.searchBox:GetText() or ""))
+    local searchText = self:GetActiveSearchText()
 
     for _, category in ipairs(self.cfg.getSortedCategories()) do
         local hasVisibleContent = false
@@ -1133,7 +1135,7 @@ function TabBaseMixin:BuildSourceDisplay(visCache)
 
     local elements = {}
     local filter = self:GetCompletionFilter()
-    local searchText = strlower(strtrim(self.searchBox and self.searchBox:GetText() or ""))
+    local searchText = self:GetActiveSearchText()
     local category = self.selectedCategory
     local usingSearchFallback = false
 
@@ -1185,7 +1187,7 @@ function TabBaseMixin:RefreshDisplay()
     addon:CountDebug("rebuild", self.cfg.countDebugLabel)
 
     local filter = self:GetCompletionFilter()
-    local searchText = strlower(strtrim(self.searchBox and self.searchBox:GetText() or ""))
+    local searchText = self:GetActiveSearchText()
     local visCache = self:BuildSourceVisibilityCache(filter, searchText)
 
     local rebuilt = self:BuildCategoryDisplay(visCache)
@@ -1205,7 +1207,7 @@ end)
 --------------------------------------------------------------------------------
 
 function TabBaseMixin:GetActiveSearchText()
-    return strlower(strtrim(self.searchBox and self.searchBox:GetText() or ""))
+    return addon:NormalizeSearchText(self.searchBox and self.searchBox:GetText() or "")
 end
 
 function TabBaseMixin:CreateEmptyStates()

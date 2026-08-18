@@ -223,6 +223,7 @@ local ZONE_TO_MAP_ID = {
     ["Shadowmoon Valley"] = 539,
     ["Stormheim"] = 634,
     ["The Azure Span"] = 2024,
+    ["The Coiled Isle"] = 2512,
     ["Vol'dun"] = 864,
     ["Westfall"] = 52,
     ["Zuldazar"] = 862,
