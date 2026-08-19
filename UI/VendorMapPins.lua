@@ -459,8 +459,9 @@ function HousingCodexVendorPinMixin:DisableInheritedMotionScriptsWarning()
     return true
 end
 
-function HousingCodexVendorPinMixin:ShouldMouseButtonBePassthrough(button)
-    return button ~= "LeftButton"
+function HousingCodexVendorPinMixin:CheckMouseButtonPassthrough()
+    -- Right-button passthrough is static and declared by the XML template.
+    -- Avoid the inherited runtime calls to the restricted setter.
 end
 
 function HousingCodexVendorPinMixin:OnLoad()

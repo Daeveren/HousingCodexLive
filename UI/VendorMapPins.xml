@@ -10,6 +10,7 @@
             virtual="true"
             hidden="true"
             enableMouse="true"
+            passThroughButtons="RightButton"
             mixin="HousingCodexVendorPinMixin">
         <Size x="20" y="20"/>
         <Layers>

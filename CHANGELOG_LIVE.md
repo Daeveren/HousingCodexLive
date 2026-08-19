@@ -11,6 +11,7 @@ All notable changes to Housing Codex.
 **Fixed**
 - Vendor progress now counts all regular and rotating items shown
 - The Complete and Incomplete filters now correctly sort vendors using every item shown
+- Fixed errors caused by vendor pins on the world map
 
 **3.1.5** (2026-08-18)
 
