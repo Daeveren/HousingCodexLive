@@ -843,6 +843,11 @@ function addon:GetVendorCollectionProgress(vendorData)
     return owned, total, promoOwned, promoTotal
 end
 
+function addon:GetVendorCatalogCollectionProgress(vendorData)
+    local owned, total, promoOwned, promoTotal = self:GetVendorCollectionProgress(vendorData)
+    return owned + promoOwned, total + promoTotal
+end
+
 function addon:GetVendorScopeCollectionProgress(vendors, requireRecord)
     local regularSet = {}
 

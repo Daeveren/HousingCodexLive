@@ -2,6 +2,16 @@
 
 All notable changes to Housing Codex.
 
+**3.2.0** (2026-08-20)
+
+**Changed**
+- Added source details for 78 more Patch 12.1 decor items
+- Updated rotating Endeavor vendor catalogs in both housing neighborhoods
+
+**Fixed**
+- Vendor progress now counts all regular and rotating items shown
+- The Complete and Incomplete filters now correctly sort vendors using every item shown
+
 **3.1.5** (2026-08-18)
 
 **Changed**

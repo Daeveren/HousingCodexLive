@@ -1177,7 +1177,7 @@ function VendorsTab:SetupVendorRow(frame, elementData)
         frame.factionIcon:SetAtlas(atlas)
     end
 
-    local owned, total = addon:GetVendorCollectionProgress(elementData)
+    local owned, total = addon:GetVendorCatalogCollectionProgress(elementData)
     frame.vendorProgress:SetText(string.format("%d/%d", owned, total))
     local progressComplete = owned == total and total > 0
     frame.vendorProgress:SetTextColor(unpack(progressComplete and COLORS.PROGRESS_COMPLETE or COLORS.TEXT_TERTIARY))
@@ -1797,7 +1797,7 @@ local function VendorPassesCompletionFilter(vendorData, filter, zoneName, expans
     local cacheKey = vendorData.npcId .. ":" .. zoneName .. ":" .. expansionKey
     if filterCache and filterCache[cacheKey] ~= nil then return filterCache[cacheKey] end
 
-    local owned, total = addon:GetVendorCollectionProgress(vendorData)
+    local owned, total = addon:GetVendorCatalogCollectionProgress(vendorData)
 
     local isComplete = total > 0 and owned == total
     local result = (filter == "complete") == isComplete
