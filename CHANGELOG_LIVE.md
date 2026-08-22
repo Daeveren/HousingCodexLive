@@ -2,6 +2,15 @@
 
 All notable changes to Housing Codex.
 
+**3.2.1** (2026-08-22)
+
+**Changed**
+- Added source details for 25 more Patch 12.1 decor items
+- Updated treasure, seasonal event, and neighborhood vendor information
+
+**Fixed**
+- Quest searches by reward name now show only matching decor
+
 **3.2.0** (2026-08-20)
 
 **Changed**

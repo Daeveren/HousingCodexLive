@@ -706,41 +706,48 @@ function QuestsTab:SetupZoneQuestButton(frame, elementData)
     end
 end
 
--- Check if quest matches search text (title, zone, expansion, or reward names)
+-- Filter a quest's visible rewards by search text. Quest/zone/expansion matches keep
+-- the whole quest group; a reward-name-only match keeps just the matching rewards.
 -- questKey can be a numeric questID or a string questName
-local function QuestMatchesSearch(questKey, searchText, zoneName, expansionKey)
-    if searchText == "" then return true end
+local function FilterQuestRecordsForSearch(questKey, visibleRecords, searchText, zoneName, expansionKey)
+    if #visibleRecords == 0 then return nil end
+    if searchText == "" then return visibleRecords end
 
     -- Check quest title (API/localized)
     local title = addon:NormalizeSearchText(addon:GetQuestTitle(questKey) or "")
-    if title:find(searchText, 1, true) then return true end
+    if title:find(searchText, 1, true) then return visibleRecords end
 
     -- Also check scraped English name for numeric keys (API title may differ or be unavailable)
     if type(questKey) == "number" then
         local fallback = addon.questTitleFallback and addon.questTitleFallback[questKey]
-        if fallback and addon:NormalizeSearchText(fallback):find(searchText, 1, true) then return true end
-    end
-
-    -- Check zone name (English and localized)
-    if addon:NormalizeSearchText(zoneName):find(searchText, 1, true) then return true end
-    local localizedZone = addon:GetLocalizedZoneName(zoneName)
-    if localizedZone ~= zoneName and addon:NormalizeSearchText(localizedZone):find(searchText, 1, true) then return true end
-
-    -- Check expansion name
-    local expName = addon:NormalizeSearchText(addon.L[expansionKey] or expansionKey)
-    if expName:find(searchText, 1, true) then return true end
-
-    -- Check reward names
-    local records = addon:GetRecordsForQuest(questKey)
-    for _, recordID in ipairs(records or {}) do
-        local record = addon:GetRecord(recordID)
-        if addon:ShouldDisplayDecor(recordID, record)
-            and record and record.name and addon:NormalizeSearchText(record.name):find(searchText, 1, true) then
-            return true
+        if fallback and addon:NormalizeSearchText(fallback):find(searchText, 1, true) then
+            return visibleRecords
         end
     end
 
-    return false
+    -- Check zone name (English and localized)
+    if addon:NormalizeSearchText(zoneName):find(searchText, 1, true) then return visibleRecords end
+    local localizedZone = addon:GetLocalizedZoneName(zoneName)
+    if localizedZone ~= zoneName
+        and addon:NormalizeSearchText(localizedZone):find(searchText, 1, true) then
+        return visibleRecords
+    end
+
+    -- Check expansion name
+    local expName = addon:NormalizeSearchText(addon.L[expansionKey] or expansionKey)
+    if expName:find(searchText, 1, true) then return visibleRecords end
+
+    -- Reward-name-only searches narrow multi-reward quests to exact matching rows.
+    local matchingRecords = {}
+    for _, recordID in ipairs(visibleRecords) do
+        local record = addon:GetRecord(recordID)
+        if record and record.name
+            and addon:NormalizeSearchText(record.name):find(searchText, 1, true) then
+            matchingRecords[#matchingRecords + 1] = recordID
+        end
+    end
+
+    return #matchingRecords > 0 and matchingRecords or nil
 end
 
 -- Check if quest passes completion filter (based on collection progress, not quest turn-in)
@@ -773,10 +780,10 @@ function QuestsTab:BuildQuestVisibilityCache(filter, searchText)
         for _, zoneName in ipairs(addon:GetSortedZones(expansionKey)) do
             for _, questKey in ipairs(addon:GetQuestsForZone(expansionKey, zoneName)) do
                 local visibleRecords = GetVisibleQuestRecords(questKey)
-                if #visibleRecords > 0
-                    and QuestPassesCompletionFilter(questKey, filter)
-                    and QuestMatchesSearch(questKey, searchText, zoneName, expansionKey) then
-                    cache[GetQuestVisibilityKey(expansionKey, zoneName, questKey)] = visibleRecords
+                local matchingRecords = FilterQuestRecordsForSearch(
+                    questKey, visibleRecords, searchText, zoneName, expansionKey)
+                if matchingRecords and QuestPassesCompletionFilter(questKey, filter) then
+                    cache[GetQuestVisibilityKey(expansionKey, zoneName, questKey)] = matchingRecords
                 end
             end
         end
@@ -789,10 +796,10 @@ function QuestsTab:GetVisibleQuestRecordIDs(questKey, filter, searchText, zoneNa
         return visibilityCache[GetQuestVisibilityKey(expansionKey, zoneName, questKey)]
     end
     local visibleRecords = GetVisibleQuestRecords(questKey)
-    if #visibleRecords > 0
-        and QuestPassesCompletionFilter(questKey, filter)
-        and QuestMatchesSearch(questKey, searchText, zoneName, expansionKey) then
-        return visibleRecords
+    local matchingRecords = FilterQuestRecordsForSearch(
+        questKey, visibleRecords, searchText, zoneName, expansionKey)
+    if matchingRecords and QuestPassesCompletionFilter(questKey, filter) then
+        return matchingRecords
     end
     return nil
 end
