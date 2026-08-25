@@ -51,6 +51,7 @@ local SOURCE_TEXT_PRIORITY = {
 -- dropHierarchy[category] = { sources = { { sourceName, sourceCategory, decorIds } } }
 addon.dropHierarchy = {}
 addon.dropIndexBuilt = false
+addon.dropSourceLookupBuilt = false
 addon.dropCategoryProgressCache = {}
 addon.dropUniqueProgressCache = nil
 
@@ -76,6 +77,7 @@ end
 -- even before the DropsTab/ProgressTab hierarchy is ever built.
 function addon:BuildDropSourceLookup()
     if not self.DropSourceData then return end
+    if self.dropSourceLookupBuilt then return end
     self.decorDropSourceText = self.decorDropSourceText or {}
     wipe(self.decorDropSourceText)
     local sourceTextPriority = {}
@@ -93,6 +95,7 @@ function addon:BuildDropSourceLookup()
             end
         end
     end
+    self.dropSourceLookupBuilt = true
 end
 
 function addon:GetDropSourceText(decorId)

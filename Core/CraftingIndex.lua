@@ -39,7 +39,7 @@ function addon:BuildCraftingIndex()
     wipe(self.craftingProgressCache)
     self.craftingTotalCount = 0
 
-    -- Intern shared strings to reduce memory (skillLine has ~103 unique across ~300 entries)
+    -- Intern shared strings to reduce memory (skillLine and recipeSource repeat across entries)
     local internedStrings = {}
     for _, crafts in pairs(self.CraftingSourceData) do
         for _, craft in ipairs(crafts) do
@@ -47,6 +47,11 @@ function addon:BuildCraftingIndex()
             if sl then
                 internedStrings[sl] = internedStrings[sl] or sl
                 craft.skillLine = internedStrings[sl]
+            end
+            local source = craft.recipeSource
+            if source then
+                internedStrings[source] = internedStrings[source] or source
+                craft.recipeSource = internedStrings[source]
             end
         end
     end
@@ -67,6 +72,7 @@ function addon:BuildCraftingIndex()
                         professionName = professionName,
                         skillLine = craft.skillLine,
                         skillNeeded = craft.skillNeeded,
+                        recipeSource = craft.recipeSource,
                         sortName = BuildSortName(record, professionName, decorId),
                     })
                     self.craftingTotalCount = self.craftingTotalCount + 1

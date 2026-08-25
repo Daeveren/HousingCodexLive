@@ -11,7 +11,7 @@ local pendingSnapshotRecords = {}
 local ROOM_ENTRY_TYPE = Enum.HousingCatalogEntryType and Enum.HousingCatalogEntryType.Room or 2
 
 local function IsRoomRecord(record)
-    return record and record.entryID and record.entryID.entryType == ROOM_ENTRY_TYPE
+    return record and record.entryType == ROOM_ENTRY_TYPE
 end
 
 local function IsCollectedDecor(recordID)

@@ -271,23 +271,19 @@ local function BuildCurrencyFilterData(owner, includeOptions)
         for _, zoneName in ipairs(addon:GetSortedVendorZones(expansionKey)) do
             for _, vendorData in ipairs(addon:GetVendorsForZone(expansionKey, zoneName)) do
                 for _, decorId in ipairs(vendorData.decorIds or {}) do
-                    for currencyKey in pairs(addon:GetVendorDecorCurrencyKeys(vendorData, decorId)) do
-                        if not seen[currencyKey] then
-                            seen[currencyKey] = true
-                            if options then
-                                table.insert(options, {
-                                    key = currencyKey,
-                                    label = owner:GetCurrencyLabel(currencyKey),
-                                })
-                            end
-                        end
-                    end
+                    addon:AddVendorDecorCurrencyKeys(vendorData, decorId, seen)
                 end
             end
         end
     end
 
     if options then
+        for currencyKey in pairs(seen) do
+            options[#options + 1] = {
+                key = currencyKey,
+                label = owner:GetCurrencyLabel(currencyKey),
+            }
+        end
         table.sort(options, function(a, b)
             return strlower(a.label) < strlower(b.label)
         end)
@@ -1117,7 +1113,7 @@ local function GetVisibleVendorDecorIds(vendorData)
     local cacheKey = vendorData
     if visibleVendorDecorCache and cacheKey then
         local cached = visibleVendorDecorCache[cacheKey]
-        if cached then return CopyDecorIdList(cached) end
+        if cached then return cached end
     end
 
     local visible = {}
@@ -1128,18 +1124,9 @@ local function GetVisibleVendorDecorIds(vendorData)
     end
 
     if visibleVendorDecorCache and cacheKey then
-        visibleVendorDecorCache[cacheKey] = CopyDecorIdList(visible)
+        visibleVendorDecorCache[cacheKey] = visible
     end
     return visible
-end
-
-local function CopyVendorWithDecorIds(vendorData, decorIds)
-    local copy = {}
-    for key, value in pairs(vendorData) do
-        copy[key] = value
-    end
-    copy.decorIds = decorIds
-    return copy
 end
 
 function VendorsTab:SetupVendorRow(frame, elementData)
@@ -1719,16 +1706,17 @@ local function CurrencyKeyMatchesSearch(currencyKey, searchText)
         and addon:NormalizeSearchText(localizedCurrency):find(searchText, 1, true) ~= nil
 end
 
-local function VendorCurrencyMatchesSearch(vendorData, searchText)
-    for _, decorId in ipairs(vendorData.decorIds or {}) do
-        for currencyKey in pairs(addon:GetVendorDecorCurrencyKeys(vendorData, decorId)) do
-            if CurrencyKeyMatchesSearch(currencyKey, searchText) then return true end
+local function VendorCurrencyMatchesSearch(vendorData, decorIds, searchText)
+    for _, decorId in ipairs(decorIds or {}) do
+        if addon:VendorDecorHasCurrencyMatching(
+            vendorData, decorId, CurrencyKeyMatchesSearch, searchText) then
+            return true
         end
     end
     return false
 end
 
-local function VendorMatchesSearch(vendorData, searchText, zoneName, expansionKey)
+local function VendorMatchesSearch(vendorData, decorIds, searchText, zoneName, expansionKey)
     if searchText == "" then return true end
 
     local cacheKey = vendorData.npcId .. ":" .. zoneName .. ":" .. expansionKey
@@ -1750,12 +1738,12 @@ local function VendorMatchesSearch(vendorData, searchText, zoneName, expansionKe
         result = true
     elseif addon:RenownVendorMatchesSearch(vendorData.npcId, searchText) then
         result = true
-    elseif VendorCurrencyMatchesSearch(vendorData, searchText) then
+    elseif VendorCurrencyMatchesSearch(vendorData, decorIds, searchText) then
         result = true
     end
 
     if not result then
-        for _, decorId in ipairs(GetVisibleVendorDecorIds(vendorData)) do
+        for _, decorId in ipairs(decorIds or {}) do
             local record = addon:GetRecord(decorId)
             local resolvedName = addon:ResolveDecorName(decorId, record)
             if resolvedName and addon:NormalizeSearchText(resolvedName):find(searchText, 1, true) then
@@ -1791,13 +1779,13 @@ local function VendorMatchesSearch(vendorData, searchText, zoneName, expansionKe
     return result
 end
 
-local function VendorPassesCompletionFilter(vendorData, filter, zoneName, expansionKey)
+local function VendorPassesCompletionFilter(vendorData, decorIds, filter, zoneName, expansionKey)
     if filter == "all" then return true end
 
     local cacheKey = vendorData.npcId .. ":" .. zoneName .. ":" .. expansionKey
     if filterCache and filterCache[cacheKey] ~= nil then return filterCache[cacheKey] end
 
-    local owned, total = addon:GetVendorCatalogCollectionProgress(vendorData)
+    local owned, total = addon:GetVendorCatalogCollectionProgressForDecorIds(vendorData, decorIds)
 
     local isComplete = total > 0 and owned == total
     local result = (filter == "complete") == isComplete
@@ -1806,23 +1794,20 @@ local function VendorPassesCompletionFilter(vendorData, filter, zoneName, expans
     return result
 end
 
-local function GetCurrencyFilteredVendor(vendorData)
+local function GetCurrencyFilteredDecorIds(vendorData)
     local visibleDecorIds = GetVisibleVendorDecorIds(vendorData)
     local filters = VendorsTab:GetCurrencyFilter()
     if not filters or not VendorsTab:HasActiveCurrencyFilter(true) then
-        return CopyVendorWithDecorIds(vendorData, visibleDecorIds)
+        return visibleDecorIds
     end
 
     local filteredDecorIds = {}
     for _, decorId in ipairs(visibleDecorIds) do
-        for currencyKey in pairs(addon:GetVendorDecorCurrencyKeys(vendorData, decorId)) do
-            if filters[currencyKey] == true then
-                filteredDecorIds[#filteredDecorIds + 1] = decorId
-                break
-            end
+        if addon:VendorDecorMatchesCurrencyKeys(vendorData, decorId, filters) then
+            filteredDecorIds[#filteredDecorIds + 1] = decorId
         end
     end
-    return CopyVendorWithDecorIds(vendorData, filteredDecorIds)
+    return filteredDecorIds
 end
 
 --------------------------------------------------------------------------------
@@ -1867,11 +1852,11 @@ function VendorsTab:BuildExpansionDisplay()
         for _, zoneName in ipairs(addon:GetSortedVendorZones(expansionKey)) do
             if not zoneFilterActive or VendorZoneMatchesPlayerZone(zoneName) then
                 for _, vendorData in ipairs(addon:GetVendorsForZone(expansionKey, zoneName)) do
-                    local filteredVendor = GetCurrencyFilteredVendor(vendorData)
-                    if addon:ShouldShowVendorForPlayerProfessionFilter(filteredVendor.npcId)
-                        and #filteredVendor.decorIds > 0
-                        and VendorPassesCompletionFilter(filteredVendor, filter, zoneName, expansionKey)
-                        and VendorMatchesSearch(filteredVendor, searchText, zoneName, expansionKey) then
+                    local filteredDecorIds = GetCurrencyFilteredDecorIds(vendorData)
+                    if addon:ShouldShowVendorForPlayerProfessionFilter(vendorData.npcId)
+                        and #filteredDecorIds > 0
+                        and VendorPassesCompletionFilter(vendorData, filteredDecorIds, filter, zoneName, expansionKey)
+                        and VendorMatchesSearch(vendorData, filteredDecorIds, searchText, zoneName, expansionKey) then
                         hasVisibleContent = true
                         break
                     end
@@ -1922,21 +1907,23 @@ function VendorsTab:BuildVendorDisplay()
         for _, zoneName in ipairs(addon:GetSortedVendorZones(expansionKey)) do
             if not zoneFilterActive or VendorZoneMatchesPlayerZone(zoneName) then
                 local zoneVendors = {}
+                local zoneDecorLists = {}
                 for _, vendorData in ipairs(addon:GetVendorsForZone(expansionKey, zoneName)) do
-                    local filteredVendor = GetCurrencyFilteredVendor(vendorData)
-                    if addon:ShouldShowVendorForPlayerProfessionFilter(filteredVendor.npcId)
-                        and #filteredVendor.decorIds > 0
-                        and VendorPassesCompletionFilter(filteredVendor, filter, zoneName, expansionKey)
-                        and VendorMatchesSearch(filteredVendor, searchText, zoneName, expansionKey) then
-                        table.insert(zoneVendors, filteredVendor)
+                    local filteredDecorIds = GetCurrencyFilteredDecorIds(vendorData)
+                    if addon:ShouldShowVendorForPlayerProfessionFilter(vendorData.npcId)
+                        and #filteredDecorIds > 0
+                        and VendorPassesCompletionFilter(vendorData, filteredDecorIds, filter, zoneName, expansionKey)
+                        and VendorMatchesSearch(vendorData, filteredDecorIds, searchText, zoneName, expansionKey) then
+                        zoneVendors[#zoneVendors + 1] = vendorData
+                        zoneDecorLists[#zoneDecorLists + 1] = filteredDecorIds
                     end
                 end
 
                 if #zoneVendors > 0 then
                     table.insert(elements, { isZoneHeader = true, expansionKey = expansionKey, zoneName = zoneName, isForceExpanded = isForceExpanded })
                     if isForceExpanded or self:IsZoneExpanded(expansionKey, zoneName) then
-                        for _, vendor in ipairs(zoneVendors) do
-                            local filteredDecorIds = vendor.decorIds or {}
+                        for index, vendor in ipairs(zoneVendors) do
+                            local filteredDecorIds = CopyDecorIdList(zoneDecorLists[index])
                             SortDecorIdsByName(filteredDecorIds)
                             table.insert(elements, {
                                 npcId = vendor.npcId,
@@ -2063,6 +2050,6 @@ addon:RegisterWoWEvent("ZONE_CHANGED_NEW_AREA", function()
     end
 end)
 
-addon.MainFrame:RegisterContentAreaInitializer("VendorsTab", function(contentArea)
+addon.MainFrame:RegisterContentAreaInitializer("VendorsTab", "VENDORS", function(contentArea)
     VendorsTab:Create(contentArea)
 end)

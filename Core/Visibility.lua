@@ -20,7 +20,7 @@ local function NormalizeDecorID(recordID)
 end
 
 local function IsRoomRecord(record)
-    return record and record.entryID and record.entryID.entryType == ROOM_ENTRY_TYPE
+    return record and record.entryType == ROOM_ENTRY_TYPE
 end
 
 local function MarkDecorSet(target, decorIds)
@@ -63,11 +63,8 @@ local function MarkVendorShopSources(target)
         for _, vendors in pairs(expansionData.zones or {}) do
             for _, vendor in ipairs(vendors or {}) do
                 for _, decorId in ipairs(vendor.decorIds or {}) do
-                    for currencyName in pairs(addon:GetVendorDecorCurrencyKeys(vendor, decorId)) do
-                        if IsShopCurrency(currencyName) then
-                            target[decorId] = true
-                            break
-                        end
+                    if addon:VendorDecorHasCurrencyMatching(vendor, decorId, IsShopCurrency) then
+                        target[decorId] = true
                     end
                 end
             end

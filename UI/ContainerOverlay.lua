@@ -8,13 +8,16 @@ local _, addon = ...
 local ContainerOverlay = {}
 addon.ContainerOverlay = ContainerOverlay
 
--- Cache for catalog lookups: table = decor info, false = not decor, nil = not yet queried
+-- Stable classification cache: recordID = decor, false = not decor, nil = not queried.
+-- Ownership remains live in addon records/indexes and is never cached here.
 local itemDecorCache = {}
 
 -- State
 local initialized = false
 local trackedButtons = setmetatable({}, { __mode = "k" })  -- button => addon-owned overlay
-local dirty = false         -- deferred refresh pending (set when events fire while bags closed)
+local dirty = false         -- full refresh pending (set when ownership/visibility changes while hidden)
+local pendingBagUpdates = {}
+local bagRefreshScheduled = false
 
 local function ClearCache()
     wipe(itemDecorCache)
@@ -44,15 +47,17 @@ local function CanAccessAllValues(...)
 end
 
 local function IsSafeValue(value)
-    return value ~= nil and not IsSecretValue(value) and CanAccessAllValues(value)
+    if IsSecretValue(value) then return false end
+    if not CanAccessAllValues(value) then return false end
+    return value ~= nil
 end
 
 local function IsSafeAnchor(frame)
     return IsSafeValue(frame)
 end
 
--- Look up decor info for an itemID (with caching)
-local function GetDecorInfo(itemID)
+-- Look up the stable decor record ID for an itemID (with caching)
+local function GetDecorRecordID(itemID)
     if not IsSafeValue(itemID) then return nil end
 
     local cached = itemDecorCache[itemID]
@@ -63,8 +68,16 @@ local function GetDecorInfo(itemID)
     local catalogInfo = C_HousingCatalog and C_HousingCatalog.GetCatalogEntryInfoByItem
         and C_HousingCatalog.GetCatalogEntryInfoByItem(itemID)
 
-    itemDecorCache[itemID] = catalogInfo or false
-    return catalogInfo
+    local recordID = catalogInfo and catalogInfo.recordID
+    itemDecorCache[itemID] = recordID or false
+    return recordID
+end
+
+local function IsDecorRecordOwned(recordID)
+    local record = recordID and (addon:GetRecord(recordID) or addon:ResolveRecord(recordID))
+    if record then return record.isCollected == true end
+    return addon.indexes and addon.indexes.collected
+        and addon.indexes.collected[recordID] == true
 end
 
 -- Get or create addon-owned overlay textures for a Blizzard item button.
@@ -107,6 +120,11 @@ local function HideButtonOverlay(button)
     end
 end
 
+-- Container-frame contract only. BaseContainerFrameMixin:EnumerateValidItems
+-- yields (index, itemButton); BankPanelMixin's same-named method wraps
+-- EnumerateActive() and yields the button first, so passing BankFrame.BankPanel
+-- here binds itemButton to a pool boolean and silently no-ops. Bank buttons go
+-- through RefreshAllItemsForSelectedTab and the BankPanelItemButtonMixin hook.
 function ContainerOverlay:HideContainerFrameOverlays(frame)
     if not frame or not frame.EnumerateValidItems then return end
 
@@ -128,19 +146,19 @@ function ContainerOverlay:UpdateButton(button, itemID)
         return
     end
 
-    local catalogInfo = GetDecorInfo(itemID)
+    local recordID = GetDecorRecordID(itemID)
 
-    if not catalogInfo then
+    if not recordID then
         HideButtonOverlay(button)
         return
     end
 
-    if catalogInfo.recordID and not addon:ShouldDisplayDecor(catalogInfo.recordID) then
+    if not addon:ShouldDisplayDecor(recordID) then
         HideButtonOverlay(button)
         return
     end
 
-    local isOwned = addon.IsDecorOwned(catalogInfo)
+    local isOwned = IsDecorRecordOwned(recordID)
     local showCheckmark = isOwned and showOwnedCheckmark
     if not showDecorIcon and not showCheckmark then
         HideButtonOverlay(button)
@@ -165,24 +183,26 @@ function ContainerOverlay:UpdateButton(button, itemID)
 end
 
 -- Update all buttons in a container frame
-function ContainerOverlay:UpdateContainerFrame(frame)
+function ContainerOverlay:UpdateContainerFrame(frame, changedBagID)
     if not addon.IsFrameShown(frame) then return end
     if not frame.EnumerateValidItems then return end
-
-    self:HideContainerFrameOverlays(frame)
 
     for _, itemButton in frame:EnumerateValidItems() do
         if addon.IsFrameShown(itemButton) then
             local bagID = itemButton:GetBagID()
-            local slotID = itemButton:GetID()
-            local itemID
-            if C_Container and C_Container.GetContainerItemID
-                and IsSafeValue(bagID)
-                and IsSafeValue(slotID)
-                and CanAccessAllValues(bagID, slotID) then
-                itemID = C_Container.GetContainerItemID(bagID, slotID)
+            if not IsSafeValue(bagID) then
+                HideButtonOverlay(itemButton)
+            elseif changedBagID == nil or bagID == changedBagID then
+                HideButtonOverlay(itemButton)
+                local slotID = itemButton:GetID()
+                local itemID
+                if C_Container and C_Container.GetContainerItemID
+                    and IsSafeValue(slotID)
+                    and CanAccessAllValues(bagID, slotID) then
+                    itemID = C_Container.GetContainerItemID(bagID, slotID)
+                end
+                self:UpdateButton(itemButton, itemID)
             end
-            self:UpdateButton(itemButton, itemID)
         end
     end
 end
@@ -203,20 +223,29 @@ local function IsBankPanelVisible()
     return BankFrame and addon.IsFrameShown(BankFrame.BankPanel)
 end
 
--- Flush deferred cache invalidation (called before updating any visible container)
-local function FlushDirtyCache()
-    if not dirty then return end
-    dirty = false
-    ClearCache()
-end
-
 -- Update all visible container frames (individual bags + combined view)
 function ContainerOverlay:UpdateAllContainerFrames()
-    FlushDirtyCache()
     for i = 1, NUM_CONTAINER_FRAMES do
         self:UpdateContainerFrame(_G["ContainerFrame"..i])
     end
     self:UpdateContainerFrame(ContainerFrameCombinedBags)
+end
+
+function ContainerOverlay:UpdateVisibleBag(bagID)
+    if not IsSafeValue(bagID) or not ShouldShowAnyContainerOverlay() then return end
+
+    for i = 1, NUM_CONTAINER_FRAMES do
+        self:UpdateContainerFrame(_G["ContainerFrame"..i], bagID)
+    end
+    self:UpdateContainerFrame(ContainerFrameCombinedBags, bagID)
+
+    local bankPanel = BankFrame and BankFrame.BankPanel
+    if addon.IsFrameShown(bankPanel) and bankPanel.GetSelectedTabID then
+        local selectedTabID = bankPanel:GetSelectedTabID()
+        if IsSafeValue(selectedTabID) and selectedTabID == bagID then
+            bankPanel:RefreshAllItemsForSelectedTab()
+        end
+    end
 end
 
 -- Hide all overlays on every tracked button
@@ -237,7 +266,6 @@ end
 local function RefreshAll()
     if not ShouldShowAnyContainerOverlay() then
         dirty = false
-        ClearCache()
         ContainerOverlay:HideAllOverlays()
         return
     end
@@ -249,13 +277,30 @@ local function RefreshAll()
         return
     end
     dirty = false
-    ClearCache()
     if bagsVisible then
         ContainerOverlay:UpdateAllContainerFrames()
     end
     if bankVisible then
         ContainerOverlay:UpdateVisibleBankPanel()
     end
+end
+
+
+local function FlushPendingBagUpdates()
+    bagRefreshScheduled = false
+    for bagID in pairs(pendingBagUpdates) do
+        pendingBagUpdates[bagID] = nil
+        ContainerOverlay:UpdateVisibleBag(bagID)
+    end
+end
+
+local function QueueBagUpdate(bagID)
+    if not IsSafeValue(bagID) then return end
+    pendingBagUpdates[bagID] = true
+    if bagRefreshScheduled then return end
+
+    bagRefreshScheduled = true
+    C_Timer.After(0, FlushPendingBagUpdates)
 end
 
 -- Initialize hooks and events
@@ -270,8 +315,11 @@ function ContainerOverlay:Initialize()
     hooksecurefunc("ContainerFrame_OnShow", function(frame)
         C_Timer.After(0, function()
             if addon.IsFrameShown(frame) then
-                FlushDirtyCache()
-                self:UpdateContainerFrame(frame)
+                if dirty then
+                    RefreshAll()
+                else
+                    self:UpdateContainerFrame(frame)
+                end
             end
         end)
     end)
@@ -290,7 +338,6 @@ function ContainerOverlay:Initialize()
     -- (when the bank panel opens), so mixin-level hook works here.
     if BankPanelItemButtonMixin then
         hooksecurefunc(BankPanelItemButtonMixin, "Refresh", function(button)
-            FlushDirtyCache()
             local itemID = button.itemInfo and button.itemInfo.itemID
             self:UpdateButton(button, itemID)
         end)
@@ -299,18 +346,26 @@ function ContainerOverlay:Initialize()
 
     -- WoW events
     self.eventFrame = CreateFrame("Frame")
-    self.eventFrame:RegisterEvent("BAG_UPDATE_DELAYED")
+    self.eventFrame:RegisterEvent("BAG_UPDATE")
     self.eventFrame:RegisterEvent("HOUSING_MARKET_AVAILABILITY_UPDATED")
     self.eventFrame:RegisterEvent("PLAYER_INTERACTION_MANAGER_FRAME_SHOW")
     self.eventFrame:RegisterEvent("PLAYER_INTERACTION_MANAGER_FRAME_HIDE")
     self.eventFrame:SetScript("OnEvent", function(_, event, ...)
-        if event == "PLAYER_INTERACTION_MANAGER_FRAME_SHOW" then
+        if event == "BAG_UPDATE" then
+            QueueBagUpdate(...)
+        elseif event == "HOUSING_MARKET_AVAILABILITY_UPDATED" then
+            ClearCache()
+            RefreshAll()
+        elseif event == "PLAYER_INTERACTION_MANAGER_FRAME_SHOW" then
             local interactionType = ...
             if interactionType == Enum.PlayerInteractionType.Banker
                or interactionType == Enum.PlayerInteractionType.CharacterBanker
                or interactionType == Enum.PlayerInteractionType.AccountBanker then
-                if dirty then RefreshAll() end
-                self:UpdateVisibleBankPanel()
+                if dirty then
+                    RefreshAll()
+                else
+                    self:UpdateVisibleBankPanel()
+                end
             end
         elseif event == "PLAYER_INTERACTION_MANAGER_FRAME_HIDE" then
             local interactionType = ...
@@ -322,12 +377,10 @@ function ContainerOverlay:Initialize()
                     self:UpdateAllContainerFrames()
                 end
             end
-        else
-            RefreshAll()
         end
     end)
 
-    -- Internal ownership updates (clear cache — API returns fresh structs per call)
+    -- Ownership is read live from addon records; classification remains stable.
     addon:RegisterInternalEvent("RECORD_OWNERSHIP_UPDATED", function(recordID, collectionStateChanged)
         if not collectionStateChanged then return end
         RefreshAll()
@@ -338,13 +391,11 @@ end
 
 -- Register for DATA_LOADED
 addon:RegisterInternalEvent("DATA_LOADED", function()
+    ClearCache()
     ContainerOverlay:Initialize()
+    RefreshAll()
 end)
 
 addon:RegisterInternalEvent(addon.Events.DECOR_VISIBILITY_CHANGED, function()
-    dirty = true
-    if AreBagsVisible() or IsBankPanelVisible() then
-        ContainerOverlay:UpdateAllContainerFrames()
-        ContainerOverlay:UpdateVisibleBankPanel()
-    end
+    RefreshAll()
 end)

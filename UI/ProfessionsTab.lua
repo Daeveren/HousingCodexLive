@@ -56,6 +56,11 @@ local function BuildSkillText(craft)
     return addon:GetLocalizedProfessionName(craft.professionName) or addon.L["UNKNOWN"]
 end
 
+local function BuildRecipeSourceText(craft)
+    if not craft.recipeSource or craft.recipeSource == "" then return nil end
+    return string.format(addon.L["PROFESSIONS_RECIPE_SOURCE"], craft.recipeSource)
+end
+
 local function ResolveCraftRecord(decorId)
     return addon:GetRecord(decorId) or addon:ResolveRecord(decorId)
 end
@@ -85,6 +90,11 @@ local function CraftMatchesSearch(craft, searchText, record)
 
     local skillText = BuildSkillText(craft)
     if skillText and strlower(skillText):find(searchText, 1, true) then
+        return true
+    end
+
+    local sourceText = BuildRecipeSourceText(craft)
+    if sourceText and strlower(sourceText):find(searchText, 1, true) then
         return true
     end
 
@@ -181,6 +191,10 @@ local function CraftRowOnEnter(frame)
 
     addon:AnchorTooltipToCursor(frame)
     GameTooltip:SetText(addon:ResolveDecorName(decorId, frame.record), 1, 1, 1)
+    local sourceText = frame.craftData and BuildRecipeSourceText(frame.craftData)
+    if sourceText then
+        GameTooltip:AddLine(sourceText, 0.7, 0.7, 0.7, true)
+    end
     if frame.isCollected then
         GameTooltip:AddLine(addon.L["FILTER_COLLECTED"], 0.4, 0.9, 0.4)
     end
@@ -726,6 +740,6 @@ addon:RegisterInternalEvent(addon.Events.DECOR_VISIBILITY_CHANGED, function()
     end
 end)
 
-addon.MainFrame:RegisterContentAreaInitializer("ProfessionsTab", function(contentArea)
+addon.MainFrame:RegisterContentAreaInitializer("ProfessionsTab", "PROFESSIONS", function(contentArea)
     ProfessionsTab:Create(contentArea)
 end)

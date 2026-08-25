@@ -1046,6 +1046,6 @@ addon:RegisterInternalEvent("WISHLIST_CHANGED", function(recordID, isWishlisted)
     end
 end)
 
-addon.MainFrame:RegisterContentAreaInitializer("Grid", function(contentArea)
+addon.MainFrame:RegisterContentAreaInitializer("Grid", "DECOR", function(contentArea)
     Grid:Create(contentArea)
 end)

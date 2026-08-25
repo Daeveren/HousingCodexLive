@@ -1094,6 +1094,6 @@ addon:RegisterInternalEvent("WISHLIST_CHANGED", function(recordID, isWishlisted)
     end
 end)
 
-addon.MainFrame:RegisterContentAreaInitializer("QuestsTab", function(contentArea)
+addon.MainFrame:RegisterContentAreaInitializer("QuestsTab", "QUESTS", function(contentArea)
     QuestsTab:Create(contentArea)
 end)

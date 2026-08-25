@@ -102,7 +102,7 @@ addon.IsInfoCollected = IsInfoCollected
 local ROOM_ENTRY_TYPE = Enum.HousingCatalogEntryType and Enum.HousingCatalogEntryType.Room or 2
 
 local function IsRoomRecord(record)
-    return record.entryID and record.entryID.entryType == ROOM_ENTRY_TYPE
+    return record.entryType == ROOM_ENTRY_TYPE
 end
 
 -- Update a record's ownership fields from API info
@@ -186,11 +186,10 @@ end
 
 -- Shared record constructor used by both BuildRecord and ResolveRecord
 -- options.resolveTracking: query C_ContentTracking for live tracking state
-local function BuildRecordFields(entryID, info, options)
+local function BuildRecordFields(recordID, entryType, info, options)
     local icon, iconType, isModelOnly = GetEntryIcon(info)
     local totalOwned = CalculateTotalOwned(info)
     local itemID = info.itemID
-    local recordID = entryID.recordID
     local addedPatch = recordID and addon.DecorAddedPatchByRecordID and addon.DecorAddedPatchByRecordID[recordID]
 
     local isCollected = IsInfoCollected(info)
@@ -203,11 +202,8 @@ local function BuildRecordFields(entryID, info, options)
     end
 
     return {
-        -- Keep one stable HousingCatalogEntryID-shaped identity on every record.
-        -- Native search results may include variantIdentifier, while direct record
-        -- lookups do not; no consumer needs the variant-specific field here.
-        entryID = { recordID = recordID, entryType = entryID.entryType },
         recordID = recordID,
+        entryType = entryType,
         name = info.name or "",
         icon = icon,
         iconType = iconType,
@@ -235,7 +231,7 @@ local function BuildRecordFields(entryID, info, options)
 end
 local function BuildRecord(entryID, info)
     if not info then return nil end
-    return BuildRecordFields(entryID, info)
+    return BuildRecordFields(entryID.recordID, entryID.entryType, info)
 end
 
 function addon:ScheduleRetry(reason)
@@ -590,15 +586,12 @@ function addon:ResolveRecord(recordID)
         return nil
     end
 
-    -- HousingCatalogEntryInfo has no entryID field, so this always synthesises one.
-    -- Prefer the API's own non-nilable entryType over asserting Decor, so the record
-    -- reflects what the catalog actually returned.
-    local entryID = info.entryID or {
-        recordID = info.recordID or recordID,
-        entryType = info.entryType or entryType,
-    }
-
-    record = BuildRecordFields(entryID, info, { resolveTracking = true })
+    -- Prefer the API's own non-nilable identity fields over the requested fallback.
+    record = BuildRecordFields(
+        info.recordID or recordID,
+        info.entryType or entryType,
+        info,
+        { resolveTracking = true })
     if not record.itemID then record.itemID = fallbackItemID end
 
     if not record.sourceText or record.sourceText == "" then
@@ -1085,8 +1078,7 @@ local function ProcessStorageUpdate(generation)
             end
 
             -- Use per-record entryType so both Decor (1) and Room (2) records refresh correctly.
-            local entryID = record.entryID
-            local info = entryID and GetCatalogEntryInfoByRecordID(entryID.entryType, record.recordID)
+            local info = GetCatalogEntryInfoByRecordID(record.entryType, record.recordID)
             if info then
                 RefreshRecordOwnership(record, info)
             end

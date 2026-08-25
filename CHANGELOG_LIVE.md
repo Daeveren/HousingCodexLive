@@ -2,6 +2,19 @@
 
 All notable changes to Housing Codex.
 
+**3.2.2** (2026-08-26)
+
+**Changed**
+- Expanded Patch 12.1 quest, recipe, drop, and vendor source details
+- Recipe sources are now searchable in Professions and shown in tooltips
+- Improved performance across tabs, vendors, bags, banks, map overlays, and 3D previews
+
+**Fixed**
+- Cursed Keepsake source details now name the required currency in Preview and Wishlist
+- Improved reliability of green checkmarks at vendors and on bag and bank items
+- Improved reliability of saved plot decor budgets when entering or changing houses
+- Saved plot decor budgets are no longer incorrectly replaced with zero while a house is still loading
+
 **3.2.1** (2026-08-22)
 
 **Changed**

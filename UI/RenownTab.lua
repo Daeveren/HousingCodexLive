@@ -1008,6 +1008,6 @@ addon:RegisterInternalEvent(addon.Events.DECOR_VISIBILITY_CHANGED, function()
     end
 end)
 
-addon.MainFrame:RegisterContentAreaInitializer("RenownTab", function(contentArea)
+addon.MainFrame:RegisterContentAreaInitializer("RenownTab", "RENOWN", function(contentArea)
     RenownTab:Create(contentArea)
 end)

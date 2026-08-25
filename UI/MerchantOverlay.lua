@@ -53,7 +53,9 @@ local function CanAccessAllValues(...)
 end
 
 local function IsSafeValue(value)
-    return value ~= nil and not IsSecretValue(value) and CanAccessAllValues(value)
+    if IsSecretValue(value) then return false end
+    if not CanAccessAllValues(value) then return false end
+    return value ~= nil
 end
 
 local function IsSafeLookupKey(value)
@@ -66,7 +68,7 @@ end
 
 local function GetMerchantPageSize()
     local pageSize = _G.MERCHANT_ITEMS_PER_PAGE
-    if pageSize == nil or IsSecretValue(pageSize) or type(pageSize) ~= "number" or pageSize < 1 then
+    if IsSecretValue(pageSize) or type(pageSize) ~= "number" or pageSize < 1 then
         return DEFAULT_MERCHANT_PAGE_SIZE
     end
 
@@ -183,13 +185,18 @@ function MerchantOverlay:UpdateMerchantButtons()
     self:HideAllOverlays()
 
     local pageSize = GetMerchantPageSize()
-    local numItems = type(GetMerchantNumItems) == "function" and GetMerchantNumItems() or 0
-    if numItems == nil or IsSecretValue(numItems) or type(numItems) ~= "number" or numItems <= 0 then
+    -- Assign before guarding: folding the call into an `and`/`or` chain would
+    -- evaluate the raw return's truthiness before the secrecy check runs.
+    local numItems = 0
+    if type(GetMerchantNumItems) == "function" then
+        numItems = GetMerchantNumItems()
+    end
+    if IsSecretValue(numItems) or type(numItems) ~= "number" or numItems <= 0 then
         return
     end
 
     local currentPage = MerchantFrame.page
-    if currentPage == nil or IsSecretValue(currentPage) or type(currentPage) ~= "number" or currentPage < 1 then
+    if IsSecretValue(currentPage) or type(currentPage) ~= "number" or currentPage < 1 then
         currentPage = 1
     end
 
@@ -202,7 +209,7 @@ function MerchantOverlay:UpdateMerchantButtons()
         if addon.IsFrameShown(button) then
             local buttonID = button:GetID()
             local displayIndex
-            if buttonID ~= nil and not IsSecretValue(buttonID) and type(buttonID) == "number" and buttonID > 0 and buttonID <= numItems then
+            if not IsSecretValue(buttonID) and type(buttonID) == "number" and buttonID > 0 and buttonID <= numItems then
                 displayIndex = buttonID
             else
                 displayIndex = pageOffset + i

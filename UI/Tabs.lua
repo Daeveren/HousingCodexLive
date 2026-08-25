@@ -469,6 +469,10 @@ function Tabs:SelectTab(tabKey, skipSave, skipAnim)
 
     self.currentTab = tabKey
 
+    if addon.MainFrame then
+        addon.MainFrame:InitializeContentAreaForTab(tabKey)
+    end
+
     -- Save selection
     if not skipSave and addon.db and addon.db.browser then
         addon.db.browser.lastTab = tabKey
@@ -490,19 +494,20 @@ end
 
 function Tabs:RestoreSavedTab()
     -- One-shot: only restore once
-    if self.tabRestored then return end
+    if self.tabRestored then return false end
 
     local savedTab = addon.db and addon.db.browser and addon.db.browser.lastTab
-    if not savedTab then return end
+    if not savedTab then return false end
 
     -- Validate saved tab key against enabled tabs
     local btn = self.buttons[savedTab]
-    if not btn or not btn.enabled then return end
+    if not btn or not btn.enabled then return false end
 
     self.tabRestored = true
 
     -- Already on this tab (DECOR default from Create) — no-op
-    if self.currentTab == savedTab then return end
+    if self.currentTab == savedTab then return false end
 
     self:SelectTab(savedTab, false, true)
+    return true
 end

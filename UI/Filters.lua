@@ -349,8 +349,9 @@ function Filters:EnsureCurrencyLookup()
             for _, vendorData in ipairs(vendors) do
                 for _, decorId in ipairs(vendorData.decorIds or {}) do
                     byDecorID[decorId] = byDecorID[decorId] or {}
-                    for currencyKey in pairs(addon:GetVendorDecorCurrencyKeys(vendorData, decorId)) do
-                        byDecorID[decorId][currencyKey] = true
+                    local decorKeys = byDecorID[decorId]
+                    addon:AddVendorDecorCurrencyKeys(vendorData, decorId, decorKeys)
+                    for currencyKey in pairs(decorKeys) do
                         if not seenCurrencies[currencyKey] then
                             seenCurrencies[currencyKey] = true
                             table.insert(currencyKeys, currencyKey)

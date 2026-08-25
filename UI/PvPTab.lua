@@ -194,6 +194,6 @@ addon:RegisterInternalEvent("ACHIEVEMENT_COMPLETION_CHANGED", function()
     end
 end)
 
-addon.MainFrame:RegisterContentAreaInitializer("PvPTab", function(contentArea)
+addon.MainFrame:RegisterContentAreaInitializer("PvPTab", "PVP", function(contentArea)
     PvPTab:Create(contentArea)
 end)

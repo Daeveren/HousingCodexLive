@@ -490,6 +490,7 @@ L["PROFESSIONS_EMPTY_NO_SOURCES"] = "Aucune source d'artisanat"
 L["PROFESSIONS_EMPTY_NO_SOURCES_DESC"] = "Les données d'artisanat ne sont pas encore disponibles."
 L["PROFESSIONS_SELECT_PROFESSION"] = "Sélectionnez un métier"
 L["PROFESSIONS_EMPTY_NO_RESULTS"] = "Aucun résultat"
+L["PROFESSIONS_RECIPE_SOURCE"] = "Source de la recette : %s"
 
 --------------------------------------------------------------------------------
 -- Treasure Hunt Waypoints

@@ -46,6 +46,10 @@ local COPPER_PER_GOLD = 10000
 local COIN_TEXTURE_FONT_HEIGHT = 14
 local CURRENCY_ICON_SIZE = 14
 local SOURCE_LINE_SPACING = 2
+local NATIVE_SOURCE_ITEM_COST_BY_QUEST_ID = {
+    [98204] = 274481, -- Cursed Keepsake -> Keepsake Corruption
+}
+local pendingNativeSourceItemLoads = {}
 
 local function IsSecretValue(value)
     return type(issecretvalue) == "function" and issecretvalue(value)
@@ -183,6 +187,25 @@ local function FormatVendorCostComponent(cost, currencyName)
     return string.format(addon.L["CURRENCY_GOLD_FORMAT"], tostring(cost))
 end
 
+local function GetLoadedItemName(itemID)
+    if C_Item and C_Item.GetItemNameByID then
+        local ok, name = pcall(C_Item.GetItemNameByID, itemID)
+        if ok and type(name) == "string" and name ~= "" and not IsSecretValue(name) then
+            return name
+        end
+    end
+    return nil
+end
+
+local function FormatItemLinkToken(itemID, label)
+    if type(itemID) ~= "number" or itemID <= 0 or IsSecretValue(itemID)
+        or type(label) ~= "string" or label == ""
+    then
+        return nil
+    end
+    return string.format("|cffffffff|Hitem:%d::::::::|h%s|h|r", itemID, label)
+end
+
 local function FormatItemCostComponent(component)
     local itemID = component and component.itemID
     local amount = component and component.amount
@@ -192,13 +215,7 @@ local function FormatItemCostComponent(component)
         return nil
     end
 
-    local itemName
-    if C_Item and C_Item.GetItemNameByID then
-        local ok, name = pcall(C_Item.GetItemNameByID, itemID)
-        if ok and type(name) == "string" and name ~= "" and not IsSecretValue(name) then
-            itemName = name
-        end
-    end
+    local itemName = GetLoadedItemName(itemID)
 
     local iconFileID
     if C_Item and C_Item.GetItemIconByID then
@@ -211,8 +228,62 @@ local function FormatItemCostComponent(component)
     local label = itemName or ("item:" .. itemID)
     local iconMarkup = FormatTextureMarkup(iconFileID)
     local tokenText = iconMarkup and (iconMarkup .. " " .. label) or label
-    local itemToken = string.format("|cffffffff|Hitem:%d::::::::|h%s|h|r", itemID, tokenText)
+    local itemToken = FormatItemLinkToken(itemID, tokenText)
+    if not itemToken then return nil end
     return tostring(amount) .. " " .. itemToken
+end
+
+local function GetNativeSourceItemCostID(record)
+    local questSource = record
+        and addon.DecorToQuestLookup
+        and addon.DecorToQuestLookup[record.recordID]
+    return questSource and NATIVE_SOURCE_ITEM_COST_BY_QUEST_ID[questSource.questId] or nil
+end
+
+function addon:FormatNativeSourceText(record)
+    local sourceText = record and record.sourceText
+    if not sourceText or sourceText == "" then return sourceText end
+
+    local itemID = GetNativeSourceItemCostID(record)
+    local hasTexture = sourceText:find("|T", 1, true) or sourceText:find("|A", 1, true)
+    if not itemID or not hasTexture then return sourceText end
+
+    local itemName = GetLoadedItemName(itemID)
+    if not itemName then return sourceText, itemID end
+    if sourceText:find(itemName, 1, true) then return sourceText end
+
+    local itemToken = FormatItemLinkToken(itemID, itemName)
+    return itemToken and (sourceText .. " " .. itemToken) or sourceText
+end
+
+function addon:RequestNativeSourceItemCostName(itemID, onLoaded)
+    local callbacks = pendingNativeSourceItemLoads[itemID]
+    if callbacks then
+        if type(onLoaded) == "function" then
+            callbacks[#callbacks + 1] = onLoaded
+        end
+        return
+    end
+
+    if not Item
+        or not Item.CreateFromItemID
+    then
+        return
+    end
+
+    local item = Item:CreateFromItemID(itemID)
+    if not item or not item.ContinueOnItemLoad then return end
+
+    pendingNativeSourceItemLoads[itemID] = type(onLoaded) == "function" and { onLoaded } or {}
+    item:ContinueOnItemLoad(function()
+        local loadedCallbacks = pendingNativeSourceItemLoads[itemID]
+        pendingNativeSourceItemLoads[itemID] = nil
+        if not GetLoadedItemName(itemID) then return end
+
+        for _, callback in ipairs(loadedCallbacks or {}) do
+            callback()
+        end
+    end)
 end
 
 local function FormatSelectedVendorCost(vendorDetails)
@@ -476,18 +547,26 @@ function Preview:CreateCameraUpdateDriver(modelScene)
     local updateDriver = CreateFrame("Frame", nil, modelScene)
     updateDriver:SetScript("OnUpdate", function(_, elapsed)
         if not modelScene:IsShown() then return end
+        local autoRotate = addon.db and addon.db.settings.autoRotatePreview
+        local isLeftMouseDown = modelScene:IsLeftMouseButtonDown()
+        if not isLeftMouseDown then
+            lastPitchCamera = nil
+            lastPitchValue = nil
+            if not autoRotate then return end
+        end
+
         if modelScene:GetWidth() == 0 or modelScene:GetHeight() == 0 then return end
 
         local camera = modelScene:GetActiveCamera()
         if not camera then return end
 
         -- Inverted vertical drag
-        if camera.GetPitch and camera.SetPitch then
+        if isLeftMouseDown and camera.GetPitch and camera.SetPitch then
             local currentPitch = camera:GetPitch()
-            if lastPitchCamera ~= camera then
+            if lastPitchCamera ~= camera or lastPitchValue == nil then
                 lastPitchCamera = camera
                 lastPitchValue = currentPitch
-            elseif lastPitchValue and modelScene:IsLeftMouseButtonDown() then
+            else
                 local pitchDelta = currentPitch - lastPitchValue
                 if pitchDelta ~= 0 then
                     camera:SetPitch(lastPitchValue - pitchDelta)
@@ -495,13 +574,12 @@ function Preview:CreateCameraUpdateDriver(modelScene)
                         camera:SnapToTargetInterpolationPitch()
                     end
                 end
+                lastPitchValue = camera:GetPitch()
             end
-            lastPitchValue = camera:GetPitch()
         end
 
         -- Auto-rotation
-        if not (addon.db and addon.db.settings.autoRotatePreview) then return end
-        if modelScene:IsLeftMouseButtonDown() or modelScene:IsRightMouseButtonDown() then return end
+        if not autoRotate or isLeftMouseDown or modelScene:IsRightMouseButtonDown() then return end
 
         local yaw = camera:GetYaw() or 0
         camera:SetYaw((yaw + elapsed * ROTATION_SPEED) % (math.pi * 2))
@@ -819,10 +897,20 @@ function Preview:UpdateDetails(record)
         self.detailsSource:SetText(selectedVendorSource)
     else
         if record.sourceText and record.sourceText ~= "" then
+            local sourceText, pendingItemID = addon:FormatNativeSourceText(record)
+            if pendingItemID then
+                addon:RequestNativeSourceItemCostName(pendingItemID, function()
+                    local currentRecordID = Preview.currentRecordID
+                    local currentRecord = currentRecordID and addon:GetRecord(currentRecordID)
+                    if currentRecord and GetNativeSourceItemCostID(currentRecord) == pendingItemID then
+                        Preview:UpdateDetails(currentRecord)
+                    end
+                end)
+            end
             if isPromo then
-                self.detailsSource:SetText(record.sourceText .. " — " .. addon.L["SOURCE_PROMOTIONAL"])
+                self.detailsSource:SetText(sourceText .. " — " .. addon.L["SOURCE_PROMOTIONAL"])
             else
-                self.detailsSource:SetText(record.sourceText)
+                self.detailsSource:SetText(sourceText)
             end
         elseif isPromo then
             self.detailsSource:SetText(addon.L["SOURCE_PROMOTIONAL"])

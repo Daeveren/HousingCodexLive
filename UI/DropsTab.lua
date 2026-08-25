@@ -177,6 +177,6 @@ end)
 
 DropsTab:RegisterOwnershipRefresh(function() DropsTab:RefreshDisplay() end)
 
-addon.MainFrame:RegisterContentAreaInitializer("DropsTab", function(contentArea)
+addon.MainFrame:RegisterContentAreaInitializer("DropsTab", "DROPS", function(contentArea)
     DropsTab:Create(contentArea)
 end)

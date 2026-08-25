@@ -888,6 +888,6 @@ addon:RegisterInternalEvent("WISHLIST_CHANGED", function(recordID, isWishlisted)
     end
 end)
 
-addon.MainFrame:RegisterContentAreaInitializer("AchievementsTab", function(contentArea)
+addon.MainFrame:RegisterContentAreaInitializer("AchievementsTab", "ACHIEVEMENTS", function(contentArea)
     AchievementsTab:Create(contentArea)
 end)

@@ -488,6 +488,7 @@ L["PROFESSIONS_EMPTY_NO_SOURCES"] = "无制作来源"
 L["PROFESSIONS_EMPTY_NO_SOURCES_DESC"] = "制作来源数据尚不可用。"
 L["PROFESSIONS_SELECT_PROFESSION"] = "选择一个专业"
 L["PROFESSIONS_EMPTY_NO_RESULTS"] = "无结果"
+L["PROFESSIONS_RECIPE_SOURCE"] = "配方来源：%s"
 
 --------------------------------------------------------------------------------
 -- Treasure Hunt Waypoints

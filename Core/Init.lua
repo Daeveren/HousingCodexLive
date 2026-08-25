@@ -241,6 +241,7 @@ addon.CONSTANTS = {
         BUDGET_CAPTURE_DEBOUNCE = 0.05,   -- Coalesce bursts before the first placement-budget retry
         BUDGET_CAPTURE_RETRY_SHORT = 0.25,
         BUDGET_CAPTURE_RETRY_LONG = 1.0,
+        BUDGET_CURRENT_HOUSE_INFO_TIMEOUT = 1.0,
         BUDGET_OWNED_LIST_RETRY_DELAY = 1.0,
         BUDGET_OWNED_LIST_MAX_RETRIES = 2,
         BUDGET_OWNED_LIST_FALLBACK_DELAY = 10.0,
@@ -452,20 +453,51 @@ function addon:AnchorTooltipToCursor(owner)
     GameTooltip:SetOwner(owner, "ANCHOR_CURSOR_RIGHT")
 end
 
-function addon:GetVendorDecorCostDetails(vendorData, decorId)
-    if not vendorData then return nil, nil, false, nil end
+local function GetVendorDecorCostSource(vendorData, decorId)
+    if not vendorData then return nil end
 
-    local normalized = vendorData.decorCosts and vendorData.decorCosts[decorId]
-    local normalizedComponents = normalized and normalized.components
-    if normalizedComponents and normalizedComponents[1] then
-        local primary = normalizedComponents[1]
-        return primary.amount, primary.currencyName, normalized.hasItemCost == true,
-            normalizedComponents
+    -- Aggregated vendor entries retain only a reference to the canonical
+    -- generated source row for each decor cost. This avoids copying every
+    -- component into a second normalized runtime representation.
+    local costSource = vendorData.decorCostSources and vendorData.decorCostSources[decorId]
+    if costSource then
+        vendorData = costSource
+    end
+    return vendorData
+end
+
+function addon:GetVendorDecorCostMetadata(vendorData, decorId)
+    vendorData = GetVendorDecorCostSource(vendorData, decorId)
+    if not vendorData then return nil, nil, false, 0 end
+
+    local detail = vendorData.itemCostDetails and vendorData.itemCostDetails[decorId]
+    local components = detail and detail.components
+    if components and components[1] then
+        local primary = components[1]
+        return primary.amount, primary.currencyName, true, #components
     end
 
-    -- Compatibility input path. Generated VendorData intentionally remains
-    -- compact; BuildVendorIndex converts these legacy fields once so runtime
-    -- consumers only see decorCosts.
+    local itemCosts = vendorData.itemCosts
+    if itemCosts then
+        local amount = itemCosts[decorId]
+        if amount ~= nil then
+            return amount, vendorData.currencyName, true, 1
+        end
+        return nil, nil, false, 0
+    end
+
+    if vendorData.cost ~= nil then
+        return vendorData.cost, vendorData.currencyName, false, 1
+    end
+    return nil, vendorData.currencyName, false, 0
+end
+
+function addon:GetVendorDecorCostDetails(vendorData, decorId)
+    vendorData = GetVendorDecorCostSource(vendorData, decorId)
+    if not vendorData then return nil, nil, false, nil end
+
+    -- Generated VendorData intentionally remains compact. Runtime aggregate
+    -- entries point back to these canonical fields instead of copying them.
     local detail = vendorData.itemCostDetails and vendorData.itemCostDetails[decorId]
     local components = detail and detail.components
     if components and components[1] then
@@ -500,45 +532,57 @@ function addon:GetVendorDecorCostDetails(vendorData, decorId)
     return amount, vendorData.currencyName, false, fallbackComponents
 end
 
-function addon:NormalizeVendorDecorCost(vendorData, decorId)
-    local _, _, hasItemCost, components = self:GetVendorDecorCostDetails(vendorData, decorId)
-    if not components or not components[1] then return nil end
+local function ForEachVendorDecorCurrencyKey(owner, vendorData, decorId, callback, context)
+    vendorData = GetVendorDecorCostSource(vendorData, decorId)
+    if not vendorData then return false end
 
-    local normalizedComponents = {}
-    for index, component in ipairs(components) do
-        normalizedComponents[index] = {
-            kind = component.kind,
-            amount = component.amount,
-            currencyName = component.currencyName,
-            currencyID = component.currencyID,
-            itemID = component.itemID,
-        }
-    end
-    return {
-        components = normalizedComponents,
-        hasItemCost = hasItemCost == true,
-    }
-end
-
-function addon:GetVendorDecorCurrencyKeys(vendorData, decorId)
-    local amount, currencyName, _, components = self:GetVendorDecorCostDetails(vendorData, decorId)
-    local keys = {}
+    local detail = vendorData.itemCostDetails and vendorData.itemCostDetails[decorId]
+    local components = detail and detail.components
     if components then
         for _, component in ipairs(components) do
             local key = component.currencyName
             if (not key or key == "") and component.kind == "gold" then
-                key = self.CONSTANTS.VENDOR_CURRENCY_GOLD_KEY
+                key = owner.CONSTANTS.VENDOR_CURRENCY_GOLD_KEY
             end
-            if key and key ~= "" then
-                keys[key] = true
+            if key and key ~= "" and callback(key, context) then
+                return true
             end
         end
-    elseif currencyName and currencyName ~= "" then
-        keys[currencyName] = true
-    elseif amount ~= nil then
-        keys[self.CONSTANTS.VENDOR_CURRENCY_GOLD_KEY] = true
+    else
+        local itemCosts = vendorData.itemCosts
+        local amount = itemCosts and itemCosts[decorId]
+        if itemCosts and amount == nil then return false end
+        if not itemCosts then amount = vendorData.cost end
+        if amount ~= nil then
+            local currencyName = vendorData.currencyName
+            if currencyName and currencyName ~= "" then
+                return callback(currencyName, context) and true or false
+            end
+            return callback(owner.CONSTANTS.VENDOR_CURRENCY_GOLD_KEY, context) and true or false
+        end
     end
-    return keys
+    return false
+end
+
+local function AddVendorCurrencyKey(key, target)
+    target[key] = true
+    return false
+end
+
+local function VendorCurrencyKeyIsSelected(key, selectedKeys)
+    return selectedKeys[key] == true
+end
+
+function addon:AddVendorDecorCurrencyKeys(vendorData, decorId, target)
+    ForEachVendorDecorCurrencyKey(self, vendorData, decorId, AddVendorCurrencyKey, target)
+end
+
+function addon:VendorDecorMatchesCurrencyKeys(vendorData, decorId, keys)
+    return ForEachVendorDecorCurrencyKey(self, vendorData, decorId, VendorCurrencyKeyIsSelected, keys)
+end
+
+function addon:VendorDecorHasCurrencyMatching(vendorData, decorId, predicate, context)
+    return ForEachVendorDecorCurrencyKey(self, vendorData, decorId, predicate, context)
 end
 
 function addon:GetVendorCurrencyKey(vendorData, decorId)
@@ -1548,8 +1592,7 @@ SlashCmdList["HOUSINGCODEX"] = function(msg)
                 addon:Print("  isModelOnly: " .. tostring(record.isModelOnly))
                 addon:Print("  modelAsset: " .. tostring(record.modelAsset))
                 -- Also get raw info from API
-                local entryID = record.entryID
-                local entryType = entryID and entryID.entryType
+                local entryType = record.entryType
                 local rawRecordID = record.recordID
                 local isSecretValue = type(issecretvalue) == "function" and issecretvalue
                 local info

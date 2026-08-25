@@ -490,6 +490,7 @@ L["PROFESSIONS_EMPTY_NO_SOURCES"] = "No Crafting Sources"
 L["PROFESSIONS_EMPTY_NO_SOURCES_DESC"] = "Crafting source data is not yet available."
 L["PROFESSIONS_SELECT_PROFESSION"] = "Select a Profession"
 L["PROFESSIONS_EMPTY_NO_RESULTS"] = "No Results"
+L["PROFESSIONS_RECIPE_SOURCE"] = "Recipe source: %s"
 
 --------------------------------------------------------------------------------
 -- Treasure Hunt Waypoints

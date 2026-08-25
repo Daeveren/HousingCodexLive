@@ -286,7 +286,7 @@ function addon:GetRecordSourceKind(recordID)
     local id = tonumber(recordID)
     if not id then return "OTHER" end
 
-    if self.GetDefaultVendorDecorDetails and self:GetDefaultVendorDecorDetails(id) then
+    if self.HasVendorSource and self:HasVendorSource(id) then
         return "VENDORS"
     end
 

@@ -818,7 +818,14 @@ function ProgressTab:BuildBudgetRows(elements, panel, yOffset)
             if plotInfo.houseGUID ~= nil and plotInfo.houseGUID ~= "" then
                 return "house:" .. tostring(plotInfo.houseGUID)
             end
-            if type(plotInfo.plotID) == "number" and plotInfo.neighborhoodGUID ~= nil and plotInfo.neighborhoodGUID ~= "" then
+            -- No plotID >= 0 sentinel guard here on purpose. This is a READ
+            -- path: it must reproduce whatever key was stored so legacy rows
+            -- still resolve their snapshots. The sentinel is rejected where
+            -- keys are minted (IsValidPlotID in Core/PlacementBudget.lua);
+            -- rejecting it here instead makes saved budgets silently vanish,
+            -- and matches that file's deliberately permissive IsValidKnownPlot.
+            if type(plotInfo.plotID) == "number"
+                and plotInfo.neighborhoodGUID ~= nil and plotInfo.neighborhoodGUID ~= "" then
                 return "neighborhood:" .. tostring(plotInfo.neighborhoodGUID) .. ":plot:" .. tostring(math.floor(plotInfo.plotID))
             end
         end
@@ -1167,7 +1174,10 @@ function ProgressTab:BuildBudgetRows(elements, panel, yOffset)
             return true
         end
 
-        if currentPlotID and type(plotInfo.plotID) == "number" and plotInfo.neighborhoodGUID ~= nil and plotInfo.neighborhoodGUID ~= "" then
+        -- Read/compare path: no sentinel guard, same reasoning as
+        -- GetStablePlotIdentityKey above.
+        if currentPlotID and type(plotInfo.plotID) == "number"
+            and plotInfo.neighborhoodGUID ~= nil and plotInfo.neighborhoodGUID ~= "" then
             local plotKey = "neighborhood:" .. tostring(plotInfo.neighborhoodGUID) .. ":plot:" .. tostring(math.floor(plotInfo.plotID))
             if currentPlotID == plotKey then return true end
         end
@@ -1814,6 +1824,6 @@ addon:RegisterInternalEvent(addon.Events.COLLECTION_HISTORY_UPDATED, function()
     end
 end)
 
-addon.MainFrame:RegisterContentAreaInitializer("ProgressTab", function(contentArea)
+addon.MainFrame:RegisterContentAreaInitializer("ProgressTab", "PROGRESS", function(contentArea)
     ProgressTab:Create(contentArea)
 end)

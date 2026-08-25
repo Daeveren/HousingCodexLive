@@ -16,9 +16,25 @@ local ownedHouseListReady = false
 local ownedHouseListRetryTimer = nil
 local ownedHouseListRetryCount = 0
 local ownedHouseListRequestGeneration = 0
+local currentHouseInfoRequestInFlight = false
+local currentHouseInfoRequestTimeoutTimer = nil
+local currentHouseInfoRequestGeneration = 0
 local captureTimers = {}
 local captureScheduleGeneration = 0
 local lastBudgetCaptureBlockReason = nil
+local budgetCaptureDiagnosticReasons = {
+    ["owned house list unavailable"] = true,
+    ["current house info API unavailable"] = true,
+    ["missing current house info"] = true,
+    ["non-numeric current house plotID"] = true,
+    ["unfetched current house plotID"] = true,
+    ["current neighborhood GUID API unavailable"] = true,
+    ["secret current house neighborhoodGUID"] = true,
+    ["empty current house neighborhoodGUID"] = true,
+    ["unresolved current house identity"] = true,
+    ["owned house identity not confirmed"] = true,
+    ["resolved house identity mismatch"] = true,
+}
 local MergeDuplicateNoGUIDRows
 local RepairResolvedPlotSnapshots
 
@@ -157,7 +173,7 @@ local function SafeCall(func, ...)
 end
 
 local function IsSecretValue(value)
-    return value ~= nil and type(issecretvalue) == "function" and issecretvalue(value)
+    return type(issecretvalue) == "function" and issecretvalue(value)
 end
 
 local function GetCurrentContext()
@@ -171,8 +187,18 @@ local function GetCurrentContext()
     return nil
 end
 
+-- Blizzard uses a negative plotID to mean "we failed to fetch this house's info
+-- from the server" (Blizzard_HousingHouseSettings.lua checks == -1;
+-- Blizzard_HousingCornerstone.lua gates its whole HasData predicate on < 0).
+-- Never build a persisted identity from that sentinel: two unfetched houses in
+-- one neighborhood would share an identity key and prune each other in
+-- SyncKnownPlots. Read-back stays permissive so legacy rows still load.
+local function IsValidPlotID(plotID)
+    return type(plotID) == "number" and plotID >= 0
+end
+
 local function GetPlotKey(plotID, neighborhoodGUID)
-    if type(plotID) ~= "number" then return nil end
+    if not IsValidPlotID(plotID) then return nil end
     if neighborhoodGUID ~= nil and neighborhoodGUID ~= "" then
         return "neighborhood:" .. tostring(neighborhoodGUID) .. ":plot:" .. tostring(math.floor(plotID))
     end
@@ -189,21 +215,33 @@ end
 
 local function GetCurrentHouseIdentity()
     if not C_Housing or type(C_Housing.GetCurrentHouseInfo) ~= "function" then
-        return nil, nil
+        return nil, nil, "current house info API unavailable"
     end
 
     local houseInfo = SafeCall(C_Housing.GetCurrentHouseInfo)
-    if type(houseInfo) ~= "table" then return nil, nil end
+    if type(houseInfo) ~= "table" then
+        return nil, nil, "missing current house info"
+    end
+
+    if type(houseInfo.plotID) ~= "number" then
+        return houseInfo, nil, "non-numeric current house plotID"
+    end
+    if not IsValidPlotID(houseInfo.plotID) then
+        return houseInfo, nil, "unfetched current house plotID"
+    end
 
     local houseKey = GetHouseKey(houseInfo)
     if houseKey then return houseInfo, houseKey end
-    if type(houseInfo.plotID) ~= "number" or type(C_Housing.GetCurrentNeighborhoodGUID) ~= "function" then
-        return houseInfo, nil
+    if type(C_Housing.GetCurrentNeighborhoodGUID) ~= "function" then
+        return houseInfo, nil, "current neighborhood GUID API unavailable"
     end
 
     local neighborhoodGUID = SafeCall(C_Housing.GetCurrentNeighborhoodGUID)
-    if neighborhoodGUID == nil or neighborhoodGUID == "" or IsSecretValue(neighborhoodGUID) then
-        return houseInfo, nil
+    if IsSecretValue(neighborhoodGUID) then
+        return houseInfo, nil, "secret current house neighborhoodGUID"
+    end
+    if neighborhoodGUID == nil or neighborhoodGUID == "" then
+        return houseInfo, nil, "empty current house neighborhoodGUID"
     end
 
     local resolvedHouseInfo = {}
@@ -243,7 +281,14 @@ local function IsVisitingAnotherPlayersHousing()
     end
 
     local insideHouseCheck = C_Housing and C_Housing.IsInsideHouse
-    local insideOwnHouseCheck = C_Housing and C_Housing.IsInsideOwnHouse
+    -- 12.1 added IsInsideOwnedHouse; IsInsideOwnHouse is absent from the
+    -- generated docs but still resolves in game -- only because
+    -- Blizzard_Deprecated/Mainline/Deprecated_12_1_0.lua aliases it, and that
+    -- whole file early-returns unless the CVar loadDeprecationFallbacks is set.
+    -- So the fallback is a courtesy, not a second real API: prefer the
+    -- documented name, which is always present.
+    local insideOwnHouseCheck = C_Housing
+        and (C_Housing.IsInsideOwnedHouse or C_Housing.IsInsideOwnHouse)
     return type(insideHouseCheck) == "function"
         and type(insideOwnHouseCheck) == "function"
         and insideHouseCheck() == true
@@ -274,9 +319,9 @@ local function GetOwnedBudgetContext()
         return false, nil, nil, "owned house list unavailable"
     end
 
-    local houseInfo, houseKey = GetCurrentHouseIdentity()
+    local houseInfo, houseKey, identityBlockReason = GetCurrentHouseIdentity()
     if not houseKey then
-        return false, houseInfo, nil, "stable house identity unavailable"
+        return false, houseInfo, nil, identityBlockReason or "unresolved current house identity"
     end
     if not HasOwnedHouseIdentity(houseInfo) then
         return false, houseInfo, houseKey, "owned house identity not confirmed"
@@ -285,9 +330,7 @@ local function GetOwnedBudgetContext()
 end
 
 local function DebugBudgetCaptureBlock(reason)
-    if reason ~= "owned house list unavailable"
-        and reason ~= "stable house identity unavailable"
-        and reason ~= "owned house identity not confirmed" then
+    if not budgetCaptureDiagnosticReasons[reason] then
         return
     end
     if lastBudgetCaptureBlockReason == reason then return end
@@ -405,7 +448,7 @@ local function MergeNoGUIDPlotInfo(target, source, targetIdentityKey)
 end
 
 local function GetPlotNeighborhoodIdentityKey(plotInfo)
-    if type(plotInfo) ~= "table" or type(plotInfo.plotID) ~= "number" then return nil end
+    if type(plotInfo) ~= "table" or not IsValidPlotID(plotInfo.plotID) then return nil end
     if plotInfo.neighborhoodGUID == nil or plotInfo.neighborhoodGUID == "" then return nil end
     return tostring(math.floor(plotInfo.plotID)) .. "\001" .. tostring(plotInfo.neighborhoodGUID)
 end
@@ -478,8 +521,8 @@ local function GetPlayerFactionInfo()
 end
 
 local function GetNeighborhoodFactionInfo(neighborhoodGUID)
-    if neighborhoodGUID == nil or neighborhoodGUID == "" then return nil, nil end
     if IsSecretValue(neighborhoodGUID) then return nil, nil end
+    if neighborhoodGUID == nil or neighborhoodGUID == "" then return nil, nil end
     if not C_Housing or type(C_Housing.DoesFactionMatchNeighborhood) ~= "function" then return nil, nil end
 
     local playerFactionTag, localizedPlayerFaction = GetPlayerFactionInfo()
@@ -507,7 +550,7 @@ end
 local function RememberHouseInfo(db, houseInfo, markVisited)
     if type(houseInfo) ~= "table" then return nil, false end
 
-    local normalizedPlotID = type(houseInfo.plotID) == "number" and math.floor(houseInfo.plotID) or nil
+    local normalizedPlotID = IsValidPlotID(houseInfo.plotID) and math.floor(houseInfo.plotID) or nil
     if not normalizedPlotID then return nil, false end
 
     local plotKey = GetHouseKey(houseInfo)
@@ -536,6 +579,24 @@ local function RememberHouseInfo(db, houseInfo, markVisited)
         changed = true
     end
 
+    -- Deliberately NOT resetting history here on a plot/neighborhood change.
+    -- A "new occupancy" reset was tried and reverted (2026-08-24) because
+    -- clearing `plotInfo.budgets` alone does not work and the fix is not local:
+    --   * CaptureBudget mirrors each snapshot into `plotsByID[plotKey]` and the
+    --     single-slot `db.interior`/`db.plot`, all matched by `identityKey`, so
+    --     the previous occupant's spend survives the wipe under the same key.
+    --   * GetBudgetDB then actively restores it -- with `budgets` emptied its
+    --     outdoor snapshot reads invalid, so the legacy `plotsByID` back-fill
+    --     copies the old value straight back in and re-persists it.
+    --   * SyncKnownPlots calls this for EVERY owned house on every house-list
+    --     update with markVisited = false, nowhere near the player. Under a
+    --     genuine GUID collision both houses resolve to one key in the same
+    --     loop, so each would see the other as "moved" and the pair would
+    --     thrash on every sync -- destroying budgets that can only be
+    --     recaptured by physically standing in the house.
+    -- Doing this properly means clearing every mirror for the key and teaching
+    -- the back-fill not to undo it; it is a persisted-data change and belongs
+    -- in its own pass under the SavedVars impact gate.
     if plotInfo.plotID ~= normalizedPlotID then
         plotInfo.plotID = normalizedPlotID
         changed = true
@@ -666,15 +727,35 @@ local function SaveHouseLevelSnapshotByGUID(houseGUID, snapshot)
     local db = GetBudgetDB()
     if not db then return false end
 
-    local changed = false
+    -- HOUSE_LEVEL_FAVOR_UPDATED identifies its house only by houseGUID, and a
+    -- GUID is not proven unique: real saved data has held two different houses
+    -- (different owner, plot and neighborhood) under one GUID string. Writing
+    -- every match would stamp one house's level onto another, so resolve to a
+    -- single row or skip. Applying nothing is recoverable; misattribution is not.
+    local target, ambiguous = nil, false
     for _, plotInfo in pairs(NormalizeKnownPlots(db)) do
         if type(plotInfo) == "table" and plotInfo.houseGUID == houseGUID then
-            if ShouldSaveHouseLevelSnapshot(plotInfo.houseLevel, snapshot) then
-                plotInfo.houseLevel = snapshot
-                changed = true
+            if target then
+                ambiguous = true
+                break
             end
-            levelRequestTimes[houseGUID] = nil
+            target = plotInfo
         end
+    end
+
+    if ambiguous then
+        addon:Debug("House level update skipped: houseGUID " .. tostring(houseGUID)
+            .. " matches more than one saved house")
+        return false
+    end
+    if not target then return false end
+
+    levelRequestTimes[houseGUID] = nil
+
+    local changed = false
+    if ShouldSaveHouseLevelSnapshot(target.houseLevel, snapshot) then
+        target.houseLevel = snapshot
+        changed = true
     end
 
     if changed then
@@ -690,6 +771,159 @@ local function RequestKnownHouseLevels(db, force)
     end
 end
 
+-- Currently stored spent value for this identity/context, or nil when nothing
+-- is stored yet. Checks the same targets CaptureBudget writes to.
+local function GetStoredBudgetSpent(db, context, plotKey, knownPlots)
+    local function SpentFor(snapshot)
+        if type(snapshot) ~= "table" then return nil end
+        if snapshot.identityKey ~= plotKey then return nil end
+        if type(snapshot.spent) ~= "number" then return nil end
+        return snapshot.spent
+    end
+
+    local plotInfo = knownPlots and knownPlots[plotKey]
+    if type(plotInfo) == "table" and type(plotInfo.budgets) == "table" then
+        local stored = SpentFor(plotInfo.budgets[context])
+        if stored then return stored end
+    end
+
+    if context == CONTEXT_INTERIOR then
+        return SpentFor(db[CONTEXT_INTERIOR])
+    end
+    if context == CONTEXT_OUTDOOR then
+        local stored = SpentFor(db[CONTEXT_PLOT])
+        if stored then return stored end
+        local plotsByID = db[CONTEXT_PLOTS_BY_ID]
+        if type(plotsByID) == "table" then
+            return SpentFor(plotsByID[plotKey])
+        end
+    end
+    return nil
+end
+
+-- Observed in game 2026-08-24: on login inside an owned house, the first
+-- captures read spent = 0 while max already read 3500, then corrected to 94.
+-- Blizzard_Deprecated/Mainline/Deprecated_12_1_0.lua rewrites
+-- GetSpentPlacementBudget as `original() or 0`, masking a nil return as a plain
+-- zero. That file early-returns unless the loadDeprecationFallbacks CVar is set,
+-- and it IS set: verified in game 2026-08-24, where
+-- GetCVarBool("loadDeprecationFallbacks") returned true and
+-- C_Housing.IsInsideOwnHouse == C_Housing.IsInsideOwnedHouse confirmed the same
+-- file's alias is live. So the masking wrapper is installed for real users, and
+-- an unpopulated nil is indistinguishable from a genuine zero here. Note the
+-- documented nil condition ("not in an owned house or plot") is already excluded
+-- upstream, so the exact trigger is still unproven -- but max read 3500 while
+-- spent read 0, so the two getters demonstrably diverge. C_HousingDecor exposes
+-- no readiness predicate, so a zero has to earn the right to replace a stored
+-- non-zero value.
+local pendingZeroConfirmation = nil
+-- Last signals behind a zero refusal, for the debug line only. The docs do not
+-- say whether GetAllSpentPlacementBudgets returns nil or a zero-filled table
+-- while a house interior is still streaming, so log both readings and settle it
+-- from a real capture rather than guessing.
+local lastZeroSignals = { unmasked = nil, placed = nil }
+
+-- Elapsed wall-clock time is NOT evidence that a reading settled, and keying the
+-- confirmation off it was a rubber stamp. A house interior streams its decor in
+-- over roughly a second while the shimmed spend getter reads a masked zero
+-- throughout, and the old 0.2s window was crossed by the very next scheduled
+-- capture at 0.25s (Core/Init.lua BUDGET_CAPTURE_RETRY_SHORT), so any zero
+-- surviving one capture was confirmed and persisted. Observed in game
+-- 2026-08-24: a stored interior spend of 94 was overwritten with 0, then with a
+-- still-streaming 22. No API bounds the load time, so a longer window would only
+-- lower the odds rather than close the hole.
+--
+-- The unmasked reading closes it instead. C_HousingDecor.GetSpentPlacementBudget
+-- became nilable in 12.1 ("not in an owned House or Plot"), but
+-- Blizzard_Deprecated/Mainline/Deprecated_12_1_0.lua wraps it as `original() or 0`
+-- and loadDeprecationFallbacks is on by default, so its zero cannot be told apart
+-- from an unavailable read. GetAllSpentPlacementBudgets is new in 12.1 and is one
+-- of the getters that file does NOT wrap, so its documented nil survives to us.
+--   true  = the budget is readable and the decor bucket genuinely reads zero
+--   false = the budget is not readable, so a zero is a masked nil
+--   nil   = cannot tell (API or enum unavailable)
+local function ReadUnmaskedZeroSpend(context)
+    local getAllSpent = C_HousingDecor and C_HousingDecor.GetAllSpentPlacementBudgets
+    if type(getAllSpent) ~= "function" then return nil end
+
+    local budgetType = Enum and Enum.HousingBudgetType and Enum.HousingBudgetType.DecorPlacement
+    if type(budgetType) ~= "number" then return nil end
+
+    local ok, interiorSpent, exteriorSpent = pcall(getAllSpent)
+    if not ok then return nil end
+
+    -- Explicit branch, not `context == CONTEXT_INTERIOR and interiorSpent or
+    -- exteriorSpent`: both returns are documented Nilable, and that idiom falls
+    -- through to the exterior table whenever the interior one is nil -- reading
+    -- the plot's spend as if it were the interior's.
+    local spentByType
+    if context == CONTEXT_INTERIOR then
+        spentByType = interiorSpent
+    else
+        spentByType = exteriorSpent
+    end
+    if type(spentByType) ~= "table" then return false end
+
+    local decorSpent = spentByType[budgetType]
+    if IsSecretValue(decorSpent) or type(decorSpent) ~= "number" then return false end
+    return decorSpent == 0
+end
+
+-- true  = nothing is placed, so a zero spend is consistent with the world
+-- false = decor is placed, so the read is not settled
+-- nil   = cannot tell
+-- GetNumDecorPlaced is documented as "NOT the value used in placement budget
+-- calculations", and it is Nilable = false so it cannot say "not loaded yet" --
+-- which is why it corroborates the unmasked read rather than deciding alone.
+-- Nothing in the 12.1 catalog or decor structs describes budget-exempt decor, so
+-- inside an owned house a placed count above zero alongside a zero spend means
+-- the read has not settled.
+local function IsZeroSpendPlausible()
+    local getNumPlaced = C_HousingDecor and C_HousingDecor.GetNumDecorPlaced
+    if type(getNumPlaced) ~= "function" then return nil end
+    local ok, numPlaced = pcall(getNumPlaced)
+    if not ok or IsSecretValue(numPlaced) or type(numPlaced) ~= "number" then return nil end
+    return numPlaced == 0
+end
+
+-- A zero may replace a stored non-zero only on agreement from three independent
+-- checks: the unmasked getter says the budget is readable and really is zero,
+-- nothing is placed, and a previous capture already saw the same zero. Refusing
+-- is cheap -- the stored value stands and any real reading overwrites it, and
+-- HOUSING_NUM_DECOR_PLACED_CHANGED reschedules a capture as the world settles --
+-- while confirming wrongly destroys a value only a physical visit can restore.
+local function IsZeroReadConfirmed(plotKey, context, maxBudget)
+    local unmaskedZero = ReadUnmaskedZeroSpend(context)
+    local nothingPlaced = IsZeroSpendPlausible()
+    lastZeroSignals.unmasked = unmaskedZero
+    lastZeroSignals.placed = nothingPlaced
+    if unmaskedZero ~= true or nothingPlaced ~= true then
+        pendingZeroConfirmation = {
+            plotKey = plotKey,
+            context = context,
+            max = maxBudget,
+        }
+        return false
+    end
+
+    local pending = pendingZeroConfirmation
+    if pending
+        and pending.plotKey == plotKey
+        and pending.context == context
+        and pending.max == maxBudget
+    then
+        pendingZeroConfirmation = nil
+        return true
+    end
+
+    pendingZeroConfirmation = {
+        plotKey = plotKey,
+        context = context,
+        max = maxBudget,
+    }
+    return false
+end
+
 local function ShouldSaveSnapshot(snapshot, spent, maxBudget, updatedAt, identityKey)
     return not snapshot
         or snapshot.spent ~= spent
@@ -702,6 +936,9 @@ local function CaptureBudget(silent)
     if not addon.db or not C_Housing then return false end
     local isOwnedContext, houseInfo, ownedHouseKey, blockReason = GetOwnedBudgetContext()
     if not isOwnedContext then
+        -- Drop any half-confirmed zero: leaving and re-entering the same house
+        -- must not let a stale first sighting instantly confirm a new one.
+        pendingZeroConfirmation = nil
         DebugBudgetCaptureBlock(blockReason)
         return false
     end
@@ -712,7 +949,8 @@ local function CaptureBudget(silent)
 
     local plotKey, metadataChanged = RememberHouseInfo(db, houseInfo, true)
     if not plotKey or plotKey ~= ownedHouseKey then
-        DebugBudgetCaptureBlock("stable house identity unavailable")
+        pendingZeroConfirmation = nil
+        DebugBudgetCaptureBlock("resolved house identity mismatch")
         return false
     end
     local changed = metadataChanged == true
@@ -751,6 +989,22 @@ local function CaptureBudget(silent)
         return changed
     end
 
+    local storedSpent = GetStoredBudgetSpent(db, context, plotKey, knownPlots)
+    if spent == 0 and type(storedSpent) == "number" and storedSpent > 0 then
+        if not IsZeroReadConfirmed(plotKey, context, maxBudget) then
+            addon:Debug("Placement budget zero read unconfirmed; keeping "
+                .. tostring(storedSpent) .. " for " .. tostring(plotKey)
+                .. " (unmaskedZero=" .. tostring(lastZeroSignals.unmasked)
+                .. " nothingPlaced=" .. tostring(lastZeroSignals.placed) .. ")")
+            if changed then
+                if not silent then addon:FireEvent(addon.Events.PLACEMENT_BUDGET_UPDATED) end
+            end
+            return changed
+        end
+    else
+        pendingZeroConfirmation = nil
+    end
+
     local snapshot = {
         spent = spent,
         max = maxBudget,
@@ -784,6 +1038,13 @@ local function CaptureBudget(silent)
         end
     end
 
+    -- ShouldSaveSnapshot also compares updatedAt (GetServerTime, one-second
+    -- resolution), so `changed` reports elapsed time as much as a real change.
+    -- Key the log off the value instead.
+    if storedSpent ~= spent then
+        addon:Debug("Placement budget captured: " .. context .. " "
+            .. tostring(spent) .. "/" .. tostring(maxBudget) .. " for " .. tostring(plotKey))
+    end
     if changed then
         if not silent then addon:FireEvent(addon.Events.PLACEMENT_BUDGET_UPDATED) end
     end
@@ -827,6 +1088,61 @@ local function ScheduleCaptureBudget()
     Schedule("debounce", timers.BUDGET_CAPTURE_DEBOUNCE)
     Schedule("shortRetry", timers.BUDGET_CAPTURE_RETRY_SHORT)
     Schedule("longRetry", timers.BUDGET_CAPTURE_RETRY_LONG)
+end
+
+local function CancelCurrentHouseInfoRequestTimeout()
+    if currentHouseInfoRequestTimeoutTimer then
+        currentHouseInfoRequestTimeoutTimer:Cancel()
+        currentHouseInfoRequestTimeoutTimer = nil
+    end
+end
+
+local function ClearCurrentHouseInfoRequest()
+    currentHouseInfoRequestGeneration = currentHouseInfoRequestGeneration + 1
+    currentHouseInfoRequestInFlight = false
+    CancelCurrentHouseInfoRequestTimeout()
+end
+
+local function RequestCurrentHouseInfo()
+    if currentHouseInfoRequestInFlight then return end
+
+    local request = C_Housing and C_Housing.RequestCurrentHouseInfo
+    if type(request) ~= "function" then return end
+
+    currentHouseInfoRequestGeneration = currentHouseInfoRequestGeneration + 1
+    local generation = currentHouseInfoRequestGeneration
+    currentHouseInfoRequestInFlight = true
+
+    local timers = addon.CONSTANTS and addon.CONSTANTS.TIMER
+    local timeout = timers and timers.BUDGET_CURRENT_HOUSE_INFO_TIMEOUT
+    if C_Timer and type(C_Timer.NewTimer) == "function" and type(timeout) == "number" then
+        currentHouseInfoRequestTimeoutTimer = C_Timer.NewTimer(timeout, function()
+            if generation ~= currentHouseInfoRequestGeneration then return end
+            currentHouseInfoRequestTimeoutTimer = nil
+            currentHouseInfoRequestInFlight = false
+            addon:Debug("Current house info request timed out; allowing a new entry request")
+        end)
+    end
+
+    request()
+    if generation == currentHouseInfoRequestGeneration and not currentHouseInfoRequestTimeoutTimer then
+        currentHouseInfoRequestInFlight = false
+    end
+end
+
+local function OnHousePlotEntered()
+    -- Entering a plot always invalidates a half-confirmed zero. Clearing only
+    -- inside CaptureBudget is not enough: an on-foot exit fires no capture and
+    -- no loading screen, so a pending sighting from the end of the last visit
+    -- would still be older than the confirmation window on re-entry.
+    pendingZeroConfirmation = nil
+    RequestCurrentHouseInfo()
+    ScheduleCaptureBudget()
+end
+
+local function OnCurrentHouseInfoChanged()
+    ClearCurrentHouseInfoRequest()
+    ScheduleCaptureBudget()
 end
 
 local function CancelOwnedHouseListRetry()
@@ -895,6 +1211,16 @@ local function SyncKnownPlots(houseInfos)
             activeHouseGUIDsByPlot[activePlotKey] = houseInfo.houseGUID
         end
 
+        -- Mark seen from the house identity itself, independently of whether
+        -- RememberHouseInfo accepted the row. It declines an unfetched
+        -- (negative) plotID, and without this the server still lists the house
+        -- while its stored row looks unseen -- which would let the prune below
+        -- delete a real owned house's cached metadata.
+        local identityKey = GetHouseKey(houseInfo)
+        if identityKey then
+            seen[identityKey] = true
+        end
+
         local plotKey, houseChanged = RememberHouseInfo(db, houseInfo, false)
         if plotKey then
             seen[plotKey] = true
@@ -909,7 +1235,18 @@ local function SyncKnownPlots(houseInfos)
         if HasHouseGUID(plotInfo) then
             local activePlotKey = GetPlotNeighborhoodIdentityKey(plotInfo)
             local activeHouseGUID = activePlotKey and activeHouseGUIDsByPlot[activePlotKey] or nil
-            if activeHouseGUID and activeHouseGUID ~= plotInfo.houseGUID then
+            -- A different GUID on the same neighborhood+plot is normally proof
+            -- the row is superseded, but houseGUID has no format contract and
+            -- renumbering has never been ruled out, so that "proof" may be an
+            -- artifact. Both prune paths therefore keep a row carrying real
+            -- data: a renumber costs a stale row rather than a user's level
+            -- history and budgets, which can only be recaptured in person.
+            -- Accepted trade-off: a genuinely superseded row that holds budgets
+            -- is now never deleted, so relinquishing and rebuying the same plot
+            -- leaves the old row behind. Marking such rows and filtering them
+            -- from the display is the follow-up, and is a persisted-data change.
+            if activeHouseGUID and activeHouseGUID ~= plotInfo.houseGUID
+                and not plotInfo.visited and not next(plotInfo.budgets) then
                 levelRequestTimes[plotInfo.houseGUID] = nil
                 knownPlots[plotKey] = nil
                 changed = true
@@ -1009,15 +1346,16 @@ function addon:GetCurrentPlacementBudgetContext()
     return houseKey, context, neighborhoodGUID
 end
 
-addon:RegisterWoWEvent("HOUSE_PLOT_ENTERED", ScheduleCaptureBudget)
+addon:RegisterWoWEvent("HOUSE_PLOT_ENTERED", OnHousePlotEntered)
 addon:RegisterWoWEvent("HOUSING_NUM_DECOR_PLACED_CHANGED", ScheduleCaptureBudget)
-addon:RegisterWoWEvent("CURRENT_HOUSE_INFO_RECIEVED", ScheduleCaptureBudget)
-addon:RegisterWoWEvent("CURRENT_HOUSE_INFO_UPDATED", ScheduleCaptureBudget)
+addon:RegisterWoWEvent("CURRENT_HOUSE_INFO_RECIEVED", OnCurrentHouseInfoChanged)
+addon:RegisterWoWEvent("CURRENT_HOUSE_INFO_UPDATED", OnCurrentHouseInfoChanged)
 addon:RegisterWoWEvent("HOUSE_EDITOR_MODE_CHANGED", ScheduleCaptureBudget)
 addon:RegisterWoWEvent("PLAYER_HOUSE_LIST_UPDATED", SyncKnownPlots)
 addon:RegisterWoWEvent("HOUSE_LEVEL_FAVOR_UPDATED", OnHouseLevelFavorUpdated)
 addon:RegisterWoWEvent("PLAYER_ENTERING_WORLD", function()
     RequestPlayerOwnedHouses()
+    RequestCurrentHouseInfo()
     ScheduleCaptureBudget()
     RequestKnownHouseLevels(GetBudgetDB(), true)
 end)

@@ -225,7 +225,44 @@ local localizedQuestZoneNames = {} -- localized map/area name -> English scraper
 local treasureHuntQuestSet = {}   -- questID -> true (fast lookup for treasure hunt classification)
 local zoneDecorCache = {}         -- mapID -> { vendors = {...}, quests = {...}, treasures = {...} }
 local zoneProgressCache = {}      -- mapID -> { uncollected = n, total = n }
+local zoneDecorCacheRecency = {}  -- mapID -> monotonically increasing access counter
+local zoneDecorCacheSize = 0
+local zoneDecorCacheClock = 0
+local MAX_ZONE_DECOR_CACHE_ENTRIES = 8
+local ZONE_RESULT_SOURCE_KEYS = { "vendors", "quests", "treasures" }
 local indexBuilt = false
+
+local function TouchZoneDecorCache(mapID)
+    zoneDecorCacheClock = zoneDecorCacheClock + 1
+    zoneDecorCacheRecency[mapID] = zoneDecorCacheClock
+end
+
+local function EvictOldestZoneDecorCacheEntry()
+    local oldestMapID, oldestAccess
+    for cachedMapID, access in pairs(zoneDecorCacheRecency) do
+        if not oldestAccess or access < oldestAccess then
+            oldestMapID = cachedMapID
+            oldestAccess = access
+        end
+    end
+    if not oldestMapID then return end
+
+    zoneDecorCache[oldestMapID] = nil
+    zoneProgressCache[oldestMapID] = nil
+    zoneDecorCacheRecency[oldestMapID] = nil
+    zoneDecorCacheSize = zoneDecorCacheSize - 1
+end
+
+local function CacheZoneDecorResult(mapID, result)
+    if not zoneDecorCache[mapID] then
+        zoneDecorCacheSize = zoneDecorCacheSize + 1
+    end
+    zoneDecorCache[mapID] = result
+    TouchZoneDecorCache(mapID)
+    while zoneDecorCacheSize > MAX_ZONE_DECOR_CACHE_ENTRIES do
+        EvictOldestZoneDecorCacheEntry()
+    end
+end
 
 local function SortByName(a, b)
     return a.decorName < b.decorName
@@ -360,7 +397,10 @@ function addon:GetZoneDecorItems(mapID)
 
     -- Check cache
     local cached = zoneDecorCache[zoneMapID]
-    if cached then return cached end
+    if cached then
+        TouchZoneDecorCache(zoneMapID)
+        return cached
+    end
 
     BuildIndex()
 
@@ -456,7 +496,7 @@ function addon:GetZoneDecorItems(mapID)
     table.sort(result.quests, SortByName)
     table.sort(result.treasures, SortByName)
 
-    zoneDecorCache[zoneMapID] = result
+    CacheZoneDecorResult(zoneMapID, result)
     return result
 end
 
@@ -496,9 +536,34 @@ end
 --------------------------------------------------------------------------------
 -- Cache invalidation
 --------------------------------------------------------------------------------
-function addon:InvalidateZoneDecorCache()
+function addon:InvalidateZoneDecorCache(recordID)
+    if recordID then
+        for mapID, result in pairs(zoneDecorCache) do
+            local found = false
+            for _, sourceKey in ipairs(ZONE_RESULT_SOURCE_KEYS) do
+                for _, item in ipairs(result[sourceKey] or {}) do
+                    if item.recordID == recordID then
+                        found = true
+                        break
+                    end
+                end
+                if found then break end
+            end
+            if found then
+                zoneDecorCache[mapID] = nil
+                zoneProgressCache[mapID] = nil
+                zoneDecorCacheRecency[mapID] = nil
+                zoneDecorCacheSize = zoneDecorCacheSize - 1
+            end
+        end
+        return
+    end
+
     wipe(zoneDecorCache)
     wipe(zoneProgressCache)
+    wipe(zoneDecorCacheRecency)
+    zoneDecorCacheSize = 0
+    zoneDecorCacheClock = 0
 end
 
 -- Full reset: wipe reverse indexes, name cache, and result caches so BuildIndex re-runs
@@ -516,6 +581,6 @@ end
 -- Invalidate on ownership changes (only when collection state actually changed)
 addon:RegisterInternalEvent("RECORD_OWNERSHIP_UPDATED", function(recordID, collectionStateChanged)
     if not collectionStateChanged then return end
-    addon:InvalidateZoneDecorCache()
+    addon:InvalidateZoneDecorCache(recordID)
     addon:FireEvent("ZONE_DECOR_CACHE_INVALIDATED")
 end)

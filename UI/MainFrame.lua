@@ -50,7 +50,7 @@ local MainFrame = addon.MainFrame
 -- Content area initializer registry
 MainFrame.contentAreaInitializers = {}
 
-function MainFrame:RegisterContentAreaInitializer(key, fn)
+function MainFrame:RegisterContentAreaInitializer(key, tabKey, fn)
     for _, entry in ipairs(self.contentAreaInitializers) do
         if entry.key == key then
             addon:Debug("RegisterContentAreaInitializer: duplicate key '" .. key .. "', ignoring")
@@ -58,18 +58,23 @@ function MainFrame:RegisterContentAreaInitializer(key, fn)
         end
     end
 
-    table.insert(self.contentAreaInitializers, { key = key, fn = fn })
+    local entry = { key = key, tabKey = tabKey, fn = fn, initialized = false }
+    table.insert(self.contentAreaInitializers, entry)
 
-    if self.contentArea then
-        xpcall(fn, CallErrorHandler, self.contentArea)
+    if self.contentArea and addon.Tabs and addon.Tabs:GetCurrentTab() == tabKey then
+        local succeeded = xpcall(fn, CallErrorHandler, self.contentArea)
+        entry.initialized = succeeded == true
     end
 end
 
-function MainFrame:RunContentAreaInitializers()
+function MainFrame:InitializeContentAreaForTab(tabKey)
     if not self.contentArea then return end
 
     for _, entry in ipairs(self.contentAreaInitializers) do
-        xpcall(entry.fn, CallErrorHandler, self.contentArea)
+        if entry.tabKey == tabKey and not entry.initialized then
+            local succeeded = xpcall(entry.fn, CallErrorHandler, self.contentArea)
+            entry.initialized = succeeded == true
+        end
     end
 end
 
@@ -299,11 +304,15 @@ function MainFrame:CreateContentArea()
     contentBg:SetAllPoints()
     contentBg:SetColorTexture(unpack(COLORS.CONTENT_BG))
 
-    self:RunContentAreaInitializers()
-
-    -- Restore saved tab after all initializers have run
+    -- Restore the saved tab, then construct only that tab's content. Future
+    -- tabs are initialized immediately before their first TAB_CHANGED event.
     if addon.Tabs then
-        addon.Tabs:RestoreSavedTab()
+        local changedTab = addon.Tabs:RestoreSavedTab()
+        local currentTab = addon.Tabs:GetCurrentTab()
+        self:InitializeContentAreaForTab(currentTab)
+        if not changedTab then
+            addon:FireEvent("TAB_CHANGED", currentTab)
+        end
     end
 end
 

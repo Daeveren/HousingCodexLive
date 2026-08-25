@@ -1141,7 +1141,15 @@ function WishlistFrame:ShowPreview(recordID)
 
     -- Source
     if record.sourceText and record.sourceText ~= "" then
-        self.detailsSource:SetText(record.sourceText)
+        local sourceText, pendingItemID = addon:FormatNativeSourceText(record)
+        self.detailsSource:SetText(sourceText)
+        if pendingItemID then
+            addon:RequestNativeSourceItemCostName(pendingItemID, function()
+                if WishlistFrame.currentRecordID == recordID then
+                    WishlistFrame:ShowPreview(recordID)
+                end
+            end)
+        end
     else
         self.detailsSource:SetText(L["DETAILS_SOURCE_UNKNOWN"])
     end

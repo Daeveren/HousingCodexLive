@@ -344,7 +344,7 @@ end
 local SHIMMER_INTERVAL = 3       -- seconds between sweeps (first sweep = 3s after show)
 local SHIMMER_DURATION = 1.4     -- seconds per sweep
 local SHIMMER_BAND_WIDTH = 0.35  -- highlight band half-width, fraction of text length
-local SHIMMER_TICK = 0.03        -- rebuild throttle (~33fps)
+local SHIMMER_TICK = 0.06        -- rebuild throttle (~17fps)
 local SHIMMER_HIGHLIGHT = { 1, 0.98, 0.8 }
 
 -- UTF-8 safe character splitter (pure Lua 5.1, no client helpers required)
