@@ -815,9 +815,6 @@ function ProgressTab:BuildBudgetRows(elements, panel, yOffset)
 
     local function GetStablePlotIdentityKey(plotID, plotInfo)
         if type(plotInfo) == "table" then
-            if plotInfo.houseGUID ~= nil and plotInfo.houseGUID ~= "" then
-                return "house:" .. tostring(plotInfo.houseGUID)
-            end
             -- No plotID >= 0 sentinel guard here on purpose. This is a READ
             -- path: it must reproduce whatever key was stored so legacy rows
             -- still resolve their snapshots. The sentinel is rejected where
@@ -827,6 +824,9 @@ function ProgressTab:BuildBudgetRows(elements, panel, yOffset)
             if type(plotInfo.plotID) == "number"
                 and plotInfo.neighborhoodGUID ~= nil and plotInfo.neighborhoodGUID ~= "" then
                 return "neighborhood:" .. tostring(plotInfo.neighborhoodGUID) .. ":plot:" .. tostring(math.floor(plotInfo.plotID))
+            end
+            if plotInfo.houseGUID ~= nil and plotInfo.houseGUID ~= "" then
+                return "house:" .. tostring(plotInfo.houseGUID)
             end
         end
         if type(plotID) == "string" and tonumber(plotID) == nil then
@@ -930,7 +930,8 @@ function ProgressTab:BuildBudgetRows(elements, panel, yOffset)
         return IsPlotTiebreakBefore(a, b)
     end
 
-    local function IsCompletePlotBefore(a, b)
+    local function IsPreferredPlotBefore(a, b)
+        if a.owned ~= b.owned then return a.owned end
         if a.score ~= b.score then return a.score > b.score end
         return IsPlotTiebreakBefore(a, b)
     end
@@ -1004,6 +1005,8 @@ function ProgressTab:BuildBudgetRows(elements, panel, yOffset)
             plotInfo = plotInfo,
             score = GetPlotCompletenessScore(plotID, plotInfo),
             updatedAt = updatedAt,
+            owned = addon.IsOwnedPlacementBudgetIdentity
+                and addon:IsOwnedPlacementBudgetIdentity(GetStablePlotIdentityKey(plotID, plotInfo)) or false,
         }
         local key = GetPlotDisplayKey(plotID, plotInfo)
         if ShouldReplacePlotCandidate(plotIdentityMap[key], candidate) then
@@ -1036,7 +1039,7 @@ function ProgressTab:BuildBudgetRows(elements, panel, yOffset)
     end
 
     if #plotRows > 2 then
-        table.sort(plotRows, IsCompletePlotBefore)
+        table.sort(plotRows, IsPreferredPlotBefore)
 
         while #plotRows > 2 do
             table.remove(plotRows)
@@ -1206,7 +1209,10 @@ function ProgressTab:BuildBudgetRows(elements, panel, yOffset)
         local rowLive = currentBudgetContext == contextKey and IsCurrentPlotRow(plotID, plotInfo)
         if rowLive then
             local liveSnapshot = contextKey == "outdoor" and budget.plot or budget.interior
-            if HasBudgetSnapshot(liveSnapshot) then
+            local expectedIdentityKey = GetStablePlotIdentityKey(plotID, plotInfo)
+            if HasBudgetSnapshot(liveSnapshot)
+                and type(expectedIdentityKey) == "string"
+                and liveSnapshot.identityKey == expectedIdentityKey then
                 return liveSnapshot, true
             end
         end

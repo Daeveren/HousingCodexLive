@@ -104,6 +104,7 @@ local defaults = {
         plotsByID = {},
         knownPlots = {},
     },
+    placementBudgetQuarantine = {},
     collectionHistory = {},
     settings = {
         showCollectedIndicator = true,

@@ -25,6 +25,7 @@ local VENDOR_SEARCH_MAX_WIDTH = 250
 local VENDOR_SEARCH_MIN_WIDTH = 80
 local VENDOR_TOOLBAR_LEFT_OFFSET = CONSTS.GRID_OUTER_PAD + 40
 local VENDOR_TOOLBAR_FILTER_GAP = 16
+local VENDOR_ITEM_SEARCH_MATCH_MARKER = "  |cffff8000<====|r"
 
 addon.VendorsTab = {}
 local VendorsTab = addon.VendorsTab
@@ -1129,6 +1130,22 @@ local function GetVisibleVendorDecorIds(vendorData)
     return visible
 end
 
+local function VendorDecorNameMatchesSearch(decorId, searchText)
+    if not searchText or searchText == "" then return false end
+
+    local record = addon:GetRecord(decorId)
+    local resolvedName = addon:ResolveDecorName(decorId, record)
+    if resolvedName and addon:NormalizeSearchText(resolvedName):find(searchText, 1, true) then
+        return true
+    end
+
+    local fallback = not record and addon.VendorItemFallback and addon.VendorItemFallback[decorId]
+    return fallback
+        and fallback.name
+        and fallback.name ~= resolvedName
+        and addon:NormalizeSearchText(fallback.name):find(searchText, 1, true) ~= nil
+end
+
 function VendorsTab:SetupVendorRow(frame, elementData)
     local L = addon.L
     local decorIds = elementData.decorIds or {}
@@ -1176,7 +1193,7 @@ function VendorsTab:SetupVendorRow(frame, elementData)
         frame.waypointBtn:Show()
     end
 
-    self:SetupDecorRows(frame, decorIds)
+    self:SetupDecorRows(frame, decorIds, elementData.searchText)
 
     frame:SetScript("OnClick", VendorRowOnClick)
     frame:SetScript("OnEnter", VendorRowOnEnter)
@@ -1187,7 +1204,7 @@ function VendorsTab:SetupVendorRow(frame, elementData)
     self:UpdateVendorSelectionVisual(frame, isVendorSelected)
 end
 
-function VendorsTab:SetupDecorRows(frame, decorIds)
+function VendorsTab:SetupDecorRows(frame, decorIds, searchText)
     local L = addon.L
 
     for i, decorId in ipairs(decorIds) do
@@ -1267,6 +1284,9 @@ function VendorsTab:SetupDecorRows(frame, decorIds)
         local textBrightness = row.isCollected and 0.4 or 0.7
         row.textBrightness = textBrightness
         local displayName = addon:ResolveDecorName(decorId, record)
+        if VendorDecorNameMatchesSearch(decorId, searchText) then
+            displayName = displayName .. VENDOR_ITEM_SEARCH_MATCH_MARKER
+        end
         local renownSource = addon:GetVendorDecorRenownSource(frame.npcId, decorId)
         if renownSource and renownSource.requiredStanding then
             local faction = renownSource.faction
@@ -1744,15 +1764,7 @@ local function VendorMatchesSearch(vendorData, decorIds, searchText, zoneName, e
 
     if not result then
         for _, decorId in ipairs(decorIds or {}) do
-            local record = addon:GetRecord(decorId)
-            local resolvedName = addon:ResolveDecorName(decorId, record)
-            if resolvedName and addon:NormalizeSearchText(resolvedName):find(searchText, 1, true) then
-                result = true
-                break
-            end
-            local fallback = not record and addon.VendorItemFallback and addon.VendorItemFallback[decorId]
-            if fallback and fallback.name and fallback.name ~= resolvedName
-                and addon:NormalizeSearchText(fallback.name):find(searchText, 1, true) then
+            if VendorDecorNameMatchesSearch(decorId, searchText) then
                 result = true
                 break
             end
@@ -1931,6 +1943,7 @@ function VendorsTab:BuildVendorDisplay()
                                 decorIds = filteredDecorIds,
                                 zoneName = zoneName,
                                 expansionKey = expansionKey,
+                                searchText = searchText,
                             })
                         end
                     end

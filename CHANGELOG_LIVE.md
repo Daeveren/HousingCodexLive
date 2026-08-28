@@ -2,6 +2,15 @@
 
 All notable changes to Housing Codex.
 
+**3.2.3** (2026-08-28)
+
+**Changed**
+- Updated Patch 12.1 vendor catalogs, prices, and source details for 20 decor items
+- Vendors tab searches now add a visual indicator beside matching items
+
+**Fixed**
+- Improved reliability of saved plot decor budgets when moving, relinquishing, or switching houses
+
 **3.2.2** (2026-08-26)
 
 **Changed**

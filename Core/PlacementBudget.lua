@@ -11,7 +11,10 @@ local CONTEXT_OUTDOOR = "outdoor"
 local CONTEXT_PLOTS_BY_ID = "plotsByID"
 local CONTEXT_KNOWN_PLOTS = "knownPlots"
 local levelRequestTimes = {}
-local ownedHouseKeys = {}
+local ownedCompositeKeys = {}
+local houseGUIDToComposite = {}
+local previousHouseGUIDComposites = {}
+local poisonedHouseGUIDs = {}
 local ownedHouseListReady = false
 local ownedHouseListRetryTimer = nil
 local ownedHouseListRetryCount = 0
@@ -31,12 +34,14 @@ local budgetCaptureDiagnosticReasons = {
     ["current neighborhood GUID API unavailable"] = true,
     ["secret current house neighborhoodGUID"] = true,
     ["empty current house neighborhoodGUID"] = true,
+    ["current neighborhood conflicts with current house info"] = true,
     ["unresolved current house identity"] = true,
     ["owned house identity not confirmed"] = true,
+    ["current house GUID conflicts with owned house list"] = true,
     ["resolved house identity mismatch"] = true,
 }
-local MergeDuplicateNoGUIDRows
-local RepairResolvedPlotSnapshots
+local MigratePlacementBudgetIdentity
+local GetPlotKey
 
 local function IsValidSnapshot(snapshot)
     return type(snapshot) == "table"
@@ -109,29 +114,7 @@ local function NormalizeKnownPlots(db)
             end
         end
     end
-    if MergeDuplicateNoGUIDRows then
-        changed = MergeDuplicateNoGUIDRows(knownPlots) or changed
-    end
-
     return knownPlots, changed
-end
-
-local function FindKnownPlotByPlotID(knownPlots, plotID)
-    local numericPlotID = tonumber(plotID)
-    if not numericPlotID then
-        return knownPlots[plotID]
-    end
-
-    local match
-    for _, plotInfo in pairs(knownPlots) do
-        if type(plotInfo) == "table" and plotInfo.plotID == numericPlotID then
-            if match and match ~= plotInfo then
-                return nil
-            end
-            match = plotInfo
-        end
-    end
-    return match
 end
 
 local function GetBudgetDB()
@@ -139,8 +122,13 @@ local function GetBudgetDB()
     if type(addon.db.placementBudget) ~= "table" then
         addon.db.placementBudget = {}
     end
+    if type(addon.db.placementBudgetQuarantine) ~= "table" then
+        addon.db.placementBudgetQuarantine = {}
+    end
 
     local db = addon.db.placementBudget
+    local migratedChanged = MigratePlacementBudgetIdentity
+        and MigratePlacementBudgetIdentity(db, addon.db.placementBudgetQuarantine)
     for context, snapshot in pairs(db) do
         if context ~= CONTEXT_PLOTS_BY_ID and context ~= CONTEXT_KNOWN_PLOTS then
             if (context ~= CONTEXT_INTERIOR and context ~= CONTEXT_PLOT) or not IsValidSnapshot(snapshot) then
@@ -151,15 +139,15 @@ local function GetBudgetDB()
 
     local plotsByID = NormalizePlotsByID(db)
     local knownPlots, normalizedChanged = NormalizeKnownPlots(db)
-    for plotID, snapshot in pairs(plotsByID) do
-        local plotInfo = FindKnownPlotByPlotID(knownPlots, plotID)
-        if plotInfo and not IsValidSnapshot(plotInfo.budgets[CONTEXT_OUTDOOR]) then
+    normalizedChanged = migratedChanged or normalizedChanged
+    for plotKey, snapshot in pairs(plotsByID) do
+        local plotInfo = knownPlots[plotKey]
+        local exactKey = type(plotInfo) == "table"
+            and GetPlotKey(plotInfo.plotID, plotInfo.neighborhoodGUID) or nil
+        if exactKey == plotKey and not IsValidSnapshot(plotInfo.budgets[CONTEXT_OUTDOOR]) then
             plotInfo.budgets[CONTEXT_OUTDOOR] = snapshot
             normalizedChanged = true
         end
-    end
-    if RepairResolvedPlotSnapshots then
-        normalizedChanged = RepairResolvedPlotSnapshots(db, knownPlots) or normalizedChanged
     end
 
     return db, normalizedChanged
@@ -197,7 +185,7 @@ local function IsValidPlotID(plotID)
     return type(plotID) == "number" and plotID >= 0
 end
 
-local function GetPlotKey(plotID, neighborhoodGUID)
+GetPlotKey = function(plotID, neighborhoodGUID)
     if not IsValidPlotID(plotID) then return nil end
     if neighborhoodGUID ~= nil and neighborhoodGUID ~= "" then
         return "neighborhood:" .. tostring(neighborhoodGUID) .. ":plot:" .. tostring(math.floor(plotID))
@@ -207,9 +195,6 @@ end
 
 local function GetHouseKey(houseInfo)
     if type(houseInfo) ~= "table" then return nil end
-    if houseInfo.houseGUID ~= nil and houseInfo.houseGUID ~= "" then
-        return "house:" .. tostring(houseInfo.houseGUID)
-    end
     return GetPlotKey(houseInfo.plotID, houseInfo.neighborhoodGUID)
 end
 
@@ -230,17 +215,32 @@ local function GetCurrentHouseIdentity()
         return houseInfo, nil, "unfetched current house plotID"
     end
 
-    local houseKey = GetHouseKey(houseInfo)
-    if houseKey then return houseInfo, houseKey end
-    if type(C_Housing.GetCurrentNeighborhoodGUID) ~= "function" then
-        return houseInfo, nil, "current neighborhood GUID API unavailable"
+    local storedNeighborhoodGUID = houseInfo.neighborhoodGUID
+    local liveNeighborhoodGUID
+    local liveNeighborhoodAvailable = type(C_Housing.GetCurrentNeighborhoodGUID) == "function"
+    if liveNeighborhoodAvailable then
+        liveNeighborhoodGUID = SafeCall(C_Housing.GetCurrentNeighborhoodGUID)
     end
 
-    local neighborhoodGUID = SafeCall(C_Housing.GetCurrentNeighborhoodGUID)
-    if IsSecretValue(neighborhoodGUID) then
+    local storedNeighborhoodUsable = not IsSecretValue(storedNeighborhoodGUID)
+        and storedNeighborhoodGUID ~= nil and storedNeighborhoodGUID ~= ""
+    local liveNeighborhoodUsable = not IsSecretValue(liveNeighborhoodGUID)
+        and liveNeighborhoodGUID ~= nil and liveNeighborhoodGUID ~= ""
+    if storedNeighborhoodUsable and liveNeighborhoodUsable
+        and storedNeighborhoodGUID ~= liveNeighborhoodGUID then
+        return houseInfo, nil, "current neighborhood conflicts with current house info"
+    end
+
+    if storedNeighborhoodUsable then
+        return houseInfo, GetHouseKey(houseInfo)
+    end
+    if not liveNeighborhoodAvailable then
+        return houseInfo, nil, "current neighborhood GUID API unavailable"
+    end
+    if IsSecretValue(liveNeighborhoodGUID) then
         return houseInfo, nil, "secret current house neighborhoodGUID"
     end
-    if neighborhoodGUID == nil or neighborhoodGUID == "" then
+    if not liveNeighborhoodUsable then
         return houseInfo, nil, "empty current house neighborhoodGUID"
     end
 
@@ -248,30 +248,13 @@ local function GetCurrentHouseIdentity()
     for field, value in pairs(houseInfo) do
         resolvedHouseInfo[field] = value
     end
-    resolvedHouseInfo.neighborhoodGUID = neighborhoodGUID
+    resolvedHouseInfo.neighborhoodGUID = liveNeighborhoodGUID
     return resolvedHouseInfo, GetHouseKey(resolvedHouseInfo)
 end
 
-local function AddHouseIdentityKeys(keys, houseInfo)
-    local houseKey = GetHouseKey(houseInfo)
-    if houseKey then
-        keys[houseKey] = true
-    end
-
-    local plotKey = type(houseInfo) == "table" and GetPlotKey(houseInfo.plotID, houseInfo.neighborhoodGUID) or nil
-    if plotKey then
-        keys[plotKey] = true
-    end
-end
-
 local function HasOwnedHouseIdentity(houseInfo)
-    local houseKey = GetHouseKey(houseInfo)
-    if houseKey and ownedHouseKeys[houseKey] then
-        return true
-    end
-
-    local plotKey = type(houseInfo) == "table" and GetPlotKey(houseInfo.plotID, houseInfo.neighborhoodGUID) or nil
-    return plotKey ~= nil and ownedHouseKeys[plotKey] == true
+    local plotKey = GetHouseKey(houseInfo)
+    return plotKey ~= nil and ownedCompositeKeys[plotKey] == true
 end
 
 local function IsVisitingAnotherPlayersHousing()
@@ -326,6 +309,14 @@ local function GetOwnedBudgetContext()
     if not HasOwnedHouseIdentity(houseInfo) then
         return false, houseInfo, houseKey, "owned house identity not confirmed"
     end
+    local houseGUID = type(houseInfo) == "table" and houseInfo.houseGUID or nil
+    local mappedIdentity
+    if not IsSecretValue(houseGUID) and houseGUID ~= nil and houseGUID ~= "" then
+        mappedIdentity = houseGUIDToComposite[houseGUID]
+    end
+    if mappedIdentity and mappedIdentity ~= houseKey then
+        return false, houseInfo, houseKey, "current house GUID conflicts with owned house list"
+    end
     return true, houseInfo, houseKey
 end
 
@@ -343,29 +334,6 @@ local function HasHouseGUID(plotInfo)
     return type(plotInfo) == "table" and plotInfo.houseGUID ~= nil and plotInfo.houseGUID ~= ""
 end
 
-local function HasExactNeighborhood(plotInfo, neighborhoodGUID)
-    return neighborhoodGUID ~= nil and neighborhoodGUID ~= ""
-        and type(plotInfo) == "table"
-        and plotInfo.neighborhoodGUID == neighborhoodGUID
-end
-
-local function FindNoGUIDPlotByPlotID(knownPlots, plotID, neighborhoodGUID)
-    for key, plotInfo in pairs(knownPlots) do
-        if type(plotInfo) == "table" and plotInfo.plotID == plotID and not HasHouseGUID(plotInfo) and HasExactNeighborhood(plotInfo, neighborhoodGUID) then
-            return key, plotInfo
-        end
-    end
-    return nil, nil
-end
-
-local function CopyFieldIfMissing(target, source, field)
-    if target[field] == nil and source[field] ~= nil then
-        target[field] = source[field]
-        return true
-    end
-    return false
-end
-
 local function SetBudgetIdentity(budgets, identityKey)
     if type(budgets) ~= "table" or type(identityKey) ~= "string" then return false end
 
@@ -379,132 +347,368 @@ local function SetBudgetIdentity(budgets, identityKey)
     return changed
 end
 
-local function MovePlotSnapshotIdentity(db, sourceKey, targetKey)
-    if type(db) ~= "table" or type(sourceKey) ~= "string" or type(targetKey) ~= "string" or sourceKey == targetKey then
+local function CopySavedValue(value, seen)
+    if type(value) ~= "table" then return value end
+    seen = seen or {}
+    if seen[value] then return seen[value] end
+
+    local copy = {}
+    seen[value] = copy
+    for key, child in pairs(value) do
+        copy[CopySavedValue(key, seen)] = CopySavedValue(child, seen)
+    end
+    return copy
+end
+
+local function AppendQuarantineEntry(quarantine, entry)
+    local maxIndex = 0
+    for key in pairs(quarantine) do
+        if type(key) == "number" and key > maxIndex and key == math.floor(key) then
+            maxIndex = key
+        end
+    end
+    quarantine[maxIndex + 1] = entry
+end
+
+local function NewOccupancyQuarantineEntry(reason, sourceKey, targetKey, plotInfo)
+    return {
+        kind = "occupancy",
+        reason = reason,
+        sourceKey = sourceKey,
+        targetKey = targetKey,
+        plotInfo = CopySavedValue(plotInfo),
+    }
+end
+
+local function MovePlotSnapshotIdentity(sourcePlots, targetPlots, sourceKey, targetKey)
+    local snapshot = sourcePlots[sourceKey]
+    if not IsValidSnapshot(snapshot) then return false end
+
+    local copy = CopySavedValue(snapshot)
+    copy.identityKey = targetKey
+    targetPlots[targetKey] = copy
+    return true
+end
+
+local function IsBarePlotSnapshotKey(key)
+    return type(key) == "string" and tonumber(key) ~= nil
+end
+
+local function IsCompositePlotKey(key)
+    return type(key) == "string" and string.sub(key, 1, 13) == "neighborhood:"
+end
+
+local function HasConflictingLegacyHouseIdentity(sourceKey, plotInfo)
+    if type(sourceKey) ~= "string" or string.sub(sourceKey, 1, 6) ~= "house:" then
+        return false
+    end
+    if not HasHouseGUID(plotInfo) then return false end
+    return sourceKey ~= "house:" .. tostring(plotInfo.houseGUID)
+end
+
+local function HasConflictingSnapshotIdentity(snapshot, sourceKey, targetKey, legacyHouseKey)
+    if not IsValidSnapshot(snapshot) then return false end
+
+    local identityKey = snapshot.identityKey
+    return type(identityKey) == "string" and identityKey ~= ""
+        and identityKey ~= sourceKey and identityKey ~= targetKey
+        and identityKey ~= legacyHouseKey
+end
+
+local function HasConflictingBudgetIdentity(budgets, sourceKey, targetKey, legacyHouseKey)
+    if type(budgets) ~= "table" then return false end
+
+    for _, snapshot in pairs(budgets) do
+        if HasConflictingSnapshotIdentity(snapshot, sourceKey, targetKey, legacyHouseKey) then
+            return true
+        end
+    end
+    return false
+end
+
+MigratePlacementBudgetIdentity = function(db, quarantine)
+    local rawKnownPlots = type(db[CONTEXT_KNOWN_PLOTS]) == "table" and db[CONTEXT_KNOWN_PLOTS] or {}
+    local rawPlotsByID = type(db[CONTEXT_PLOTS_BY_ID]) == "table" and db[CONTEXT_PLOTS_BY_ID] or {}
+    local claimsByTarget = {}
+    local unresolvedClaims = {}
+    local legacyHouseKeyCounts = {}
+    local ambiguousLegacySnapshotKeys = {}
+    local changed = false
+
+    for sourceKey, plotInfo in pairs(rawKnownPlots) do
+        if type(plotInfo) == "table" then
+            if HasHouseGUID(plotInfo) then
+                local legacyHouseKey = "house:" .. tostring(plotInfo.houseGUID)
+                legacyHouseKeyCounts[legacyHouseKey] = (legacyHouseKeyCounts[legacyHouseKey] or 0) + 1
+            end
+            local targetKey = GetPlotKey(plotInfo.plotID, plotInfo.neighborhoodGUID)
+            local claim = {
+                sourceKey = sourceKey,
+                targetKey = targetKey,
+                plotInfo = plotInfo,
+            }
+            if targetKey then
+                local claims = claimsByTarget[targetKey]
+                if not claims then
+                    claims = {}
+                    claimsByTarget[targetKey] = claims
+                end
+                claims[#claims + 1] = claim
+            else
+                unresolvedClaims[#unresolvedClaims + 1] = claim
+            end
+        end
+    end
+    for legacyHouseKey, count in pairs(legacyHouseKeyCounts) do
+        if count > 1 then
+            ambiguousLegacySnapshotKeys[legacyHouseKey] = true
+        end
+    end
+
+    local nextKnownPlots = {}
+    local nextPlotsByID = {}
+    local pendingQuarantine = {}
+    local quarantineEntryBySource = {}
+    local quarantinedIdentities = {}
+    local uniqueClaimsByTarget = {}
+    local identityTargets = {}
+    local consumedPlotSnapshots = {}
+
+    local function QueueQuarantine(entry)
+        pendingQuarantine[#pendingQuarantine + 1] = entry
+    end
+
+    local function QuarantineClaim(claim, reason)
+        local entry = NewOccupancyQuarantineEntry(reason, claim.sourceKey, claim.targetKey, claim.plotInfo)
+        QueueQuarantine(entry)
+        quarantineEntryBySource[claim.sourceKey] = entry
+        if type(claim.sourceKey) == "string" then
+            quarantinedIdentities[claim.sourceKey] = true
+        end
+        if type(claim.targetKey) == "string" then
+            quarantinedIdentities[claim.targetKey] = true
+        end
+        changed = true
+        return entry
+    end
+
+    for _, claim in ipairs(unresolvedClaims) do
+        QuarantineClaim(claim, "unresolved_composite_identity")
+    end
+
+    for targetKey, claims in pairs(claimsByTarget) do
+        if #claims == 1 then
+            local claim = claims[1]
+            local sourceKey = claim.sourceKey
+            local sourceSnapshot = rawPlotsByID[sourceKey]
+            local targetSnapshot = sourceKey ~= targetKey and rawPlotsByID[targetKey] or nil
+            local sourceValid = IsValidSnapshot(sourceSnapshot)
+            local targetValid = IsValidSnapshot(targetSnapshot)
+            local sourceMirrorAmbiguous = sourceValid
+                and ambiguousLegacySnapshotKeys[sourceKey] == true
+                and sourceSnapshot.identityKey ~= targetKey
+            local legacyHouseKey = HasHouseGUID(claim.plotInfo)
+                and "house:" .. tostring(claim.plotInfo.houseGUID) or nil
+            local snapshotIdentityConflict = HasConflictingBudgetIdentity(
+                claim.plotInfo.budgets, sourceKey, targetKey, legacyHouseKey
+            ) or HasConflictingSnapshotIdentity(sourceSnapshot, sourceKey, targetKey, legacyHouseKey)
+                or HasConflictingSnapshotIdentity(targetSnapshot, sourceKey, targetKey, legacyHouseKey)
+            -- A composite source key is already durable provenance. If its
+            -- identity conflicts with the row fields, neither side can safely
+            -- win; moving it would turn corruption into an apparently valid row.
+            if IsCompositePlotKey(sourceKey) and sourceKey ~= targetKey then
+                QuarantineClaim(claim, "conflicting_stable_source_identity")
+            -- The legacy house key and its corroborating metadata are two
+            -- independent stored observations. A disagreement is not proof
+            -- that either one names this occupancy.
+            elseif HasConflictingLegacyHouseIdentity(sourceKey, claim.plotInfo) then
+                QuarantineClaim(claim, "conflicting_legacy_house_identity")
+            -- Snapshot identity is provenance too. Only an unstamped snapshot,
+            -- the source, the derived target, or this row's corroborating
+            -- legacy house key may be normalized; any other stable identity
+            -- makes the whole occupancy ambiguous.
+            elseif snapshotIdentityConflict then
+                QuarantineClaim(claim, "conflicting_snapshot_identity")
+            -- Two mirrors mean both the old and target identities already hold
+            -- data. Quarantine the whole occupancy so embedded row budgets do
+            -- not remain displayable after the ambiguous mirrors are removed.
+            elseif sourceValid and targetValid and not sourceMirrorAmbiguous then
+                local entry = QuarantineClaim(claim, "conflicting_plot_mirrors")
+                entry.plotSnapshots = {
+                    sourceSnapshot = CopySavedValue(sourceSnapshot),
+                    targetSnapshot = CopySavedValue(targetSnapshot),
+                }
+                consumedPlotSnapshots[sourceKey] = true
+                consumedPlotSnapshots[targetKey] = true
+            else
+                local plotInfo = CopySavedValue(claim.plotInfo)
+                local normalizedPlotID = math.floor(plotInfo.plotID)
+                if plotInfo.plotID ~= normalizedPlotID then
+                    plotInfo.plotID = normalizedPlotID
+                    changed = true
+                end
+                changed = SetBudgetIdentity(plotInfo.budgets, targetKey) or changed
+                nextKnownPlots[targetKey] = plotInfo
+                uniqueClaimsByTarget[targetKey] = claim
+                claim.sourceMirrorAmbiguous = sourceMirrorAmbiguous
+                if sourceKey ~= targetKey then
+                    changed = true
+                end
+            end
+        else
+            for _, claim in ipairs(claims) do
+                QuarantineClaim(claim, "conflicting_composite_claim")
+            end
+        end
+    end
+
+    for targetKey, claim in pairs(uniqueClaimsByTarget) do
+        local sourceKey = claim.sourceKey
+        local sourceSnapshot = rawPlotsByID[sourceKey]
+        local targetSnapshot = sourceKey ~= targetKey and rawPlotsByID[targetKey] or nil
+        local sourceValid = IsValidSnapshot(sourceSnapshot)
+        local targetValid = IsValidSnapshot(targetSnapshot)
+        local sourceMirrorBlocked = claim.sourceMirrorAmbiguous
+            or quarantinedIdentities[sourceKey] == true
+        local targetMirrorBlocked = quarantinedIdentities[targetKey] == true
+
+        if not targetMirrorBlocked then
+            identityTargets[targetKey] = targetKey
+        end
+        if type(sourceKey) == "string" and not sourceMirrorBlocked
+            and not ambiguousLegacySnapshotKeys[sourceKey] then
+            identityTargets[sourceKey] = targetKey
+        end
+
+        if sourceValid and not sourceMirrorBlocked then
+            MovePlotSnapshotIdentity(rawPlotsByID, nextPlotsByID, sourceKey, targetKey)
+            consumedPlotSnapshots[sourceKey] = true
+            if sourceKey ~= targetKey or sourceSnapshot.identityKey ~= targetKey then
+                changed = true
+            end
+        elseif targetValid and not targetMirrorBlocked then
+            MovePlotSnapshotIdentity(rawPlotsByID, nextPlotsByID, targetKey, targetKey)
+            consumedPlotSnapshots[targetKey] = true
+            if targetSnapshot.identityKey ~= targetKey then
+                changed = true
+            end
+        end
+    end
+
+    for plotKey, snapshot in pairs(rawPlotsByID) do
+        if not consumedPlotSnapshots[plotKey] then
+            local occupancyEntry = quarantineEntryBySource[plotKey]
+            if occupancyEntry and IsValidSnapshot(snapshot) then
+                occupancyEntry.plotSnapshotKey = plotKey
+                occupancyEntry.plotSnapshot = CopySavedValue(snapshot)
+            elseif quarantinedIdentities[plotKey] and IsValidSnapshot(snapshot) then
+                QueueQuarantine({
+                    kind = "plotSnapshot",
+                    reason = "quarantined_identity_mirror",
+                    sourceKey = plotKey,
+                    snapshot = CopySavedValue(snapshot),
+                })
+            elseif ambiguousLegacySnapshotKeys[plotKey] and IsValidSnapshot(snapshot) then
+                QueueQuarantine({
+                    kind = "plotSnapshot",
+                    reason = "ambiguous_legacy_house_identity_mirror",
+                    sourceKey = plotKey,
+                    snapshot = CopySavedValue(snapshot),
+                })
+                changed = true
+            elseif IsBarePlotSnapshotKey(plotKey) then
+                nextPlotsByID[plotKey] = snapshot
+            elseif IsValidSnapshot(snapshot) then
+                QueueQuarantine({
+                    kind = "plotSnapshot",
+                    reason = "orphaned_stable_identity_mirror",
+                    sourceKey = plotKey,
+                    snapshot = CopySavedValue(snapshot),
+                })
+                changed = true
+            end
+        end
+    end
+
+    local nextSingleSlots = {}
+    for _, context in ipairs({ CONTEXT_INTERIOR, CONTEXT_PLOT }) do
+        local snapshot = db[context]
+        if IsValidSnapshot(snapshot) and type(snapshot.identityKey) == "string" then
+            local targetKey = identityTargets[snapshot.identityKey]
+            if targetKey then
+                local copy = CopySavedValue(snapshot)
+                copy.identityKey = targetKey
+                nextSingleSlots[context] = copy
+                if snapshot.identityKey ~= targetKey then
+                    changed = true
+                end
+            else
+                local entry = quarantineEntryBySource[snapshot.identityKey]
+                if entry then
+                    entry.singleSlots = entry.singleSlots or {}
+                    entry.singleSlots[context] = CopySavedValue(snapshot)
+                else
+                    local reason = "orphaned_stable_identity_slot"
+                    if quarantinedIdentities[snapshot.identityKey] then
+                        reason = "quarantined_identity_slot"
+                    elseif ambiguousLegacySnapshotKeys[snapshot.identityKey] then
+                        reason = "ambiguous_legacy_house_identity_slot"
+                    end
+                    QueueQuarantine({
+                        kind = "singleSlot",
+                        reason = reason,
+                        context = context,
+                        identityKey = snapshot.identityKey,
+                        snapshot = CopySavedValue(snapshot),
+                    })
+                end
+                changed = true
+            end
+        else
+            nextSingleSlots[context] = snapshot
+        end
+    end
+
+    if not changed then
         return false
     end
 
-    local plotsByID = NormalizePlotsByID(db)
-    local sourceSnapshot = plotsByID[sourceKey]
-    if not IsValidSnapshot(sourceSnapshot) then return false end
-
-    sourceSnapshot.identityKey = targetKey
-    local targetSnapshot = plotsByID[targetKey]
-    if not IsValidSnapshot(targetSnapshot)
-        or targetSnapshot.identityKey ~= targetKey
-        or sourceSnapshot.updatedAt > targetSnapshot.updatedAt then
-        plotsByID[targetKey] = sourceSnapshot
+    local nextQuarantine = CopySavedValue(quarantine)
+    for _, entry in ipairs(pendingQuarantine) do
+        AppendQuarantineEntry(nextQuarantine, entry)
     end
-    plotsByID[sourceKey] = nil
+    db[CONTEXT_KNOWN_PLOTS] = nextKnownPlots
+    db[CONTEXT_PLOTS_BY_ID] = nextPlotsByID
+    db[CONTEXT_INTERIOR] = nextSingleSlots[CONTEXT_INTERIOR]
+    db[CONTEXT_PLOT] = nextSingleSlots[CONTEXT_PLOT]
+    addon.db.placementBudgetQuarantine = nextQuarantine
     return true
 end
 
-RepairResolvedPlotSnapshots = function(db, knownPlots)
-    local changed = false
-    for plotKey, plotInfo in pairs(knownPlots) do
-        local houseKey = HasHouseGUID(plotInfo) and "house:" .. tostring(plotInfo.houseGUID) or nil
-        local scopedKey = houseKey == plotKey and GetPlotKey(plotInfo.plotID, plotInfo.neighborhoodGUID) or nil
-        local moved = scopedKey and scopedKey ~= plotKey and MovePlotSnapshotIdentity(db, scopedKey, plotKey)
-        if moved then
-            local snapshot = NormalizePlotsByID(db)[plotKey]
-            local currentSnapshot = plotInfo.budgets[CONTEXT_OUTDOOR]
-            if IsValidSnapshot(snapshot)
-                and (not IsValidSnapshot(currentSnapshot)
-                    or currentSnapshot.identityKey ~= plotKey
-                    or snapshot.updatedAt > currentSnapshot.updatedAt) then
-                plotInfo.budgets[CONTEXT_OUTDOOR] = snapshot
-            end
-            changed = true
+local function QuarantineActiveOccupancy(db, plotKey, plotInfo, incomingHouseGUID)
+    local quarantine = addon.db and addon.db.placementBudgetQuarantine
+    if type(quarantine) ~= "table" then
+        quarantine = {}
+        addon.db.placementBudgetQuarantine = quarantine
+    end
+
+    local entry = NewOccupancyQuarantineEntry("house_guid_conflict", plotKey, plotKey, plotInfo)
+    entry.incomingHouseGUID = incomingHouseGUID
+    local plotsByID = type(db[CONTEXT_PLOTS_BY_ID]) == "table" and db[CONTEXT_PLOTS_BY_ID] or nil
+    if plotsByID and type(plotsByID[plotKey]) == "table" then
+        entry.plotSnapshotKey = plotKey
+        entry.plotSnapshot = plotsByID[plotKey]
+        plotsByID[plotKey] = nil
+    end
+    for _, context in ipairs({ CONTEXT_INTERIOR, CONTEXT_PLOT }) do
+        local snapshot = db[context]
+        if type(snapshot) == "table" and snapshot.identityKey == plotKey then
+            entry.singleSlots = entry.singleSlots or {}
+            entry.singleSlots[context] = snapshot
+            db[context] = nil
         end
     end
-    return changed
-end
-
-local function MergeNoGUIDPlotInfo(target, source, targetIdentityKey)
-    if type(target) ~= "table" or type(source) ~= "table" then return false end
-
-    local changed = false
-    target.budgets = NormalizeBudgetMap(target.budgets)
-    local sourceBudgets = NormalizeBudgetMap(source.budgets)
-    changed = SetBudgetIdentity(sourceBudgets, targetIdentityKey) or changed
-    for context, snapshot in pairs(sourceBudgets) do
-        local targetSnapshot = target.budgets[context]
-        local sourceIsVerified = type(targetIdentityKey) == "string" and snapshot.identityKey == targetIdentityKey
-        local targetIsVerified = type(targetIdentityKey) == "string"
-            and IsValidSnapshot(targetSnapshot)
-            and targetSnapshot.identityKey == targetIdentityKey
-        if not IsValidSnapshot(targetSnapshot)
-            or (sourceIsVerified and (not targetIsVerified or snapshot.updatedAt > targetSnapshot.updatedAt)) then
-            target.budgets[context] = snapshot
-            changed = true
-        end
-    end
-
-    for _, field in ipairs({ "visited", "discoveredAt", "factionTag", "factionName", "houseName", "ownerName", "neighborhoodName", "neighborhoodGUID" }) do
-        changed = CopyFieldIfMissing(target, source, field) or changed
-    end
-
-    return changed
-end
-
-local function GetPlotNeighborhoodIdentityKey(plotInfo)
-    if type(plotInfo) ~= "table" or not IsValidPlotID(plotInfo.plotID) then return nil end
-    if plotInfo.neighborhoodGUID == nil or plotInfo.neighborhoodGUID == "" then return nil end
-    return tostring(math.floor(plotInfo.plotID)) .. "\001" .. tostring(plotInfo.neighborhoodGUID)
-end
-
-local function MergeNoGUIDRows(knownPlots, targetKey, sourceKey)
-    if targetKey == sourceKey then return false end
-    local target = knownPlots[targetKey]
-    local source = knownPlots[sourceKey]
-    if type(target) ~= "table" or type(source) ~= "table" then return false end
-
-    MergeNoGUIDPlotInfo(target, source, targetKey)
-    knownPlots[sourceKey] = nil
-    return true
-end
-
-MergeDuplicateNoGUIDRows = function(knownPlots)
-    local scopedByIdentity = {}
-    local changed = false
-
-    for key, plotInfo in pairs(knownPlots) do
-        if type(plotInfo) == "table" and type(plotInfo.plotID) == "number" and not HasHouseGUID(plotInfo) then
-            local identityKey = GetPlotNeighborhoodIdentityKey(plotInfo)
-            if identityKey then
-                local canonicalKey = GetPlotKey(plotInfo.plotID, plotInfo.neighborhoodGUID)
-                local existingKey = scopedByIdentity[identityKey]
-                if existingKey and knownPlots[existingKey] then
-                    local targetKey = existingKey
-                    if key == canonicalKey then
-                        targetKey = key
-                    end
-                    local sourceKey = targetKey == key and existingKey or key
-                    changed = MergeNoGUIDRows(knownPlots, targetKey, sourceKey) or changed
-                    scopedByIdentity[identityKey] = targetKey
-                else
-                    scopedByIdentity[identityKey] = key
-                end
-            end
-        end
-    end
-
-    return changed
-end
-
-local function PruneSamePlotNoGUIDRows(db, knownPlots, plotKey, plotInfo, plotID, houseGUID, neighborhoodGUID)
-    if houseGUID == nil or houseGUID == "" then return false end
-
-    local changed = false
-    for otherKey, otherInfo in pairs(knownPlots) do
-        if otherKey ~= plotKey and type(otherInfo) == "table" and otherInfo.plotID == plotID and not HasHouseGUID(otherInfo) and HasExactNeighborhood(otherInfo, neighborhoodGUID) then
-            changed = MergeNoGUIDPlotInfo(plotInfo, otherInfo, plotKey) or changed
-            changed = MovePlotSnapshotIdentity(db, otherKey, plotKey) or changed
-            knownPlots[otherKey] = nil
-            changed = true
-        end
-    end
-    return changed
+    AppendQuarantineEntry(quarantine, entry)
 end
 
 local function GetPlayerFactionInfo()
@@ -559,16 +763,15 @@ local function RememberHouseInfo(db, houseInfo, markVisited)
     local knownPlots = NormalizeKnownPlots(db)
     local plotInfo = knownPlots[plotKey]
     local changed = false
-    if not IsValidKnownPlot(plotInfo) and HasHouseGUID(houseInfo) then
-        local previousKey, previousInfo = FindNoGUIDPlotByPlotID(knownPlots, normalizedPlotID, houseInfo.neighborhoodGUID)
-        if previousKey then
-            SetBudgetIdentity(previousInfo.budgets, plotKey)
-            knownPlots[previousKey] = nil
-            plotInfo = previousInfo
-            knownPlots[plotKey] = plotInfo
-            MovePlotSnapshotIdentity(db, previousKey, plotKey)
-            changed = true
-        end
+    local incomingHouseGUID = houseInfo.houseGUID
+    if IsValidKnownPlot(plotInfo) and HasHouseGUID(plotInfo)
+        and incomingHouseGUID ~= nil and incomingHouseGUID ~= ""
+        and plotInfo.houseGUID ~= incomingHouseGUID then
+        QuarantineActiveOccupancy(db, plotKey, plotInfo, incomingHouseGUID)
+        knownPlots[plotKey] = nil
+        plotInfo = nil
+        levelRequestTimes[plotKey] = nil
+        changed = true
     end
     if not IsValidKnownPlot(plotInfo) then
         plotInfo = {
@@ -579,24 +782,6 @@ local function RememberHouseInfo(db, houseInfo, markVisited)
         changed = true
     end
 
-    -- Deliberately NOT resetting history here on a plot/neighborhood change.
-    -- A "new occupancy" reset was tried and reverted (2026-08-24) because
-    -- clearing `plotInfo.budgets` alone does not work and the fix is not local:
-    --   * CaptureBudget mirrors each snapshot into `plotsByID[plotKey]` and the
-    --     single-slot `db.interior`/`db.plot`, all matched by `identityKey`, so
-    --     the previous occupant's spend survives the wipe under the same key.
-    --   * GetBudgetDB then actively restores it -- with `budgets` emptied its
-    --     outdoor snapshot reads invalid, so the legacy `plotsByID` back-fill
-    --     copies the old value straight back in and re-persists it.
-    --   * SyncKnownPlots calls this for EVERY owned house on every house-list
-    --     update with markVisited = false, nowhere near the player. Under a
-    --     genuine GUID collision both houses resolve to one key in the same
-    --     loop, so each would see the other as "moved" and the pair would
-    --     thrash on every sync -- destroying budgets that can only be
-    --     recaptured by physically standing in the house.
-    -- Doing this properly means clearing every mirror for the key and teaching
-    -- the back-fill not to undo it; it is a persisted-data change and belongs
-    -- in its own pass under the SavedVars impact gate.
     if plotInfo.plotID ~= normalizedPlotID then
         plotInfo.plotID = normalizedPlotID
         changed = true
@@ -618,13 +803,8 @@ local function RememberHouseInfo(db, houseInfo, markVisited)
         plotInfo.neighborhoodGUID = houseInfo.neighborhoodGUID
         changed = true
     end
-    if plotInfo.houseGUID ~= houseInfo.houseGUID then
-        local previousHouseGUID = plotInfo.houseGUID
-        plotInfo.houseGUID = houseInfo.houseGUID
-        if previousHouseGUID ~= nil and previousHouseGUID ~= "" and houseInfo.houseGUID ~= nil and houseInfo.houseGUID ~= "" then
-            plotInfo.houseLevel = nil
-            plotInfo.budgets = {}
-        end
+    if incomingHouseGUID ~= nil and incomingHouseGUID ~= "" and plotInfo.houseGUID ~= incomingHouseGUID then
+        plotInfo.houseGUID = incomingHouseGUID
         changed = true
     end
 
@@ -651,21 +831,23 @@ local function RememberHouseInfo(db, houseInfo, markVisited)
     end
 
     plotInfo.budgets = NormalizeBudgetMap(plotInfo.budgets)
-    changed = PruneSamePlotNoGUIDRows(db, knownPlots, plotKey, plotInfo, normalizedPlotID, houseInfo.houseGUID, houseInfo.neighborhoodGUID) or changed
     return plotKey, changed
 end
 
 local function RequestHouseLevelFavor(plotInfo, force)
-    if type(plotInfo) ~= "table" or not plotInfo.houseGUID then return end
+    if type(plotInfo) ~= "table" or not HasHouseGUID(plotInfo) then return end
     if not C_Housing or not C_Housing.GetCurrentHouseLevelFavor then return end
+    local identityKey = GetHouseKey(plotInfo)
+    if not identityKey or houseGUIDToComposite[plotInfo.houseGUID] ~= identityKey then return end
 
     local now = GetServerTime and GetServerTime()
-    if not force and type(now) == "number" and type(levelRequestTimes[plotInfo.houseGUID]) == "number" and now - levelRequestTimes[plotInfo.houseGUID] < 15 then
+    if not force and type(now) == "number" and type(levelRequestTimes[identityKey]) == "number"
+        and now - levelRequestTimes[identityKey] < 15 then
         return
     end
 
     if type(now) == "number" then
-        levelRequestTimes[plotInfo.houseGUID] = now
+        levelRequestTimes[identityKey] = now
     end
     SafeCall(C_Housing.GetCurrentHouseLevelFavor, plotInfo.houseGUID)
 end
@@ -724,33 +906,23 @@ end
 
 local function SaveHouseLevelSnapshotByGUID(houseGUID, snapshot)
     if not houseGUID or not snapshot then return false end
-    local db = GetBudgetDB()
-    if not db then return false end
-
-    -- HOUSE_LEVEL_FAVOR_UPDATED identifies its house only by houseGUID, and a
-    -- GUID is not proven unique: real saved data has held two different houses
-    -- (different owner, plot and neighborhood) under one GUID string. Writing
-    -- every match would stamp one house's level onto another, so resolve to a
-    -- single row or skip. Applying nothing is recoverable; misattribution is not.
-    local target, ambiguous = nil, false
-    for _, plotInfo in pairs(NormalizeKnownPlots(db)) do
-        if type(plotInfo) == "table" and plotInfo.houseGUID == houseGUID then
-            if target then
-                ambiguous = true
-                break
-            end
-            target = plotInfo
-        end
-    end
-
-    if ambiguous then
+    local identityKey = houseGUIDToComposite[houseGUID]
+    if not identityKey or poisonedHouseGUIDs[houseGUID] then
         addon:Debug("House level update skipped: houseGUID " .. tostring(houseGUID)
-            .. " matches more than one saved house")
+            .. " has no unambiguous current owned-house mapping")
         return false
     end
-    if not target then return false end
 
-    levelRequestTimes[houseGUID] = nil
+    local db = GetBudgetDB()
+    if not db then return false end
+    local knownPlots = NormalizeKnownPlots(db)
+    local target = knownPlots[identityKey]
+    if type(target) ~= "table" or target.houseGUID ~= houseGUID
+        or ownedCompositeKeys[identityKey] ~= true then
+        return false
+    end
+
+    levelRequestTimes[identityKey] = nil
 
     local changed = false
     if ShouldSaveHouseLevelSnapshot(target.houseLevel, snapshot) then
@@ -762,13 +934,6 @@ local function SaveHouseLevelSnapshotByGUID(houseGUID, snapshot)
         addon:FireEvent(addon.Events.PLACEMENT_BUDGET_UPDATED)
     end
     return changed
-end
-
-local function RequestKnownHouseLevels(db, force)
-    if not db then return end
-    for _, plotInfo in pairs(NormalizeKnownPlots(db)) do
-        RequestHouseLevelFavor(plotInfo, force)
-    end
 end
 
 -- Currently stored spent value for this identity/context, or nil when nothing
@@ -1188,11 +1353,57 @@ local function SyncKnownPlots(houseInfos)
     ownedHouseListRequestGeneration = ownedHouseListRequestGeneration + 1
     CancelOwnedHouseListRetry()
     ownedHouseListRetryCount = 0
-    local nextOwnedHouseKeys = {}
+    local nextOwnedCompositeKeys = {}
+    local nextHouseGUIDToComposite = {}
+    local houseGUIDCounts = {}
+    local houseGUIDCompositeCandidates = {}
+    local compositeCounts = {}
+    local ambiguousCompositeKeys = {}
+    local hasUnsafeOwnedIdentity = false
     for _, houseInfo in ipairs(houseInfos) do
-        AddHouseIdentityKeys(nextOwnedHouseKeys, houseInfo)
+        local identityKey = GetHouseKey(houseInfo)
+        if identityKey then
+            compositeCounts[identityKey] = (compositeCounts[identityKey] or 0) + 1
+        else
+            hasUnsafeOwnedIdentity = true
+        end
+
+        local houseGUID = type(houseInfo) == "table" and houseInfo.houseGUID or nil
+        if houseGUID ~= nil and houseGUID ~= "" then
+            houseGUIDCounts[houseGUID] = (houseGUIDCounts[houseGUID] or 0) + 1
+            if identityKey then
+                houseGUIDCompositeCandidates[houseGUID] = identityKey
+            end
+        end
     end
-    ownedHouseKeys = nextOwnedHouseKeys
+    for identityKey, count in pairs(compositeCounts) do
+        if count == 1 then
+            nextOwnedCompositeKeys[identityKey] = true
+        else
+            ambiguousCompositeKeys[identityKey] = true
+            hasUnsafeOwnedIdentity = true
+        end
+    end
+    for houseGUID, count in pairs(houseGUIDCounts) do
+        local identityKey = houseGUIDCompositeCandidates[houseGUID]
+        if count ~= 1 then
+            poisonedHouseGUIDs[houseGUID] = true
+        elseif identityKey and not ambiguousCompositeKeys[identityKey] then
+            local previousIdentityKey = previousHouseGUIDComposites[houseGUID]
+            if previousIdentityKey and previousIdentityKey ~= identityKey then
+                poisonedHouseGUIDs[houseGUID] = true
+                levelRequestTimes[previousIdentityKey] = nil
+                levelRequestTimes[identityKey] = nil
+            elseif not previousIdentityKey then
+                previousHouseGUIDComposites[houseGUID] = identityKey
+            end
+            if not poisonedHouseGUIDs[houseGUID] then
+                nextHouseGUIDToComposite[houseGUID] = identityKey
+            end
+        end
+    end
+    ownedCompositeKeys = nextOwnedCompositeKeys
+    houseGUIDToComposite = nextHouseGUIDToComposite
     ownedHouseListReady = true
 
     local db, normalizedChanged = GetBudgetDB()
@@ -1203,14 +1414,8 @@ local function SyncKnownPlots(houseInfos)
 
     local knownPlots = NormalizeKnownPlots(db)
     local seen = {}
-    local activeHouseGUIDsByPlot = {}
     local changed = normalizedChanged == true
     for _, houseInfo in ipairs(houseInfos) do
-        local activePlotKey = GetPlotNeighborhoodIdentityKey(houseInfo)
-        if activePlotKey and houseInfo.houseGUID ~= nil and houseInfo.houseGUID ~= "" then
-            activeHouseGUIDsByPlot[activePlotKey] = houseInfo.houseGUID
-        end
-
         -- Mark seen from the house identity itself, independently of whether
         -- RememberHouseInfo accepted the row. It declines an unfetched
         -- (negative) plotID, and without this the server still lists the house
@@ -1221,42 +1426,27 @@ local function SyncKnownPlots(houseInfos)
             seen[identityKey] = true
         end
 
-        local plotKey, houseChanged = RememberHouseInfo(db, houseInfo, false)
-        if plotKey then
-            seen[plotKey] = true
-            changed = changed or houseChanged
-            local plotInfo = knownPlots[plotKey]
-            RequestHouseLevelFavor(plotInfo, true)
+        if not identityKey or not ambiguousCompositeKeys[identityKey] then
+            local plotKey, houseChanged = RememberHouseInfo(db, houseInfo, false)
+            if plotKey then
+                seen[plotKey] = true
+                changed = changed or houseChanged
+                local plotInfo = knownPlots[plotKey]
+                RequestHouseLevelFavor(plotInfo, true)
+            end
         end
     end
 
-    for plotKey, plotInfo in pairs(knownPlots) do
-        local pruned = false
-        if HasHouseGUID(plotInfo) then
-            local activePlotKey = GetPlotNeighborhoodIdentityKey(plotInfo)
-            local activeHouseGUID = activePlotKey and activeHouseGUIDsByPlot[activePlotKey] or nil
-            -- A different GUID on the same neighborhood+plot is normally proof
-            -- the row is superseded, but houseGUID has no format contract and
-            -- renumbering has never been ruled out, so that "proof" may be an
-            -- artifact. Both prune paths therefore keep a row carrying real
-            -- data: a renumber costs a stale row rather than a user's level
-            -- history and budgets, which can only be recaptured in person.
-            -- Accepted trade-off: a genuinely superseded row that holds budgets
-            -- is now never deleted, so relinquishing and rebuying the same plot
-            -- leaves the old row behind. Marking such rows and filtering them
-            -- from the display is the follow-up, and is a persisted-data change.
-            if activeHouseGUID and activeHouseGUID ~= plotInfo.houseGUID
-                and not plotInfo.visited and not next(plotInfo.budgets) then
-                levelRequestTimes[plotInfo.houseGUID] = nil
+    if not hasUnsafeOwnedIdentity then
+        for plotKey, plotInfo in pairs(knownPlots) do
+            if not seen[plotKey] and not plotInfo.visited and not next(plotInfo.budgets) then
+                levelRequestTimes[plotKey] = nil
                 knownPlots[plotKey] = nil
                 changed = true
-                pruned = true
             end
         end
-        if not pruned and not seen[plotKey] and not plotInfo.visited and not next(plotInfo.budgets) then
-            knownPlots[plotKey] = nil
-            changed = true
-        end
+    else
+        addon:Debug("Owned house sync skipped stale-row pruning: at least one house identity is unresolved or ambiguous")
     end
 
     if changed then
@@ -1281,7 +1471,8 @@ local function RequestPlayerOwnedHouses()
     local generation = ownedHouseListRequestGeneration
     CancelOwnedHouseListRetry()
     ownedHouseListRetryCount = 0
-    ownedHouseKeys = {}
+    ownedCompositeKeys = {}
+    houseGUIDToComposite = {}
     ownedHouseListReady = false
     C_Housing.GetPlayerOwnedHouses()
     ScheduleOwnedHouseListRetry(generation)
@@ -1330,6 +1521,11 @@ function addon:IsPlacementBudgetLiveContext()
     return isOwnedContext
 end
 
+function addon:IsOwnedPlacementBudgetIdentity(identityKey)
+    return ownedHouseListReady and type(identityKey) == "string"
+        and ownedCompositeKeys[identityKey] == true
+end
+
 function addon:GetCurrentPlacementBudgetContext()
     local isOwnedContext, houseInfo, houseKey = GetOwnedBudgetContext()
     if not isOwnedContext then
@@ -1357,12 +1553,10 @@ addon:RegisterWoWEvent("PLAYER_ENTERING_WORLD", function()
     RequestPlayerOwnedHouses()
     RequestCurrentHouseInfo()
     ScheduleCaptureBudget()
-    RequestKnownHouseLevels(GetBudgetDB(), true)
 end)
 addon:RegisterWoWEvent("HOUSE_LEVEL_CHANGED", function(newHouseLevelInfo)
     if newHouseLevelInfo == nil then return end
     RequestPlayerOwnedHouses()
     ScheduleCaptureBudget()
-    RequestKnownHouseLevels(GetBudgetDB(), true)
 end)
 addon:RegisterWoWEvent("HOUSE_PLOT_EXITED", NotifyBudgetUpdated)
