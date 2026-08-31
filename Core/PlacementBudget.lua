@@ -25,6 +25,7 @@ local currentHouseInfoRequestGeneration = 0
 local captureTimers = {}
 local captureScheduleGeneration = 0
 local lastBudgetCaptureBlockReason = nil
+local pendingZeroConfirmation = nil
 local budgetCaptureDiagnosticReasons = {
     ["owned house list unavailable"] = true,
     ["current house info API unavailable"] = true,
@@ -91,6 +92,45 @@ local function IsValidKnownPlot(plotInfo)
     return type(plotInfo) == "table" and type(plotInfo.plotID) == "number"
 end
 
+local function NormalizeRefreshRequired(plotInfo)
+    local refreshRequired = plotInfo.refreshRequired
+    if type(refreshRequired) ~= "table" then
+        if refreshRequired ~= nil then
+            plotInfo.refreshRequired = nil
+            return true
+        end
+        return false
+    end
+
+    local changed = false
+    for context, required in pairs(refreshRequired) do
+        if (context ~= CONTEXT_OUTDOOR and context ~= CONTEXT_INTERIOR) or required ~= true then
+            refreshRequired[context] = nil
+            changed = true
+        end
+    end
+    if next(refreshRequired) == nil then
+        plotInfo.refreshRequired = nil
+        changed = true
+    end
+    return changed
+end
+
+local function HasRefreshRequired(plotInfo, context)
+    local refreshRequired = type(plotInfo) == "table" and plotInfo.refreshRequired or nil
+    return type(refreshRequired) == "table" and refreshRequired[context] == true
+end
+
+local function ClearRefreshRequired(plotInfo, context)
+    if not HasRefreshRequired(plotInfo, context) then return false end
+
+    plotInfo.refreshRequired[context] = nil
+    if next(plotInfo.refreshRequired) == nil then
+        plotInfo.refreshRequired = nil
+    end
+    return true
+end
+
 local function NormalizeKnownPlots(db)
     if type(db[CONTEXT_KNOWN_PLOTS]) ~= "table" then
         db[CONTEXT_KNOWN_PLOTS] = {}
@@ -104,6 +144,7 @@ local function NormalizeKnownPlots(db)
             changed = true
         else
             plotInfo.budgets = NormalizeBudgetMap(plotInfo.budgets)
+            changed = NormalizeRefreshRequired(plotInfo) or changed
             if plotInfo.houseLevel ~= nil and not IsValidHouseLevelSnapshot(plotInfo.houseLevel) then
                 plotInfo.houseLevel = nil
                 changed = true
@@ -361,6 +402,22 @@ local function CopySavedValue(value, seen)
 end
 
 local function AppendQuarantineEntry(quarantine, entry)
+    if type(entry) == "table" then
+        if entry.quarantinedAt == nil then
+            local now = SafeCall(GetServerTime)
+            if type(now) == "number" and not IsSecretValue(now) then
+                entry.quarantinedAt = now
+            end
+        end
+        if entry.buildNumber == nil and type(GetBuildInfo) == "function" then
+            local ok, _, buildNumber = pcall(GetBuildInfo)
+            if ok and type(buildNumber) == "string" and buildNumber ~= ""
+                and not IsSecretValue(buildNumber) then
+                entry.buildNumber = buildNumber
+            end
+        end
+    end
+
     local maxIndex = 0
     for key in pairs(quarantine) do
         if type(key) == "number" and key > maxIndex and key == math.floor(key) then
@@ -709,6 +766,11 @@ local function QuarantineActiveOccupancy(db, plotKey, plotInfo, incomingHouseGUI
         end
     end
     AppendQuarantineEntry(quarantine, entry)
+    if addon.Trace then
+        addon:Trace("placement.capture.quarantine", "composite", plotKey,
+            "storedGUID", plotInfo and plotInfo.houseGUID,
+            "incomingGUID", incomingHouseGUID)
+    end
 end
 
 local function GetPlayerFactionInfo()
@@ -764,13 +826,20 @@ local function RememberHouseInfo(db, houseInfo, markVisited)
     local plotInfo = knownPlots[plotKey]
     local changed = false
     local incomingHouseGUID = houseInfo.houseGUID
+    local refreshRequired = false
     if IsValidKnownPlot(plotInfo) and HasHouseGUID(plotInfo)
         and incomingHouseGUID ~= nil and incomingHouseGUID ~= ""
         and plotInfo.houseGUID ~= incomingHouseGUID then
+        pendingZeroConfirmation = nil
+        if addon.Trace then
+            addon:Trace("placement.capture.guid-contradiction", "composite", plotKey,
+                "storedGUID", plotInfo.houseGUID, "incomingGUID", incomingHouseGUID)
+        end
         QuarantineActiveOccupancy(db, plotKey, plotInfo, incomingHouseGUID)
         knownPlots[plotKey] = nil
         plotInfo = nil
         levelRequestTimes[plotKey] = nil
+        refreshRequired = true
         changed = true
     end
     if not IsValidKnownPlot(plotInfo) then
@@ -778,6 +847,12 @@ local function RememberHouseInfo(db, houseInfo, markVisited)
             plotID = normalizedPlotID,
             budgets = {},
         }
+        if refreshRequired then
+            plotInfo.refreshRequired = {
+                [CONTEXT_OUTDOOR] = true,
+                [CONTEXT_INTERIOR] = true,
+            }
+        end
         knownPlots[plotKey] = plotInfo
         changed = true
     end
@@ -981,7 +1056,6 @@ end
 -- spent read 0, so the two getters demonstrably diverge. C_HousingDecor exposes
 -- no readiness predicate, so a zero has to earn the right to replace a stored
 -- non-zero value.
-local pendingZeroConfirmation = nil
 -- Last signals behind a zero refusal, for the debug line only. The docs do not
 -- say whether GetAllSpentPlacementBudgets returns nil or a zero-filled table
 -- while a house interior is still streaming, so log both readings and settle it
@@ -1097,6 +1171,14 @@ local function ShouldSaveSnapshot(snapshot, spent, maxBudget, updatedAt, identit
         or snapshot.identityKey ~= identityKey
 end
 
+local function SnapshotMatchesCapture(snapshot, spent, maxBudget, updatedAt, identityKey)
+    return IsValidSnapshot(snapshot)
+        and snapshot.spent == spent
+        and snapshot.max == maxBudget
+        and snapshot.updatedAt == updatedAt
+        and snapshot.identityKey == identityKey
+end
+
 local function CaptureBudget(silent)
     if not addon.db or not C_Housing then return false end
     local isOwnedContext, houseInfo, ownedHouseKey, blockReason = GetOwnedBudgetContext()
@@ -1155,12 +1237,21 @@ local function CaptureBudget(silent)
     end
 
     local storedSpent = GetStoredBudgetSpent(db, context, plotKey, knownPlots)
-    if spent == 0 and type(storedSpent) == "number" and storedSpent > 0 then
+    local plotInfo = knownPlots[plotKey]
+    local refreshRequired = HasRefreshRequired(plotInfo, context)
+    if spent == 0 and (refreshRequired
+        or (type(storedSpent) == "number" and storedSpent > 0)) then
         if not IsZeroReadConfirmed(plotKey, context, maxBudget) then
             addon:Debug("Placement budget zero read unconfirmed; keeping "
                 .. tostring(storedSpent) .. " for " .. tostring(plotKey)
                 .. " (unmaskedZero=" .. tostring(lastZeroSignals.unmasked)
                 .. " nothingPlaced=" .. tostring(lastZeroSignals.placed) .. ")")
+            if addon.Trace then
+                addon:Trace("placement.capture.zero-held", "composite", plotKey,
+                    "context", context, "refreshRequired", refreshRequired,
+                    "unmaskedZero", lastZeroSignals.unmasked,
+                    "nothingPlaced", lastZeroSignals.placed)
+            end
             if changed then
                 if not silent then addon:FireEvent(addon.Events.PLACEMENT_BUDGET_UPDATED) end
             end
@@ -1195,11 +1286,31 @@ local function CaptureBudget(silent)
         end
     end
 
-    local plotInfo = knownPlots[plotKey]
     if plotInfo then
         if ShouldSaveSnapshot(plotInfo.budgets[context], spent, maxBudget, now, plotKey) then
             plotInfo.budgets[context] = snapshot
             changed = true
+        end
+    end
+
+    local captureCommitted = false
+    if context == CONTEXT_INTERIOR then
+        captureCommitted = plotInfo
+            and SnapshotMatchesCapture(plotInfo.budgets[context], spent, maxBudget, now, plotKey)
+            and SnapshotMatchesCapture(db[CONTEXT_INTERIOR], spent, maxBudget, now, plotKey)
+    elseif context == CONTEXT_OUTDOOR then
+        local plotsByID = db[CONTEXT_PLOTS_BY_ID]
+        captureCommitted = plotInfo
+            and SnapshotMatchesCapture(plotInfo.budgets[context], spent, maxBudget, now, plotKey)
+            and SnapshotMatchesCapture(db[CONTEXT_PLOT], spent, maxBudget, now, plotKey)
+            and type(plotsByID) == "table"
+            and SnapshotMatchesCapture(plotsByID[plotKey], spent, maxBudget, now, plotKey)
+    end
+    if captureCommitted and ClearRefreshRequired(plotInfo, context) then
+        changed = true
+        if addon.Trace then
+            addon:Trace("placement.capture.refresh-cleared", "composite", plotKey,
+                "context", context, "spent", spent, "max", maxBudget)
         end
     end
 
@@ -1388,17 +1499,30 @@ local function SyncKnownPlots(houseInfos)
         local identityKey = houseGUIDCompositeCandidates[houseGUID]
         if count ~= 1 then
             poisonedHouseGUIDs[houseGUID] = true
+            if addon.Trace then
+                addon:Trace("placement.list.guid-poison", "reason", "duplicate",
+                    "guid", houseGUID, "count", count)
+            end
         elseif identityKey and not ambiguousCompositeKeys[identityKey] then
             local previousIdentityKey = previousHouseGUIDComposites[houseGUID]
             if previousIdentityKey and previousIdentityKey ~= identityKey then
                 poisonedHouseGUIDs[houseGUID] = true
                 levelRequestTimes[previousIdentityKey] = nil
                 levelRequestTimes[identityKey] = nil
+                if addon.Trace then
+                    addon:Trace("placement.list.guid-poison", "reason", "remapped",
+                        "guid", houseGUID, "previous", previousIdentityKey,
+                        "current", identityKey)
+                end
             elseif not previousIdentityKey then
                 previousHouseGUIDComposites[houseGUID] = identityKey
             end
             if not poisonedHouseGUIDs[houseGUID] then
                 nextHouseGUIDToComposite[houseGUID] = identityKey
+                if addon.Trace then
+                    addon:Trace("placement.list.guid-map", "guid", houseGUID,
+                        "composite", identityKey)
+                end
             end
         end
     end
@@ -1439,7 +1563,9 @@ local function SyncKnownPlots(houseInfos)
 
     if not hasUnsafeOwnedIdentity then
         for plotKey, plotInfo in pairs(knownPlots) do
-            if not seen[plotKey] and not plotInfo.visited and not next(plotInfo.budgets) then
+            if not seen[plotKey] and not plotInfo.visited and not next(plotInfo.budgets)
+                and not HasRefreshRequired(plotInfo, CONTEXT_OUTDOOR)
+                and not HasRefreshRequired(plotInfo, CONTEXT_INTERIOR) then
                 levelRequestTimes[plotKey] = nil
                 knownPlots[plotKey] = nil
                 changed = true
@@ -1490,7 +1616,9 @@ local function HasVisibleKnownPlot(knownPlots)
     for _, plotInfo in pairs(knownPlots) do
         if type(plotInfo) == "table" then
             local budgets = type(plotInfo.budgets) == "table" and plotInfo.budgets or nil
-            if plotInfo.visited or (budgets and next(budgets) ~= nil) then
+            if plotInfo.visited or (budgets and next(budgets) ~= nil)
+                or HasRefreshRequired(plotInfo, CONTEXT_OUTDOOR)
+                or HasRefreshRequired(plotInfo, CONTEXT_INTERIOR) then
                 return true
             end
         end
@@ -1500,8 +1628,6 @@ local function HasVisibleKnownPlot(knownPlots)
 end
 
 function addon:GetPlacementBudget()
-    CaptureBudget(true)
-
     local db = GetBudgetDB()
     if not db then return nil end
 

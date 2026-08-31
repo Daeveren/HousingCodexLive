@@ -2,6 +2,19 @@
 
 All notable changes to Housing Codex.
 
+**3.2.4** (2026-08-31)
+
+**Changed**
+- Progress now explains when Outdoor or Indoor plot decor budgets need refreshing
+- Progress now labels visibility-filtered decor totals more clearly
+- Improved Progress tab performance
+
+**Fixed**
+- Outdated plot decor budgets are now hidden after moving, relinquishing, or switching houses until fresh values are captured
+- Viewing or refreshing Progress no longer affects saved plot decor budget values
+- Navigating from Progress to Decor now clears old filters before showing results
+- Achievement categories in Progress now show a clear fallback label while their names are loading
+
 **3.2.3** (2026-08-28)
 
 **Changed**

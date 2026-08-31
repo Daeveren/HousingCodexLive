@@ -396,54 +396,11 @@ function addon:GetAlmostThereRows(limit)
     addIncomplete(self:GetProgressByExpansion("VENDORS"), "VENDORS")
     addIncomplete(self:GetProgressByExpansion("RENOWN"), "RENOWN")
 
-    -- Achievement categories (label resolved at display time via GetCategoryName)
-    for _, categoryId in ipairs(self:GetSortedAchievementCategories()) do
-        local owned, total = self:GetCategoryCollectionProgress(categoryId)
-        if total > 0 and owned > 0 and owned < total then
-            table.insert(candidates, {
-                categoryId   = categoryId,
-                owned        = owned,
-                total        = total,
-                percent      = owned / total * 100,
-                remaining    = total - owned,
-                sourceKind   = "ACHIEVEMENTS",
-            })
-        end
-    end
-
-    -- Drop categories
-    for _, category in ipairs(self:GetSortedDropCategories()) do
-        local owned, total = self:GetDropCategoryCollectionProgress(category)
-        if total > 0 and owned > 0 and owned < total then
-            local categoryInfo = self:GetSourceCategoryInfo(category)
-            table.insert(candidates, {
-                category     = category,
-                labelKey     = categoryInfo and categoryInfo.labelKey or category,
-                owned        = owned,
-                total        = total,
-                percent      = owned / total * 100,
-                remaining    = total - owned,
-                sourceKind   = "DROPS",
-            })
-        end
-    end
-
-    -- PvP categories
-    for _, category in ipairs(self:GetSortedPvPCategories()) do
-        local owned, total = self:GetPvPCategoryCollectionProgress(category)
-        if total > 0 and owned > 0 and owned < total then
-            local categoryInfo = self:GetPvPSourceCategoryInfo(category)
-            table.insert(candidates, {
-                pvpCategory  = category,
-                labelKey     = categoryInfo and categoryInfo.labelKey or category,
-                owned        = owned,
-                total        = total,
-                percent      = owned / total * 100,
-                remaining    = total - owned,
-                sourceKind   = "PVP",
-            })
-        end
-    end
+    -- Category rows already carry the same fields and ordering used here.
+    -- Reuse the cached aggregations instead of recalculating each hierarchy.
+    addIncomplete(self:GetProgressByAchievementCategory(), "ACHIEVEMENTS")
+    addIncomplete(self:GetProgressByDropCategory(), "DROPS")
+    addIncomplete(self:GetProgressByPvPCategory(), "PVP")
 
     -- Professions
     addIncomplete(self:GetProgressByProfession(), "PROFESSIONS")

@@ -372,6 +372,59 @@ addon.traceLog = {}
 addon.traceLogCursor = 0
 addon.traceLogCount = 0
 
+local function FormatDiagnosticValue(value)
+    if value == nil then return "nil" end
+
+    if type(issecretvalue) == "function" then
+        local ok, isSecret = pcall(issecretvalue, value)
+        if not ok or isSecret then
+            return "<redacted>"
+        end
+    end
+
+    local valueType = type(value)
+    if valueType == "string" or valueType == "number" or valueType == "boolean" then
+        return tostring(value)
+    end
+    return "<" .. valueType .. ">"
+end
+
+function addon:Trace(event, ...)
+    if not (self.db and self.db.settings and self.db.settings.debugMode) then return end
+
+    local parts = { FormatDiagnosticValue(event) }
+    for i = 1, select("#", ...) do
+        parts[#parts + 1] = FormatDiagnosticValue(select(i, ...))
+    end
+
+    local elapsed = type(GetTime) == "function" and GetTime() or 0
+    local elapsedIsSecret = false
+    if type(issecretvalue) == "function" then
+        local ok, isSecret = pcall(issecretvalue, elapsed)
+        elapsedIsSecret = not ok or isSecret
+    end
+    if type(elapsed) ~= "number" or elapsedIsSecret then
+        elapsed = 0
+    end
+
+    local cursor = (self.traceLogCursor % TRACE_MAX) + 1
+    self.traceLog[cursor] = {
+        t = elapsed,
+        e = table.concat(parts, " "),
+    }
+    self.traceLogCursor = cursor
+    if self.traceLogCount < TRACE_MAX then
+        self.traceLogCount = self.traceLogCount + 1
+    end
+end
+
+function addon:ClearTraceLog()
+    wipe(self.traceLog)
+    self.traceLogCursor = 0
+    self.traceLogCount = 0
+    self:Print(self.L["EVENT_TRACE_LOG_CLEARED"])
+end
+
 -- Dispatch a callback list with snapshot isolation (safe for self-unregister during dispatch)
 local function DispatchCallbacks(callbacks, ...)
     -- Fast path: single listener needs no snapshot allocation
@@ -389,15 +442,7 @@ local function DispatchCallbacks(callbacks, ...)
 end
 
 function addon:FireEvent(event, ...)
-    if self.db and self.db.settings and self.db.settings.debugMode then
-        local log = self.traceLog
-        local cursor = (self.traceLogCursor % TRACE_MAX) + 1
-        log[cursor] = { t = GetTime(), e = event }
-        self.traceLogCursor = cursor
-        if self.traceLogCount < TRACE_MAX then
-            self.traceLogCount = self.traceLogCount + 1
-        end
-    end
+    self:Trace(event)
     local callbacks = self.internalEvents[event]
     if not callbacks then return end
     DispatchCallbacks(callbacks, ...)
@@ -614,7 +659,7 @@ function addon:Debug(...)
     if self.db and self.db.settings and self.db.settings.debugMode then
         local parts = {}
         for i = 1, select("#", ...) do
-            parts[i] = tostring(select(i, ...))
+            parts[i] = FormatDiagnosticValue(select(i, ...))
         end
         print("|cFF888888[HC Debug]|r " .. table.concat(parts, " "))
     end
@@ -1546,10 +1591,7 @@ SlashCmdList["HOUSINGCODEX"] = function(msg)
     elseif cmd == "stats" then
         addon:PrintDebugCounters()
     elseif cmd == "log clear" then
-        wipe(addon.traceLog)
-        addon.traceLogCursor = 0
-        addon.traceLogCount = 0
-        addon:Print(L["EVENT_TRACE_LOG_CLEARED"])
+        addon:ClearTraceLog()
     elseif cmd == "log" then
         addon:PrintTraceLog()
     elseif cmd == "debug" then

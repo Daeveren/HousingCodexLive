@@ -70,6 +70,38 @@ local function GetSafeCursorY()
     return cursorY / scale
 end
 
+local function HasPlacementBudgetRefreshRequired(plotInfo, context)
+    local refreshRequired = type(plotInfo) == "table" and plotInfo.refreshRequired or nil
+    return type(refreshRequired) == "table" and refreshRequired[context] == true
+end
+
+local function HasAnyPlacementBudgetRefreshRequired(plotInfo)
+    return HasPlacementBudgetRefreshRequired(plotInfo, "outdoor")
+        or HasPlacementBudgetRefreshRequired(plotInfo, "interior")
+end
+
+local function GetPlacementBudgetRefreshHintKey(plotInfo)
+    local outdoor = HasPlacementBudgetRefreshRequired(plotInfo, "outdoor")
+    local interior = HasPlacementBudgetRefreshRequired(plotInfo, "interior")
+    if outdoor and interior then
+        return "PROGRESS_BUDGET_REFRESH_BOTH_HINT"
+    end
+    if outdoor then
+        return "PROGRESS_BUDGET_REFRESH_OUTDOOR_HINT"
+    end
+    if interior then
+        return "PROGRESS_BUDGET_REFRESH_INTERIOR_HINT"
+    end
+    return nil
+end
+
+local function GetVisiblePlacementBudgetSnapshot(plotInfo, context, snapshot)
+    if HasPlacementBudgetRefreshRequired(plotInfo, context) then
+        return nil
+    end
+    return snapshot
+end
+
 -- Override: gray for <100%, green at 100%
 function ProgressTab:GetProgressColor(percent)
     if percent == 100 then
@@ -536,7 +568,7 @@ function ProgressTab:BuildDashboard(preserveScroll)
             for key, value in pairs(data) do
                 rowData[key] = value
             end
-            rowData.displayLabel = addon:GetCategoryName(data.categoryId)
+            rowData.displayLabel = addon:GetCategoryName(data.categoryId) or L["UNKNOWN"]
             displayData[#displayData + 1] = rowData
         end
         leftY = self:BuildExpansionSection(leftY, columnWidth, "achievementCat", L["PROGRESS_ACHIEVEMENT_CATEGORIES"], displayData, self.achievementCatRows, 0)
@@ -722,9 +754,8 @@ function ProgressTab:SetupSidebarStatRow(elements, panel, stat, yOffset)
     end
 end
 
-function ProgressTab:BuildBudgetRows(elements, panel, yOffset)
+function ProgressTab:BuildBudgetRows(elements, panel, yOffset, budget)
     local L = addon.L
-    local budget = addon.GetPlacementBudget and addon:GetPlacementBudget()
     if not budget then return yOffset end
 
     local activeKeys = {}
@@ -894,6 +925,7 @@ function ProgressTab:BuildBudgetRows(elements, panel, yOffset)
         if budgets and GetVerifiedSavedSnapshot(plotID, plotInfo, budgets.outdoor) then score = score + 4 end
         if budgets and GetVerifiedSavedSnapshot(plotID, plotInfo, budgets.interior) then score = score + 4 end
         if plotsByID and GetVerifiedSavedSnapshot(plotID, plotInfo, plotsByID[plotID], plotID) then score = score + 2 end
+        if HasAnyPlacementBudgetRefreshRequired(plotInfo) then score = score + 2 end
         if plotInfo and type(plotInfo.houseLevel) == "table" and type(plotInfo.houseLevel.level) == "number" then score = score + 1 end
         return score
     end
@@ -989,6 +1021,7 @@ function ProgressTab:BuildBudgetRows(elements, panel, yOffset)
         local hasData = type(plotInfo) == "table" and plotInfo.visited
             or (budgets and (HasBudgetSnapshot(budgets.outdoor) or HasBudgetSnapshot(budgets.interior)))
             or (plotsByID and HasBudgetSnapshot(plotsByID[plotID]))
+            or HasAnyPlacementBudgetRefreshRequired(plotInfo)
         if not hasData then return end
 
         local updatedAt = 0
@@ -1207,19 +1240,23 @@ function ProgressTab:BuildBudgetRows(elements, panel, yOffset)
 
     local function GetBudgetSnapshotForPlot(plotID, plotInfo, contextKey, snapshot)
         local rowLive = currentBudgetContext == contextKey and IsCurrentPlotRow(plotID, plotInfo)
+        local refreshHintKey = GetPlacementBudgetRefreshHintKey(plotInfo)
+        if HasPlacementBudgetRefreshRequired(plotInfo, contextKey) then
+            return nil, rowLive, refreshHintKey
+        end
         if rowLive then
             local liveSnapshot = contextKey == "outdoor" and budget.plot or budget.interior
             local expectedIdentityKey = GetStablePlotIdentityKey(plotID, plotInfo)
             if HasBudgetSnapshot(liveSnapshot)
                 and type(expectedIdentityKey) == "string"
                 and liveSnapshot.identityKey == expectedIdentityKey then
-                return liveSnapshot, true
+                return liveSnapshot, true, nil
             end
         end
-        return snapshot, rowLive
+        return GetVisiblePlacementBudgetSnapshot(plotInfo, contextKey, snapshot), rowLive, nil
     end
 
-    local function DrawBudgetRow(plotID, key, contextKey, label, snapshot, known, rowLiveOverride)
+    local function DrawBudgetRow(plotID, key, contextKey, label, snapshot, known, rowLiveOverride, refreshHintKey)
         local valid = type(snapshot) == "table" and type(snapshot.spent) == "number" and type(snapshot.max) == "number" and snapshot.max > 0
         local rowKey = "budget_" .. key .. (plotID or "")
         local rowLive = rowLiveOverride == true or (live and currentBudgetContext == contextKey and (not plotID or currentPlotID == plotID))
@@ -1254,7 +1291,7 @@ function ProgressTab:BuildBudgetRows(elements, panel, yOffset)
                 ShowUpdatedTooltip(b, label, snapshot)
             else
                 GameTooltip:SetOwner(b, "ANCHOR_RIGHT")
-                GameTooltip:SetText(L["PROGRESS_BUDGET_EMPTY_HINT"])
+                GameTooltip:SetText(L[refreshHintKey or "PROGRESS_BUDGET_EMPTY_HINT"])
                 GameTooltip:Show()
             end
         end)
@@ -1276,12 +1313,12 @@ function ProgressTab:BuildBudgetRows(elements, panel, yOffset)
                 outdoorSaved = GetVerifiedSavedSnapshot(plotID, plotInfo, plotsByID[plotID], plotID)
             end
             local interiorSaved = GetVerifiedSavedSnapshot(plotID, plotInfo, budgets.interior)
-            local outdoorSnapshot, outdoorLive = GetBudgetSnapshotForPlot(plotID, plotInfo, "outdoor", outdoorSaved)
-            local interiorSnapshot, interiorLive = GetBudgetSnapshotForPlot(plotID, plotInfo, "interior", interiorSaved)
+            local outdoorSnapshot, outdoorLive, outdoorRefreshHint = GetBudgetSnapshotForPlot(plotID, plotInfo, "outdoor", outdoorSaved)
+            local interiorSnapshot, interiorLive, interiorRefreshHint = GetBudgetSnapshotForPlot(plotID, plotInfo, "interior", interiorSaved)
             yOffset = DrawPlotHeader(plotID, plotTitle, plotInfo)
             yOffset = yOffset - 2
-            yOffset = DrawBudgetRow(plotID, "plotOutdoor", "outdoor", L["PROGRESS_BUDGET_OUTDOOR"], outdoorSnapshot, true, outdoorLive)
-            yOffset = DrawBudgetRow(plotID, "plotInterior", "interior", L["PROGRESS_BUDGET_INDOOR"], interiorSnapshot, true, interiorLive)
+            yOffset = DrawBudgetRow(plotID, "plotOutdoor", "outdoor", L["PROGRESS_BUDGET_OUTDOOR"], outdoorSnapshot, true, outdoorLive, outdoorRefreshHint)
+            yOffset = DrawBudgetRow(plotID, "plotInterior", "interior", L["PROGRESS_BUDGET_INDOOR"], interiorSnapshot, true, interiorLive, interiorRefreshHint)
             yOffset = yOffset - HOUSE_PLOT_SECTION_GAP
         end
     else
@@ -1483,7 +1520,7 @@ function ProgressTab:BuildSidebarSummary()
         yOffset = yOffset - SIDEBAR_SECTION_GAP
         yOffset = self:PlaceSidebarDualDivider(elements, panel, "historyBudget", yOffset)
         yOffset = self:PlaceSidebarSectionHeader(elements, panel, "budget", L["PROGRESS_BUDGET_HEADER"], yOffset)
-        yOffset = self:BuildBudgetRows(elements, panel, yOffset)
+        yOffset = self:BuildBudgetRows(elements, panel, yOffset, budget)
     end
 
     local contentHeight = math.max(1, math.abs(yOffset) + 12)
@@ -1647,8 +1684,8 @@ function ProgressTab:BuildSourceSection(yOffset, columnWidth, xOffset)
             elseif data.targetTabKey == "PROFESSIONS" then
                 NavigateToSourceTab(addon.ProfessionsTab, "PROFESSIONS", nil, filter)
             elseif data.targetTabKey == "DECOR" then
-                addon.Tabs:SelectTab("DECOR")
                 addon.Filters:ResetAllFilters({ preserveGlobalVisibility = true })
+                addon.Tabs:SelectTab("DECOR")
             elseif data.targetTabKey == "DECOR_PROMO" then
                 -- Reset first so the landing view is a clean "just promo items",
                 -- not an intersection with any stale search text / other filters
@@ -1732,7 +1769,7 @@ function ProgressTab:BuildAlmostThereSection(yOffset, columnWidth, xOffset)
         -- Resolve display label for types that need special handling
         local resolvedLabel
         if data.categoryId then
-            resolvedLabel = addon:GetCategoryName(data.categoryId)
+            resolvedLabel = addon:GetCategoryName(data.categoryId) or L["UNKNOWN"]
         elseif isUnknownExpansion then
             resolvedLabel = L[sourceLabelKey]
         end
