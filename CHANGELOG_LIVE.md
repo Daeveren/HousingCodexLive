@@ -2,6 +2,12 @@
 
 All notable changes to Housing Codex.
 
+**3.2.5** (2026-09-04)
+
+**Changed**
+- Updated BlizzCon 2026 decor reward details and vendors selling additional copies
+- Updated Paw Pal decor vendor listings and prices
+
 **3.2.4** (2026-08-31)
 
 **Changed**
