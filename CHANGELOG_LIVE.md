@@ -2,6 +2,12 @@
 
 All notable changes to Housing Codex.
 
+**3.2.6** (2026-09-06)
+
+**Changed**
+- Updated Diablo and Paw Pal decor vendor listings
+- Updated Eastern Kingdoms and Midnight decor vendor data
+
 **3.2.5** (2026-09-04)
 
 **Changed**
