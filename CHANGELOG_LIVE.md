@@ -2,6 +2,15 @@
 
 All notable changes to Housing Codex.
 
+**3.2.7** (2026-09-12)
+
+**Changed**
+- Preparations for the upcoming Patch 12.1.5
+
+**Fixed**
+- Drop, recipe, and promotional source names now display localized for non-English clients
+- Professions tab recipe source searches now match both English and localized names
+
 **3.2.6** (2026-09-06)
 
 **Changed**

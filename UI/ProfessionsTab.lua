@@ -56,9 +56,13 @@ local function BuildSkillText(craft)
     return addon:GetLocalizedProfessionName(craft.professionName) or addon.L["UNKNOWN"]
 end
 
+-- craft.recipeSource is a scraped English entity name (NPC, item, or drop source).
+-- Display always goes through addon:GetLocalizedSourceName, which falls back to the
+-- raw English name when a locale file has no override for it.
 local function BuildRecipeSourceText(craft)
     if not craft.recipeSource or craft.recipeSource == "" then return nil end
-    return string.format(addon.L["PROFESSIONS_RECIPE_SOURCE"], craft.recipeSource)
+    local sourceName = addon:GetLocalizedSourceName(craft.recipeSource)
+    return string.format(addon.L["PROFESSIONS_RECIPE_SOURCE"], sourceName)
 end
 
 local function ResolveCraftRecord(decorId)
@@ -91,6 +95,14 @@ local function CraftMatchesSearch(craft, searchText, record)
     local skillText = BuildSkillText(craft)
     if skillText and strlower(skillText):find(searchText, 1, true) then
         return true
+    end
+
+    -- Match the raw English source as well as the localized display text, so a
+    -- non-English client can search either spelling.
+    if craft.recipeSource and craft.recipeSource ~= "" then
+        if strlower(craft.recipeSource):find(searchText, 1, true) then
+            return true
+        end
     end
 
     local sourceText = BuildRecipeSourceText(craft)

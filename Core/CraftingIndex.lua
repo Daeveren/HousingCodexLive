@@ -1,6 +1,11 @@
 --[[
     Housing Codex - CraftingIndex.lua
     Profession-to-decor index building and progress helpers.
+
+    Index entries carry scraped values verbatim: skillLine, professionName, and
+    recipeSource stay in English here (interning depends on stable keys, and
+    search matches the English spelling). The display layer localizes them --
+    see BuildSkillText / BuildRecipeSourceText in UI/ProfessionsTab.lua.
 ]]
 
 local _, addon = ...
