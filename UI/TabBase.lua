@@ -12,6 +12,18 @@ local TabBaseMixin = addon.TabBaseMixin
 local CONSTS = addon.CONSTANTS
 local COLORS = CONSTS.COLORS
 
+-- Create once per recycled item row; callers update visibility on every bind.
+function TabBaseMixin:CreateItemSearchMatchIndicator(row)
+    local style = CONSTS.ITEM_SEARCH_MATCH
+    local indicator = row:CreateTexture(nil, "OVERLAY")
+    indicator:SetAtlas(style.ATLAS)
+    indicator:SetSize(style.SIZE, style.SIZE)
+    indicator:SetPoint("LEFT", row, "LEFT", 4, 0)
+    indicator:SetVertexColor(unpack(style.COLOR))
+    indicator:Hide()
+    row.searchMatchIndicator = indicator
+end
+
 --------------------------------------------------------------------------------
 -- Wishlist Star Helper
 --------------------------------------------------------------------------------

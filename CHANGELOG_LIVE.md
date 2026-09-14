@@ -2,6 +2,14 @@
 
 All notable changes to Housing Codex.
 
+**3.2.8** (2026-09-15)
+
+**Changed**
+- Updated vendor listings, prices, and waypoints for over 70 decor items
+- Expanded Renown decor listings and corrected reputation requirements
+- Matching items now show green arrows in Vendors and Renown searches
+- Further preparations for the upcoming Patch 12.1.5
+
 **3.2.7** (2026-09-12)
 
 **Changed**

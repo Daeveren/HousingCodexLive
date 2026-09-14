@@ -538,7 +538,7 @@ function RenownTab:SetupFactionCard(frame, elementData)
     frame.decorContainer:SetHeight(decorCount * DECOR_ROW_HEIGHT)
     frame.decorContainer:Show()
 
-    self:SetupDecorRows(frame, entries, factionID, factionData.vendors)
+    self:SetupDecorRows(frame, entries, factionID, factionData.vendors, elementData.searchText)
 end
 
 function RenownTab:InitializeFactionFrame(frame)
@@ -578,7 +578,7 @@ function RenownTab:InitializeFactionFrame(frame)
 
     -- Decor sub-rows container
     local decorContainer = CreateFrame("Frame", nil, frame)
-    decorContainer:SetPoint("TOPLEFT", headerContainer, "BOTTOMLEFT", 0, 0)
+    decorContainer:SetPoint("TOPLEFT", frame, "TOPLEFT", 0, -FACTION_ROW_BASE_HEIGHT)
     decorContainer:SetPoint("TOPRIGHT", headerContainer, "BOTTOMRIGHT", 0, 0)
     frame.decorContainer = decorContainer
 
@@ -599,13 +599,18 @@ function RenownTab:ResetFactionFrame(frame)
 
     for _, row in ipairs(frame.decorRows) do
         row:Hide()
+        row.searchMatchIndicator:Hide()
         if row.selectionHighlight then
             row.selectionHighlight:Hide()
         end
     end
 end
 
-function RenownTab:SetupDecorRows(frame, entries, factionID, vendors)
+local function DecorNameMatchesSearch(name, searchText)
+    return searchText and searchText ~= "" and name and strlower(name):find(searchText, 1, true) ~= nil
+end
+
+function RenownTab:SetupDecorRows(frame, entries, factionID, vendors, searchText)
     for i, entry in ipairs(entries) do
         local isTable = type(entry) == "table"
         local decorId = isTable and entry.decorId or entry
@@ -618,16 +623,17 @@ function RenownTab:SetupDecorRows(frame, entries, factionID, vendors)
 
             local icon = row:CreateTexture(nil, "ARTWORK")
             icon:SetSize(DECOR_ICON_SIZE, DECOR_ICON_SIZE)
-            icon:SetPoint("LEFT", 20, 0)
+            icon:SetPoint("LEFT", row, "LEFT", 20 + CONSTS.ITEM_SEARCH_MATCH.GUTTER, 0)
             row.icon = icon
 
             local checkIcon = row:CreateTexture(nil, "OVERLAY")
             checkIcon:SetSize(14, 14)
-            checkIcon:SetPoint("LEFT", 4, 0)
+            checkIcon:SetPoint("LEFT", row, "LEFT", 4 + CONSTS.ITEM_SEARCH_MATCH.GUTTER, 0)
             checkIcon:SetAtlas("common-icon-checkmark")
             checkIcon:SetVertexColor(0.4, 0.9, 0.4, 1)
             checkIcon:Hide()
             row.checkIcon = checkIcon
+            self:CreateItemSearchMatchIndicator(row)
 
             local name = addon:CreateFontString(row, "OVERLAY", "GameFontNormal")
             name:SetPoint("LEFT", icon, "RIGHT", 6, 0)
@@ -702,6 +708,7 @@ function RenownTab:SetupDecorRows(frame, entries, factionID, vendors)
         row.requiredStandingText = requirementText
         row.requirementMet = requirementMet
         local displayName = addon:ResolveDecorName(decorId, record)
+        row.searchMatchIndicator:SetShown(not not DecorNameMatchesSearch(displayName, searchText))
         if requirementText then
             local color = requirementMet and "|cFF66AA66" or "|cFFCC6630"
             displayName = displayName .. "  " .. color .. requirementText .. "|r"
@@ -781,7 +788,7 @@ local function FactionMatchesSearch(factionData, searchText)
             local record = addon:GetRecord(decorId)
             local name = addon:ResolveDecorName(decorId, record)
             if addon:ShouldDisplayDecor(decorId, record)
-                and name and strlower(name):find(searchText, 1, true) then
+                and DecorNameMatchesSearch(name, searchText) then
                 return true
             end
         end
@@ -907,9 +914,9 @@ end
 function RenownTab:BuildFactionDisplay(visCache)
     if not self.factionScrollBox or not self.factionDataProvider then return end
 
+    local searchText = strlower(strtrim(self.searchBox and self.searchBox:GetText() or ""))
     if not visCache then
         local filter = self:GetCompletionFilter()
-        local searchText = strlower(strtrim(self.searchBox and self.searchBox:GetText() or ""))
         visCache = BuildFactionVisibilityCache(filter, searchText)
     end
 
@@ -928,6 +935,7 @@ function RenownTab:BuildFactionDisplay(visCache)
                         factionData = faction,
                         visibleEntries = visibleEntries,
                         visibleDecorCount = #visibleEntries,
+                        searchText = searchText,
                     })
                 end
             end

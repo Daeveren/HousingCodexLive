@@ -25,7 +25,6 @@ local VENDOR_SEARCH_MAX_WIDTH = 250
 local VENDOR_SEARCH_MIN_WIDTH = 80
 local VENDOR_TOOLBAR_LEFT_OFFSET = CONSTS.GRID_OUTER_PAD + 40
 local VENDOR_TOOLBAR_FILTER_GAP = 16
-local VENDOR_ITEM_SEARCH_MATCH_MARKER = "  |cffff8000<====|r"
 
 addon.VendorsTab = {}
 local VendorsTab = addon.VendorsTab
@@ -903,7 +902,7 @@ function VendorsTab:InitializeVendorFrame(frame)
     frame.waypointBtn = waypointBtn
 
     local decorContainer = CreateFrame("Frame", nil, frame)
-    decorContainer:SetPoint("TOPLEFT", vendorContainer, "BOTTOMLEFT", 0, 0)
+    decorContainer:SetPoint("TOPLEFT", frame, "TOPLEFT", 0, -VENDOR_ROW_BASE_HEIGHT)
     decorContainer:SetPoint("TOPRIGHT", vendorContainer, "BOTTOMRIGHT", 0, 0)
     frame.decorContainer = decorContainer
 
@@ -933,6 +932,7 @@ function VendorsTab:ResetVendorFrame(frame)
     -- Hide all decor rows
     for _, row in ipairs(frame.decorRows) do
         row:Hide()
+        row.searchMatchIndicator:Hide()
         if row.selectionHighlight then
             row.selectionHighlight:Hide()
         end
@@ -1215,16 +1215,17 @@ function VendorsTab:SetupDecorRows(frame, decorIds, searchText)
 
             local icon = row:CreateTexture(nil, "ARTWORK")
             icon:SetSize(DECOR_ICON_SIZE, DECOR_ICON_SIZE)
-            icon:SetPoint("LEFT", 20, 0)
+            icon:SetPoint("LEFT", row, "LEFT", 20 + CONSTS.ITEM_SEARCH_MATCH.GUTTER, 0)
             row.icon = icon
 
             local checkIcon = row:CreateTexture(nil, "OVERLAY")
             checkIcon:SetSize(14, 14)
-            checkIcon:SetPoint("LEFT", 4, 0)
+            checkIcon:SetPoint("LEFT", row, "LEFT", 4 + CONSTS.ITEM_SEARCH_MATCH.GUTTER, 0)
             checkIcon:SetAtlas("common-icon-checkmark")
             checkIcon:SetVertexColor(0.4, 0.9, 0.4, 1)
             checkIcon:Hide()
             row.checkIcon = checkIcon
+            self:CreateItemSearchMatchIndicator(row)
 
             local name = addon:CreateFontString(row, "OVERLAY", "GameFontNormal")
             name:SetPoint("LEFT", icon, "RIGHT", 6, 0)
@@ -1284,9 +1285,6 @@ function VendorsTab:SetupDecorRows(frame, decorIds, searchText)
         local textBrightness = row.isCollected and 0.4 or 0.7
         row.textBrightness = textBrightness
         local displayName = addon:ResolveDecorName(decorId, record)
-        if VendorDecorNameMatchesSearch(decorId, searchText) then
-            displayName = displayName .. VENDOR_ITEM_SEARCH_MATCH_MARKER
-        end
         local renownSource = addon:GetVendorDecorRenownSource(frame.npcId, decorId)
         if renownSource and renownSource.requiredStanding then
             local faction = renownSource.faction
@@ -1299,6 +1297,7 @@ function VendorsTab:SetupDecorRows(frame, decorIds, searchText)
             local color = row.requirementMet and "|cFF66AA66" or "|cFFCC6630"
             displayName = displayName .. "  " .. color .. row.requiredStandingText .. "|r"
         end
+        row.searchMatchIndicator:SetShown(not not VendorDecorNameMatchesSearch(decorId, searchText))
         -- Keep rows compact: selecting an item shows source/cost details in PreviewFrame.
         row.name:SetText(displayName)
         addon:SetFontSize(row.name, 13, "")

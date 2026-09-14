@@ -76,6 +76,12 @@ addon.CONSTANTS = {
     SELECTION_BORDER_WIDTH = 3,         -- Gold selection bar used by hierarchy rows
     SOURCE_ROW_BASE_HEIGHT = 32,        -- Tier B source header height
     DECOR_ROW_HEIGHT = 24,              -- Tier B nested decor row height
+    ITEM_SEARCH_MATCH = {              -- Vendors/Renown item-name matches
+        ATLAS = "common-icon-forwardarrow",
+        SIZE = 20,
+        GUTTER = 24,
+        COLOR = { 64 / 255, 1, 64 / 255, 1 },
+    },
 
     -- Colors (DaevTools palette)
     COLORS = {
