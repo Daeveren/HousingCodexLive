@@ -607,7 +607,7 @@ function RenownTab:ResetFactionFrame(frame)
 end
 
 local function DecorNameMatchesSearch(name, searchText)
-    return searchText and searchText ~= "" and name and strlower(name):find(searchText, 1, true) ~= nil
+    return searchText and searchText ~= "" and name and addon:NormalizeSearchText(name):find(searchText, 1, true) ~= nil
 end
 
 function RenownTab:SetupDecorRows(frame, entries, factionID, vendors, searchText)
@@ -735,14 +735,14 @@ local function FactionMatchesSearch(factionData, searchText)
     if searchText == "" then return true end
 
     -- English label (scraped)
-    if factionData.label and strlower(factionData.label):find(searchText, 1, true) then
+    if factionData.label and addon:NormalizeSearchText(factionData.label):find(searchText, 1, true) then
         return true
     end
 
     -- Cached localized label (from BuildRenownIndex — covers factions with no
     -- live standing data, e.g. Midnight factions the player hasn't unlocked).
     if factionData.localizedLabel and factionData.localizedLabel ~= factionData.label
-        and strlower(factionData.localizedLabel):find(searchText, 1, true) then
+        and addon:NormalizeSearchText(factionData.localizedLabel):find(searchText, 1, true) then
         return true
     end
 
@@ -751,32 +751,32 @@ local function FactionMatchesSearch(factionData, searchText)
     if standing and standing.factionName
         and standing.factionName ~= factionData.label
         and standing.factionName ~= factionData.localizedLabel
-        and strlower(standing.factionName):find(searchText, 1, true) then
+        and addon:NormalizeSearchText(standing.factionName):find(searchText, 1, true) then
         return true
     end
 
-    if factionData.group and strlower(factionData.group):find(searchText, 1, true) then
+    if factionData.group and addon:NormalizeSearchText(factionData.group):find(searchText, 1, true) then
         return true
     end
 
     if factionData.vendors then
         for _, vendor in ipairs(factionData.vendors) do
             -- English vendor name
-            if vendor.name and strlower(vendor.name):find(searchText, 1, true) then
+            if vendor.name and addon:NormalizeSearchText(vendor.name):find(searchText, 1, true) then
                 return true
             end
             -- Localized vendor name
             local localizedName = addon:GetLocalizedNPCName(vendor.npcId, vendor.name)
-            if localizedName ~= vendor.name and strlower(localizedName):find(searchText, 1, true) then
+            if localizedName ~= vendor.name and addon:NormalizeSearchText(localizedName):find(searchText, 1, true) then
                 return true
             end
             -- English zone
-            if vendor.zone and strlower(vendor.zone):find(searchText, 1, true) then
+            if vendor.zone and addon:NormalizeSearchText(vendor.zone):find(searchText, 1, true) then
                 return true
             end
             -- Localized zone
             local localizedZone = addon:GetLocalizedVendorZoneName(vendor.zone)
-            if localizedZone and localizedZone ~= vendor.zone and strlower(localizedZone):find(searchText, 1, true) then
+            if localizedZone and localizedZone ~= vendor.zone and addon:NormalizeSearchText(localizedZone):find(searchText, 1, true) then
                 return true
             end
         end
@@ -870,7 +870,7 @@ function RenownTab:BuildExpansionDisplay(visCache)
 
     if not visCache then
         local filter = self:GetCompletionFilter()
-        local searchText = strlower(strtrim(self.searchBox and self.searchBox:GetText() or ""))
+        local searchText = addon:NormalizeSearchText(self.searchBox and self.searchBox:GetText() or "")
         visCache = BuildFactionVisibilityCache(filter, searchText)
     end
 
@@ -914,7 +914,7 @@ end
 function RenownTab:BuildFactionDisplay(visCache)
     if not self.factionScrollBox or not self.factionDataProvider then return end
 
-    local searchText = strlower(strtrim(self.searchBox and self.searchBox:GetText() or ""))
+    local searchText = addon:NormalizeSearchText(self.searchBox and self.searchBox:GetText() or "")
     if not visCache then
         local filter = self:GetCompletionFilter()
         visCache = BuildFactionVisibilityCache(filter, searchText)
@@ -954,7 +954,7 @@ function RenownTab:RefreshDisplay()
     addon:CountDebug("rebuild", "RenownTab")
 
     local filter = self:GetCompletionFilter()
-    local searchText = strlower(strtrim(self.searchBox and self.searchBox:GetText() or ""))
+    local searchText = addon:NormalizeSearchText(self.searchBox and self.searchBox:GetText() or "")
     local visCache = BuildFactionVisibilityCache(filter, searchText)
 
     local rebuilt = self:BuildExpansionDisplay(visCache)

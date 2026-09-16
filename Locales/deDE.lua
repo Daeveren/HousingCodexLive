@@ -862,3 +862,8 @@ local QT = addon.questTitleLocale
 -- Keybinding globals (must be set per-locale since enUS sets them before locale files override L values)
 BINDING_HEADER_HCODEX = L["KEYBIND_HEADER"]
 BINDING_NAME_HOUSINGCODEX_TOGGLE = L["KEYBIND_TOGGLE"]
+
+-- World of Warcraft: Forever purchase sources
+SN["BlizzCon 2026 login reward (September 12-27)"] = "BlizzCon-2026-Loginbelohnung (12.–27. September)"
+SN["World of Warcraft: Forever - Skyborne packs"] = "World of Warcraft: Forever - Skyborne-Pakete"
+SN["Warcraft Forever Collection / Collector's Edition"] = "Warcraft Forever Collection / Collector's Edition"

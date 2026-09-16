@@ -862,3 +862,8 @@ SN["Thalassian Recipe in a Bottle"] = "Thalassian Recipe in a Bottle"
 -- Keybinding globals (deferred from Init.lua — WoW resolves these lazily when Keybindings UI opens)
 BINDING_HEADER_HCODEX = L["KEYBIND_HEADER"]
 BINDING_NAME_HOUSINGCODEX_TOGGLE = L["KEYBIND_TOGGLE"]
+
+-- World of Warcraft: Forever purchase sources
+SN["BlizzCon 2026 login reward (September 12-27)"] = "BlizzCon 2026 login reward (September 12-27)"
+SN["World of Warcraft: Forever - Skyborne packs"] = "World of Warcraft: Forever - Skyborne packs"
+SN["Warcraft Forever Collection / Collector's Edition"] = "Warcraft Forever Collection / Collector's Edition"

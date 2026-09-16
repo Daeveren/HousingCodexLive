@@ -120,15 +120,13 @@ local function HideButtonOverlay(button)
     end
 end
 
--- Container-frame contract only. BaseContainerFrameMixin:EnumerateValidItems
--- yields (index, itemButton); BankPanelMixin's same-named method wraps
--- EnumerateActive() and yields the button first, so passing BankFrame.BankPanel
--- here binds itemButton to a pool boolean and silently no-ops. Bank buttons go
--- through RefreshAllItemsForSelectedTab and the BankPanelItemButtonMixin hook.
+-- Read the existing Items array without consulting Blizzard's lazy size cache.
+-- Normal bag generation sets that cache before Show; this is defensive only.
+-- BankPanel uses a separate iterator that yields the button first.
 function ContainerOverlay:HideContainerFrameOverlays(frame)
-    if not frame or not frame.EnumerateValidItems then return end
+    if not frame or not frame.EnumerateItems then return end
 
-    for _, itemButton in frame:EnumerateValidItems() do
+    for _, itemButton in frame:EnumerateItems() do
         HideButtonOverlay(itemButton)
     end
 end
@@ -185,9 +183,9 @@ end
 -- Update all buttons in a container frame
 function ContainerOverlay:UpdateContainerFrame(frame, changedBagID)
     if not addon.IsFrameShown(frame) then return end
-    if not frame.EnumerateValidItems then return end
+    if not frame.EnumerateItems then return end
 
-    for _, itemButton in frame:EnumerateValidItems() do
+    for _, itemButton in frame:EnumerateItems() do
         if addon.IsFrameShown(itemButton) then
             local bagID = itemButton:GetBagID()
             if not IsSafeValue(bagID) then
@@ -220,7 +218,8 @@ local function AreBagsVisible()
 end
 
 local function IsBankPanelVisible()
-    return BankFrame and addon.IsFrameShown(BankFrame.BankPanel)
+    -- A child's own IsShown flag can stay true while its parent is hidden.
+    return addon.IsFrameShown(BankFrame) and addon.IsFrameShown(BankFrame.BankPanel)
 end
 
 -- Update all visible container frames (individual bags + combined view)
@@ -239,13 +238,7 @@ function ContainerOverlay:UpdateVisibleBag(bagID)
     end
     self:UpdateContainerFrame(ContainerFrameCombinedBags, bagID)
 
-    local bankPanel = BankFrame and BankFrame.BankPanel
-    if addon.IsFrameShown(bankPanel) and bankPanel.GetSelectedTabID then
-        local selectedTabID = bankPanel:GetSelectedTabID()
-        if IsSafeValue(selectedTabID) and selectedTabID == bagID then
-            bankPanel:RefreshAllItemsForSelectedTab()
-        end
-    end
+    self:UpdateVisibleBankPanel(bagID)
 end
 
 -- Hide all overlays on every tracked button
@@ -255,11 +248,33 @@ function ContainerOverlay:HideAllOverlays()
     end
 end
 
--- Refresh visible bank panel buttons via Blizzard's bulk API.
+-- Read active bank slots and update only our overlays. Calling Blizzard's
+-- RefreshAllItemsForSelectedTab would rewrite its button state in addon context.
 -- BankFrame.BankPanel hosts both character and account (warband) bank tabs.
-function ContainerOverlay:UpdateVisibleBankPanel()
-    if BankFrame and addon.IsFrameShown(BankFrame.BankPanel) then
-        BankFrame.BankPanel:RefreshAllItemsForSelectedTab()
+function ContainerOverlay:UpdateVisibleBankPanel(changedBagID)
+    local bankPanel = BankFrame and BankFrame.BankPanel
+    if not IsBankPanelVisible() or not bankPanel.EnumerateValidItems then return end
+
+    if changedBagID ~= nil then
+        if not IsSafeValue(changedBagID) or not bankPanel.GetSelectedTabID then return end
+        local selectedTabID = bankPanel:GetSelectedTabID()
+        if not IsSafeValue(selectedTabID) or selectedTabID ~= changedBagID then return end
+    end
+
+    -- Unlike the container iterator, this reads the active pool without GetBagSize.
+    for itemButton in bankPanel:EnumerateValidItems() do
+        HideButtonOverlay(itemButton)
+        if ShouldShowAnyContainerOverlay() and addon.IsFrameShown(itemButton) then
+            local bagID = itemButton:GetBankTabID()
+            local slotID = itemButton:GetContainerSlotID()
+            local itemID
+            if C_Container and C_Container.GetContainerItemID
+                and IsSafeValue(bagID) and IsSafeValue(slotID)
+                and CanAccessAllValues(bagID, slotID) then
+                itemID = C_Container.GetContainerItemID(bagID, slotID)
+            end
+            self:UpdateButton(itemButton, itemID)
+        end
     end
 end
 

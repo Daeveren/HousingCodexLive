@@ -2,6 +2,15 @@
 
 All notable changes to Housing Codex.
 
+**3.2.9** (2026-09-16)
+
+**Changed**
+- Updated WoW Forever and BlizzCon decor source details
+
+**Fixed**
+- Renown searches now handle pasted apostrophes and dashes consistently
+- Improved reliability of bag and bank decor markers
+
 **3.2.8** (2026-09-15)
 
 **Changed**
