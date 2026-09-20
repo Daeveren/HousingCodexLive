@@ -2,6 +2,11 @@
 
 All notable changes to Housing Codex.
 
+**3.2.10** (2026-09-20)
+
+**Changed**
+- Further preparations for the upcoming Patch 12.1.5
+
 **3.2.9** (2026-09-16)
 
 **Changed**
