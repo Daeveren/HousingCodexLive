@@ -338,10 +338,9 @@ function WishlistFrame:CreateToolbar()
 end
 
 local function NormalizeWishlistSearch(text)
-    if not text then return nil end
-    local trimmed = strtrim(text)
-    if trimmed == "" then return nil end
-    return strlower(trimmed)
+    local normalized = addon:NormalizeSearchText(text)
+    if normalized == "" then return nil end
+    return normalized
 end
 
 local function GetColumnCount(container, tileSize)
@@ -946,7 +945,7 @@ function WishlistFrame:RefreshData()
             if isWishlisted and record and addon:ShouldDisplayDecor(recordID, record) then
                 local matchesSearch = true
                 if self.searchText then
-                    matchesSearch = record.name and strfind(strlower(record.name), self.searchText, 1, true) ~= nil
+                    matchesSearch = record.name and strfind(addon:NormalizeSearchText(record.name), self.searchText, 1, true) ~= nil
                 end
                 if matchesSearch then
                     table.insert(recordIDs, recordID)

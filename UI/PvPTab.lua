@@ -130,7 +130,7 @@ end
 function PvPTab:SourceMatchesSearch(sourceData, searchText, category)
     if searchText == "" then return true end
 
-    if sourceData.sourceName and strlower(sourceData.sourceName):find(searchText, 1, true) then
+    if sourceData.sourceName and addon:NormalizeSearchText(sourceData.sourceName):find(searchText, 1, true) then
         return true
     end
 
@@ -141,17 +141,17 @@ function PvPTab:SourceMatchesSearch(sourceData, searchText, category)
     else
         localizedName = addon:GetLocalizedSourceName(sourceData.sourceName)
     end
-    if localizedName and localizedName ~= sourceData.sourceName and strlower(localizedName):find(searchText, 1, true) then
+    if localizedName and localizedName ~= sourceData.sourceName and addon:NormalizeSearchText(localizedName):find(searchText, 1, true) then
         return true
     end
 
     -- Zone name for vendors (raw + localized)
     if sourceData.zoneName then
-        if strlower(sourceData.zoneName):find(searchText, 1, true) then
+        if addon:NormalizeSearchText(sourceData.zoneName):find(searchText, 1, true) then
             return true
         end
         local localizedZone = addon:GetLocalizedVendorZoneName(sourceData.zoneName)
-        if localizedZone ~= sourceData.zoneName and strlower(localizedZone):find(searchText, 1, true) then
+        if localizedZone ~= sourceData.zoneName and addon:NormalizeSearchText(localizedZone):find(searchText, 1, true) then
             return true
         end
     end
@@ -159,13 +159,13 @@ function PvPTab:SourceMatchesSearch(sourceData, searchText, category)
     -- Category label
     local catInfo = self.cfg.getCategoryInfo(category)
     if catInfo then
-        local catLabel = strlower(addon.L[catInfo.labelKey] or "")
+        local catLabel = addon:NormalizeSearchText(addon.L[catInfo.labelKey] or "")
         if catLabel:find(searchText, 1, true) then return true end
     end
 
     for _, decorId in ipairs(sourceData.decorIds or {}) do
         local name = addon:ResolveDecorName(decorId, addon:GetRecord(decorId))
-        if name and strlower(name):find(searchText, 1, true) then
+        if name and addon:NormalizeSearchText(name):find(searchText, 1, true) then
             return true
         end
     end

@@ -2,6 +2,16 @@
 
 All notable changes to Housing Codex.
 
+**3.2.11** (2026-09-23)
+
+**Changed**
+- Updated Brewfest decor vendor listings, prices, and waypoints
+
+**Fixed**
+- Link to Chat in the right-click menu now inserts a clickable item link
+- Preview and Wishlist Link buttons no longer silently fail when an item cannot load
+- Achievements, Professions, PvP, and Wishlist searches now handle pasted apostrophes and dashes consistently
+
 **3.2.10** (2026-09-20)
 
 **Changed**

@@ -394,7 +394,7 @@ function AchievementsTab:RefreshDisplay()
     addon:CountDebug("rebuild", "AchievementsTab")
 
     local filter = self:GetCompletionFilter()
-    local searchText = strlower(strtrim(self.searchBox and self.searchBox:GetText() or ""))
+    local searchText = self:GetActiveSearchText()
     local visCache = self:BuildAchievementVisibilityCache(filter, searchText)
 
     if not self:BuildCategoryDisplay(visCache, filter, searchText) then
@@ -589,18 +589,18 @@ local function AchievementMatchesSearch(achievementID, searchText, categoryId)
 
     -- Check achievement name
     local name = addon:GetAchievementName(achievementID) or ""
-    if strlower(name):find(searchText, 1, true) then return true end
+    if addon:NormalizeSearchText(name):find(searchText, 1, true) then return true end
 
     -- Check category name (get localized name from ID)
     local categoryName = addon:GetCategoryName(categoryId) or ""
-    if strlower(categoryName):find(searchText, 1, true) then return true end
+    if addon:NormalizeSearchText(categoryName):find(searchText, 1, true) then return true end
 
     -- Check decor reward names
     local records = addon:GetRecordsForAchievement(achievementID)
     for _, recordID in ipairs(records or {}) do
         local record = addon:GetRecord(recordID)
         if addon:ShouldDisplayDecor(recordID, record)
-            and record and record.name and strlower(record.name):find(searchText, 1, true) then
+            and record and record.name and addon:NormalizeSearchText(record.name):find(searchText, 1, true) then
             return true
         end
     end
@@ -662,7 +662,7 @@ function AchievementsTab:BuildCategoryDisplay(visCache, filter, searchText)
 
     local elements = {}
     filter = filter or self:GetCompletionFilter()
-    searchText = searchText or strlower(strtrim(self.searchBox and self.searchBox:GetText() or ""))
+    searchText = searchText or self:GetActiveSearchText()
 
     for _, categoryId in ipairs(addon:GetSortedAchievementCategories()) do
         local hasVisibleContent = false
@@ -718,7 +718,7 @@ function AchievementsTab:BuildAchievementDisplay(visCache, filter, searchText)
 
     if categoryId then
         filter = filter or self:GetCompletionFilter()
-        searchText = searchText or strlower(strtrim(self.searchBox and self.searchBox:GetText() or ""))
+        searchText = searchText or self:GetActiveSearchText()
 
         for _, achievementID in ipairs(addon:GetAchievementsForCategory(categoryId)) do
             local recordIDs = self:GetVisibleAchievementRecordIDs(achievementID, filter, searchText, categoryId, visCache)

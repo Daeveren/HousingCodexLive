@@ -251,6 +251,7 @@ addon.CONSTANTS = {
         BUDGET_OWNED_LIST_RETRY_DELAY = 1.0,
         BUDGET_OWNED_LIST_MAX_RETRIES = 2,
         BUDGET_OWNED_LIST_FALLBACK_DELAY = 10.0,
+        ITEM_LINK_LOAD_TIMEOUT = 2.0,     -- Fall back to plain text when item data never loads
     },
 
     -- Progress sidebar additions
@@ -650,14 +651,30 @@ end
 function addon:GetDecorLink(recordID, callback)
     local record = recordID and self:GetRecord(recordID)
     local fallback = string.format("|cFFFFD100[%s]|r", record and record.name or addon.L["UNKNOWN"])
+    local itemID = record and record.itemID
 
-    if record and record.itemID and record.itemID ~= 0 then
-        local item = Item:CreateFromItemID(record.itemID)
-        item:ContinueOnItemLoad(function()
-            callback(item:GetItemLink() or fallback)
-        end)
-    else
+    -- ContinueOnItemLoad raises for an item that does not exist
+    if type(itemID) ~= "number" or itemID == 0 or not C_Item.DoesItemExistByID(itemID) then
         callback(fallback)
+        return
+    end
+
+    local done = false
+    local function Finish(link)
+        if done then return end
+        done = true
+        callback(link or fallback)
+    end
+
+    local item = Item:CreateFromItemID(itemID)
+    item:ContinueOnItemLoad(function()
+        Finish(item:GetItemLink())
+    end)
+    -- A failed load drops the continuation silently; answer with the fallback instead
+    if not done then
+        C_Timer.After(self.CONSTANTS.TIMER.ITEM_LINK_LOAD_TIMEOUT, function()
+            Finish(nil)
+        end)
     end
 end
 

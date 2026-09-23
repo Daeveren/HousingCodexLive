@@ -1036,7 +1036,8 @@ local function InitializeOverlay()
     -- draw over it on their own.
 
     -- Refresh data when the map shows. The panel itself follows its parent's visibility;
-    -- this restores it after an explicit hide (empty zone, setting off, combat guard).
+    -- this restores it after an explicit hide (empty zone, setting off, or the map-close
+    -- hide below).
     hooksecurefunc(WorldMapFrame, "Show", function()
         C_Timer.After(0, function()
             -- Re-assert the level each open: a data provider registering after our init
@@ -1076,7 +1077,8 @@ local function InitializeOverlay()
         end)
     end)
 
-    -- Recover after combat ends (combat guards may have blocked Show/RefreshLayout)
+    -- Self-heal after combat. Nothing guards the panel's Show() today (see UpdateVisibility);
+    -- this only matters if the frame ever becomes protected and a Show() gets blocked.
     addon:RegisterWoWEvent("PLAYER_REGEN_ENABLED", function()
         ZoneOverlay:UpdateVisibility()
     end)

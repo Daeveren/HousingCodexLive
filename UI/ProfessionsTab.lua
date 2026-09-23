@@ -69,44 +69,40 @@ local function ResolveCraftRecord(decorId)
     return addon:GetRecord(decorId) or addon:ResolveRecord(decorId)
 end
 
-local function GetSearchText(searchBox)
-    return strlower(strtrim(searchBox and searchBox:GetText() or ""))
-end
-
 local function CraftMatchesSearch(craft, searchText, record)
     if searchText == "" then return true end
 
     record = record or ResolveCraftRecord(craft.decorId)
     local decorName = addon:ResolveDecorName(craft.decorId, record)
-    if decorName and strlower(decorName):find(searchText, 1, true) then
+    if decorName and addon:NormalizeSearchText(decorName):find(searchText, 1, true) then
         return true
     end
 
     if craft.professionName then
-        if strlower(craft.professionName):find(searchText, 1, true) then
+        if addon:NormalizeSearchText(craft.professionName):find(searchText, 1, true) then
             return true
         end
         local localizedName = addon:GetLocalizedProfessionName(craft.professionName)
-        if localizedName ~= craft.professionName and strlower(localizedName):find(searchText, 1, true) then
+        if localizedName ~= craft.professionName and addon:NormalizeSearchText(localizedName):find(searchText, 1, true) then
             return true
         end
     end
 
     local skillText = BuildSkillText(craft)
-    if skillText and strlower(skillText):find(searchText, 1, true) then
+    if skillText and addon:NormalizeSearchText(skillText):find(searchText, 1, true) then
         return true
     end
 
     -- Match the raw English source as well as the localized display text, so a
     -- non-English client can search either spelling.
     if craft.recipeSource and craft.recipeSource ~= "" then
-        if strlower(craft.recipeSource):find(searchText, 1, true) then
+        if addon:NormalizeSearchText(craft.recipeSource):find(searchText, 1, true) then
             return true
         end
     end
 
     local sourceText = BuildRecipeSourceText(craft)
-    if sourceText and strlower(sourceText):find(searchText, 1, true) then
+    if sourceText and addon:NormalizeSearchText(sourceText):find(searchText, 1, true) then
         return true
     end
 
@@ -609,7 +605,7 @@ function ProfessionsTab:BuildProfessionDisplay(visCache)
 
     local professionElements = {}
     local filter = self:GetCompletionFilter()
-    local searchText = GetSearchText(self.searchBox)
+    local searchText = self:GetActiveSearchText()
 
     for _, professionInfo in ipairs(addon:GetSortedProfessions()) do
         local professionName = professionInfo.name
@@ -661,7 +657,7 @@ function ProfessionsTab:BuildCraftDisplay(visCache)
 
     if professionName then
         local filter = self:GetCompletionFilter()
-        local searchText = GetSearchText(self.searchBox)
+        local searchText = self:GetActiveSearchText()
 
         for _, craft in ipairs(addon:GetCraftsForProfession(professionName)) do
             if IsCraftVisible(craft, professionName, filter, searchText, visCache) then
@@ -686,7 +682,7 @@ end
 function ProfessionsTab:RefreshDisplay()
     addon:CountDebug("rebuild", "ProfessionsTab")
     local filter = self:GetCompletionFilter()
-    local searchText = GetSearchText(self.searchBox)
+    local searchText = self:GetActiveSearchText()
     local visCache = BuildCraftVisibilityCache(filter, searchText)
     if not self:BuildProfessionDisplay(visCache) then
         self:BuildCraftDisplay(visCache)

@@ -62,10 +62,9 @@ local function AddDecorOptions(rootDescription, record, recordID)
         end)
     end
 
-    -- Link to chat
+    -- Link to chat (same real-hyperlink path as the Preview/Wishlist Link buttons)
     rootDescription:CreateButton(L["CONTEXT_MENU_LINK_TO_CHAT"], function()
-        local linkText = string.format("|cFFFFD100[%s]|r", record.name)
-        ChatFrameUtil.OpenChat(linkText)
+        addon:InsertItemChatLink(recordID)
     end)
 end
 
