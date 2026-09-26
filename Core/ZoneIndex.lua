@@ -18,6 +18,7 @@ addon.ZONE_TO_EXPANSION = {
     ["Darnassus"] = "EXPANSION_CLASSIC",
     ["Deeprun Tram"] = "EXPANSION_CLASSIC",
     ["Dun Morogh"] = "EXPANSION_CLASSIC",
+    ["Durotar"] = "EXPANSION_CLASSIC",
     ["Duskwood"] = "EXPANSION_CLASSIC",
     ["Dustwallow Marsh"] = "EXPANSION_CLASSIC",
     ["Eastern Plaguelands"] = "EXPANSION_CLASSIC",
@@ -56,6 +57,7 @@ addon.ZONE_TO_EXPANSION = {
     ["Ghostlands"] = "EXPANSION_TBC",
     ["Isle of Quel'Danas"] = "EXPANSION_TBC",
     ["Shattrath City"] = "EXPANSION_TBC",
+    ["The Exodar"] = "EXPANSION_TBC",
 
     -- Wrath
     ["Borean Tundra"] = "EXPANSION_WRATH",

@@ -2,6 +2,20 @@
 
 All notable changes to Housing Codex.
 
+**3.3.0** (2026-09-26)
+
+**Changed**
+- Big decor database update: refreshed vendors, prices and sources across all expansions
+- Corrected vendor prices for over 280 decor items
+- Updated decor vendor listings and waypoints
+- Updated quest, Shop, BlizzCon and delve decor source details
+- Vendors now show six more Patch 12.1 items as locked until their achievement is earned
+
+**Fixed**
+- Vendor prices with silver or mixed currencies now display correctly
+- Vendor gold prices now show the full price before reputation discounts
+- Some vendor items that showed no price now display one
+
 **3.2.11** (2026-09-23)
 
 **Changed**
