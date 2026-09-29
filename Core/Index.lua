@@ -286,6 +286,15 @@ function addon:GetRecordSourceKind(recordID)
     local id = tonumber(recordID)
     if not id then return "OTHER" end
 
+    -- The achievement that awards a vendor-gated decor is where its first copy comes
+    -- from; the vendor only sells extra copies once it is earned.
+    if not self.achievementIndexBuilt and self.BuildAchievementIndex then
+        self:BuildAchievementIndex()
+    end
+    if self.DecorVendorGateRewards and self.DecorVendorGateRewards[id] then
+        return "ACHIEVEMENTS"
+    end
+
     if self.HasVendorSource and self:HasVendorSource(id) then
         return "VENDORS"
     end

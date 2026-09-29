@@ -2,6 +2,19 @@
 
 All notable changes to Housing Codex.
 
+**3.4.0** (2026-09-30)
+
+**Added**
+- NEW feature! Item details show the achievement that unlocks vendor decor — click to track it
+
+**Changed**
+- Vendor tooltips and map pins now mark achievement reward decor
+- Wishlist "Group by source" lists achievement reward decor under Achievements
+
+**Fixed**
+- Corrected vendor prices for several decor items
+- Shift-clicking an earned achievement in the Achievements tab no longer tries to track it
+
 **3.3.0** (2026-09-26)
 
 **Changed**

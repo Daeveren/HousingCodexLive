@@ -613,7 +613,8 @@ function HousingCodexVendorPinMixin:OnMouseEnter()
             if entry.promotional then
                 suffix = " (|cff9090a0" .. L["VENDOR_PIN_ITEM_PROMO"] .. "|r)"
             elseif entry.locked then
-                suffix = " (|cffcc5a40" .. L["VENDOR_PIN_ITEM_LOCKED"] .. "|r)"
+                local label = entry.achievementReward and L["VENDOR_PIN_ITEM_ACHIEVEMENT_REWARD"] or L["VENDOR_PIN_ITEM_LOCKED"]
+                suffix = " (|cffcc5a40" .. label .. "|r)"
             else
                 suffix = ""
             end

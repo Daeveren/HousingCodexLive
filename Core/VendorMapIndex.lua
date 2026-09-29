@@ -210,9 +210,12 @@ function addon:GetVendorPinProgress(npcId)
                 local name = addon:ResolveDecorName(decorId, record)
                 local achId = addon.DecorToAchievementLookup and addon.DecorToAchievementLookup[decorId]
                 local isLocked = achId and not addon:IsAchievementCompleted(achId)
+                local isReward = addon.DecorVendorGateRewards and addon.DecorVendorGateRewards[decorId]
                 missingNames[#missingNames + 1] = {
                     name = name,
                     locked = isLocked or false,
+                    -- Locked, but earning the achievement grants the first copy.
+                    achievementReward = (isLocked and isReward) or false,
                     promotional = isPromo,
                 }
             end

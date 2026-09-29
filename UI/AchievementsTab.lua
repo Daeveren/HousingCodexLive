@@ -183,17 +183,8 @@ AchievementRowOnMouseDown = function(frame, button)
         return
     end
 
-    local trackingType = addon.CONSTANTS.TRACKING_TYPE_ACHIEVEMENT
-    if C_ContentTracking and trackingType and IsShiftKeyDown() and elementData.achievementID then
-        local achievementID = elementData.achievementID
-        if C_ContentTracking.IsTracking and C_ContentTracking.IsTracking(trackingType, achievementID) then
-            if not C_ContentTracking.StopTracking or not addon.CONSTANTS.TRACKING_STOP_MANUAL then return end
-            C_ContentTracking.StopTracking(trackingType, achievementID, addon.CONSTANTS.TRACKING_STOP_MANUAL)
-            addon:Print(addon.L["ACHIEVEMENTS_TRACKING_STOPPED"])
-        elseif C_ContentTracking.StartTracking then
-            local err = C_ContentTracking.StartTracking(trackingType, achievementID)
-            addon:PrintTrackingResult(err, "ACHIEVEMENTS_TRACKING_STARTED_ACHIEVEMENT", "ACHIEVEMENTS_TRACKING_FAILED", "ACHIEVEMENTS_TRACKING_MAX_REACHED", "ACHIEVEMENTS_TRACKING_ALREADY")
-        end
+    if C_ContentTracking and addon.CONSTANTS.TRACKING_TYPE_ACHIEVEMENT and IsShiftKeyDown() and elementData.achievementID then
+        addon:ToggleAchievementTracking(elementData.achievementID)
     elseif IsControlKeyDown() and elementData.recordID then
         addon:ToggleTracking(elementData.recordID)
     else
@@ -854,7 +845,8 @@ end
 AchievementsTab:RegisterTabVisibility("ACHIEVEMENTS")
 
 addon:RegisterInternalEvent("DATA_LOADED", function()
-    -- Always build index on DATA_LOADED (DecorToAchievementLookup needed by VendorMapIndex)
+    -- Always build index on DATA_LOADED (the vendor-gate lookups are read by VendorMapIndex,
+    -- the preview's source block and Wishlist grouping)
     addon:BuildAchievementIndex()
     if AchievementsTab:IsShown() then
         addon:BuildAchievementHierarchy()

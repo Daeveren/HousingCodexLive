@@ -49,6 +49,7 @@ function addon:BuildAchievementIndex()
     wipe(self.achievementSortedRecords)
     wipe(self.achievementCompletionCache)
     self.DecorToAchievementLookup = {}
+    self.DecorVendorGateRewards = {}
 
     local achievementCount = 0
     local decorCount = 0
@@ -72,6 +73,12 @@ function addon:BuildAchievementIndex()
                     if achievementData.isVendorGate then
                         self.DecorToAchievementLookup[decorId] = achievementId
                     end
+                end
+            end
+            -- Gated decor the achievement itself awards: the vendor only sells extra copies.
+            if achievementData.isVendorGate and achievementData.rewardDecorIds then
+                for _, decorId in ipairs(achievementData.rewardDecorIds) do
+                    self.DecorVendorGateRewards[decorId] = true
                 end
             end
 
@@ -226,6 +233,29 @@ function addon:GetAchievementName(achievementId)
     end
 
     return string.format(self.L["ACHIEVEMENTS_UNKNOWN"], achievementId)
+end
+
+-- Ask WoW to track or untrack an achievement and print the result
+-- (shift-click on an Achievements-tab row, click on a preview achievement link)
+function addon:ToggleAchievementTracking(achievementId)
+    local trackingType = self.CONSTANTS.TRACKING_TYPE_ACHIEVEMENT
+    if not achievementId or not C_ContentTracking or not trackingType then return end
+    if C_ContentTracking.IsTracking and C_ContentTracking.IsTracking(trackingType, achievementId) then
+        if not C_ContentTracking.StopTracking or not self.CONSTANTS.TRACKING_STOP_MANUAL then return end
+        C_ContentTracking.StopTracking(trackingType, achievementId, self.CONSTANTS.TRACKING_STOP_MANUAL)
+        self:Print(self.L["ACHIEVEMENTS_TRACKING_STOPPED"])
+    elseif C_ContentTracking.StartTracking then
+        -- An earned achievement cannot be tracked; say so as Blizzard's achievement UI does.
+        if type(GetAchievementInfo) == "function" and type(ERR_ACHIEVEMENT_WATCH_COMPLETED) == "string" then
+            local ok, _, _, _, completed, _, _, _, _, _, _, _, isGuild, wasEarnedByMe = pcall(GetAchievementInfo, achievementId)
+            if ok and ((completed and isGuild) or wasEarnedByMe) then
+                self:Print(ERR_ACHIEVEMENT_WATCH_COMPLETED)
+                return
+            end
+        end
+        local err = C_ContentTracking.StartTracking(trackingType, achievementId)
+        self:PrintTrackingResult(err, "ACHIEVEMENTS_TRACKING_STARTED_ACHIEVEMENT", "ACHIEVEMENTS_TRACKING_FAILED", "ACHIEVEMENTS_TRACKING_MAX_REACHED", "ACHIEVEMENTS_TRACKING_ALREADY")
+    end
 end
 
 -- Check if achievement is completed (uses WoW API, cached)

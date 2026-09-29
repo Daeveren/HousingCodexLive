@@ -41,6 +41,7 @@ local COLOR_PRESET_ACTIVE = { 0.9, 0.75, 0.3, 1 }  -- Gold
 -- Category text color (light purple)
 local COLOR_CATEGORY = { 0.75, 0.65, 0.9 }
 local SOURCE_PREFIX_COLOR = "|cffeac100"
+local SOURCE_ACHIEVEMENT_COLOR = "|cffffff00"  -- Blizzard's achievement link yellow
 local COLOR_RESET = "|r"
 local COPPER_PER_GOLD = 10000
 local COIN_TEXTURE_FONT_HEIGHT = 14
@@ -333,7 +334,40 @@ local function FormatCompactVendorSourceLine(vendorDetails)
     )
 end
 
-local function FormatSelectedVendorSource(vendorDetails)
+-- The achievement ID of a bare "achievement:ID:..." hyperlink, or nil for any other link.
+local function GetAchievementIDFromLink(link)
+    if type(link) ~= "string" then return nil end
+    return tonumber(link:match("^achievement:(%d+)"))
+end
+
+-- A fresh achievement hyperlink, or nil when the client has none for this ID.
+local function GetAchievementLinkSafe(achievementID)
+    if type(GetAchievementLink) ~= "function"
+        or not C_AchievementInfo or not C_AchievementInfo.IsValidAchievement
+        or not C_AchievementInfo.IsValidAchievement(achievementID)
+    then
+        return nil
+    end
+    local ok, link = pcall(GetAchievementLink, achievementID)
+    if ok and type(link) == "string" and link ~= "" then return link end
+    return nil
+end
+
+-- One sentence naming the achievement that gates a decor's vendor copies, with a
+-- clickable link (the name when no link is available): whether earning it gives
+-- the first copy, or only unlocks the vendor.
+local function FormatVendorGateAchievement(recordID)
+    local achievementID = recordID and addon.DecorToAchievementLookup and addon.DecorToAchievementLookup[recordID]
+    if not achievementID then return nil end
+
+    local value = GetAchievementLinkSafe(achievementID)
+        or (SOURCE_ACHIEVEMENT_COLOR .. addon:GetAchievementName(achievementID) .. COLOR_RESET)
+    local isReward = addon.DecorVendorGateRewards and addon.DecorVendorGateRewards[recordID]
+    local lineFormat = isReward and addon.L["VENDOR_GATE_REWARD_LINE"] or addon.L["VENDOR_GATE_REQUIRED_LINE"]
+    return string.format(lineFormat, value)
+end
+
+local function FormatSelectedVendorSource(vendorDetails, recordID)
     if not vendorDetails or not vendorDetails.vendorName then return nil end
 
     local lines = {}
@@ -367,6 +401,9 @@ local function FormatSelectedVendorSource(vendorDetails)
         local costLine = FormatSelectedVendorSourceLine(addon.L["DETAILS_SOURCE_COST"], costText)
         if costLine then table.insert(lines, costLine) end
     end
+
+    local achievementLine = FormatVendorGateAchievement(recordID)
+    if achievementLine then table.insert(lines, achievementLine) end
 
     return #lines > 0 and table.concat(lines, "\n") or nil
 end
@@ -772,11 +809,31 @@ function Preview:CreateIdentityBlock()
     sourceContainer:SetHyperlinksEnabled(true)
     sourceContainer:SetScript("OnHyperlinkEnter", function(frame, link)
         GameTooltip:SetOwner(frame, "ANCHOR_CURSOR_RIGHT", 10, 0)
-        GameTooltip:SetHyperlink(link)
+        local achievementID = GetAchievementIDFromLink(link)
+        -- By ID, so the tooltip shows current progress rather than the link's snapshot.
+        if achievementID and GameTooltip.SetAchievementByID then
+            GameTooltip:SetAchievementByID(achievementID)
+            GameTooltip:AddLine(" ")
+            GameTooltip:AddLine(addon.L["VENDOR_GATE_CLICK_HINT"], 0.5, 0.8, 1, true)
+        else
+            GameTooltip:SetHyperlink(link)
+        end
         GameTooltip:Show()
     end)
     sourceContainer:SetScript("OnHyperlinkLeave", function()
         GameTooltip:Hide()
+    end)
+    -- Click tracks or untracks the achievement; shift-click links it in chat.
+    sourceContainer:SetScript("OnHyperlinkClick", function(_, link, text)
+        local achievementID = GetAchievementIDFromLink(link)
+        if not achievementID then return end
+        if IsModifiedClick("CHATLINK") then
+            if ChatFrameUtil and ChatFrameUtil.InsertLink then
+                ChatFrameUtil.InsertLink(GetAchievementLinkSafe(achievementID) or text)
+            end
+            return
+        end
+        addon:ToggleAchievementTracking(achievementID)
     end)
     self.sourceContainer = sourceContainer
 
@@ -892,7 +949,7 @@ function Preview:UpdateDetails(record)
     local vendorDetails = GetSelectedVendorDecorDetails(record.recordID)
     local isPromo = addon:IsPromoDecor(record.recordID)
     local useVendorSource = ShouldUseVendorSource(vendorDetails, record, isPromo)
-    local selectedVendorSource = useVendorSource and FormatSelectedVendorSource(vendorDetails) or nil
+    local selectedVendorSource = useVendorSource and FormatSelectedVendorSource(vendorDetails, record.recordID) or nil
     if selectedVendorSource then
         self.detailsSource:SetText(selectedVendorSource)
     else
