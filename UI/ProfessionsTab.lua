@@ -65,14 +65,10 @@ local function BuildRecipeSourceText(craft)
     return string.format(addon.L["PROFESSIONS_RECIPE_SOURCE"], sourceName)
 end
 
-local function ResolveCraftRecord(decorId)
-    return addon:GetRecord(decorId) or addon:ResolveRecord(decorId)
-end
-
 local function CraftMatchesSearch(craft, searchText, record)
     if searchText == "" then return true end
 
-    record = record or ResolveCraftRecord(craft.decorId)
+    record = record or addon:ResolveRecord(craft.decorId)
     local decorName = addon:ResolveDecorName(craft.decorId, record)
     if decorName and addon:NormalizeSearchText(decorName):find(searchText, 1, true) then
         return true
@@ -112,7 +108,7 @@ end
 local function CraftPassesCompletionFilter(craft, filter, record)
     if filter == "all" then return true end
 
-    record = record or ResolveCraftRecord(craft.decorId)
+    record = record or addon:ResolveRecord(craft.decorId)
     local isCollected = record and record.isCollected or false
     if filter == "complete" then return isCollected end
     if filter == "incomplete" then return not isCollected end
@@ -121,7 +117,7 @@ end
 
 local function CraftMatchesActiveFilters(craft, filter, searchText)
     if not addon:ShouldDisplayDecor(craft.decorId) then return false end
-    local record = ResolveCraftRecord(craft.decorId)
+    local record = addon:ResolveRecord(craft.decorId)
     return CraftPassesCompletionFilter(craft, filter, record) and CraftMatchesSearch(craft, searchText, record)
 end
 
@@ -458,7 +454,6 @@ function ProfessionsTab:CreateCraftPanel(parent)
     end)
 
     ScrollUtil.InitScrollBoxListWithScrollBar(scrollBox, scrollBar, view)
-    self.craftView = view
 
     self.craftDataProvider = CreateDataProvider()
     scrollBox:SetDataProvider(self.craftDataProvider)
@@ -549,7 +544,7 @@ function ProfessionsTab:SetupCraftRow(frame, craft)
     frame.decorId = craft.decorId
     frame.craftData = craft
 
-    local record = ResolveCraftRecord(craft.decorId)
+    local record = addon:ResolveRecord(craft.decorId)
     local isCollected = record and record.isCollected
     frame.record = record
     frame.isCollected = isCollected

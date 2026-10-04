@@ -40,9 +40,9 @@ local COLOR_PRESET_ACTIVE = { 0.9, 0.75, 0.3, 1 }  -- Gold
 
 -- Category text color (light purple)
 local COLOR_CATEGORY = { 0.75, 0.65, 0.9 }
-local SOURCE_PREFIX_COLOR = "|cffeac100"
+local SOURCE_PREFIX_COLOR = addon.CONSTANTS.SOURCE_PREFIX_COLOR
 local SOURCE_ACHIEVEMENT_COLOR = "|cffffff00"  -- Blizzard's achievement link yellow
-local COLOR_RESET = "|r"
+local COLOR_RESET = addon.CONSTANTS.COLOR_RESET
 local COPPER_PER_GOLD = 10000
 local COIN_TEXTURE_FONT_HEIGHT = 14
 local CURRENCY_ICON_SIZE = 14
@@ -122,6 +122,15 @@ local function GetCurrencyLink(currencyID, amount)
     return nil
 end
 
+local function FormatItemLinkToken(itemID, label)
+    if type(itemID) ~= "number" or itemID <= 0 or IsSecretValue(itemID)
+        or type(label) ~= "string" or label == ""
+    then
+        return nil
+    end
+    return string.format("|cffffffff|Hitem:%d::::::::|h%s|h|r", itemID, label)
+end
+
 local function FormatCurrencyCostToken(currencyInfo, cost, currencyLabel)
     if not currencyLabel or currencyLabel == "" then return nil end
 
@@ -138,7 +147,7 @@ local function FormatCurrencyCostToken(currencyInfo, cost, currencyLabel)
         local hyperlinked = FormatHyperlinkedCostToken(currencyLink, tokenText)
         if hyperlinked then return hyperlinked end
     elseif currencyInfo and currencyInfo.itemID then
-        return string.format("|cffffffff|Hitem:%d::::::::|h%s|h|r", currencyInfo.itemID, tokenText)
+        return FormatItemLinkToken(currencyInfo.itemID, tokenText) or tokenText
     end
 
     return tokenText
@@ -196,15 +205,6 @@ local function GetLoadedItemName(itemID)
         end
     end
     return nil
-end
-
-local function FormatItemLinkToken(itemID, label)
-    if type(itemID) ~= "number" or itemID <= 0 or IsSecretValue(itemID)
-        or type(label) ~= "string" or label == ""
-    then
-        return nil
-    end
-    return string.format("|cffffffff|Hitem:%d::::::::|h%s|h|r", itemID, label)
 end
 
 local function FormatItemCostComponent(component)
@@ -1227,7 +1227,7 @@ function Preview:ShowDecor(recordID)
         self:Create()
     end
 
-    local record = addon:GetRecord(recordID) or addon:ResolveRecord(recordID)
+    local record = addon:ResolveRecord(recordID)
     if not record then
         -- Item not in catalog (HiddenInCatalog flag) - show name via shared fallback chain
         self.placeholderText:Hide()
@@ -1298,7 +1298,6 @@ function Preview:ShowDecor(recordID)
     actor:SetModelByFileID(record.modelAsset)
 
     self:HideFallback()
-    self.modelScene:Show()
     self.modelReloadNeeded = false
     addon:Debug("Preview showing model for: " .. record.name)
 end

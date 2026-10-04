@@ -8,14 +8,12 @@ local ADDON_NAME, addon = ...
 local CONTENT_TRACKING_TYPE = Enum and Enum.ContentTrackingType
 local CONTENT_TRACKING_ERROR = Enum and Enum.ContentTrackingError
 local CONTENT_TRACKING_STOP_TYPE = Enum and Enum.ContentTrackingStopType
-local CONTENT_TRACKING_CONSTANTS = Constants and Constants.ContentTrackingConsts
 
 -- Export addon table globally for other files and debugging
 HousingCodex = addon
 
 -- Version info (read from TOC at runtime - single source of truth)
 addon.version = C_AddOns.GetAddOnMetadata(ADDON_NAME, "Version") or "unknown"
-addon.addonName = ADDON_NAME
 
 -- Localization table (populated by Locales/*.lua)
 addon.L = {}
@@ -126,9 +124,6 @@ addon.CONSTANTS = {
         ROW_SELECTED = { 0.20, 0.20, 0.22, 1 },
     },
 
-    -- Font path
-    FONT_PATH = "Interface\\AddOns\\HousingCodex\\Fonts\\Roboto_Condensed_semibold.ttf",
-
     -- Content tracking (Blizzard enums resolved at load time)
     TRACKING_TYPE_DECOR = CONTENT_TRACKING_TYPE and CONTENT_TRACKING_TYPE.Decor,
     TRACKING_TYPE_ACHIEVEMENT = CONTENT_TRACKING_TYPE and CONTENT_TRACKING_TYPE.Achievement,
@@ -136,7 +131,6 @@ addon.CONSTANTS = {
     TRACKING_ERROR_UNTRACKABLE = CONTENT_TRACKING_ERROR and CONTENT_TRACKING_ERROR.Untrackable,
     TRACKING_ERROR_ALREADY_TRACKED = CONTENT_TRACKING_ERROR and CONTENT_TRACKING_ERROR.AlreadyTracked,
     TRACKING_STOP_MANUAL = CONTENT_TRACKING_STOP_TYPE and CONTENT_TRACKING_STOP_TYPE.Manual,
-    MAX_TRACKED = CONTENT_TRACKING_CONSTANTS and CONTENT_TRACKING_CONSTANTS.MaxTrackedCollectableSources,
     WAYPOINT_MATCH_EPSILON = 0.0001, -- Tolerance for comparing waypoint coordinates
     WAYPOINT_OWNER_GENERIC = "generic",
     WAYPOINT_OWNER_TREASURE_HUNT = "treasure-hunt",
@@ -163,6 +157,9 @@ addon.CONSTANTS = {
     SORT_CLIENT_QUANTITY = 101, -- Client-side: by quantity owned
     SORT_CLIENT_PLACED = 102,   -- Client-side: by quantity placed
 
+    -- Entry type constant for room detection (HousingCatalogConstantsDocumentation: Room = 2)
+    ROOM_ENTRY_TYPE = Enum.HousingCatalogEntryType and Enum.HousingCatalogEntryType.Room or 2,
+
     -- Category navigation
     BUILTIN_ALL_CATEGORY_ID = Constants.HousingCatalogConsts.HOUSING_CATALOG_ALL_CATEGORY_ID,
 
@@ -171,7 +168,6 @@ addon.CONSTANTS = {
         TRANSITION_IMMEDIATE = CAMERA_TRANSITION_TYPE_IMMEDIATE or 1,
         MODIFICATION_DISCARD = CAMERA_MODIFICATION_TYPE_DISCARD or 1,
         MODIFICATION_MAINTAIN = CAMERA_MODIFICATION_TYPE_MAINTAIN or 1,
-        ORBIT_MOUSE_NOTHING = ORBIT_CAMERA_MOUSE_MODE_NOTHING or 0,
         ORBIT_MOUSE_YAW = ORBIT_CAMERA_MOUSE_MODE_YAW_ROTATION or 1,
         ORBIT_MOUSE_PITCH = ORBIT_CAMERA_MOUSE_MODE_PITCH_ROTATION or 2,
         ORBIT_MOUSE_ZOOM = ORBIT_CAMERA_MOUSE_MODE_ZOOM or 6,
@@ -202,6 +198,18 @@ addon.CONSTANTS = {
         edgeSize = 10,
         insets = { left = 2, right = 2, top = 2, bottom = 2 }
     },
+
+    -- Tooltip-style popup backdrop (URL popup, dev report popup)
+    POPUP_BACKDROP = {
+        bgFile = "Interface/Tooltips/UI-Tooltip-Background",
+        edgeFile = "Interface/Tooltips/UI-Tooltip-Border",
+        edgeSize = 16,
+        insets = { left = 4, right = 4, top = 4, bottom = 4 }
+    },
+
+    -- Inline colour codes for "<label>: <name>" source text (vendor/drop indexes, preview details)
+    SOURCE_PREFIX_COLOR = "|cffeac100",
+    COLOR_RESET = "|r",
 
     -- Action button styling (same style as Collected/Uncollected filters)
     ACTION_BUTTON = {
@@ -278,7 +286,6 @@ addon.CONSTANTS = {
         ANIM_FADE_IN = 0.875,
         ANIM_SLIDE_OFFSET = 30,
         ANIM_FADE_OUT = 0.2,
-        ANIM_CROSSFADE = 0.15,
         MAX_DISMISS_COUNT = 2,
     },
 
@@ -322,6 +329,15 @@ addon.CONSTANTS = {
         REFRESH_DEBOUNCE = 0.1,
     },
 }
+
+-- Panels (Endeavors frames, Hidden Items list, Welcome feature cards) reuse the button backdrop.
+-- SetBackdrop keeps a reference to the table it is given, so treat shared backdrop tables as
+-- immutable: to vary one frame, CopyTable() the backdrop and edit the copy before SetBackdrop.
+addon.CONSTANTS.PANEL_BACKDROP = addon.CONSTANTS.TOGGLE_BUTTON_BACKDROP
+
+function addon.IsRoomRecord(record)
+    return record ~= nil and record.entryType == addon.CONSTANTS.ROOM_ENTRY_TYPE
+end
 
 -- Internal Event System
 addon.internalEvents = {}
@@ -637,17 +653,6 @@ function addon:VendorDecorHasCurrencyMatching(vendorData, decorId, predicate, co
     return ForEachVendorDecorCurrencyKey(self, vendorData, decorId, predicate, context)
 end
 
-function addon:GetVendorCurrencyKey(vendorData, decorId)
-    local amount, currencyName = self:GetVendorDecorCostDetails(vendorData, decorId)
-    if currencyName and currencyName ~= "" then
-        return currencyName
-    end
-    if amount ~= nil then
-        return self.CONSTANTS.VENDOR_CURRENCY_GOLD_KEY
-    end
-    return nil
-end
-
 function addon:GetDecorLink(recordID, callback)
     local record = recordID and self:GetRecord(recordID)
     local fallback = string.format("|cFFFFD100[%s]|r", record and record.name or addon.L["UNKNOWN"])
@@ -849,7 +854,7 @@ end
 -- @param label: Button text
 -- @param onClick: Function called when button clicked
 -- @param onTooltip: Optional function(btn) to show custom tooltip on hover
--- @return button: The button frame with UpdateVisuals(), SetActive(bool), SetEnabled(bool) methods
+-- @return button: The button frame with SetActive(bool), SetEnabled(bool) methods
 function addon:CreateActionButton(parent, label, onClick, onTooltip)
     local AB = self.CONSTANTS.ACTION_BUTTON
     local BACKDROP = self.CONSTANTS.TOGGLE_BUTTON_BACKDROP
@@ -889,7 +894,6 @@ function addon:CreateActionButton(parent, label, onClick, onTooltip)
             btn.text:SetTextColor(unpack(AB.COLOR_TEXT_NORMAL))
         end
     end
-    btn.UpdateVisuals = UpdateVisuals
 
     -- Set active state (e.g., "currently tracking")
     function btn:SetActive(active)
@@ -1282,7 +1286,7 @@ function addon:SetupTileDisplay(tile, record, cameraModType)
     return true
 end
 
--- Shared Keybind Helpers (used by SettingsPanel and WhatsNewFrame)
+-- Shared Keybind Helpers (used by SettingsPanel)
 addon.BINDING_ACTION = "HOUSINGCODEX_TOGGLE"
 
 addon.MODIFIER_KEYS = {
@@ -1290,10 +1294,6 @@ addon.MODIFIER_KEYS = {
     LCTRL = true, RCTRL = true,
     LALT = true, RALT = true,
 }
-
-function addon.GetCurrentKeybind()
-    return GetBindingKey(addon.BINDING_ACTION)
-end
 
 function addon.GetKeybindDisplayText()
     local key1, key2 = GetBindingKey(addon.BINDING_ACTION)
@@ -1388,12 +1388,7 @@ function addon:CreateDevReportPopup()
     popup:RegisterForDrag("LeftButton")
     popup:SetScript("OnDragStart", popup.StartMoving)
     popup:SetScript("OnDragStop", popup.StopMovingOrSizing)
-    popup:SetBackdrop({
-        bgFile = "Interface/Tooltips/UI-Tooltip-Background",
-        edgeFile = "Interface/Tooltips/UI-Tooltip-Border",
-        edgeSize = 16,
-        insets = { left = 4, right = 4, top = 4, bottom = 4 }
-    })
+    popup:SetBackdrop(addon.CONSTANTS.POPUP_BACKDROP)
     popup:SetBackdropColor(0.05, 0.05, 0.06, 0.98)
     popup:SetBackdropBorderColor(0.6, 0.6, 0.6)
     popup:Hide()
@@ -1585,6 +1580,49 @@ function addon:RunDevPatchMissingReport()
     self:ShowDevReportPopup(table.concat(lines, "\n"))
 end
 
+-- Debug: inspect a record by partial name match
+function addon:RunDevInspect(searchName)
+    local L = self.L
+    if not self.dataLoaded then
+        self:Print(L["DATA_NOT_LOADED"])
+        return
+    end
+    for recordID, record in pairs(self.decorRecords) do
+        if record.name:lower():find(searchName) then
+            self:Print(string.format(L["INSPECT_FOUND"], record.name, recordID))
+            self:Print("  icon: " .. tostring(record.icon) .. " (type: " .. type(record.icon) .. ")")
+            self:Print("  iconType: " .. tostring(record.iconType))
+            self:Print("  modelAssetPresent: " .. tostring(record.modelAsset ~= nil))
+            self:Print("  isModelOnly: " .. tostring(record.isModelOnly))
+            self:Print("  modelAsset: " .. tostring(record.modelAsset))
+            -- Also get raw info from API
+            local entryType = record.entryType
+            local rawRecordID = record.recordID
+            local isSecretValue = type(issecretvalue) == "function" and issecretvalue
+            local info
+            local canInspectRawCatalogInfo = C_HousingCatalog
+                and C_HousingCatalog.GetCatalogEntryInfoByRecordID
+                and entryType
+                and rawRecordID
+                and not (isSecretValue and isSecretValue(entryType))
+                and not (isSecretValue and isSecretValue(rawRecordID))
+            if canInspectRawCatalogInfo then
+                info = C_HousingCatalog.GetCatalogEntryInfoByRecordID(entryType, rawRecordID)
+            end
+            if info then
+                self:Print("  RAW iconTexture: " .. tostring(info.iconTexture) .. " (type: " .. type(info.iconTexture) .. ")")
+                self:Print("  RAW iconAtlas: " .. tostring(info.iconAtlas) .. " (type: " .. type(info.iconAtlas) .. ")")
+                self:Print("  RAW asset: " .. tostring(info.asset))
+                -- Try GetDecorIcon
+                local decorIcon = C_HousingDecor and C_HousingDecor.GetDecorIcon and C_HousingDecor.GetDecorIcon(recordID)
+                self:Print("  GetDecorIcon: " .. tostring(decorIcon) .. " (type: " .. type(decorIcon) .. ")")
+            end
+            return
+        end
+    end
+    self:Print(string.format(L["INSPECT_NOT_FOUND"], searchName))
+end
+
 SlashCmdList["HOUSINGCODEX"] = function(msg)
     local cmd = strlower(strtrim(msg or ""))
     local L = addon.L
@@ -1642,46 +1680,7 @@ SlashCmdList["HOUSINGCODEX"] = function(msg)
     elseif cmd == "devpatchmissing" then
         addon:RunDevPatchMissingReport()
     elseif cmd:find("^inspect ") then
-        -- Debug: inspect a record by partial name match
-        local searchName = cmd:sub(9):lower()
-        if not addon.dataLoaded then
-            addon:Print(L["DATA_NOT_LOADED"])
-            return
-        end
-        for recordID, record in pairs(addon.decorRecords) do
-            if record.name:lower():find(searchName) then
-                addon:Print(string.format(L["INSPECT_FOUND"], record.name, recordID))
-                addon:Print("  icon: " .. tostring(record.icon) .. " (type: " .. type(record.icon) .. ")")
-                addon:Print("  iconType: " .. tostring(record.iconType))
-                addon:Print("  modelAssetPresent: " .. tostring(record.modelAsset ~= nil))
-                addon:Print("  isModelOnly: " .. tostring(record.isModelOnly))
-                addon:Print("  modelAsset: " .. tostring(record.modelAsset))
-                -- Also get raw info from API
-                local entryType = record.entryType
-                local rawRecordID = record.recordID
-                local isSecretValue = type(issecretvalue) == "function" and issecretvalue
-                local info
-                local canInspectRawCatalogInfo = C_HousingCatalog
-                    and C_HousingCatalog.GetCatalogEntryInfoByRecordID
-                    and entryType
-                    and rawRecordID
-                    and not (isSecretValue and isSecretValue(entryType))
-                    and not (isSecretValue and isSecretValue(rawRecordID))
-                if canInspectRawCatalogInfo then
-                    info = C_HousingCatalog.GetCatalogEntryInfoByRecordID(entryType, rawRecordID)
-                end
-                if info then
-                    addon:Print("  RAW iconTexture: " .. tostring(info.iconTexture) .. " (type: " .. type(info.iconTexture) .. ")")
-                    addon:Print("  RAW iconAtlas: " .. tostring(info.iconAtlas) .. " (type: " .. type(info.iconAtlas) .. ")")
-                    addon:Print("  RAW asset: " .. tostring(info.asset))
-                    -- Try GetDecorIcon
-                    local decorIcon = C_HousingDecor and C_HousingDecor.GetDecorIcon and C_HousingDecor.GetDecorIcon(recordID)
-                    addon:Print("  GetDecorIcon: " .. tostring(decorIcon) .. " (type: " .. type(decorIcon) .. ")")
-                end
-                return
-            end
-        end
-        addon:Print(string.format(L["INSPECT_NOT_FOUND"], searchName))
+        addon:RunDevInspect(cmd:sub(9):lower())
     elseif addon.MainFrame then
         addon.MainFrame:Toggle()
     else
@@ -1781,12 +1780,7 @@ function addon:CreateURLPopup()
     local popup = CreateFrame("Frame", "HousingCodexURLPopup", UIParent, "BackdropTemplate")
     popup:SetSize(480, 40)
     popup:SetFrameStrata("DIALOG")
-    popup:SetBackdrop({
-        bgFile = "Interface/Tooltips/UI-Tooltip-Background",
-        edgeFile = "Interface/Tooltips/UI-Tooltip-Border",
-        edgeSize = 16,
-        insets = { left = 4, right = 4, top = 4, bottom = 4 }
-    })
+    popup:SetBackdrop(addon.CONSTANTS.POPUP_BACKDROP)
     popup:SetBackdropColor(0.1, 0.1, 0.1, 0.95)
     popup:SetBackdropBorderColor(0.6, 0.6, 0.6)
     popup:Hide()

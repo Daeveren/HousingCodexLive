@@ -425,7 +425,7 @@ function EndeavorsData:GetTaskCompletionCount(taskID, taskName)
     local current = task
     local seen = {}
     while current and current.supersedes and current.supersedes ~= 0 do
-        local currentID = current.ID or current.taskID
+        local currentID = current.ID
         if currentID then
             if seen[currentID] then break end
             seen[currentID] = true
@@ -538,6 +538,48 @@ function EndeavorsData:StopInitiativePoll()
     if initiativePollTicker then
         initiativePollTicker:Cancel()
         initiativePollTicker = nil
+    end
+end
+
+--------------------------------------------------------------------------------
+-- Housing Dashboard
+--------------------------------------------------------------------------------
+
+-- Open the Housing Dashboard and navigate to a specific content tab.
+-- tabID: the tab ID key on the HouseInfoContent frame (e.g. "houseUpgradeTabID", "endeavorTabID")
+-- hideMainFrame: hide the Housing Codex window before the dashboard opens
+function addon:OpenHousingDashboard(tabID, hideMainFrame)
+    if InCombatLockdown() then return end
+    if PlayerIsTimerunning()
+        or not C_Housing.IsHousingServiceEnabled()
+        or C_PlayerInfo.IsPlayerNPERestricted() then
+        return
+    end
+    if not HousingDashboardFrame then
+        pcall(C_AddOns.LoadAddOn, "Blizzard_HousingDashboard")
+    end
+    if not HousingDashboardFrame then return end
+
+    local function SetDashboardTab(dashboardFrame, tab)
+        local setTab = dashboardFrame and dashboardFrame.SetTab
+        if type(setTab) ~= "function" or tab == nil then return false end
+        return pcall(setTab, dashboardFrame, tab)
+    end
+
+    if hideMainFrame and self.MainFrame then
+        self.MainFrame:Hide()
+    end
+    ShowUIPanel(HousingDashboardFrame)
+    if not SetDashboardTab(HousingDashboardFrame, HousingDashboardFrame.houseInfoTab) then return end
+    local contentFrame = HousingDashboardFrame.HouseInfoContent
+        and HousingDashboardFrame.HouseInfoContent.ContentFrame
+    if contentFrame then
+        if not contentFrame.tabsInitialized then
+            pcall(contentFrame.Initialize, contentFrame)
+        end
+        if contentFrame[tabID] then
+            SetDashboardTab(contentFrame, contentFrame[tabID])
+        end
     end
 end
 

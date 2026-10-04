@@ -239,6 +239,13 @@ local function TouchZoneDecorCache(mapID)
     zoneDecorCacheRecency[mapID] = zoneDecorCacheClock
 end
 
+local function RemoveZoneDecorCacheEntry(mapID)
+    zoneDecorCache[mapID] = nil
+    zoneProgressCache[mapID] = nil
+    zoneDecorCacheRecency[mapID] = nil
+    zoneDecorCacheSize = zoneDecorCacheSize - 1
+end
+
 local function EvictOldestZoneDecorCacheEntry()
     local oldestMapID, oldestAccess
     for cachedMapID, access in pairs(zoneDecorCacheRecency) do
@@ -249,10 +256,7 @@ local function EvictOldestZoneDecorCacheEntry()
     end
     if not oldestMapID then return end
 
-    zoneDecorCache[oldestMapID] = nil
-    zoneProgressCache[oldestMapID] = nil
-    zoneDecorCacheRecency[oldestMapID] = nil
-    zoneDecorCacheSize = zoneDecorCacheSize - 1
+    RemoveZoneDecorCacheEntry(oldestMapID)
 end
 
 local function CacheZoneDecorResult(mapID, result)
@@ -413,7 +417,7 @@ function addon:GetZoneDecorItems(mapID)
     local function AddItem(targetList, recordID, sourceName, sourceId, cityName)
         if seenRecords[recordID] then return end
         seenRecords[recordID] = true
-        local record = self:GetRecord(recordID) or self:ResolveRecord(recordID)
+        local record = self:ResolveRecord(recordID)
         if not self:ShouldDisplayDecor(recordID, record) then return end
         table.insert(targetList, {
             recordID = recordID,
@@ -552,10 +556,7 @@ function addon:InvalidateZoneDecorCache(recordID)
                 if found then break end
             end
             if found then
-                zoneDecorCache[mapID] = nil
-                zoneProgressCache[mapID] = nil
-                zoneDecorCacheRecency[mapID] = nil
-                zoneDecorCacheSize = zoneDecorCacheSize - 1
+                RemoveZoneDecorCacheEntry(mapID)
             end
         end
         return

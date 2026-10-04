@@ -6,11 +6,6 @@
 
 local _, addon = ...
 
--- Get localization key for size enum value (returns nil for None/unknown)
-local function GetSizeKey(size)
-    return addon.CONSTANTS.HOUSING_SIZE_KEYS[size]
-end
-
 -- Fallback icon for items without valid 2D icon (model-only items)
 local FALLBACK_ICON = "Interface\\Icons\\INV_Misc_QuestionMark"
 local FALLBACK_ICON_FILE_ID = GetFileIDFromPath(FALLBACK_ICON)
@@ -98,12 +93,7 @@ local function IsInfoCollected(info)
 end
 addon.IsInfoCollected = IsInfoCollected
 
--- Entry type constant for room detection (HousingCatalogConstantsDocumentation: Room = 2)
-local ROOM_ENTRY_TYPE = Enum.HousingCatalogEntryType and Enum.HousingCatalogEntryType.Room or 2
-
-local function IsRoomRecord(record)
-    return record.entryType == ROOM_ENTRY_TYPE
-end
+local IsRoomRecord = addon.IsRoomRecord
 
 -- Update a record's ownership fields from API info
 local function RefreshRecordOwnership(record, info)
@@ -184,15 +174,12 @@ local function GetEntryIcon(info)
     return FALLBACK_ICON, "texture", true  -- third return = isModelOnly
 end
 
--- Shared record constructor used by both BuildRecord and ResolveRecord
+-- Shared record constructor used by both ProcessBatch and ResolveRecord
 -- options.resolveTracking: query C_ContentTracking for live tracking state
 local function BuildRecordFields(recordID, entryType, info, options)
     local icon, iconType, isModelOnly = GetEntryIcon(info)
-    local totalOwned = CalculateTotalOwned(info)
     local itemID = info.itemID
     local addedPatch = recordID and addon.DecorAddedPatchByRecordID and addon.DecorAddedPatchByRecordID[recordID]
-
-    local isCollected = IsInfoCollected(info)
 
     local isTrackable, isTracking = false, false
     if options and options.resolveTracking then
@@ -201,22 +188,17 @@ local function BuildRecordFields(recordID, entryType, info, options)
         isTracking  = ct and TRACKING_TYPE_DECOR and ct.IsTracking  and ct.IsTracking(TRACKING_TYPE_DECOR, recordID)  or false
     end
 
-    return {
+    local record = {
         recordID = recordID,
         entryType = entryType,
         name = info.name or "",
         icon = icon,
         iconType = iconType,
         isModelOnly = isModelOnly or false,
-        quantity = info.totalNumStored or 0,
-        numPlaced = info.totalNumPlaced or 0,
-        remainingRedeemable = info.remainingRedeemable or 0,
-        totalOwned = totalOwned,
-        isCollected = isCollected,
         categoryIDs = info.categoryIDs or {},
         subcategoryIDs = info.subcategoryIDs or {},
         size = info.size or 0,
-        sizeKey = GetSizeKey(info.size),
+        sizeKey = addon.CONSTANTS.HOUSING_SIZE_KEYS[info.size],
         isIndoors = info.isAllowedIndoors or false,
         isOutdoors = info.isAllowedOutdoors or false,
         canCustomize = info.canCustomize or false,
@@ -228,10 +210,8 @@ local function BuildRecordFields(recordID, entryType, info, options)
         isTrackable = isTrackable,
         isTracking = isTracking,
     }
-end
-local function BuildRecord(entryID, info)
-    if not info then return nil end
-    return BuildRecordFields(entryID.recordID, entryID.entryType, info)
+    RefreshRecordOwnership(record, info)
+    return record
 end
 
 function addon:ScheduleRetry(reason)
@@ -454,7 +434,7 @@ function addon:ProcessSearchResults(searcher, generation)
                 -- native totalNumStored/totalNumPlaced/remainingRedeemable already sum across variants.
                 local info = GetCatalogEntryInfoByRecordID(entryType, recordID)
                 if info and not info.isPrefab then
-                    local record = BuildRecord(entryVariantID, info)
+                    local record = BuildRecordFields(entryVariantID.recordID, entryVariantID.entryType, info)
                     if record then
                         records[recordID] = record
                         recordCount = recordCount + 1
@@ -518,6 +498,32 @@ end
 function addon:GetRecord(recordID)
     local record = self.decorRecords[recordID] or self.fallbackRecords[recordID]
     return record ~= false and record or nil
+end
+
+-- Back-fill empty record.sourceText from a source index's { [decorId] = sourceText } map
+-- (vendor and drop indexes). Returns how many records were filled.
+function addon:EnrichRecordsSourceText(sourceTextByDecorId)
+    if not sourceTextByDecorId then return 0 end
+
+    local enriched = 0
+    for decorId, sourceText in pairs(sourceTextByDecorId) do
+        local primary = self.decorRecords and self.decorRecords[decorId]
+        if primary and (not primary.sourceText or primary.sourceText == "") then
+            primary.sourceText = sourceText
+            enriched = enriched + 1
+        end
+        local fallback = self.fallbackRecords and self.fallbackRecords[decorId]
+        if fallback and fallback ~= false and (not fallback.sourceText or fallback.sourceText == "") then
+            fallback.sourceText = sourceText
+            enriched = enriched + 1
+        end
+    end
+
+    if enriched > 0 then
+        self.byWordIndexBuilt = false
+    end
+
+    return enriched
 end
 
 -- Resolve display name for a decorId with fallback chain:
@@ -620,28 +626,6 @@ end)
 -- Count cache: invalidated by BuildCollectedIndex (full rebuild) and targeted ownership handler
 addon.countCache = {}
 
-function addon:GetRecordCount()
-    if not self.indexesBuilt then return 0 end
-    if self.countCache.recordCount ~= nil then return self.countCache.recordCount end
-    local count = 0
-    for _ in pairs(self.decorRecords) do
-        count = count + 1
-    end
-    self.countCache.recordCount = count
-    return count
-end
-
-function addon:GetUniqueCollectedCount()
-    if not self.indexesBuilt then return 0 end
-    if self.countCache.uniqueCollected ~= nil then return self.countCache.uniqueCollected end
-    local count = 0
-    for _ in pairs(self.indexes.collected) do
-        count = count + 1
-    end
-    self.countCache.uniqueCollected = count
-    return count
-end
-
 local function IterateCollected(decorRecords, collected, isRoom, fn)
     for recordID in pairs(collected) do
         local record = decorRecords[recordID]
@@ -671,34 +655,6 @@ function addon:GetRoomCollectedCount()
     return count
 end
 
-function addon:GetTotalOwnedCount()
-    if not self.indexesBuilt then return 0 end
-    if self.countCache.totalOwned ~= nil then return self.countCache.totalOwned end
-    local total = 0
-    for recordID in pairs(self.indexes.collected) do
-        local record = self.decorRecords[recordID]
-        if record and record.totalOwned then
-            total = total + record.totalOwned
-        end
-    end
-    self.countCache.totalOwned = total
-    return total
-end
-
--- Decor-only total owned (excludes rooms)
-function addon:GetTotalDecorOwnedCount()
-    if not self.indexesBuilt then return 0 end
-    if self.countCache.totalDecorOwned ~= nil then return self.countCache.totalDecorOwned end
-    local total = 0
-    IterateCollected(self.decorRecords, self.indexes.collected, false, function(record)
-        if record.totalOwned then
-            total = total + record.totalOwned
-        end
-    end)
-    self.countCache.totalDecorOwned = total
-    return total
-end
-
 local function CountRecordsByRoom(decorRecords, isRoom)
     local count = 0
     for _, record in pairs(decorRecords) do
@@ -707,14 +663,6 @@ local function CountRecordsByRoom(decorRecords, isRoom)
         end
     end
     return count
-end
-
--- Decor-only record count (total decor in catalog, excludes rooms)
-function addon:GetDecorRecordCount()
-    if not self.indexesBuilt then return 0 end
-    if self.countCache.decorRecordCount ~= nil then return self.countCache.decorRecordCount end
-    self.countCache.decorRecordCount = CountRecordsByRoom(self.decorRecords, false)
-    return self.countCache.decorRecordCount
 end
 
 -- Room-only record count (total rooms in catalog)
@@ -754,7 +702,7 @@ function addon:UpdateAllTrackingStatus()
     local trackableCount = 0
     local trackingCount = 0
 
-    for recordID, record in pairs(self.decorRecords) do
+    local function UpdateRecordTrackingFlags(recordID, record)
         if IsTrackable then
             record.isTrackable = IsTrackable(TRACKING_TYPE_DECOR, recordID)
             if record.isTrackable then
@@ -770,22 +718,14 @@ function addon:UpdateAllTrackingStatus()
         end
     end
 
+    for recordID, record in pairs(self.decorRecords) do
+        UpdateRecordTrackingFlags(recordID, record)
+    end
+
     -- Also update fallback records (hidden-catalog items resolved via ResolveRecord)
     for recordID, record in pairs(self.fallbackRecords) do
         if record then  -- Skip false sentinel (negative cache)
-            if IsTrackable then
-                record.isTrackable = IsTrackable(TRACKING_TYPE_DECOR, recordID)
-                if record.isTrackable then
-                    trackableCount = trackableCount + 1
-                end
-            end
-
-            if IsTracking then
-                record.isTracking = IsTracking(TRACKING_TYPE_DECOR, recordID)
-                if record.isTracking then
-                    trackingCount = trackingCount + 1
-                end
-            end
+            UpdateRecordTrackingFlags(recordID, record)
         end
     end
 
@@ -965,30 +905,13 @@ addon:RegisterWoWEvent("HOUSING_STORAGE_ENTRY_UPDATED", function(entryVariantID)
     if not HasValidCatalogRecordLookupArgs(entryType, recordID) then return end
 
     local record = addon.decorRecords[recordID]
+    local isFallback = false
 
     if not record then
         -- Check fallback records (hidden-catalog items resolved via ResolveRecord)
         record = addon.fallbackRecords[recordID]
         if not record then return end
-
-        -- Use recordID-based query so the returned info
-        -- reflects owned state regardless of which stack the event fired for.
-        local info = GetCatalogEntryInfoByRecordID(entryType, recordID)
-        if not info then return end
-
-        addon:Debug("Storage entry updated (fallback): " .. tostring(recordID))
-        addon:CountDebug("ownership", "targeted")
-
-        local wasCollected = record.isCollected
-        RefreshRecordOwnership(record, info)
-        local collectionStateChanged = (record.isCollected ~= wasCollected)
-
-        -- Skip collected index patch — fallback items are excluded by design
-        addon:FireEvent("RECORD_OWNERSHIP_UPDATED", recordID, collectionStateChanged, "targeted")
-        if collectionStateChanged and addon.MainFrame and addon.MainFrame:IsShown() then
-            addon:RunSearchNow("ownership changed")
-        end
-        return
+        isFallback = true
     end
 
     -- Use recordID-based query so the returned info reflects the best owned stack
@@ -996,24 +919,27 @@ addon:RegisterWoWEvent("HOUSING_STORAGE_ENTRY_UPDATED", function(entryVariantID)
     local info = GetCatalogEntryInfoByRecordID(entryType, recordID)
     if not info then return end
 
-    addon:Debug("Storage entry updated: " .. tostring(recordID))
+    addon:Debug("Storage entry updated" .. (isFallback and " (fallback)" or "") .. ": " .. tostring(recordID))
     addon:CountDebug("ownership", "targeted")
 
     local wasCollected = record.isCollected
     RefreshRecordOwnership(record, info)
     local collectionStateChanged = (record.isCollected ~= wasCollected)
 
-    -- O(1) index patch for the single updated record (avoids full BuildCollectedIndex rebuild)
-    if addon.indexesBuilt and addon.indexes and addon.indexes.collected and collectionStateChanged then
-        if record.isCollected then
-            addon.indexes.collected[recordID] = true
-        else
-            addon.indexes.collected[recordID] = nil
+    -- Fallback items skip the collected index patch and count cache wipe (excluded by design)
+    if not isFallback then
+        -- O(1) index patch for the single updated record (avoids full BuildCollectedIndex rebuild)
+        if addon.indexesBuilt and addon.indexes and addon.indexes.collected and collectionStateChanged then
+            if record.isCollected then
+                addon.indexes.collected[recordID] = true
+            else
+                addon.indexes.collected[recordID] = nil
+            end
         end
-    end
 
-    -- Invalidate count cache after index patch (targeted path bypasses BuildCollectedIndex)
-    wipe(addon.countCache)
+        -- Invalidate count cache after index patch (targeted path bypasses BuildCollectedIndex)
+        wipe(addon.countCache)
+    end
 
     addon:FireEvent("RECORD_OWNERSHIP_UPDATED", recordID, collectionStateChanged, "targeted")
     if collectionStateChanged and addon.MainFrame and addon.MainFrame:IsShown() then

@@ -7,8 +7,8 @@
 
 local _, addon = ...
 local L = addon.L
-local SOURCE_PREFIX_COLOR = "|cffeac100"
-local COLOR_RESET = "|r"
+local SOURCE_PREFIX_COLOR = addon.CONSTANTS.SOURCE_PREFIX_COLOR
+local COLOR_RESET = addon.CONSTANTS.COLOR_RESET
 
 -- Source category display info
 local SOURCE_CATEGORY_INFO = {
@@ -113,7 +113,7 @@ function addon:ResolveDropShopRecords()
                 for _, decorId in ipairs(sourceData.decorIds or {}) do
                     if decorId and not seen[decorId] then
                         seen[decorId] = true
-                        if self:GetRecord(decorId) or self:ResolveRecord(decorId) then
+                        if self:ResolveRecord(decorId) then
                             resolved = resolved + 1
                         end
                     end
@@ -131,27 +131,7 @@ function addon:ResolveDropShopRecords()
 end
 
 function addon:EnrichDropSourceText()
-    if not self.decorDropSourceText then return 0 end
-
-    local enriched = 0
-    for decorId, sourceText in pairs(self.decorDropSourceText) do
-        local primary = self.decorRecords and self.decorRecords[decorId]
-        if primary and (not primary.sourceText or primary.sourceText == "") then
-            primary.sourceText = sourceText
-            enriched = enriched + 1
-        end
-        local fallback = self.fallbackRecords and self.fallbackRecords[decorId]
-        if fallback and fallback ~= false and (not fallback.sourceText or fallback.sourceText == "") then
-            fallback.sourceText = sourceText
-            enriched = enriched + 1
-        end
-    end
-
-    if enriched > 0 then
-        self.byWordIndexBuilt = false
-    end
-
-    return enriched
+    return self:EnrichRecordsSourceText(self.decorDropSourceText)
 end
 
 function addon:BuildDropIndex()

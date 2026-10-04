@@ -198,8 +198,6 @@ function addon:PlayStarTwinkle(star, host)
         local baseWidth, baseHeight = GetStarSize(star)
         twinkle = {
             star = star,
-            baseWidth = baseWidth,
-            baseHeight = baseHeight,
             baseAlpha = star:GetAlpha() or 1,
             starSize = math.max(baseWidth, baseHeight),
             sparks = {},
@@ -211,9 +209,8 @@ function addon:PlayStarTwinkle(star, host)
         end
         host.hcStarTwinkle = twinkle
     else
-        twinkle.baseWidth, twinkle.baseHeight = GetStarSize(star)
-        twinkle.baseAlpha = twinkle.baseAlpha or star:GetAlpha() or 1
-        twinkle.starSize = math.max(twinkle.baseWidth, twinkle.baseHeight)
+        local baseWidth, baseHeight = GetStarSize(star)
+        twinkle.starSize = math.max(baseWidth, baseHeight)
     end
 
     twinkle.elapsed = 0

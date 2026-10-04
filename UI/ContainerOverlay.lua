@@ -74,7 +74,7 @@ local function GetDecorRecordID(itemID)
 end
 
 local function IsDecorRecordOwned(recordID)
-    local record = recordID and (addon:GetRecord(recordID) or addon:ResolveRecord(recordID))
+    local record = recordID and addon:ResolveRecord(recordID)
     if record then return record.isCollected == true end
     return addon.indexes and addon.indexes.collected
         and addon.indexes.collected[recordID] == true
@@ -92,7 +92,7 @@ function ContainerOverlay:GetOrCreateOverlay(button)
     -- HC icon with shadow (sizes and anchors are defined in XML)
     local hcIcon, hcShadow = addon.SetupIconWithShadow(frame.HCIcon, frame.HCShadow)
 
-    -- Owned checkmark with shadow (sizes and anchors are defined in XML)
+    -- Owned checkmark with shadow (sizes are defined in XML; the shadow is anchored in SetupOwnedCheckmark)
     local checkmark, checkShadow = addon.SetupOwnedCheckmark(frame.Checkmark, frame.CheckShadow)
 
     overlay = {
@@ -169,7 +169,6 @@ function ContainerOverlay:UpdateButton(button, itemID)
     end
 
     local overlay = self:GetOrCreateOverlay(button)
-    if not overlay then return end
 
     overlay.frame:ClearAllPoints()
     overlay.frame:SetPoint("TOPLEFT", button, "TOPLEFT", 0, 0)
@@ -318,6 +317,12 @@ local function QueueBagUpdate(bagID)
     C_Timer.After(0, FlushPendingBagUpdates)
 end
 
+local function IsBankInteraction(interactionType)
+    return interactionType == Enum.PlayerInteractionType.Banker
+        or interactionType == Enum.PlayerInteractionType.CharacterBanker
+        or interactionType == Enum.PlayerInteractionType.AccountBanker
+end
+
 -- Initialize hooks and events
 function ContainerOverlay:Initialize()
     if initialized then return end
@@ -373,9 +378,7 @@ function ContainerOverlay:Initialize()
             RefreshAll()
         elseif event == "PLAYER_INTERACTION_MANAGER_FRAME_SHOW" then
             local interactionType = ...
-            if interactionType == Enum.PlayerInteractionType.Banker
-               or interactionType == Enum.PlayerInteractionType.CharacterBanker
-               or interactionType == Enum.PlayerInteractionType.AccountBanker then
+            if IsBankInteraction(interactionType) then
                 if dirty then
                     RefreshAll()
                 else
@@ -384,9 +387,7 @@ function ContainerOverlay:Initialize()
             end
         elseif event == "PLAYER_INTERACTION_MANAGER_FRAME_HIDE" then
             local interactionType = ...
-            if interactionType == Enum.PlayerInteractionType.Banker
-               or interactionType == Enum.PlayerInteractionType.CharacterBanker
-               or interactionType == Enum.PlayerInteractionType.AccountBanker then
+            if IsBankInteraction(interactionType) then
                 self:HideAllOverlays()
                 if AreBagsVisible() then
                     self:UpdateAllContainerFrames()

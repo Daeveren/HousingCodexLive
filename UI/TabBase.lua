@@ -1,7 +1,7 @@
 --[[
     Housing Codex - TabBase.lua
-    Shared mixin for hierarchy tabs (QuestsTab, AchievementsTab)
-    Provides common toolbar, filter state, and visual helpers
+    Shared mixin for all browse tabs (toolbar, hierarchy panels, selection helpers,
+    and the Category > Source > Decor framework used by DropsTab/PvPTab)
 ]]
 
 local _, addon = ...
@@ -195,9 +195,9 @@ end
 --------------------------------------------------------------------------------
 
 -- Create a standard toolbar with search box and completion filter buttons.
--- All 6 hierarchy tabs use identical toolbar layout; only L-key prefixes differ.
+-- Browse tabs share an identical toolbar layout; only L-key prefixes differ.
 -- @param parent: Parent frame
--- @param config: { searchPlaceholderKey, filterPrefix, defaultFilter }
+-- @param config: { searchPlaceholderKey, filterPrefix }
 --   filterPrefix: e.g. "VENDORS" → uses L["VENDORS_FILTER_ALL"], L["VENDORS_FILTER_INCOMPLETE"], L["VENDORS_FILTER_COMPLETE"]
 function TabBaseMixin:CreateStandardToolbar(parent, config)
     local L = addon.L
@@ -247,7 +247,7 @@ function TabBaseMixin:CreateStandardToolbar(parent, config)
     end
 
     filterContainer:SetWidth(xOffset - 4)
-    self:SetCompletionFilter(config.defaultFilter or "all")
+    self:SetCompletionFilter("all")
 
     toolbar:SetScript("OnSizeChanged", function(_, width)
         self:UpdateToolbarLayout(width)
@@ -1085,10 +1085,6 @@ function TabBaseMixin:BuildSourceVisibilityCache(filter, searchText)
     return cache
 end
 
-function TabBaseMixin:IsSourceVisible(sourceData, category, filter, searchText, visCache)
-    return self:GetVisibleSourceElement(sourceData, category, filter, searchText, visCache) ~= nil
-end
-
 function TabBaseMixin:GetVisibleSourceElement(sourceData, category, filter, searchText, visCache)
     if visCache then
         return visCache[category .. "\0" .. sourceData.sourceName]
@@ -1120,7 +1116,7 @@ function TabBaseMixin:BuildCategoryDisplay(visCache)
     for _, category in ipairs(self.cfg.getSortedCategories()) do
         local hasVisibleContent = false
         for _, sourceData in ipairs(self.cfg.getSourcesForCategory(category)) do
-            if self:IsSourceVisible(sourceData, category, filter, searchText, visCache) then
+            if self:GetVisibleSourceElement(sourceData, category, filter, searchText, visCache) then
                 hasVisibleContent = true
                 break
             end

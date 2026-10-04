@@ -24,12 +24,7 @@ local function CreateBrokerPopup()
     local popup = CreateFrame("Frame", "HousingCodexBrokerPopup", UIParent, "BackdropTemplate")
     popup:SetSize(220, 168)
     popup:SetFrameStrata("DIALOG")
-    popup:SetBackdrop({
-        bgFile = "Interface/Tooltips/UI-Tooltip-Background",
-        edgeFile = "Interface/Tooltips/UI-Tooltip-Border",
-        edgeSize = 16,
-        insets = { left = 4, right = 4, top = 4, bottom = 4 }
-    })
+    popup:SetBackdrop(addon.CONSTANTS.POPUP_BACKDROP)
     popup:SetBackdropColor(0.1, 0.1, 0.1, 0.95)
     popup:SetBackdropBorderColor(0.6, 0.6, 0.6)
     popup:Hide()
@@ -127,10 +122,8 @@ local function HandleClick(clickedFrame, button)
             end
             return
         end
-        if addon.Settings and addon.Settings.Open then
+        if addon.Settings then
             addon.Settings:Open()
-        else
-            addon:Print(L["LDB_OPTIONS_PLACEHOLDER"])
         end
     end
 end
@@ -255,11 +248,12 @@ function LDB:UpdateText()
 end
 
 -- Debounced refresh: update broker text (indexes already patched by Data.lua)
+local updatePending = false
 local function DebouncedRefresh()
-    if LDB.updatePending then return end
-    LDB.updatePending = true
+    if updatePending then return end
+    updatePending = true
     C_Timer.After(addon.CONSTANTS.TIMER.OWNERSHIP_REFRESH_DEBOUNCE, function()
-        LDB.updatePending = false
+        updatePending = false
         LDB:UpdateText()
     end)
 end

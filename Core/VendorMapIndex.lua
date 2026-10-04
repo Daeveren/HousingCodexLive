@@ -134,7 +134,7 @@ local function BuildVendorMapIndex()
     local vendorsByMapID = {}
     local playerFaction = UnitFactionGroup("player") or ""
 
-    for npcId, vendorEntry in pairs(addon.vendorIndex or {}) do
+    for npcId, vendorEntry in pairs(addon.vendorIndex) do
         if addon:ShouldShowVendorForPlayerProfessionFilter(npcId) then
             local locations = addon:GetNPCLocations(npcId)
             if locations then
@@ -243,9 +243,5 @@ addon:RegisterInternalEvent("RECORD_OWNERSHIP_UPDATED", function(recordID, colle
 end)
 
 addon:RegisterInternalEvent("ACHIEVEMENT_COMPLETION_CHANGED", function()
-    addon:InvalidateVendorPinCache()
-end)
-
-addon:RegisterInternalEvent(addon.Events.DECOR_VISIBILITY_CHANGED, function()
     addon:InvalidateVendorPinCache()
 end)

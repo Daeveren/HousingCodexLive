@@ -136,7 +136,7 @@ local function SetupAchievementRow(self, frame, elementData)
     addon:SetFontSize(frame.label, 14, "")
 
     -- Wishlist star
-    if frame.wishlistStar and elementData.recordID then
+    if elementData.recordID then
         local isWishlisted = addon:IsWishlisted(elementData.recordID)
         addon.TabBaseMixin:UpdateWishlistStar(frame, isWishlisted)
     end
@@ -175,6 +175,14 @@ AchievementCategoryOnLeave = function(frame)
     AchievementsTab:ApplySelectionButtonState(frame, AchievementsTab.selectedCategory == frame.categoryId)
 end
 
+-- Preview the given record, or the achievement's first record when none is given
+local function PreviewAchievement(recordID, achievementID)
+    recordID = recordID or (addon:GetRecordsForAchievement(achievementID) or {})[1]
+    if recordID then
+        addon:FireEvent("RECORD_SELECTED", recordID)
+    end
+end
+
 -- Named handlers for achievement rows (bound once, read data from frame fields)
 AchievementRowOnMouseDown = function(frame, button)
     local elementData = frame.elementData
@@ -198,14 +206,7 @@ AchievementRowOnEnter = function(frame)
         frame.bg:SetColorTexture(unpack(COLORS.ROW_BG_SOLID))
     end
 
-    local recordID = frame.recordID
-    if not recordID then
-        local recordIDs = addon:GetRecordsForAchievement(frame.achievementID)
-        recordID = recordIDs and recordIDs[1]
-    end
-    if recordID then
-        addon:FireEvent("RECORD_SELECTED", recordID)
-    end
+    PreviewAchievement(frame.recordID, frame.achievementID)
 
     addon:AnchorTooltipToCursor(frame)
 
@@ -261,14 +262,7 @@ AchievementRowOnLeave = function(frame)
     ApplyAchievementRowState(frame, AchievementsTab.selectedAchievementID == frame.achievementID and
         (not frame.recordID or AchievementsTab.selectedRecordID == frame.recordID))
 
-    if AchievementsTab.selectedRecordID then
-        addon:FireEvent("RECORD_SELECTED", AchievementsTab.selectedRecordID)
-    elseif AchievementsTab.selectedAchievementID then
-        local recordIDs = addon:GetRecordsForAchievement(AchievementsTab.selectedAchievementID)
-        if recordIDs and recordIDs[1] then
-            addon:FireEvent("RECORD_SELECTED", recordIDs[1])
-        end
-    end
+    PreviewAchievement(AchievementsTab.selectedRecordID, AchievementsTab.selectedAchievementID)
 end
 
 -- Helper to get achievements db state
@@ -561,7 +555,6 @@ function AchievementsTab:CreateAchievementPanel(parent)
     end)
 
     ScrollUtil.InitScrollBoxListWithScrollBar(scrollBox, scrollBar, view)
-    self.achievementView = view
 
     -- Initialize DataProvider once (reused via Flush/InsertTable)
     self.achievementDataProvider = CreateDataProvider()
@@ -616,14 +609,23 @@ local function GetVisibleAchievementRecords(achievementID)
     return addon:FilterVisibleDecorIds(addon:GetRecordsForAchievement(achievementID))
 end
 
+-- Returns the visible records when the achievement passes every filter, else nil
+local function ComputeVisibleRecords(achievementID, filter, searchText, categoryId)
+    local visibleRecords = GetVisibleAchievementRecords(achievementID)
+    if #visibleRecords > 0
+        and AchievementPassesCompletionFilter(achievementID, filter)
+        and AchievementMatchesSearch(achievementID, searchText, categoryId) then
+        return visibleRecords
+    end
+    return nil
+end
+
 function AchievementsTab:BuildAchievementVisibilityCache(filter, searchText)
     local cache = {}
     for _, categoryId in ipairs(addon:GetSortedAchievementCategories()) do
         for _, achievementID in ipairs(addon:GetAchievementsForCategory(categoryId)) do
-            local visibleRecords = GetVisibleAchievementRecords(achievementID)
-            if #visibleRecords > 0
-                and AchievementPassesCompletionFilter(achievementID, filter)
-                and AchievementMatchesSearch(achievementID, searchText, categoryId) then
+            local visibleRecords = ComputeVisibleRecords(achievementID, filter, searchText, categoryId)
+            if visibleRecords then
                 cache[achievementID] = visibleRecords
             end
         end
@@ -635,13 +637,7 @@ function AchievementsTab:GetVisibleAchievementRecordIDs(achievementID, filter, s
     if visCache then
         return visCache[achievementID]
     end
-    local visibleRecords = GetVisibleAchievementRecords(achievementID)
-    if #visibleRecords > 0
-        and AchievementPassesCompletionFilter(achievementID, filter)
-        and AchievementMatchesSearch(achievementID, searchText, categoryId) then
-        return visibleRecords
-    end
-    return nil
+    return ComputeVisibleRecords(achievementID, filter, searchText, categoryId)
 end
 
 function AchievementsTab:IsAchievementVisible(achievementID, filter, searchText, categoryId, visCache)
@@ -781,14 +777,7 @@ function AchievementsTab:SelectAchievement(elementData)
     end
 
     -- Preview the specific reward
-    if recordID then
-        addon:FireEvent("RECORD_SELECTED", recordID)
-    else
-        local recordIDs = addon:GetRecordsForAchievement(achievementID)
-        if recordIDs and recordIDs[1] then
-            addon:FireEvent("RECORD_SELECTED", recordIDs[1])
-        end
-    end
+    PreviewAchievement(recordID, achievementID)
 
     addon:Debug("Selected achievement: " .. tostring(achievementID) .. (recordID and (" recordID: " .. recordID) or ""))
 end

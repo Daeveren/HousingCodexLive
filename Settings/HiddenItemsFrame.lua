@@ -97,7 +97,7 @@ local function SetupRow(row, elementData)
     end
 
     local recordID = elementData.recordID
-    local record = addon:GetRecord(recordID) or addon:ResolveRecord(recordID)
+    local record = addon:ResolveRecord(recordID)
     row.recordID = recordID
 
     if record then
@@ -184,7 +184,6 @@ function HiddenItemsFrame:Create()
     close:SetScript("OnClick", function()
         frame:Hide()
     end)
-    frame.closeButton = close
 
     local clearAll = addon:CreateActionButton(titleBar, L["HIDDEN_ITEMS_CLEAR_ALL"], function()
         local countHidden = addon:GetHiddenDecorCount()
@@ -202,12 +201,7 @@ function HiddenItemsFrame:Create()
     local contentFrame = CreateFrame("Frame", nil, frame, "BackdropTemplate")
     contentFrame:SetPoint("TOPLEFT", CONTENT_INSET, -TITLE_BAR_HEIGHT - CONTENT_INSET)
     contentFrame:SetPoint("BOTTOMRIGHT", -CONTENT_INSET, CONTENT_INSET)
-    contentFrame:SetBackdrop({
-        bgFile = "Interface\\Buttons\\WHITE8x8",
-        edgeFile = "Interface\\Tooltips\\UI-Tooltip-Border",
-        edgeSize = 10,
-        insets = { left = 2, right = 2, top = 2, bottom = 2 },
-    })
+    contentFrame:SetBackdrop(addon.CONSTANTS.PANEL_BACKDROP)
     contentFrame:SetBackdropColor(0.04, 0.04, 0.06, 1)
     contentFrame:SetBackdropBorderColor(0.22, 0.22, 0.27, 1)
     contentFrame:SetFrameLevel(frame:GetFrameLevel() + 1)

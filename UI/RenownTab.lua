@@ -46,7 +46,6 @@ RenownTab.noExpansionState = nil
 RenownTab.noResultsState = nil
 
 RenownTab.selectedExpansion = nil
-RenownTab.selectedFactionID = nil
 RenownTab.selectedDecorId = nil
 
 RenownTab.toolbarLayout = nil
@@ -292,7 +291,6 @@ function RenownTab:SelectExpansion(expKey)
     self:BuildFactionDisplay()
 
     if prevSelected ~= expKey then
-        self.selectedFactionID = nil
         self.selectedDecorId = nil
         addon:FireEvent("RECORD_SELECTED", nil)
     end
@@ -339,7 +337,6 @@ function RenownTab:CreateFactionPanel(parent)
 
     ScrollUtil.InitScrollBoxListWithScrollBar(scrollBox, scrollBar, view)
     scrollBox:SetPanExtent(DECOR_ROW_HEIGHT * 3)
-    self.factionView = view
 
     self.factionDataProvider = CreateDataProvider()
     scrollBox:SetDataProvider(self.factionDataProvider)
@@ -402,7 +399,7 @@ local function DecorRowOnEnter(row)
     if row.vendors then
         for _, vendor in ipairs(row.vendors) do
             local name = addon:GetLocalizedNPCName(vendor.npcId, vendor.name)
-            local zone = addon:GetLocalizedVendorZoneName(vendor.zone) or vendor.zone or ""
+            local zone = addon:GetLocalizedZoneName(vendor.zone) or vendor.zone or ""
             GameTooltip:AddDoubleLine(name, zone, 0.7, 0.7, 0.7, 0.7, 0.7, 0.7)
         end
     end
@@ -469,7 +466,6 @@ function RenownTab:SetupFactionCard(frame, elementData)
     local factionData = elementData.factionData
     local sourceData = addon.RenownSourceData[factionID]
     frame.factionID = factionID
-    frame.factionLabel = factionData.label
     frame.vendors = factionData.vendors
 
     -- Standing info
@@ -592,7 +588,6 @@ end
 
 function RenownTab:ResetFactionFrame(frame)
     frame.factionID = nil
-    frame.factionLabel = nil
     frame.vendors = nil
     frame.headerContainer:Show()
     frame.decorContainer:Hide()
@@ -612,10 +607,9 @@ end
 
 function RenownTab:SetupDecorRows(frame, entries, factionID, vendors, searchText)
     for i, entry in ipairs(entries) do
-        local isTable = type(entry) == "table"
-        local decorId = isTable and entry.decorId or entry
-        local itemReqStanding = isTable and entry.requiredStanding
-        local itemReqRankLevel = isTable and entry.requiredRankLevel
+        local decorId = entry.decorId
+        local itemReqStanding = entry.requiredStanding
+        local itemReqRankLevel = entry.requiredRankLevel
         local row = frame.decorRows[i]
         if not row then
             row = CreateFrame("Button", nil, frame.decorContainer)
@@ -775,7 +769,7 @@ local function FactionMatchesSearch(factionData, searchText)
                 return true
             end
             -- Localized zone
-            local localizedZone = addon:GetLocalizedVendorZoneName(vendor.zone)
+            local localizedZone = addon:GetLocalizedZoneName(vendor.zone)
             if localizedZone and localizedZone ~= vendor.zone and addon:NormalizeSearchText(localizedZone):find(searchText, 1, true) then
                 return true
             end
@@ -808,13 +802,12 @@ local function FactionPassesCompletionFilter(factionID, filter)
     return true
 end
 
-local function GetVisibleDecorEntries(resolvedDecorIds, filter)
-    if not resolvedDecorIds or #resolvedDecorIds == 0 then return {} end
+local function GetVisibleDecorEntries(resolvedDecorEntries, filter)
+    if not resolvedDecorEntries or #resolvedDecorEntries == 0 then return {} end
 
     local visible = {}
-    for _, entry in ipairs(resolvedDecorIds) do
-        local isTable = type(entry) == "table"
-        local decorId = isTable and entry.decorId or entry
+    for _, entry in ipairs(resolvedDecorEntries) do
+        local decorId = entry.decorId
 
         -- Skip items that can't be resolved by the housing catalog (? icon, no preview)
         if addon:ShouldDisplayDecor(decorId) and addon:ResolveRecord(decorId) then
@@ -822,8 +815,8 @@ local function GetVisibleDecorEntries(resolvedDecorIds, filter)
             if not (filter == "incomplete" and isCollected) then
                 table.insert(visible, {
                     decorId = decorId,
-                    requiredStanding = isTable and entry.requiredStanding,
-                    requiredRankLevel = isTable and entry.requiredRankLevel,
+                    requiredStanding = entry.requiredStanding,
+                    requiredRankLevel = entry.requiredRankLevel,
                 })
             end
         end
@@ -839,7 +832,7 @@ local function BuildFactionVisibilityCache(filter, searchText)
     local cache = {}
     for _, expKey in ipairs(addon:GetSortedRenownExpansions()) do
         for _, faction in ipairs(addon:GetFactionsForExpansion(expKey)) do
-            local visibleEntries = GetVisibleDecorEntries(faction.resolvedDecorEntries or faction.resolvedDecorIds, filter)
+            local visibleEntries = GetVisibleDecorEntries(faction.resolvedDecorEntries, filter)
             if #visibleEntries > 0
                 and FactionPassesCompletionFilter(faction.factionID, filter)
                 and FactionMatchesSearch(faction, searchText) then
@@ -870,7 +863,7 @@ function RenownTab:BuildExpansionDisplay(visCache)
 
     if not visCache then
         local filter = self:GetCompletionFilter()
-        local searchText = addon:NormalizeSearchText(self.searchBox and self.searchBox:GetText() or "")
+        local searchText = self:GetActiveSearchText()
         visCache = BuildFactionVisibilityCache(filter, searchText)
     end
 
@@ -901,7 +894,6 @@ function RenownTab:BuildExpansionDisplay(visCache)
     end
     if selectionLost then
         self.selectedExpansion = nil
-        self.selectedFactionID = nil
         self.selectedDecorId = nil
         local db = GetRenownDB()
         if db then db.selectedExpansion = nil end
@@ -914,9 +906,9 @@ end
 function RenownTab:BuildFactionDisplay(visCache)
     if not self.factionScrollBox or not self.factionDataProvider then return end
 
-    local searchText = addon:NormalizeSearchText(self.searchBox and self.searchBox:GetText() or "")
+    local searchText = self:GetActiveSearchText()
+    local filter = self:GetCompletionFilter()
     if not visCache then
-        local filter = self:GetCompletionFilter()
         visCache = BuildFactionVisibilityCache(filter, searchText)
     end
 
@@ -924,11 +916,9 @@ function RenownTab:BuildFactionDisplay(visCache)
     local expKey = self.selectedExpansion
 
     if expKey then
-        local filter = self:GetCompletionFilter()
-
         for _, faction in ipairs(addon:GetFactionsForExpansion(expKey)) do
             if IsFactionVisible(faction.factionID, expKey, visCache) then
-                local visibleEntries = GetVisibleDecorEntries(faction.resolvedDecorEntries or faction.resolvedDecorIds, filter)
+                local visibleEntries = GetVisibleDecorEntries(faction.resolvedDecorEntries, filter)
                 if #visibleEntries > 0 then
                     table.insert(elements, {
                         factionID = faction.factionID,
@@ -954,7 +944,7 @@ function RenownTab:RefreshDisplay()
     addon:CountDebug("rebuild", "RenownTab")
 
     local filter = self:GetCompletionFilter()
-    local searchText = addon:NormalizeSearchText(self.searchBox and self.searchBox:GetText() or "")
+    local searchText = self:GetActiveSearchText()
     local visCache = BuildFactionVisibilityCache(filter, searchText)
 
     local rebuilt = self:BuildExpansionDisplay(visCache)

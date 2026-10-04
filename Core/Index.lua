@@ -157,12 +157,10 @@ function addon:SearchByText(searchText)
     local results = {}
     local searchLower = self:NormalizeSearchText(searchText)
     if string.match(searchLower, "^%d+%.%d+$") or string.match(searchLower, "^%d+%.%d+%.%d+$") then
-        local seen = {}
         for recordID, patch in pairs(self.DecorAddedPatchByRecordID or {}) do
             if patch == searchLower then
-                local record = self:GetRecord(recordID) or self:ResolveRecord(recordID)
-                if record and not seen[recordID] then
-                    seen[recordID] = true
+                local record = self:ResolveRecord(recordID)
+                if record then
                     table.insert(results, recordID)
                 end
             end

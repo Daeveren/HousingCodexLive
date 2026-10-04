@@ -75,14 +75,7 @@ function addon:CreateFontString(parent, layer, templateName)
     templateName = templateName or "GameFontNormal"
     local fontString = parent:CreateFontString(nil, layer or "OVERLAY")
     fontString:SetFontObject(self:GetFontObject(templateName))
-
-    registryCounter = registryCounter + 1
-    fontString.hcFontRegistryID = registryCounter
-    self.fontStringRegistry[registryCounter] = {
-        fontString = fontString,
-        templateName = templateName,
-    }
-
+    self:RegisterFontString(fontString, templateName)
     return fontString
 end
 
@@ -157,7 +150,6 @@ end
 
 function addon:ApplyFontSettings()
     local fontPath = self:GetFontPath()
-    local useCustom = self:UseCustomFont()
     local count = 0
 
     for id, entry in pairs(self.fontStringRegistry) do
@@ -172,10 +164,8 @@ function addon:ApplyFontSettings()
                 )
             elseif entry.customSize then
                 fs:SetFont(fontPath, entry.customSize, entry.customFlags or "")
-            elseif useCustom and self.customFonts[entry.templateName] then
-                fs:SetFontObject(self.customFonts[entry.templateName])
             else
-                fs:SetFontObject(_G[entry.templateName] or GameFontNormal)
+                fs:SetFontObject(self:GetFontObject(entry.templateName))
             end
             count = count + 1
         else

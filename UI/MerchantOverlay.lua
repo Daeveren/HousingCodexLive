@@ -124,7 +124,7 @@ function MerchantOverlay:GetOverlay(button)
     -- HC icon with shadow (sizes and anchors are defined in XML)
     local hcIcon, hcShadow = addon.SetupIconWithShadow(frame.HCIcon, frame.HCShadow)
 
-    -- Owned checkmark with shadow (sizes and anchors are defined in XML)
+    -- Owned checkmark with shadow (sizes are defined in XML; the shadow is anchored in SetupOwnedCheckmark)
     local checkmark, checkShadow = addon.SetupOwnedCheckmark(frame.Checkmark, frame.CheckShadow)
 
     overlay = {
@@ -236,23 +236,15 @@ function MerchantOverlay:UpdateMerchantButtons()
             local isOwned = isDecor and addon.IsDecorOwned(catalogInfo)
             local showDecor = isDecor and showDecorIcon
             local showCheckmark = isOwned and showOwnedCheckmark
-            if not showDecor and not showCheckmark then
-                HideButtonOverlay(button)
-            else
-                if not IsSafeAnchor(button) then
-                    HideButtonOverlay(button)
-                else
-                    local overlay = self:GetOverlay(button)
-                    if overlay then
-                        overlay.frame:ClearAllPoints()
-                        overlay.frame:SetPoint("TOPLEFT", button, "TOPLEFT", 0, 0)
-                        overlay.hcShadow:SetShown(showDecor)
-                        overlay.hcIcon:SetShown(showDecor)
-                        overlay.checkShadow:SetShown(showCheckmark)
-                        overlay.checkmark:SetShown(showCheckmark)
-                        overlay.frame:Show()
-                    end
-                end
+            if (showDecor or showCheckmark) and IsSafeAnchor(button) then
+                local overlay = self:GetOverlay(button)
+                overlay.frame:ClearAllPoints()
+                overlay.frame:SetPoint("TOPLEFT", button, "TOPLEFT", 0, 0)
+                overlay.hcShadow:SetShown(showDecor)
+                overlay.hcIcon:SetShown(showDecor)
+                overlay.checkShadow:SetShown(showCheckmark)
+                overlay.checkmark:SetShown(showCheckmark)
+                overlay.frame:Show()
             end
         end
     end

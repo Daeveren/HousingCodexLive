@@ -148,7 +148,6 @@ function MainFrame:CreateTitleBar()
     icon:SetSize(25, 25)
     icon:SetPoint("LEFT", titleBar, "LEFT", 12, 0)
     icon:SetTexture("Interface\\AddOns\\HousingCodex\\HC64")
-    self.titleIcon = icon
 
     -- Title text (anchored after icon)
     local title = addon:CreateFontString(titleBar, "OVERLAY", "GameFontNormalLarge")
@@ -225,14 +224,12 @@ function MainFrame:CreateWishlistButton(titleBar)
     starIcon:SetPoint("LEFT", 8, 0)
     starIcon:SetAtlas("PetJournal-FavoritesIcon")
     starIcon:SetVertexColor(unpack(COLORS.GOLD))
-    btn.starIcon = starIcon
 
     -- Text label
     local label = addon:CreateFontString(btn, "OVERLAY", "GameFontNormal")
     label:SetPoint("LEFT", starIcon, "RIGHT", 4, 0)
     label:SetText(L["WISHLIST_BUTTON"])
     label:SetTextColor(unpack(COLORS.GOLD))
-    btn.label = label
 
     -- Calculate button width based on content
     local btnWidth = 8 + 19 + 4 + label:GetStringWidth() + 8
@@ -541,9 +538,7 @@ function MainFrame:RestorePreview()
     self.contentArea:SetPoint("BOTTOMRIGHT", self.previewRegion, "BOTTOMLEFT", 0, 0)
     self:ClampToScreen()
 
-    if addon.Preview then
-        addon.Preview:OnMainFrameShow()
-    end
+    addon.Preview:OnMainFrameShow()
 end
 
 function MainFrame:SetPreviewWidth(newWidth)
@@ -851,6 +846,3 @@ function MainFrame:IsShown()
     return self.frame and self.frame:IsShown()
 end
 
-addon:RegisterInternalEvent("DATA_LOADED", function()
-    addon:Debug("MainFrame ready for display")
-end)

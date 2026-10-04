@@ -63,12 +63,11 @@ end
 -- Special filter checkbox configuration
 -- key: localization key
 -- getter/toggler: HousingCatalogSearcher method names
--- default: expected state when filters are reset
 local SPECIAL_FILTERS = {
-    { key = "FILTER_DYEABLE",            getter = "IsCustomizableOnlyActive",          toggler = "ToggleCustomizableOnly",          default = false },
-    { key = "FILTER_INDOORS",            getter = "IsAllowedIndoorsActive",            toggler = "ToggleAllowedIndoors",            default = true },
-    { key = "FILTER_OUTDOORS",           getter = "IsAllowedOutdoorsActive",           toggler = "ToggleAllowedOutdoors",           default = true },
-    { key = "FILTER_FIRST_ACQUISITION",  getter = "IsFirstAcquisitionBonusOnlyActive", toggler = "ToggleFirstAcquisitionBonusOnly", default = false },
+    { key = "FILTER_DYEABLE",            getter = "IsCustomizableOnlyActive",          toggler = "ToggleCustomizableOnly" },
+    { key = "FILTER_INDOORS",            getter = "IsAllowedIndoorsActive",            toggler = "ToggleAllowedIndoors" },
+    { key = "FILTER_OUTDOORS",           getter = "IsAllowedOutdoorsActive",           toggler = "ToggleAllowedOutdoors" },
+    { key = "FILTER_FIRST_ACQUISITION",  getter = "IsFirstAcquisitionBonusOnlyActive", toggler = "ToggleFirstAcquisitionBonusOnly" },
 }
 
 function FilterBar:SetupMenu(rootDescription)

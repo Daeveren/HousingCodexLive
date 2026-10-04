@@ -53,10 +53,6 @@ local defaults = {
             firstAcquisition = false,
             tagFilters = {},  -- { [groupID] = { [tagID] = bool } }
         },
-        category = {
-            focusedCategoryID = nil,
-            focusedSubcategoryID = nil,
-        },
         quests = {
             selectedQuestID = nil,
             selectedRecordID = nil,   -- For multi-reward quests
@@ -280,6 +276,7 @@ local function SanitizeDB(db)
 
     local browser = db.browser
     if browser then
+        browser.category = nil
         if browser.quests then browser.quests.expandedExpansions = nil end
         if browser.filters then
             browser.filters.collectionState = nil

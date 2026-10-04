@@ -17,11 +17,10 @@ local ICON_CROP_COORDS = addon.CONSTANTS.ICON_CROP_COORDS
 local TRUNCATE_CHAR_LIMITS = { 6, 5, 4, 3, 2 }
 local ICON_ONLY_LEVEL = #TRUNCATE_CHAR_LIMITS + 1
 
--- SelectBar slide animation (set to false to revert to instant show/hide)
+-- SelectBar slide animation
 -- "Stretch & Settle": the bar first stretches toward the target, then contracts onto it.
 -- Long jumps cap the stretch (no bar flashing across the whole strip) and leave a
 -- short gold-to-titlebar-gray gradient trail along the traveled path instead.
-local TAB_SLIDE_ENABLED = true
 local TAB_STRETCH_DURATION = 0.13     -- phase 1: expand toward the new tab
 local TAB_SETTLE_DURATION = 0.16      -- phase 2: contract onto the new tab
 local TAB_MAX_STRETCH_FACTOR = 2      -- stretch cap = (old + new tab width) * this
@@ -34,7 +33,7 @@ local function EaseOutQuad(t)
     return 1 - (1 - t) * (1 - t)
 end
 
--- Animation state (only used when TAB_SLIDE_ENABLED)
+-- Animation state
 local slideDriver       -- child frame for OnUpdate
 local curBarX = 0       -- current bar x offset (container-relative)
 local curBarW = 0       -- current bar width
@@ -57,9 +56,7 @@ end
 
 local function CancelSlide()
     slideDriver:SetScript("OnUpdate", nil)
-    if sharedTrail then
-        sharedTrail:Hide()
-    end
+    sharedTrail:Hide()
 end
 
 -- Orient the trail gradient: gold at the bar's trailing edge, fading into the
@@ -205,15 +202,6 @@ local function CreateTabButton(parent, tabConfig)
     bg:SetColorTexture(unpack(COLORS.TAB_NORMAL))
     btn.bg = bg
 
-    -- Selection indicator (gold bar on bottom edge)
-    local selectBar = btn:CreateTexture(nil, "OVERLAY")
-    selectBar:SetHeight(3)
-    selectBar:SetPoint("BOTTOMLEFT", btn, "BOTTOMLEFT", 0, -3)
-    selectBar:SetPoint("BOTTOMRIGHT", btn, "BOTTOMRIGHT", 0, -3)
-    selectBar:SetColorTexture(unpack(COLORS.GOLD))
-    selectBar:Hide()
-    btn.selectBar = selectBar
-
     -- Icon (supports both atlas and texture paths)
     local icon = btn:CreateTexture(nil, "ARTWORK")
     icon:SetPoint("LEFT", btn, "LEFT", HTAB_PADDING_X, 0)
@@ -351,22 +339,20 @@ function Tabs:Create(titleBar, anchorAfter)
     self.currentTruncLevel = 0
 
     -- Shared selection indicator bar (animated slide between tabs)
-    if TAB_SLIDE_ENABLED then
-        local bar = container:CreateTexture(nil, "OVERLAY")
-        bar:SetHeight(3)
-        bar:SetColorTexture(unpack(COLORS.GOLD))
-        bar:Hide()
-        sharedSelectBar = bar
+    local bar = container:CreateTexture(nil, "OVERLAY")
+    bar:SetHeight(3)
+    bar:SetColorTexture(unpack(COLORS.GOLD))
+    bar:Hide()
+    sharedSelectBar = bar
 
-        -- Gradient trail left behind the moving bar (below the bar's sublayer)
-        local trail = container:CreateTexture(nil, "OVERLAY", nil, -1)
-        trail:SetHeight(3)
-        trail:SetTexture("Interface\\Buttons\\WHITE8x8")
-        trail:Hide()
-        sharedTrail = trail
+    -- Gradient trail left behind the moving bar (below the bar's sublayer)
+    local trail = container:CreateTexture(nil, "OVERLAY", nil, -1)
+    trail:SetHeight(3)
+    trail:SetTexture("Interface\\Buttons\\WHITE8x8")
+    trail:Hide()
+    sharedTrail = trail
 
-        slideDriver = CreateFrame("Frame", nil, container)
-    end
+    slideDriver = CreateFrame("Frame", nil, container)
 
     -- Always start on DECOR tab (skip save to avoid overwriting user's last session)
     self:SelectTab("DECOR", true)
@@ -392,9 +378,7 @@ function Tabs:UpdateLayout(availableWidth)
     self.currentTruncLevel = newLevel
 
     -- Cancel in-flight slide (button positions are about to change)
-    if TAB_SLIDE_ENABLED then
-        CancelSlide()
-    end
+    CancelSlide()
 
     local isIconOnly = (newLevel == ICON_ONLY_LEVEL)
     local xOffset = 0
@@ -427,7 +411,7 @@ function Tabs:UpdateLayout(availableWidth)
     self.container:SetWidth(xOffset - HTAB_GAP)
 
     -- Re-snap shared bar to current tab's new position after relayout
-    if TAB_SLIDE_ENABLED and self.currentTab and self.buttons[self.currentTab] then
+    if self.currentTab and self.buttons[self.currentTab] then
         SnapBarTo(self.buttons[self.currentTab])
     end
 end
@@ -445,9 +429,6 @@ function Tabs:SelectTab(tabKey, skipSave, skipAnim)
         oldBtn.bg:SetColorTexture(unpack(COLORS.TAB_NORMAL))
         oldBtn.label:SetTextColor(unpack(COLORS.TAB_TEXT_INACTIVE))
         oldBtn.icon:SetAlpha(COLORS.TAB_ICON_ALPHA_INACTIVE)
-        if not TAB_SLIDE_ENABLED then
-            oldBtn.selectBar:Hide()
-        end
     end
 
     -- Select new
@@ -455,16 +436,11 @@ function Tabs:SelectTab(tabKey, skipSave, skipAnim)
     btn.label:SetTextColor(unpack(COLORS.TEXT_PRIMARY))
     btn.icon:SetAlpha(1.0)
 
-    if TAB_SLIDE_ENABLED then
-        -- Animated: snap on first selection or skipAnim, slide otherwise
-        if not previousTab or skipAnim then
-            SnapBarTo(btn)
-        else
-            SlideBarTo(btn)
-        end
+    -- Animated: snap on first selection or skipAnim, slide otherwise
+    if not previousTab or skipAnim then
+        SnapBarTo(btn)
     else
-        -- Original instant behavior
-        btn.selectBar:Show()
+        SlideBarTo(btn)
     end
 
     self.currentTab = tabKey

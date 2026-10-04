@@ -2,6 +2,16 @@
 
 All notable changes to Housing Codex.
 
+**3.4.1** (2026-10-04)
+
+**Changed**
+- Faster opening of vendors from the world map zone overlay
+- Codebase improvements in order to make the addon run smoother
+
+**Fixed**
+- Right-clicking a vendor in the world map zone overlay now scrolls the Vendors tab to it
+- Improved reliability of vendor highlighting and preview when opening vendors from the map
+
 **3.4.0** (2026-09-30)
 
 **Added**

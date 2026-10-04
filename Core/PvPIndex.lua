@@ -241,7 +241,3 @@ end
 addon:RegisterInternalEvent("RECORD_OWNERSHIP_UPDATED", function()
     wipe(addon.pvpCategoryProgressCache)
 end)
-
-addon:RegisterInternalEvent(addon.Events.DECOR_VISIBILITY_CHANGED, function()
-    wipe(addon.pvpCategoryProgressCache)
-end)

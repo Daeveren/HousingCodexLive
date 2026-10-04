@@ -17,46 +17,9 @@ addon.questIndex = {}           -- questKey -> { [recordID] = true, ... } (quest
 addon.questSortedRecords = {}   -- questKey -> sorted { recordID, ... } (cached at build time)
 addon.questHierarchy = {}       -- expansionKey -> { order, zones = { zoneName -> { questKeys } } }
 addon.questTitleCache = {}      -- questKey -> title string
-addon.questZoneCache = {}       -- questKey -> { zoneName, expansionKey }
 addon.questIndexBuilt = false
 addon.pendingQuestLoads = {}    -- questID -> true (for async title loading)
-addon.questZoneFromScrape = {}  -- questKey -> { zoneName, expansionKey } (primary zone, from scraped QuestSourceData)
 addon.questAllZones = {}        -- questKey -> { {zoneName, expansionKey}, ... } (all zones, for multi-zone hierarchy)
-addon.questStringsInterned = false
-
--- Intern quest name strings to reduce memory (Lua 5.1 doesn't auto-intern table strings)
-local function InternQuestStrings()
-    local intern = {}
-    local count = 0
-
-    -- Build intern table from QuestSourceData
-    if addon.QuestSourceData then
-        for _, quests in pairs(addon.QuestSourceData) do
-            for _, quest in ipairs(quests) do
-                local name = quest.questName
-                if name then
-                    if not intern[name] then
-                        intern[name] = name
-                        count = count + 1
-                    end
-                    quest.questName = intern[name]
-                end
-            end
-        end
-    end
-
-    -- Reuse interned strings in DecorToQuestLookup
-    if addon.DecorToQuestLookup then
-        for _, data in pairs(addon.DecorToQuestLookup) do
-            local name = data.questName
-            if name then
-                data.questName = intern[name] or name
-            end
-        end
-    end
-
-    addon:Debug(string.format("Interned %d unique quest names", count))
-end
 
 -- Parse quest ID from sourceText using multiple strategies
 local function ParseQuestID(sourceText)
@@ -88,37 +51,11 @@ local function ParseQuestID(sourceText)
     return nil
 end
 
--- Cache helper for unknown locations
-local function CacheUnknownLocation(questKey)
-    local zoneName = addon.L["QUESTS_UNKNOWN_ZONE"]
-    local expansionKey = "QUESTS_UNKNOWN_EXPANSION"
-    addon.questZoneCache[questKey] = { zoneName = zoneName, expansionKey = expansionKey }
-    return zoneName, expansionKey
-end
-
--- Get quest location (zone name and expansion) from quest key
--- questKey can be a numeric questID or a string questName (for quests without IDs)
--- Simplified: Uses scraped data only (covers 99%+ of housing quests)
-local function GetQuestLocation(questKey)
-    if not questKey then
-        return addon.L["QUESTS_UNKNOWN_ZONE"], "QUESTS_UNKNOWN_EXPANSION"
-    end
-
-    -- Check cache first
-    local cached = addon.questZoneCache[questKey]
-    if cached then
-        return cached.zoneName, cached.expansionKey
-    end
-
-    -- Check scraped zone data (primary and only source for housing quests)
-    local scraped = addon.questZoneFromScrape[questKey]
-    if scraped then
-        addon.questZoneCache[questKey] = scraped
-        return scraped.zoneName, scraped.expansionKey
-    end
-
-    -- No scraped data available - cache and return unknown
-    return CacheUnknownLocation(questKey)
+-- Resolve the quest key for a scraped entry: questId, else override by name, else questName
+local function ResolveQuestKey(entry)
+    return entry.questId
+        or (entry.questName and addon.QuestIdOverrides and addon.QuestIdOverrides[entry.questName])
+        or entry.questName
 end
 
 -- Request async loading of quest title
@@ -143,20 +80,12 @@ function addon:BuildQuestIndex()
     -- while we're still building the index (step 2 hasn't populated zones yet)
     self.buildingQuestIndex = true
 
-    -- Intern strings before building index (first run only)
-    if not self.questStringsInterned then
-        InternQuestStrings()
-        self.questStringsInterned = true
-    end
-
     local startTime = debugprofilestop()
 
     -- Clear existing data
     wipe(self.questIndex)
     wipe(self.questSortedRecords)
-    wipe(self.questZoneFromScrape)
     wipe(self.questAllZones)
-    wipe(self.questZoneCache)
     wipe(self.questTitleCache)
     self.questTitleFallback = {}
     wipe(self.pendingQuestLoads)
@@ -171,9 +100,7 @@ function addon:BuildQuestIndex()
             -- Only index if the record exists in our data (ResolveRecord covers HiddenInCatalog items)
             if self:ResolveRecord(recordID) then
                 -- Use questId if available, check override table, then fall back to questName
-                local questKey = questData.questId
-                    or (questData.questName and self.QuestIdOverrides and self.QuestIdOverrides[questData.questName])
-                    or questData.questName
+                local questKey = ResolveQuestKey(questData)
                 if questKey then
                     if not self.questIndex[questKey] then
                         self.questIndex[questKey] = {}
@@ -204,15 +131,12 @@ function addon:BuildQuestIndex()
     end
 
     -- Build zone caches from QuestSourceData (provides zone → quest mapping)
-    -- questZoneFromScrape: single primary zone per quest (deterministic tiebreaker for GetQuestLocation/ZoneIndex)
     -- questAllZones: all zones per quest (for multi-zone hierarchy placement)
     if self.QuestSourceData then
         for zoneName, quests in pairs(self.QuestSourceData) do
             local expansionKey = ZONE_TO_EXPANSION[zoneName] or "QUESTS_UNKNOWN_EXPANSION"
             for _, questInfo in ipairs(quests) do
-                local questKey = questInfo.questId
-                    or (questInfo.questName and self.QuestIdOverrides and self.QuestIdOverrides[questInfo.questName])
-                    or questInfo.questName
+                local questKey = ResolveQuestKey(questInfo)
                 if questKey and self.questIndex[questKey] then
                     local zoneEntry = { zoneName = zoneName, expansionKey = expansionKey }
 
@@ -223,18 +147,6 @@ function addon:BuildQuestIndex()
                         self.questAllZones[questKey] = allZones
                     end
                     table.insert(allZones, zoneEntry)
-
-                    -- Primary zone with deterministic tiebreaker (Dornogal wins, then alphabetical)
-                    local existing = self.questZoneFromScrape[questKey]
-                    if not existing then
-                        self.questZoneFromScrape[questKey] = zoneEntry
-                    elseif existing.zoneName ~= zoneName then
-                        local keepExisting = existing.zoneName == "Dornogal"
-                            or (zoneName ~= "Dornogal" and existing.zoneName < zoneName)
-                        if not keepExisting then
-                            self.questZoneFromScrape[questKey] = zoneEntry
-                        end
-                    end
                 end
             end
         end
@@ -317,8 +229,7 @@ function addon:BuildQuestHierarchy()
             end
         else
             -- Fallback for quests from secondary source (sourceText parsing, not in QuestSourceData)
-            local zoneName, expansionKey = GetQuestLocation(questKey)
-            InsertIntoHierarchy(questKey, zoneName, expansionKey)
+            InsertIntoHierarchy(questKey, addon.L["QUESTS_UNKNOWN_ZONE"], "QUESTS_UNKNOWN_EXPANSION")
         end
     end
 
@@ -413,18 +324,7 @@ end
 function addon:GetQuestCollectionProgress(questKey)
     local records = self.questIndex[questKey]
     if not records then return 0, 0 end
-
-    local owned, total = 0, 0
-    for recordID in pairs(records) do
-        if self:ShouldDisplayDecor(recordID) then
-            total = total + 1
-            local record = self:GetRecord(recordID)
-            if record and record.isCollected then
-                owned = owned + 1
-            end
-        end
-    end
-    return owned, total
+    return self:CountOwnedInRecordSet(records)
 end
 
 -- Get collection progress for a zone
@@ -463,23 +363,7 @@ function addon:GetExpansionCollectionProgress(expansionKey)
 end
 
 function addon:GetQuestUniqueCollectionProgress()
-    local owned, total = 0, 0
-    local seenDecorIds = {}
-
-    for _, records in pairs(self.questIndex) do
-        for recordID in pairs(records) do
-            if not seenDecorIds[recordID] and self:ShouldDisplayDecor(recordID) then
-                seenDecorIds[recordID] = true
-                total = total + 1
-                local record = self:GetRecord(recordID)
-                if record and record.isCollected then
-                    owned = owned + 1
-                end
-            end
-        end
-    end
-
-    return owned, total
+    return self:CountOwnedInRecordIndex(self.questIndex)
 end
 
 -- Get quest title (with placeholder fallback)
@@ -538,7 +422,7 @@ addon:RegisterWoWEvent("QUEST_DATA_LOAD_RESULT", function(questID, success)
     -- Signal when all pending title loads are resolved
     -- Guard: don't rebuild hierarchy if BuildQuestIndex is still running
     -- (RequestQuestTitle can fire synchronous QUEST_DATA_LOAD_RESULT during step 1,
-    -- before step 2 has populated questZoneFromScrape)
+    -- before step 2 has populated questAllZones)
     if not next(addon.pendingQuestLoads) and not addon.buildingQuestIndex then
         addon:BuildQuestHierarchy()
         addon:FireEvent("QUEST_ALL_TITLES_LOADED")

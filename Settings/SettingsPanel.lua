@@ -12,6 +12,19 @@ local BINDING_ACTION = addon.BINDING_ACTION
 local GetKeybindDisplayText = addon.GetKeybindDisplayText
 local L = addon.L
 
+-- Replace the toggle binding with fullKey, keeping any secondary binding
+local function SetToggleBinding(fullKey)
+    local key1, key2 = GetBindingKey(BINDING_ACTION)
+    if key1 then SetBinding(key1, nil) end
+    if key2 then SetBinding(key2, nil) end
+    SetBinding(fullKey, BINDING_ACTION)
+    -- Preserve secondary binding (Blizzard RebindKeysInOrder pattern)
+    if key2 and key2 ~= fullKey then
+        SetBinding(key2, BINDING_ACTION)
+    end
+    SaveBindings(GetCurrentBindingSet())
+end
+
 -- Keybind conflict confirmation dialog
 StaticPopupDialogs["HOUSINGCODEX_KEYBIND_CONFLICT"] = {
     text = "%s",
@@ -19,15 +32,7 @@ StaticPopupDialogs["HOUSINGCODEX_KEYBIND_CONFLICT"] = {
     button2 = NO,
     OnAccept = function(dialog, data)
         if InCombatLockdown() then return end
-        local key1, key2 = GetBindingKey(BINDING_ACTION)
-        if key1 then SetBinding(key1, nil) end
-        if key2 then SetBinding(key2, nil) end
-        SetBinding(data.fullKey, BINDING_ACTION)
-        -- Preserve secondary binding (Blizzard RebindKeysInOrder pattern)
-        if key2 and key2 ~= data.fullKey then
-            SetBinding(key2, BINDING_ACTION)
-        end
-        SaveBindings(GetCurrentBindingSet())
+        SetToggleBinding(data.fullKey)
         if data.updateFunc then data.updateFunc() end
     end,
     timeout = 0,
@@ -53,8 +58,13 @@ StaticPopupDialogs["HOUSINGCODEX_CUSTOM_FONT_CONFIRM"] = {
 --------------------------------------------------------------------------------
 -- Helper: Create checkbox with tooltip
 --------------------------------------------------------------------------------
+local checkboxRefreshers = {}
+
 local function CreateCheckbox(parent, label, tooltip, getValue, setValue)
     local check = CreateFrame("CheckButton", nil, parent, "UICheckButtonTemplate")
+    checkboxRefreshers[#checkboxRefreshers + 1] = function()
+        check:SetChecked(getValue())
+    end
     check.Text:SetFontObject(addon:GetFontObject("GameFontNormal"))
     addon:RegisterFontString(check.Text, "GameFontNormal")
     check.Text:SetTextColor(1, 0.82, 0)
@@ -132,10 +142,10 @@ local function CreateResetButton(parent, labelKey, tooltipKey, onClick)
     return btn
 end
 
-local function CreateSettingsActionButton(parent, label, tooltipTitle, tooltipText, onClick)
+local function CreateSettingsActionButton(parent, label, tooltipText, onClick)
     return addon:CreateActionButton(parent, label, onClick, function(btn)
         GameTooltip:SetOwner(btn, "ANCHOR_RIGHT")
-        GameTooltip:SetText(tooltipTitle, 1, 0.82, 0)
+        GameTooltip:SetText(label, 1, 0.82, 0)
         if tooltipText then
             GameTooltip:AddLine(tooltipText, 1, 1, 1, true)
         end
@@ -272,7 +282,6 @@ function addon.Settings:Initialize()
     keybindBtn:SetSize(140, 28)
     addon:RegisterButtonFont(keybindBtn, "GameFontNormal")
     keybindBtn:RegisterForClicks("AnyUp")
-    self.keybindBtn = keybindBtn
 
     -- Hint text (inline, right of keybind button)
     local hintText = addon:CreateFontString(panel, "ARTWORK", "GameFontNormalSmall")
@@ -285,7 +294,6 @@ function addon.Settings:Initialize()
         local displayText = GetKeybindDisplayText()
         keybindBtn:SetText(displayText or L["OPTIONS_NOT_BOUND"])
     end
-    self.UpdateKeybindButtonText = UpdateKeybindButtonText
     UpdateKeybindButtonText()
 
     -- Listen for binding changes from the standard Keybindings UI
@@ -305,15 +313,7 @@ function addon.Settings:Initialize()
 
     -- Apply a keybind (no conflict check)
     local function ApplyKeybind(fullKey)
-        local key1, key2 = GetBindingKey(BINDING_ACTION)
-        if key1 then SetBinding(key1, nil) end
-        if key2 then SetBinding(key2, nil) end
-        SetBinding(fullKey, BINDING_ACTION)
-        -- Preserve secondary binding (Blizzard RebindKeysInOrder pattern)
-        if key2 and key2 ~= fullKey then
-            SetBinding(key2, BINDING_ACTION)
-        end
-        SaveBindings(GetCurrentBindingSet())
+        SetToggleBinding(fullKey)
         UpdateKeybindButtonText()
         addon:Debug("Keybind set via standard system: " .. fullKey)
     end
@@ -466,8 +466,6 @@ function addon.Settings:Initialize()
         end
     )
     tomtomCheck:SetPoint("TOPLEFT", COL2_X, yOffset)
-    tomtomCheck:Disable()
-    tomtomCheck.Text:SetTextColor(0.5, 0.5, 0.5)
     self.tomtomCheck = tomtomCheck
 
     local function UpdateTomTomState()
@@ -482,7 +480,7 @@ function addon.Settings:Initialize()
             tomtomCheck.Text:SetTextColor(0.5, 0.5, 0.5)
         end
     end
-    self.UpdateTomTomState = UpdateTomTomState
+    UpdateTomTomState()
     yOffset = yOffset - 26
 
     --------------------------------------------------------------------------------
@@ -663,7 +661,7 @@ function addon.Settings:Initialize()
     yOffset = yOffset - 20
 
     -- Reset Window button
-    local resetWindowBtn = CreateSettingsActionButton(panel, L["OPTIONS_RESET_WINDOW"], L["OPTIONS_RESET_WINDOW"], L["OPTIONS_RESET_WINDOW_TOOLTIP"], function()
+    local resetWindowBtn = CreateSettingsActionButton(panel, L["OPTIONS_RESET_WINDOW"], L["OPTIONS_RESET_WINDOW_TOOLTIP"], function()
         if addon.MainFrame then
             addon.MainFrame:ResetPosition()
             addon.MainFrame:ResetSize()
@@ -676,7 +674,7 @@ function addon.Settings:Initialize()
     AnchorButtonAfter(commandHelpBtn, resetWindowBtn)
 
     -- Welcome Screen button
-    local welcomeBtn = CreateSettingsActionButton(panel, L["OPTIONS_SHOW_WELCOME"], L["OPTIONS_SHOW_WELCOME"], L["OPTIONS_SHOW_WELCOME_TOOLTIP"], function()
+    local welcomeBtn = CreateSettingsActionButton(panel, L["OPTIONS_SHOW_WELCOME"], L["OPTIONS_SHOW_WELCOME_TOOLTIP"], function()
         if addon.WhatsNew then
             addon.WhatsNew:ForceShow("welcome")
         end
@@ -684,7 +682,7 @@ function addon.Settings:Initialize()
     AnchorButtonAfter(welcomeBtn, commandHelpBtn)
 
     -- Hidden Items manager button
-    local hiddenItemsBtn = CreateSettingsActionButton(panel, L["OPTIONS_SEE_HIDDEN_ITEMS"], L["OPTIONS_SEE_HIDDEN_ITEMS"], L["OPTIONS_SEE_HIDDEN_ITEMS_TOOLTIP"], function()
+    local hiddenItemsBtn = CreateSettingsActionButton(panel, L["OPTIONS_SEE_HIDDEN_ITEMS"], L["OPTIONS_SEE_HIDDEN_ITEMS_TOOLTIP"], function()
         if addon.HiddenItemsFrame then
             addon.HiddenItemsFrame:ShowFrame()
         end
@@ -716,7 +714,6 @@ function addon.Settings:Initialize()
         GameTooltip:Show()
     end)
     AnchorButtonAfter(customFontBtn, welcomeBtn)
-    self.customFontBtn = customFontBtn
     self.UpdateCustomFontButtonText = UpdateCustomFontButtonText
     UpdateCustomFontButtonText()
 
@@ -735,20 +732,9 @@ function addon.Settings:Initialize()
         if not db then return end
         local s = db.settings
         if not s then return end
-        settings.collectedCheck:SetChecked(s.showCollectedIndicator)
-        settings.autoRotateCheck:SetChecked(s.autoRotatePreview)
-        settings.minimapCheck:SetChecked(s.showMinimapButton)
-        settings.vendorMapPinsCheck:SetChecked(s.showVendorMapPins)
-        settings.zoneOverlayCheck:SetChecked(s.showZoneOverlay)
-        settings.treasureHuntCheck:SetChecked(s.treasureHuntWaypoints)
-        settings.tomtomCheck:SetChecked(s.useTomTom)
-        settings.vendorCheck:SetChecked(s.showVendorDecorIndicators)
-        settings.vendorOwnedCheck:SetChecked(s.showVendorOwnedCheckmark)
-        settings.vendorTooltipsCheck:SetChecked(s.showVendorTooltips)
-        settings.silvermoonProfessionVendorsCheck:SetChecked(s.onlyShowLearnedSilvermoonProfessionVendors)
-        settings.containerCheck:SetChecked(s.showContainerDecorIndicators)
-        settings.containerOwnedCheck:SetChecked(s.showContainerOwnedCheckmark)
-        settings.endeavorsEnabledCheck:SetChecked(db.endeavors and db.endeavors.enabled)
+        for _, refresh in ipairs(checkboxRefreshers) do
+            refresh()
+        end
         settings.UpdateCustomFontButtonText()
         UpdateKeybindButtonText()
     end

@@ -17,7 +17,6 @@ local ROW_SPACING = ROW_HEIGHT + 2
 local CONTENT_PADDING = 20
 local COLUMN_GAP = 16
 local SIDEBAR_SECTION_GAP = 10
-local SIDEBAR_GROUP_GAP = 8
 local BUDGET_BAR_HEIGHT = 20
 local BUDGET_ROW_SPACING = 32
 local HOUSE_HEADER_ROW_SPACING = 24
@@ -44,7 +43,6 @@ ProgressTab.frame = nil
 ProgressTab.scrollFrame = nil
 ProgressTab.scrollChild = nil
 ProgressTab.sidePanel = nil
-ProgressTab.sideContent = nil
 ProgressTab.sideScrollFrame = nil
 ProgressTab.sideScrollChild = nil
 ProgressTab.sideScrollTrack = nil
@@ -156,7 +154,6 @@ function ProgressTab:CreateSidebarPanel(parent)
     scrollChild:SetHeight(1)
     scrollFrame:SetScrollChild(scrollChild)
     self.sideScrollChild = scrollChild
-    self.sideContent = scrollChild
 
     local track = CreateFrame("Frame", nil, panel)
     track:SetWidth(TRACK_WIDTH)
@@ -549,49 +546,33 @@ function ProgressTab:BuildDashboard(preserveScroll)
     local leftY = self:BuildSourceSection(0, columnWidth, 0)
     leftY = leftY - SECTION_PADDING
     leftY = self:BuildAlmostThereSection(leftY, columnWidth, 0)
-    local questExpData = addon:GetProgressByExpansion("QUESTS")
-    if #questExpData > 0 then
-        if leftY < 0 then leftY = leftY - SECTION_PADDING end
-        leftY = self:BuildExpansionSection(leftY, columnWidth, "questExp", L["PROGRESS_QUEST_EXPANSIONS"], questExpData, self.questExpRows, 0)
-    end
-    local pvpCategoryData = addon:GetProgressByPvPCategory()
-    if #pvpCategoryData > 0 then
-        if leftY < 0 then leftY = leftY - SECTION_PADDING end
-        leftY = self:BuildExpansionSection(leftY, columnWidth, "pvpCategory", L["PROGRESS_PVP_CATEGORIES"], pvpCategoryData, self.pvpCategoryRows, 0)
-    end
-    local achievementCatData = addon:GetProgressByAchievementCategory()
-    if #achievementCatData > 0 then
-        if leftY < 0 then leftY = leftY - SECTION_PADDING end
-        local displayData = {}
-        for _, data in ipairs(achievementCatData) do
-            local rowData = {}
-            for key, value in pairs(data) do
-                rowData[key] = value
-            end
-            rowData.displayLabel = addon:GetCategoryName(data.categoryId) or L["UNKNOWN"]
-            displayData[#displayData + 1] = rowData
+    local function AddSection(y, x, key, headerLabel, data, pool)
+        if #data > 0 then
+            if y < 0 then y = y - SECTION_PADDING end
+            y = self:BuildExpansionSection(y, columnWidth, key, headerLabel, data, pool, x)
         end
-        leftY = self:BuildExpansionSection(leftY, columnWidth, "achievementCat", L["PROGRESS_ACHIEVEMENT_CATEGORIES"], displayData, self.achievementCatRows, 0)
+        return y
     end
+
+    leftY = AddSection(leftY, 0, "questExp", L["PROGRESS_QUEST_EXPANSIONS"], addon:GetProgressByExpansion("QUESTS"), self.questExpRows)
+    leftY = AddSection(leftY, 0, "pvpCategory", L["PROGRESS_PVP_CATEGORIES"], addon:GetProgressByPvPCategory(), self.pvpCategoryRows)
+    local displayData = {}
+    for _, data in ipairs(addon:GetProgressByAchievementCategory()) do
+        local rowData = {}
+        for key, value in pairs(data) do
+            rowData[key] = value
+        end
+        rowData.displayLabel = addon:GetCategoryName(data.categoryId) or L["UNKNOWN"]
+        displayData[#displayData + 1] = rowData
+    end
+    leftY = AddSection(leftY, 0, "achievementCat", L["PROGRESS_ACHIEVEMENT_CATEGORIES"], displayData, self.achievementCatRows)
 
     -- Right column: Professions + Vendor Expansions + Renown Expansions
     local rightX = columnWidth + COLUMN_GAP
     local rightY = self:BuildProfessionsSection(0, columnWidth, rightX)
-    local vendorExpData = addon:GetProgressByExpansion("VENDORS")
-    if #vendorExpData > 0 then
-        if rightY < 0 then rightY = rightY - SECTION_PADDING end
-        rightY = self:BuildExpansionSection(rightY, columnWidth, "vendorExp", L["PROGRESS_VENDOR_EXPANSIONS"], vendorExpData, self.vendorExpRows, rightX)
-    end
-    local renownExpData = addon:GetProgressByExpansion("RENOWN")
-    if #renownExpData > 0 then
-        if rightY < 0 then rightY = rightY - SECTION_PADDING end
-        rightY = self:BuildExpansionSection(rightY, columnWidth, "renownExp", L["PROGRESS_RENOWN_EXPANSIONS"], renownExpData, self.renownExpRows, rightX)
-    end
-    local dropCatData = addon:GetProgressByDropCategory()
-    if #dropCatData > 0 then
-        if rightY < 0 then rightY = rightY - SECTION_PADDING end
-        rightY = self:BuildExpansionSection(rightY, columnWidth, "dropCat", L["PROGRESS_DROP_CATEGORIES"], dropCatData, self.dropCatRows, rightX)
-    end
+    rightY = AddSection(rightY, rightX, "vendorExp", L["PROGRESS_VENDOR_EXPANSIONS"], addon:GetProgressByExpansion("VENDORS"), self.vendorExpRows)
+    rightY = AddSection(rightY, rightX, "renownExp", L["PROGRESS_RENOWN_EXPANSIONS"], addon:GetProgressByExpansion("RENOWN"), self.renownExpRows)
+    rightY = AddSection(rightY, rightX, "dropCat", L["PROGRESS_DROP_CATEGORIES"], addon:GetProgressByDropCategory(), self.dropCatRows)
 
     local totalHeight = math.max(math.abs(leftY), math.abs(rightY))
     self.scrollChild:SetHeight(totalHeight + SECTION_PADDING)
@@ -616,52 +597,6 @@ local function CreateSidebarText(parent, fontObject, size, justify)
     fs:SetJustifyH(justify or "LEFT")
     addon:SetFontSize(fs, size or 12, "")
     return fs
-end
-
-local function OpenHousingDashboard(tabID)
-    if InCombatLockdown() then return end
-    if PlayerIsTimerunning()
-        or not C_Housing.IsHousingServiceEnabled()
-        or C_PlayerInfo.IsPlayerNPERestricted() then
-        return
-    end
-    if not HousingDashboardFrame then
-        pcall(C_AddOns.LoadAddOn, "Blizzard_HousingDashboard")
-    end
-    if not HousingDashboardFrame then return end
-
-    local function SetDashboardTab(frame, tab)
-        local setTab = frame and frame.SetTab
-        if type(setTab) ~= "function" or tab == nil then return false end
-        return pcall(setTab, frame, tab)
-    end
-
-    if addon.MainFrame then
-        addon.MainFrame:Hide()
-    end
-    ShowUIPanel(HousingDashboardFrame)
-    if not SetDashboardTab(HousingDashboardFrame, HousingDashboardFrame.houseInfoTab) then return end
-    local contentFrame = HousingDashboardFrame.HouseInfoContent
-        and HousingDashboardFrame.HouseInfoContent.ContentFrame
-    if contentFrame then
-        if not contentFrame.tabsInitialized then
-            pcall(contentFrame.Initialize, contentFrame)
-        end
-        if contentFrame[tabID] then
-            SetDashboardTab(contentFrame, contentFrame[tabID])
-        end
-    end
-end
-
-local function SetSidebarElementShown(element, shown)
-    if not element then return end
-    if element.SetShown then
-        element:SetShown(shown)
-    elseif shown then
-        element:Show()
-    else
-        element:Hide()
-    end
 end
 
 function ProgressTab:PlaceSidebarDualDivider(elements, panel, key, yOffset)
@@ -757,13 +692,6 @@ end
 function ProgressTab:BuildBudgetRows(elements, panel, yOffset, budget)
     local L = addon.L
     if not budget then return yOffset end
-
-    local activeKeys = {}
-    local previousKeys = self.activeBudgetKeys or {}
-    self.activeBudgetKeys = activeKeys
-    local function MarkActive(key)
-        activeKeys[key] = true
-    end
 
     local function FormatUnit(value, oneKey, manyKey)
         local key = value == 1 and oneKey or manyKey
@@ -1126,13 +1054,12 @@ function ProgressTab:BuildBudgetRows(elements, panel, yOffset, budget)
 
             elements[key] = bar
         end
-        MarkActive(key)
         return elements[key]
     end
 
     local function FormatLevelText(levelInfo)
         local valid = type(levelInfo) == "table" and type(levelInfo.level) == "number" and levelInfo.level > 0
-        if not valid then return L["PROGRESS_BUDGET_LEVEL_UNKNOWN"], false, 0 end
+        if not valid then return L["PROGRESS_BUDGET_LEVEL_UNKNOWN"], false end
 
         local percent = 0
         if levelInfo.isMaxLevel then
@@ -1140,28 +1067,14 @@ function ProgressTab:BuildBudgetRows(elements, panel, yOffset, budget)
         elseif type(levelInfo.favorTotal) == "number" and type(levelInfo.favorTotalNeeded) == "number" and levelInfo.favorTotalNeeded > 0 then
             percent = math.min(100, math.max(0, levelInfo.favorTotal / levelInfo.favorTotalNeeded * 100))
         end
-        return string.format("%s (%d%%)", string.format(L["PROGRESS_BUDGET_LEVEL"], levelInfo.level), math.floor(percent)), true, percent
+        return string.format("%s (%d%%)", string.format(L["PROGRESS_BUDGET_LEVEL"], levelInfo.level), math.floor(percent)), true
     end
 
     local function DrawPlotHeader(plotID, plotTitle, plotInfo)
         local levelInfo = type(plotInfo) == "table" and plotInfo.houseLevel or nil
         local levelText, valid = FormatLevelText(levelInfo)
-        local oldLabelKey = "budget_levelLabel" .. plotID
-        local oldBarKey = "budget_levelBar" .. plotID
-        local oldButtonKey = "budget_levelButton" .. plotID
         local headerKey = "budget_plotHeader" .. plotID
 
-        SetSidebarElementShown(elements[oldLabelKey], false)
-        SetSidebarElementShown(elements[oldBarKey], false)
-        SetSidebarElementShown(elements[oldButtonKey], false)
-        if elements[oldBarKey] and elements[oldBarKey].text then
-            elements[oldBarKey].text:Hide()
-        end
-
-        if elements[headerKey] and not elements[headerKey].text then
-            elements[headerKey]:Hide()
-            elements[headerKey] = nil
-        end
         if not elements[headerKey] then
             local button = CreateFrame("Button", nil, panel)
             button:EnableMouse(true)
@@ -1169,7 +1082,6 @@ function ProgressTab:BuildBudgetRows(elements, panel, yOffset, budget)
             button.text:SetPoint("LEFT", button, "LEFT", 0, 0)
             elements[headerKey] = button
         end
-        MarkActive(headerKey)
 
         local header = elements[headerKey]
         header:ClearAllPoints()
@@ -1194,7 +1106,7 @@ function ProgressTab:BuildBudgetRows(elements, panel, yOffset, budget)
         end)
         header:SetScript("OnMouseUp", function(_, mouseButton)
             if mouseButton ~= "LeftButton" or not valid then return end
-            OpenHousingDashboard("houseUpgradeTabID")
+            addon:OpenHousingDashboard("houseUpgradeTabID", true)
         end)
         header:Show()
         header.text:Show()
@@ -1257,11 +1169,10 @@ function ProgressTab:BuildBudgetRows(elements, panel, yOffset, budget)
     end
 
     local function DrawBudgetRow(plotID, key, contextKey, label, snapshot, known, rowLiveOverride, refreshHintKey)
-        local valid = type(snapshot) == "table" and type(snapshot.spent) == "number" and type(snapshot.max) == "number" and snapshot.max > 0
+        local valid = HasBudgetSnapshot(snapshot)
         local rowKey = "budget_" .. key .. (plotID or "")
         local rowLive = rowLiveOverride == true or (live and currentBudgetContext == contextKey and (not plotID or currentPlotID == plotID))
         if not valid and not known then
-            SetSidebarElementShown(elements[rowKey], false)
             return yOffset
         end
 
@@ -1330,14 +1241,6 @@ function ProgressTab:BuildBudgetRows(elements, panel, yOffset, budget)
         end
     end
 
-    for key in pairs(previousKeys) do
-        if not activeKeys[key] then
-            SetSidebarElementShown(elements[key], false)
-            if elements[key] and elements[key].label then elements[key].label:Hide() end
-            if elements[key] and elements[key].text then elements[key].text:Hide() end
-        end
-    end
-
     return yOffset - SIDEBAR_SECTION_GAP
 end
 
@@ -1388,8 +1291,7 @@ function ProgressTab:BuildHistorySparkline(elements, panel, yOffset, history)
 
     for i = 1, days do
         local key = "historyBar" .. i
-        if not elements[key] or not elements[key].SetScript then
-            SetSidebarElementShown(elements[key], false)
+        if not elements[key] then
             local frame = CreateFrame("Button", nil, panel)
             frame:EnableMouse(true)
             frame.fill = frame:CreateTexture(nil, "ARTWORK")
@@ -1420,8 +1322,6 @@ function ProgressTab:BuildHistorySparkline(elements, panel, yOffset, history)
     end
     yOffset = yOffset - CONSTS.COLLECTION_HISTORY_BAR_MAX_H - 4
 
-    SetSidebarElementShown(elements.historySummary, false)
-
     return yOffset - SIDEBAR_HISTORY_BOTTOM_GAP
 end
 
@@ -1431,7 +1331,7 @@ function ProgressTab:BuildSidebarSummary()
     local L = addon.L
     local overview = addon:GetProgressOverview()
     local progressColor = self:GetProgressColor(overview.percent)
-    local panel = self.sideContent or self.sidePanel
+    local panel = self.sideScrollChild
     local elements = self.sidebarElements
     local yOffset = -12
     for _, element in pairs(elements) do
@@ -1524,14 +1424,10 @@ function ProgressTab:BuildSidebarSummary()
     end
 
     local contentHeight = math.max(1, math.abs(yOffset) + 12)
-    if self.sideScrollChild then
-        self.sideScrollChild:SetHeight(contentHeight)
-    end
-    if self.sideScrollFrame then
-        local range = self.sideScrollFrame:GetVerticalScrollRange()
-        self.sideScrollFrame:SetVerticalScroll(math.max(0, math.min(range, self.sideScrollFrame:GetVerticalScroll())))
-        self:UpdateSidebarScrollbar()
-    end
+    self.sideScrollChild:SetHeight(contentHeight)
+    local range = self.sideScrollFrame:GetVerticalScrollRange()
+    self.sideScrollFrame:SetVerticalScroll(math.max(0, math.min(range, self.sideScrollFrame:GetVerticalScroll())))
+    self:UpdateSidebarScrollbar()
 end
 --------------------------------------------------------------------------------
 -- Section Header Helper
@@ -1667,9 +1563,7 @@ function ProgressTab:BuildSourceSection(yOffset, columnWidth, xOffset)
         local row = self:GetOrCreateProgressRow(self.sourceRows, i)
         self:SetupProgressRow(row, data, yOffset, columnWidth, function()
             local filter = GetCompletionFilter(data)
-            if data.category then
-                NavigateToSourceTab(addon.DropsTab, "DROPS", data.category, filter)
-            elseif data.targetTabKey == "DROPS" then
+            if data.targetTabKey == "DROPS" then
                 NavigateToSourceTab(addon.DropsTab, "DROPS", nil, filter)
             elseif data.targetTabKey == "ACHIEVEMENTS" then
                 NavigateToSourceTab(addon.AchievementsTab, "ACHIEVEMENTS", nil, filter)
@@ -1732,7 +1626,7 @@ function ProgressTab:BuildProfessionsSection(yOffset, columnWidth, xOffset)
 end
 
 --------------------------------------------------------------------------------
--- Expansion Section (vendor only now)
+-- Expansion / Category Section
 --------------------------------------------------------------------------------
 
 function ProgressTab:BuildExpansionSection(yOffset, columnWidth, headerKey, headerText, expansionData, rowPool, xOffset)
@@ -1818,11 +1712,7 @@ function ProgressTab:NavigateToDetail(data)
 end
 
 function ProgressTab:NavigateToProfession(professionName, filter)
-    addon.ProfessionsTab.pendingNavigation = true
-    addon.Tabs:SelectTab("PROFESSIONS")
-    if addon.ProfessionsTab.frame then
-        addon.ProfessionsTab:NavigateFromProgress(professionName, filter)
-    end
+    NavigateToSourceTab(addon.ProfessionsTab, "PROFESSIONS", professionName, filter)
 end
 
 --------------------------------------------------------------------------------

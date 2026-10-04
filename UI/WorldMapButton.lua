@@ -11,10 +11,6 @@ local _, addon = ...
 --------------------------------------------------------------------------------
 HousingCodexWorldMapButtonMixin = {}
 
-local function GetMapTooltip()
-    return HousingCodexMapTooltip
-end
-
 function HousingCodexWorldMapButtonMixin:OnLoad()
 end
 
@@ -154,7 +150,7 @@ function HousingCodexWorldMapButtonMixin:OnMouseUp()
 end
 
 function HousingCodexWorldMapButtonMixin:OnEnter()
-    local tooltip = GetMapTooltip()
+    local tooltip = HousingCodexMapTooltip
     tooltip:SetOwner(self, "ANCHOR_LEFT")
     GameTooltip_SetTitle(tooltip, addon.L["ZONE_OVERLAY_BUTTON_TOOLTIP"])
     tooltip:Show()
@@ -162,7 +158,7 @@ function HousingCodexWorldMapButtonMixin:OnEnter()
 end
 
 function HousingCodexWorldMapButtonMixin:OnLeave()
-    local tooltip = GetMapTooltip()
+    local tooltip = HousingCodexMapTooltip
     if tooltip:GetOwner() == self then
         tooltip:Hide()
     end

@@ -43,7 +43,6 @@ local CAMERA_IMMEDIATE = CONSTS.CAMERA.TRANSITION_IMMEDIATE
 local CAMERA_DISCARD = CONSTS.CAMERA.MODIFICATION_DISCARD
 local SCENE_PRESETS = CONSTS.SCENE_PRESETS
 local DEFAULT_SCENE_ID = CONSTS.DEFAULT_SCENE_ID
-local ROTATION_SPEED = CONSTS.CAMERA.ROTATION_SPEED
 local ZOOM_STEP = CONSTS.CAMERA.ZOOM_STEP
 
 local MAIN_BACKDROP = {
@@ -85,8 +84,6 @@ end
 
 function WishlistFrame:Create()
     if self.frame then return self.frame end
-
-    local L = addon.L
 
     -- Main frame (initial size clamped to screen bounds)
     local screenWidth, screenHeight = GetScreenWidth(), GetScreenHeight()
@@ -460,7 +457,7 @@ function WishlistFrame:CreateGrid()
             return
         end
 
-        local columns = elementData.recordIDs and #elementData.recordIDs or 0
+        local columns = #elementData.recordIDs
         for i = 1, columns do
             local tile = row.tiles[i]
             if not tile then
@@ -472,14 +469,8 @@ function WishlistFrame:CreateGrid()
             tile:SetPoint("TOPLEFT", row, "TOPLEFT", (i - 1) * (self.tileSize + GRID_CELL_GAP), 0)
             tile:SetSize(self.tileSize, self.tileSize)
 
-            local recordID = elementData.recordIDs and elementData.recordIDs[i]
-            if recordID then
-                self:BindTile(tile, recordID)
-                tile:Show()
-            else
-                self:ResetTile(tile)
-                tile:Hide()
-            end
+            self:BindTile(tile, elementData.recordIDs[i])
+            tile:Show()
         end
         for i = columns + 1, #row.tiles do
             self:ResetTile(row.tiles[i])
@@ -877,6 +868,16 @@ end
 -- Data Management
 --------------------------------------------------------------------------------
 
+local function AppendRows(elements, ids, columns)
+    for i = 1, #ids, columns do
+        local row = { kind = "row", recordIDs = {} }
+        for col = 1, columns do
+            row.recordIDs[col] = ids[i + col - 1]
+        end
+        elements[#elements + 1] = row
+    end
+end
+
 function WishlistFrame:BuildWishlistElements(recordIDs)
     local L = addon.L
     local elements = {}
@@ -885,13 +886,7 @@ function WishlistFrame:BuildWishlistElements(recordIDs)
     local grouped = db and db.groupBySource == true
 
     if not grouped then
-        for i = 1, #recordIDs, columns do
-            local row = { kind = "row", recordIDs = {} }
-            for col = 1, columns do
-                row.recordIDs[col] = recordIDs[i + col - 1]
-            end
-            elements[#elements + 1] = row
-        end
+        AppendRows(elements, recordIDs, columns)
         return elements
     end
 
@@ -920,13 +915,7 @@ function WishlistFrame:BuildWishlistElements(recordIDs)
                 total = #group.ids,
                 owned = group.owned,
             }
-            for i = 1, #group.ids, columns do
-                local row = { kind = "row", recordIDs = {} }
-                for col = 1, columns do
-                    row.recordIDs[col] = group.ids[i + col - 1]
-                end
-                elements[#elements + 1] = row
-            end
+            AppendRows(elements, group.ids, columns)
         end
     end
 
@@ -1070,7 +1059,7 @@ function WishlistFrame:RecalculateDetailsHeight()
 end
 
 -- Lightweight ownership-only refresh (no model rebuild, no name/source update)
-function WishlistFrame:UpdateOwnershipDetails(record)
+function WishlistFrame:ApplyOwnedPlacedCounts(record)
     local L = addon.L
 
     -- Owned count
@@ -1090,6 +1079,10 @@ function WishlistFrame:UpdateOwnershipDetails(record)
     else
         self.detailsPlaced:Hide()
     end
+end
+
+function WishlistFrame:UpdateOwnershipDetails(record)
+    self:ApplyOwnedPlacedCounts(record)
 
     -- Action buttons (track/wishlist state may depend on ownership)
     self:UpdateActionButtons(record)
@@ -1120,23 +1113,7 @@ function WishlistFrame:ShowPreview(recordID)
     self.detailsName:SetText(record.name or L["UNKNOWN"])
     self.detailsName:Show()
 
-    -- Owned count
-    if record.totalOwned and record.totalOwned > 0 then
-        self.detailsOwned:SetText(string.format(L["DETAILS_OWNED"], record.totalOwned))
-        self.detailsOwned:SetTextColor(0.2, 0.8, 0.2)
-    else
-        self.detailsOwned:SetText(L["DETAILS_NOT_OWNED"])
-        self.detailsOwned:SetTextColor(0.6, 0.6, 0.6)
-    end
-    self.detailsOwned:Show()
-
-    -- Placed count
-    if record.numPlaced and record.numPlaced > 0 then
-        self.detailsPlaced:SetText(string.format(L["DETAILS_PLACED"], record.numPlaced))
-        self.detailsPlaced:Show()
-    else
-        self.detailsPlaced:Hide()
-    end
+    self:ApplyOwnedPlacedCounts(record)
 
     -- Source
     if record.sourceText and record.sourceText ~= "" then
@@ -1214,9 +1191,7 @@ function WishlistFrame:ClearPreview()
 
     -- Reset action buttons to disabled state
     self:UpdateWishlistButton()
-    self.trackButton:SetText(addon.L["ACTION_TRACK"])
-    self.trackButton:SetEnabled(false)
-    self.trackButton:SetActive(false)
+    addon:ApplyTrackButtonState(self.trackButton, false, false, false)
     self.linkButton:SetEnabled(false)
 
     -- Clear model
@@ -1250,7 +1225,6 @@ function WishlistFrame:Show()
     -- Validate selection still exists in wishlist
     if self.selectedRecordID and not addon:IsWishlisted(self.selectedRecordID) then
         self.selectedRecordID = nil
-        self.currentRecordID = nil
         self:ClearPreview()
     end
 
@@ -1297,15 +1271,7 @@ function WishlistFrame:SaveLayout()
     if not db or not self.frame then return end
 
     -- Save position
-    local point, _, relativePoint, xOfs, yOfs = self.frame:GetPoint()
-    if point then
-        db.position = {
-            point = point,
-            relativePoint = relativePoint or "CENTER",
-            xOfs = xOfs or 0,
-            yOfs = yOfs or 0,
-        }
-    end
+    addon:SaveFramePosition(self.frame, "wishlistUI")
 
     -- Save size
     local width, height = self.frame:GetSize()
@@ -1358,7 +1324,6 @@ addon:RegisterInternalEvent("WISHLIST_CHANGED", function(recordID, isWishlisted)
 
         if removedSelectedRecord or removedCurrentPreview then
             WishlistFrame.selectedRecordID = nil
-            WishlistFrame.currentRecordID = nil
             WishlistFrame:ClearPreview()
         elseif WishlistFrame.currentRecordID == recordID then
             -- Update wishlist button state

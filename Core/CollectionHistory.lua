@@ -8,11 +8,7 @@ local _, addon = ...
 local SECONDS_PER_DAY = 86400
 local HISTORY_METRIC = "decorCollected"
 local pendingSnapshotRecords = {}
-local ROOM_ENTRY_TYPE = Enum.HousingCatalogEntryType and Enum.HousingCatalogEntryType.Room or 2
-
-local function IsRoomRecord(record)
-    return record and record.entryType == ROOM_ENTRY_TYPE
-end
+local IsRoomRecord = addon.IsRoomRecord
 
 local function IsCollectedDecor(recordID)
     if not recordID or not addon.GetRecord then return false end
@@ -247,11 +243,7 @@ function addon:GetCollectionHistoryGains(days)
         local entry = entryByDay[day]
         local gain = 0
         if entry then
-            local inferredGain = 0
-            if type(entry.startCount) == "number" then
-                inferredGain = math.max(0, entry.count - entry.startCount)
-            end
-            gain = math.max(type(entry.gain) == "number" and entry.gain or 0, inferredGain)
+            gain = entry.gain or 0
         end
 
         result[#result + 1] = {
@@ -266,7 +258,6 @@ function addon:GetCollectionHistoryGains(days)
     end
 
     return {
-        days = days,
         gains = result,
         totalGain = totalGain,
         maxGain = maxGain,

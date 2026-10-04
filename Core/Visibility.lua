@@ -5,7 +5,7 @@
 
 local _, addon = ...
 
-local ROOM_ENTRY_TYPE = Enum.HousingCatalogEntryType and Enum.HousingCatalogEntryType.Room or 2
+local IsRoomRecord = addon.IsRoomRecord
 
 addon.ShopDecorIds = addon.ShopDecorIds or {}
 addon.shopDecorLookupBuilt = false
@@ -17,10 +17,6 @@ local SHOP_CURRENCY_TOKENS = {
 local function NormalizeDecorID(recordID)
     local id = tonumber(recordID)
     return id and id > 0 and id or nil
-end
-
-local function IsRoomRecord(record)
-    return record and record.entryType == ROOM_ENTRY_TYPE
 end
 
 local function MarkDecorSet(target, decorIds)
@@ -191,14 +187,6 @@ function addon:ShouldDisplayDecor(recordID, record)
     return true
 end
 
-function addon:GetDecorVisibilityReason(recordID)
-    local id = NormalizeDecorID(recordID)
-    if not id then return nil end
-    if self:IsDecorHidden(id) then return "hidden" end
-    if self.Filters and self.Filters.hideShopItems and self:IsShopDecor(id) then return "shop" end
-    return nil
-end
-
 function addon:FilterVisibleDecorIds(decorIds)
     local visible = {}
     for _, decorId in ipairs(decorIds or {}) do
@@ -207,6 +195,35 @@ function addon:FilterVisibleDecorIds(decorIds)
         end
     end
     return visible
+end
+
+-- Owned/total over one { [recordID] = ... } set, counting only displayable decor.
+-- `seen` (optional) skips and marks recordIDs so several sets can be counted without duplicates.
+function addon:CountOwnedInRecordSet(records, seen)
+    local owned, total = 0, 0
+    for recordID in pairs(records) do
+        if not (seen and seen[recordID]) and self:ShouldDisplayDecor(recordID) then
+            if seen then seen[recordID] = true end
+            total = total + 1
+            local record = self:GetRecord(recordID)
+            if record and record.isCollected then
+                owned = owned + 1
+            end
+        end
+    end
+    return owned, total
+end
+
+-- Owned/total across every record set of a source index, each recordID counted once.
+function addon:CountOwnedInRecordIndex(index)
+    local owned, total = 0, 0
+    local seen = {}
+    for _, records in pairs(index) do
+        local setOwned, setTotal = self:CountOwnedInRecordSet(records, seen)
+        owned = owned + setOwned
+        total = total + setTotal
+    end
+    return owned, total
 end
 
 local function CountVisibleRecords(owner, collectedOnly, decorOnly, includeQuantity)
@@ -237,14 +254,6 @@ function addon:GetVisibleRecordCount()
     if cache.visibleRecordCount ~= nil then return cache.visibleRecordCount end
     cache.visibleRecordCount = CountVisibleRecords(self, false, false, false)
     return cache.visibleRecordCount
-end
-
-function addon:GetVisibleUniqueCollectedCount()
-    if not self.indexesBuilt then return 0 end
-    local cache = GetCountCache(self)
-    if cache.visibleUniqueCollected ~= nil then return cache.visibleUniqueCollected end
-    cache.visibleUniqueCollected = CountVisibleRecords(self, true, false, false)
-    return cache.visibleUniqueCollected
 end
 
 function addon:GetVisibleDecorCollectedCount()

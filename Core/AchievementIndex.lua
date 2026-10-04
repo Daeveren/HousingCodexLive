@@ -62,7 +62,7 @@ function addon:BuildAchievementIndex()
             -- Only index decors that resolve (matches CraftingIndex/QuestIndex pattern)
             if achievementData.decorIds then
                 for _, decorId in ipairs(achievementData.decorIds) do
-                    if self:GetRecord(decorId) or self:ResolveRecord(decorId) then
+                    if self:ResolveRecord(decorId) then
                         validDecors[decorId] = true
                         decorCount = decorCount + 1
                     end
@@ -176,7 +176,7 @@ function addon:BuildAchievementHierarchy()
     end
 
     -- Sort achievements within each category alphabetically by name
-    for categoryId, achievements in pairs(self.achievementHierarchy) do
+    for _, achievements in pairs(self.achievementHierarchy) do
         table.sort(achievements, function(a, b)
             return nameCache[a] < nameCache[b]
         end)
@@ -277,7 +277,7 @@ function addon:IsAchievementCompleted(achievementId)
 
     -- Query WoW API: GetAchievementInfo returns: id, name, points, completed, ...
     if type(GetAchievementInfo) ~= "function" then return nil end
-    local ok, achievementInfoID, _, _, completed = pcall(GetAchievementInfo, achievementId)
+    local ok, _, _, _, completed = pcall(GetAchievementInfo, achievementId)
     if not ok or completed == nil then return nil end -- Info is not ready; do not cache.
 
     local isComplete = completed == true
@@ -290,38 +290,11 @@ end
 function addon:GetAchievementCollectionProgress(achievementId)
     local records = self.achievementIndex[achievementId]
     if not records then return 0, 0 end
-
-    local owned, total = 0, 0
-    for recordID in pairs(records) do
-        if self:ShouldDisplayDecor(recordID) then
-            total = total + 1
-            local record = self:GetRecord(recordID)
-            if record and record.isCollected then
-                owned = owned + 1
-            end
-        end
-    end
-    return owned, total
+    return self:CountOwnedInRecordSet(records)
 end
 
 function addon:GetAchievementUniqueCollectionProgress()
-    local owned, total = 0, 0
-    local seen = {}
-
-    for _, records in pairs(self.achievementIndex) do
-        for recordID in pairs(records) do
-            if not seen[recordID] and self:ShouldDisplayDecor(recordID) then
-                seen[recordID] = true
-                total = total + 1
-                local record = self:GetRecord(recordID)
-                if record and record.isCollected then
-                    owned = owned + 1
-                end
-            end
-        end
-    end
-
-    return owned, total
+    return self:CountOwnedInRecordIndex(self.achievementIndex)
 end
 
 -- Get collection progress for a category (by ID)

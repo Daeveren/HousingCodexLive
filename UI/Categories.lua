@@ -23,7 +23,6 @@ local BUTTON_SPACING = BUTTON_HEIGHT + 2
 addon.Categories = {}
 local Categories = addon.Categories
 
-Categories.sidebar = nil
 Categories.container = nil
 Categories.resultCountText = nil
 Categories.resultOverlay = nil
@@ -37,8 +36,6 @@ Categories.selectedCategoryID = nil
 function Categories:Initialize(sidebar)
     if self.container then return end
 
-    self.sidebar = sidebar
-
     -- Create scroll container for buttons
     local container = CreateFrame("Frame", nil, sidebar)
     container:SetPoint("TOPLEFT", sidebar, "TOPLEFT", 0, 0)
@@ -51,8 +48,6 @@ function Categories:Initialize(sidebar)
         button:ClearAllPoints()
         button.categoryID = nil
         button.subcategoryID = nil
-        button.isBack = nil
-        button.isAll = nil
         button.isSelected = false
     end)
 
@@ -224,7 +219,6 @@ function Categories:BuildCategoryView()
     -- "All" button at top
     local allBtn = self:CreateCategoryButton(L["CATEGORY_ALL"], nil)
     self:PositionButton(allBtn, yOffset)
-    allBtn.isAll = true
     allBtn:SetScript("OnClick", function()
         self:SetFocus(nil, nil)
     end)
@@ -277,7 +271,6 @@ function Categories:BuildSubcategoryView()
     -- Back button
     local backBtn = self:CreateCategoryButton("< " .. L["CATEGORY_BACK"], nil)
     self:PositionButton(backBtn, yOffset)
-    backBtn.isBack = true
     backBtn:SetScript("OnClick", function()
         self:SetFocus(nil, nil)
     end)
@@ -288,7 +281,6 @@ function Categories:BuildSubcategoryView()
     local allLabel = string.format(L["CATEGORY_ALL_IN"], categoryInfo.name or "")
     local allBtn = self:CreateCategoryButton(allLabel, categoryInfo.icon)
     self:PositionButton(allBtn, yOffset)
-    allBtn.isAll = true
     allBtn.categoryID = self.focusedCategoryID
     allBtn:SetScript("OnClick", function()
         self:SetFocus(self.focusedCategoryID, nil)
@@ -493,10 +485,6 @@ function Categories:Hide()
     if self.resultOverlay then self.resultOverlay:Hide() end
 end
 
-function Categories:Reset()
-    self:SetFocus(nil, nil)
-end
-
 -- Hook into tab changes - only show categories for DECOR tab
 addon:RegisterInternalEvent("TAB_CHANGED", function(tabKey)
     if tabKey == "DECOR" then
@@ -561,7 +549,7 @@ addon:RegisterInternalEvent("CATEGORY_CACHE_INVALIDATED", function(categoryID)
     --   (a) the subcategory cache entry is gone (global deletion), OR
     --   (b) the focused category was just invalidated AND the focused subcategory
     --       is no longer in that category's refreshed subcategoryIDs list.
-    --       BuildSubcategoryView (Categories.lua:295-304) renders from info.subcategoryIDs,
+    --       BuildSubcategoryView renders from info.subcategoryIDs,
     --       so a subcategory removed from the parent but still in the flat cache would
     --       render-absent but filter-active — causing empty grid state.
     if Categories.focusedSubcategoryID then

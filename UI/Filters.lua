@@ -30,23 +30,11 @@ local FILTER_NO_ADDED_PATCH_KEY = "__no_patch_data"
 -- Valid states for trackable filter
 local TRACKABLE_STATES = { all = true, trackable = true, not_trackable = true }
 
--- Migrate old collectionState format to new showCollected/showUncollected booleans
-local function MigrateCollectionState(filters)
-    if filters.showCollected == nil and filters.collectionState then
-        filters.showCollected = filters.collectionState ~= "uncollected"
-    end
-    if filters.showUncollected == nil and filters.collectionState then
-        filters.showUncollected = filters.collectionState ~= "collected"
-    end
-    filters.collectionState = nil
-end
-
 function Filters:Initialize()
     if self.initialized then return end
 
     local filters = addon.db and addon.db.browser and addon.db.browser.filters
     if filters then
-        MigrateCollectionState(filters)
         -- Load saved state (both can be true/false independently)
         if filters.showCollected ~= nil then
             self.showCollected = filters.showCollected
@@ -70,14 +58,19 @@ end
 -- Collection Filter
 --------------------------------------------------------------------------------
 
+-- Persist one filter key to SavedVariables (creates the filters table if needed)
+local function PersistFilter(key, value)
+    if addon.db and addon.db.browser then
+        addon.db.browser.filters = addon.db.browser.filters or {}
+        addon.db.browser.filters[key] = value
+    end
+end
+
 -- Helper to set a collection filter flag and persist it (does NOT apply)
 local function SetCollectionFlag(filterKey, value)
     Filters[filterKey] = value
 
-    if addon.db and addon.db.browser then
-        addon.db.browser.filters = addon.db.browser.filters or {}
-        addon.db.browser.filters[filterKey] = value
-    end
+    PersistFilter(filterKey, value)
 
     addon:Debug(filterKey .. " set to: " .. tostring(value))
 end
@@ -128,10 +121,7 @@ function Filters:SetTrackableState(state)
     self.trackableState = state
 
     -- Save to SavedVariables
-    if addon.db and addon.db.browser then
-        addon.db.browser.filters = addon.db.browser.filters or {}
-        addon.db.browser.filters.trackableState = state
-    end
+    PersistFilter("trackableState", state)
 
     -- Fire event to trigger grid re-filter (post-search filter)
     addon:FireEvent("FILTER_CHANGED")
@@ -154,10 +144,7 @@ function Filters:SetWishlistOnly(enabled)
     self.showWishlistOnly = enabled
 
     -- Save to SavedVariables
-    if addon.db and addon.db.browser then
-        addon.db.browser.filters = addon.db.browser.filters or {}
-        addon.db.browser.filters.showWishlistOnly = enabled
-    end
+    PersistFilter("showWishlistOnly", enabled)
 
     -- Fire event to trigger grid re-filter (post-search filter)
     addon:FireEvent("FILTER_CHANGED")
@@ -178,10 +165,7 @@ function Filters:SetPlacedOnly(enabled)
     self.showPlacedOnly = enabled
 
     -- Save to SavedVariables
-    if addon.db and addon.db.browser then
-        addon.db.browser.filters = addon.db.browser.filters or {}
-        addon.db.browser.filters.showPlacedOnly = enabled
-    end
+    PersistFilter("showPlacedOnly", enabled)
 
     -- Fire event to trigger grid re-filter (post-search filter)
     addon:FireEvent("FILTER_CHANGED")
@@ -201,10 +185,7 @@ end
 function Filters:SetPromoOnly(enabled)
     self.showPromoOnly = enabled
 
-    if addon.db and addon.db.browser then
-        addon.db.browser.filters = addon.db.browser.filters or {}
-        addon.db.browser.filters.showPromoOnly = enabled
-    end
+    PersistFilter("showPromoOnly", enabled)
 
     addon:FireEvent("FILTER_CHANGED")
 
@@ -226,10 +207,7 @@ function Filters:SetHideShopItems(enabled)
 
     self.hideShopItems = value
 
-    if addon.db and addon.db.browser then
-        addon.db.browser.filters = addon.db.browser.filters or {}
-        addon.db.browser.filters.hideShopItems = value
-    end
+    PersistFilter("hideShopItems", value)
 
     addon:NotifyDecorVisibilityChanged(nil, "hide-shop-items")
     addon:Debug("Hide shop items filter set to: " .. tostring(value))
@@ -638,7 +616,6 @@ function Filters:RestoreState()
 
     addon:WithSearcherBatchUpdate("RestoreState", function()
         -- Restore collection filters (can be combined)
-        MigrateCollectionState(db)
         if db.showCollected ~= nil then
             self.showCollected = db.showCollected
         end

@@ -100,7 +100,7 @@ function PvPTab:SetupSourceRow(frame, elementData)
             displayName = displayName .. "  |cFF66EE66[X]|r"
         end
     elseif elementData.sourceCategory == "vendors" and elementData.zoneName then
-        local localizedZone = addon:GetLocalizedVendorZoneName(elementData.zoneName)
+        local localizedZone = addon:GetLocalizedZoneName(elementData.zoneName)
         tooltipHint = tooltipHint .. " (" .. localizedZone .. ")"
         displayName = displayName .. "  |cFF888888(" .. localizedZone .. ")|r"
     end
@@ -150,7 +150,7 @@ function PvPTab:SourceMatchesSearch(sourceData, searchText, category)
         if addon:NormalizeSearchText(sourceData.zoneName):find(searchText, 1, true) then
             return true
         end
-        local localizedZone = addon:GetLocalizedVendorZoneName(sourceData.zoneName)
+        local localizedZone = addon:GetLocalizedZoneName(sourceData.zoneName)
         if localizedZone ~= sourceData.zoneName and addon:NormalizeSearchText(localizedZone):find(searchText, 1, true) then
             return true
         end

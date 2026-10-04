@@ -35,13 +35,12 @@ end
 
 -- Frame references
 local frame = nil
-local titleBar, titleBarBg, titleText, xpContainer, endeavorContainer, taskContainer
+local titleBar, titleText, xpContainer, endeavorContainer, taskContainer
 local xpBarBg, xpBarFill, xpLevelText, xpValueText, xpPctText
 local endeavorBarBg, endeavorBarFill, endeavorLabel, endeavorValueText, endeavorPctText
 local taskRows = {}
 local cogwheelBtn
 local configFrame = nil
-local hcIcon = nil
 local contentBackdrop = nil
 
 -- Title bar auto-hide state
@@ -59,8 +58,6 @@ local frameBackdropAlpha = 1
 
 -- Width animation state
 local widthAnimTarget = nil
-local widthAnimStart = nil
-local widthAnimElapsed = nil
 
 -- Bar layout state (stacked ↔ inline transition)
 local barLayoutFactor = 0  -- 0 = stacked (2 rows), 1 = inline (side-by-side)
@@ -101,51 +98,9 @@ combatDeferFrame:SetScript("OnEvent", function(self)
     end
 end)
 
--- Shared backdrop for all panel frames
-local FRAME_BACKDROP = {
-    bgFile = "Interface\\Buttons\\WHITE8x8",
-    edgeFile = "Interface\\Tooltips\\UI-Tooltip-Border",
-    edgeSize = 10,
-    insets = { left = 2, right = 2, top = 2, bottom = 2 },
-}
-
 --------------------------------------------------------------------------------
 -- Helpers
 --------------------------------------------------------------------------------
-
--- Open the Housing Dashboard and navigate to a specific content tab.
--- tabID: the tab ID key on the HouseInfoContent frame (e.g. "houseUpgradeTabID", "endeavorTabID")
-local function OpenHousingDashboard(tabID)
-    if InCombatLockdown() then return end
-    if PlayerIsTimerunning()
-        or not C_Housing.IsHousingServiceEnabled()
-        or C_PlayerInfo.IsPlayerNPERestricted() then
-        return
-    end
-    if not HousingDashboardFrame then
-        pcall(C_AddOns.LoadAddOn, "Blizzard_HousingDashboard")
-    end
-    if not HousingDashboardFrame then return end
-
-    local function SetDashboardTab(dashboardFrame, tab)
-        local setTab = dashboardFrame and dashboardFrame.SetTab
-        if type(setTab) ~= "function" or tab == nil then return false end
-        return pcall(setTab, dashboardFrame, tab)
-    end
-
-    ShowUIPanel(HousingDashboardFrame)
-    if not SetDashboardTab(HousingDashboardFrame, HousingDashboardFrame.houseInfoTab) then return end
-    local contentFrame = HousingDashboardFrame.HouseInfoContent
-        and HousingDashboardFrame.HouseInfoContent.ContentFrame
-    if contentFrame then
-        if not contentFrame.tabsInitialized then
-            pcall(contentFrame.Initialize, contentFrame)
-        end
-        if contentFrame[tabID] then
-            SetDashboardTab(contentFrame, contentFrame[tabID])
-        end
-    end
-end
 
 local function SetBarProgress(barFill, barBg, progress, max)
     if not barFill or not barBg then return end
@@ -253,8 +208,8 @@ local function AnimateWidth(targetWidth)
     if widthAnimTarget == targetWidth then return end
 
     widthAnimTarget = targetWidth
-    widthAnimStart = frame:GetWidth()
-    widthAnimElapsed = 0
+    local widthAnimStart = frame:GetWidth()
+    local widthAnimElapsed = 0
 
     if not widthAnimDriver then
         widthAnimDriver = CreateFrame("Frame", nil, frame)
@@ -507,10 +462,14 @@ local function GetTaskField(taskInfo, taskData, key)
     return taskData and taskData[key]
 end
 
+local function GetTaskID(taskInfo, taskData)
+    return GetTaskField(taskInfo, taskData, "ID") or (taskData and taskData.taskID)
+end
+
 local function GetCompletionCount(taskInfo, taskData)
     local count = tonumber(GetTaskField(taskInfo, taskData, "timesCompleted")) or 0
-    local taskID = GetTaskField(taskInfo, taskData, "ID") or (taskData and taskData.taskID)
-    local taskName = GetTaskField(taskInfo, taskData, "taskName") or (taskData and taskData.taskName)
+    local taskID = GetTaskID(taskInfo, taskData)
+    local taskName = GetTaskField(taskInfo, taskData, "taskName")
     if addon.EndeavorsData and addon.EndeavorsData.GetTaskCompletionCount then
         local resolvedCount, found = addon.EndeavorsData:GetTaskCompletionCount(taskID, taskName)
         if found then
@@ -522,7 +481,7 @@ end
 
 local function AddTaskTooltipLines(taskData)
     local taskInfo = GetLatestTaskInfo(taskData)
-    local taskID = GetTaskField(taskInfo, taskData, "ID") or (taskData and taskData.taskID)
+    local taskID = GetTaskID(taskInfo, taskData)
     local taskName = GetTaskField(taskInfo, taskData, "taskName") or ""
     local taskType = GetTaskField(taskInfo, taskData, "taskType")
     local timesCompleted = GetCompletionCount(taskInfo, taskData)
@@ -588,7 +547,7 @@ end
 
 local function ToggleTaskTracking(taskData)
     local taskInfo = GetLatestTaskInfo(taskData)
-    local taskID = GetTaskField(taskInfo, taskData, "ID") or (taskData and taskData.taskID)
+    local taskID = GetTaskID(taskInfo, taskData)
     if not taskID or GetTaskField(taskInfo, taskData, "completed") then return end
     if not (C_NeighborhoodInitiative and C_NeighborhoodInitiative.AddTrackedInitiativeTask and C_NeighborhoodInitiative.RemoveTrackedInitiativeTask) then return end
 
@@ -601,7 +560,7 @@ local function ToggleTaskTracking(taskData)
     end
 end
 
-local function CreateTaskRow(parent, index)
+local function CreateTaskRow(parent)
     local row = CreateFrame("Frame", nil, parent)
     row:SetHeight(S(CONST.TASK_ROW_HEIGHT))
     row:SetPoint("LEFT", S(12), 0)
@@ -930,7 +889,7 @@ local function CreateConfigFrame()
     local cf = CreateFrame("Frame", "HousingCodexEndeavorsConfig", UIParent, "BackdropTemplate")
     cf:SetWidth(240)
     cf:SetFrameStrata("DIALOG")
-    cf:SetBackdrop(FRAME_BACKDROP)
+    cf:SetBackdrop(addon.CONSTANTS.PANEL_BACKDROP)
     cf:SetBackdropColor(0.06, 0.06, 0.08, 0.95)
     cf:SetBackdropBorderColor(0.4, 0.4, 0.4, 1)
     cf:Hide()
@@ -1112,7 +1071,7 @@ local function CreateEndeavorsFrame()
     frame = CreateFrame("Frame", "HousingCodexEndeavorsFrame", UIParent, "BackdropTemplate")
     frame:SetSize(S(CONST.PANEL_WIDTH), 100) -- height is dynamic
     frame:SetFrameStrata("MEDIUM")
-    frame:SetBackdrop(FRAME_BACKDROP)
+    frame:SetBackdrop(addon.CONSTANTS.PANEL_BACKDROP)
     frame:SetBackdropColor(0.02, 0.02, 0.03, 0.75)
     frame:SetBackdropBorderColor(0.2, 0.2, 0.2, 0.40)
     frame:SetClampedToScreen(true)
@@ -1141,7 +1100,7 @@ local function CreateEndeavorsFrame()
     titleBar:SetPoint("TOPRIGHT", -ST(4), -ST(4))
 
     -- Title bar background texture (inherits parent alpha for auto-hide fade)
-    titleBarBg = titleBar:CreateTexture(nil, "BACKGROUND")
+    local titleBarBg = titleBar:CreateTexture(nil, "BACKGROUND")
     titleBarBg:SetAllPoints()
     titleBarBg:SetColorTexture(0.06, 0.06, 0.08, 0.64)
 
@@ -1180,7 +1139,7 @@ local function CreateEndeavorsFrame()
     iconMask:SetTexture("Interface\\CHARACTERFRAME\\TempPortraitAlphaMask", "CLAMPTOBLACKADDITIVE", "CLAMPTOBLACKADDITIVE")
     iconBg:AddMaskTexture(iconMask)
 
-    hcIcon = iconFrame:CreateTexture(nil, "OVERLAY")
+    local hcIcon = iconFrame:CreateTexture(nil, "OVERLAY")
     hcIcon:SetAllPoints()
     hcIcon:SetTexture("Interface\\AddOns\\HousingCodex\\HC64")
     frame.iconFrame = iconFrame  -- ref for UpdateLayout positioning
@@ -1230,7 +1189,7 @@ local function CreateEndeavorsFrame()
     contentBackdrop:SetFrameLevel(frame:GetFrameLevel())
     contentBackdrop:SetPoint("TOPLEFT", frame, "TOPLEFT", 0, 0)
     contentBackdrop:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", 0, 0)
-    contentBackdrop:SetBackdrop(FRAME_BACKDROP)
+    contentBackdrop:SetBackdrop(addon.CONSTANTS.PANEL_BACKDROP)
     contentBackdrop:SetBackdropColor(0.02, 0.02, 0.03, 0.75)
     contentBackdrop:SetBackdropBorderColor(0.2, 0.2, 0.2, 0.40)
     contentBackdrop:Hide()
@@ -1328,7 +1287,7 @@ local function CreateEndeavorsFrame()
     end)
     xpContainer:SetScript("OnMouseUp", function(_, button)
         if button ~= "LeftButton" then return end
-        OpenHousingDashboard("houseUpgradeTabID")
+        addon:OpenHousingDashboard("houseUpgradeTabID")
     end)
 
     ----------------------------------------------------------------------------
@@ -1397,7 +1356,7 @@ local function CreateEndeavorsFrame()
     end)
     endeavorContainer:SetScript("OnMouseUp", function(_, button)
         if button ~= "LeftButton" then return end
-        OpenHousingDashboard("endeavorTabID")
+        addon:OpenHousingDashboard("endeavorTabID")
     end)
 
     ----------------------------------------------------------------------------
@@ -1417,7 +1376,7 @@ local function CreateEndeavorsFrame()
 
     -- Pre-create task row pool
     for i = 1, CONST.MAX_VISIBLE_TASKS do
-        local row = CreateTaskRow(taskContainer, i)
+        local row = CreateTaskRow(taskContainer)
         taskRows[i] = row
     end
 
@@ -1628,6 +1587,28 @@ function EP:UpdateLayout()
     end
 end
 
+-- Value text and percentage text share one rule: the percentage is hidden
+-- whenever the value text is visible, to avoid overlap on the bar.
+local function UpdateBarTexts(valueFS, pctFS, showText, showPct, text, pctStr)
+    valueFS.storedText = text
+    local valueShown = false
+    if showText and text and text ~= "" then
+        valueFS:SetText(text)
+        valueFS:Show()
+        valueShown = true
+    else
+        valueFS:Hide()
+    end
+
+    pctFS.storedPct = pctStr
+    if showPct and not valueShown and pctStr then
+        pctFS:SetText(pctStr)
+        pctFS:Show()
+    else
+        pctFS:Hide()
+    end
+end
+
 function EP:UpdateXPBar()
     if not frame or not xpContainer:IsShown() then return end
 
@@ -1636,57 +1617,25 @@ function EP:UpdateXPBar()
     local level = data:GetHouseLevel()
     local isMax = data:IsMaxLevel()
 
-    local valueShown = false
+    xpLevelText:SetText(tostring(level))
     if isMax then
-        xpLevelText:SetText(tostring(level))
-        xpValueText.storedText = L["ENDEAVORS_MAX_LEVEL"]
-        if db.showXPText then
-            xpValueText:SetText(xpValueText.storedText)
-            xpValueText:Show()
-            valueShown = true
-        else
-            xpValueText:Hide()
-        end
-        -- Percentage: show "DONE" at max (hide if value text is visible to avoid overlap)
-        xpPctText.storedPct = L["ENDEAVORS_PCT_DONE"]
-        if db.showXPPct and not valueShown then
-            xpPctText:SetText(L["ENDEAVORS_PCT_DONE"])
-            xpPctText:Show()
-        else
-            xpPctText:Hide()
-        end
+        -- Percentage: show "DONE" at max
+        UpdateBarTexts(xpValueText, xpPctText, db.showXPText, db.showXPPct,
+            L["ENDEAVORS_MAX_LEVEL"], L["ENDEAVORS_PCT_DONE"])
         SetBarProgress(xpBarFill, xpBarBg, 1, 1)
     else
-        xpLevelText:SetText(tostring(level))
         local favor, favorNeeded = data:GetHouseXPProgress()
         -- Use cumulative values for text display (matches Blizzard Housing Dashboard)
         local totalFavor, totalFavorNeeded = data:GetHouseXPTotal()
         totalFavor = math.floor(totalFavor)
         totalFavorNeeded = math.floor(totalFavorNeeded)
         local text = (totalFavorNeeded > 0) and (totalFavor .. "/" .. totalFavorNeeded) or ""
-        xpValueText.storedText = text
-
-        if db.showXPText and text ~= "" then
-            xpValueText:SetText(text)
-            xpValueText:Show()
-            valueShown = true
-        else
-            xpValueText:Hide()
-        end
-
-        -- Percentage text on bar (hide if value text is visible to avoid overlap)
         local pctStr = nil
         if favorNeeded and favorNeeded > 0 then
             local pct = math.floor(favor / favorNeeded * 100)
             pctStr = (pct >= 100) and L["ENDEAVORS_PCT_DONE"] or (pct .. "%")
         end
-        xpPctText.storedPct = pctStr
-        if db.showXPPct and not valueShown and pctStr then
-            xpPctText:SetText(pctStr)
-            xpPctText:Show()
-        else
-            xpPctText:Hide()
-        end
+        UpdateBarTexts(xpValueText, xpPctText, db.showXPText, db.showXPPct, text, pctStr)
 
         SetBarProgress(xpBarFill, xpBarBg, favor, favorNeeded)
     end
@@ -1712,28 +1661,12 @@ function EP:UpdateEndeavorBar()
     local text = (max > 0) and (current .. "/" .. max) or ""
     endeavorValueText.storedText = text
 
-    local valueShown = false
-    if db.showEndeavorText and text ~= "" then
-        endeavorValueText:SetText(text)
-        endeavorValueText:Show()
-        valueShown = true
-    else
-        endeavorValueText:Hide()
-    end
-
-    -- Percentage text on bar (hide if value text is visible to avoid overlap)
     local pctStr = nil
     if max > 0 then
         local pct = math.floor(current / max * 100)
         pctStr = (pct >= 100) and L["ENDEAVORS_PCT_DONE"] or (pct .. "%")
     end
-    endeavorPctText.storedPct = pctStr
-    if db.showEndeavorPct and not valueShown and pctStr then
-        endeavorPctText:SetText(pctStr)
-        endeavorPctText:Show()
-    else
-        endeavorPctText:Hide()
-    end
+    UpdateBarTexts(endeavorValueText, endeavorPctText, db.showEndeavorText, db.showEndeavorPct, text, pctStr)
 
     SetBarProgress(endeavorBarFill, endeavorBarBg, current, max)
 end

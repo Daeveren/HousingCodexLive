@@ -13,10 +13,6 @@ addon.ZoneOverlay = {}
 
 local ZoneOverlay = addon.ZoneOverlay
 
-local function GetMapTooltip()
-    return HousingCodexMapTooltip
-end
-
 -- Tooltip color objects
 local COLOR_VENDOR_NAME = CreateColor(0, 0.8, 0, 1)
 local COLOR_DIM = CreateColor(0.67, 0.67, 0.67, 1)
@@ -55,8 +51,8 @@ local IsFrameShown = addon.IsFrameShown
 -- fractional inputs: the expand/collapse tween and the user preview-scale setting.
 -- Re-applying a map/UIParent scale ratio here would square the map's scale on top of the
 -- inherited one.
-local function RoundMin(value, minimum)
-    return math.max(minimum or 1, math.floor((value or 0) + 0.5))
+local function RoundMin(value)
+    return math.max(1, math.floor((value or 0) + 0.5))
 end
 
 -- One level above the topmost pin band, which places the panel over every map pin within
@@ -281,67 +277,10 @@ end
 --------------------------------------------------------------------------------
 -- Frame creation
 --------------------------------------------------------------------------------
-local function ApplyStaticLayout()
-    if not frame then return end
-
-    if frame.titleBar then
-        frame.titleBar:SetHeight(TITLE_BAR_HEIGHT)
-    end
-    if frame.titleIcon then
-        frame.titleIcon:SetSize(16, 16)
-        frame.titleIcon:ClearAllPoints()
-        frame.titleIcon:SetPoint("LEFT", 8, 0)
-    end
-    if frame.titleText then
-        frame.titleText:ClearAllPoints()
-        frame.titleText:SetPoint("LEFT", frame.titleIcon, "RIGHT", 6, 0)
-        frame.titleText:SetPoint("RIGHT", -28, 0)
-        addon:SetFontSize(frame.titleText, TITLE_FONT_SIZE, "")
-    end
-    if frame.toggleBtn then
-        frame.toggleBtn:SetSize(20, 20)
-        frame.toggleBtn:ClearAllPoints()
-        frame.toggleBtn:SetPoint("RIGHT", -4, 0)
-    end
-    if frame.toggleArrow then
-        frame.toggleArrow:SetSize(12, 12)
-        frame.toggleArrow:ClearAllPoints()
-        frame.toggleArrow:SetPoint("CENTER")
-    end
-    if frame.scrollBox then
-        frame.scrollBox:ClearAllPoints()
-        frame.scrollBox:SetPoint("TOPLEFT", 0, 0)
-        frame.scrollBox:SetPoint("BOTTOMRIGHT", -10, 0)
-    end
-    if frame.scrollBar and frame.scrollBox then
-        frame.scrollBar:ClearAllPoints()
-        frame.scrollBar:SetPoint("TOPLEFT", frame.scrollBox, "TOPRIGHT", -1, 0)
-        frame.scrollBar:SetPoint("BOTTOMLEFT", frame.scrollBox, "BOTTOMRIGHT", -1, 0)
-        local track = frame.scrollBar:GetTrack()
-        track:ClearAllPoints()
-        track:SetPoint("TOP", 0, 0)
-        track:SetPoint("BOTTOM", 0, 5)
-    end
-end
-
-local function ApplyRowLayout(row)
-    row.headerArrow:SetSize(10, 10)
-    row.headerArrow:ClearAllPoints()
-    row.headerArrow:SetPoint("LEFT", PADDING, 0)
-
-    row.headerText:ClearAllPoints()
-    row.headerText:SetPoint("LEFT", row.headerArrow, "RIGHT", 4, 0)
-    row.headerText:SetPoint("RIGHT", -PADDING, 0)
-    addon:SetFontSize(row.headerText, ITEM_FONT_SIZE, "")
-
-    row.icon:SetSize(ICON_SIZE, ICON_SIZE)
-    row.icon:ClearAllPoints()
-    row.icon:SetPoint("LEFT", 4, 0)
-
-    row.name:ClearAllPoints()
-    row.name:SetPoint("LEFT", row.icon, "RIGHT", 4, 0)
-    row.name:SetPoint("RIGHT", -4, 0)
-    addon:SetFontSize(row.name, ITEM_FONT_SIZE, "")
+local function ToggleMinimized()
+    if not addon.db then return end
+    addon.db.settings.zoneOverlayMinimized = not addon.db.settings.zoneOverlayMinimized
+    ZoneOverlay:RefreshLayout()
 end
 
 local function CreateOverlayFrame()
@@ -375,15 +314,14 @@ local function CreateOverlayFrame()
     -- Click anywhere on title bar to toggle collapse/expand
     titleBar:EnableMouse(true)
     titleBar:SetScript("OnMouseUp", function(self, button)
-        if button == "LeftButton" and addon.db then
-            addon.db.settings.zoneOverlayMinimized = not addon.db.settings.zoneOverlayMinimized
-            ZoneOverlay:RefreshLayout()
+        if button == "LeftButton" then
+            ToggleMinimized()
         end
     end)
 
     titleBar:SetScript("OnEnter", function(self)
         if not addon.db or not addon.db.settings.zoneOverlayMinimized then return end
-        local tooltip = GetMapTooltip()
+        local tooltip = HousingCodexMapTooltip
         tooltip:SetOwner(self, "ANCHOR_CURSOR_RIGHT")
         GameTooltip_SetTitle(tooltip, addon.L["ZONE_OVERLAY_BUTTON_TOOLTIP"], COLOR_GOLD)
         GameTooltip_AddNormalLine(tooltip, addon.L["ZONE_OVERLAY_COLLAPSED_TOOLTIP"])
@@ -392,7 +330,7 @@ local function CreateOverlayFrame()
     end)
 
     titleBar:SetScript("OnLeave", function()
-        local tooltip = GetMapTooltip()
+        local tooltip = HousingCodexMapTooltip
         if tooltip:GetOwner() == titleBar then
             tooltip:Hide()
         end
@@ -428,11 +366,7 @@ local function CreateOverlayFrame()
     toggleArrow:SetVertexColor(1, 0.82, 0, 1)
     frame.toggleArrow = toggleArrow
 
-    toggleBtn:SetScript("OnClick", function()
-        if not addon.db then return end
-        addon.db.settings.zoneOverlayMinimized = not addon.db.settings.zoneOverlayMinimized
-        ZoneOverlay:RefreshLayout()
-    end)
+    toggleBtn:SetScript("OnClick", ToggleMinimized)
 
     -- Highlight for toggle button
     local toggleHighlight = toggleBtn:CreateTexture(nil, "HIGHLIGHT")
@@ -445,7 +379,6 @@ local function CreateOverlayFrame()
     contentFrame = CreateFrame("Frame", nil, frame)
     contentFrame:SetPoint("TOPLEFT", titleBar, "BOTTOMLEFT", 0, 0)
     contentFrame:SetPoint("TOPRIGHT", titleBar, "BOTTOMRIGHT", 0, 0)
-    frame.contentFrame = contentFrame
 
     -- WowScrollBoxList + MinimalScrollBar (same pattern as Grid.lua)
     local scrollBox = CreateFrame("Frame", nil, contentFrame, "WowScrollBoxList")
@@ -524,9 +457,7 @@ local function CreateOverlayFrame()
                             addon:Print(addon.L["COMBAT_LOCKDOWN_MESSAGE"])
                             return
                         end
-                        addon.MainFrame:Show()
-                        addon.Tabs:SelectTab("VENDORS")
-                        addon.VendorsTab:NavigateToVendor(self.sourceId)
+                        addon.VendorsTab:OpenToVendor(self.sourceId)
                     end
                 end
             end)
@@ -534,7 +465,7 @@ local function CreateOverlayFrame()
             row:SetScript("OnEnter", function(self)
                 if self.isHeader or not self.recordID then return end
                 ShowPreview(self, self.recordID)
-                local tooltip = GetMapTooltip()
+                local tooltip = HousingCodexMapTooltip
                 tooltip:SetOwner(self, "ANCHOR_CURSOR_RIGHT")
                 local L = addon.L
                 if self.categoryKey == "vendors" and self.sourceName then
@@ -556,13 +487,12 @@ local function CreateOverlayFrame()
             row:SetScript("OnLeave", function(self)
                 if self.isHeader then return end
                 HidePreview()
-                local tooltip = GetMapTooltip()
+                local tooltip = HousingCodexMapTooltip
                 if tooltip:GetOwner() == self then
                     tooltip:Hide()
                 end
             end)
         end
-        ApplyRowLayout(row)
 
         if elementData.isHeader then
             row.headerArrow:Show()
@@ -590,11 +520,9 @@ local function CreateOverlayFrame()
             end
 
             row.recordID = elementData.recordID
-            row.decorName = elementData.decorName
             row.sourceName = elementData.sourceName
             row.sourceId = elementData.sourceId
             row.categoryKey = elementData.categoryKey
-            row.isCollected = elementData.isCollected
             row.cityName = elementData.cityName
         end
     end)
@@ -630,7 +558,6 @@ local function CreateOverlayFrame()
     -- than leaving IsFrameShown(frame) true until the deferred UpdateVisibility runs.
     frame:Hide()
 
-    ApplyStaticLayout()
     ZoneOverlay:UpdatePosition()
     ZoneOverlay:UpdateAlpha()
 end
@@ -1022,6 +949,13 @@ end
 local initialized = false
 local waitingForWorldMap = false
 
+local function SyncWithMap()
+    if addon.db and addon.db.settings.showZoneOverlay and IsFrameShown(WorldMapFrame) then
+        ScheduleMapUpdate()
+    end
+    ZoneOverlay:UpdateVisibility()
+end
+
 local function InitializeOverlay()
     if initialized then return end
     initialized = true
@@ -1046,10 +980,7 @@ local function InitializeOverlay()
             if frame then
                 frame:SetFrameLevel(GetOverlayFrameLevel())
             end
-            if addon.db and addon.db.settings.showZoneOverlay and IsFrameShown(WorldMapFrame) then
-                ScheduleMapUpdate()
-            end
-            ZoneOverlay:UpdateVisibility()
+            SyncWithMap()
         end)
     end)
 
@@ -1084,12 +1015,7 @@ local function InitializeOverlay()
     end)
 
     -- Initial state (deferred to clean execution context)
-    C_Timer.After(0, function()
-        if addon.db and addon.db.settings.showZoneOverlay and IsFrameShown(WorldMapFrame) then
-            ScheduleMapUpdate()
-        end
-        ZoneOverlay:UpdateVisibility()
-    end)
+    C_Timer.After(0, SyncWithMap)
 
     addon:Debug("Zone overlay initialized")
 end

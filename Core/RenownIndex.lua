@@ -67,7 +67,7 @@ local function FormatRenownLevel(level)
     if type(RENOWN_LEVEL_LABEL) == "string" then
         return RENOWN_LEVEL_LABEL:format(value)
     end
-    return string.format(L["RENOWN_RANK_FORMAT"] or "Rank %d", value)
+    return string.format(L["RENOWN_RANK_FORMAT"], value)
 end
 
 local function ClampProgress(value, maxValue)
@@ -167,7 +167,7 @@ local function ResolveDecorEntriesForFaction(factionData)
     -- When vendor.decorIds is present (scraper-populated, faction-scoped), use it directly.
     -- Fall back to NPC lookup only when absent (all NPC items get faction-level requiredStanding).
     local factionReq = factionData.requiredStanding
-    if factionData.vendors and vendorNPCDecorLookup then
+    if factionData.vendors then
         local function addDecorList(list)
             for _, decorId in ipairs(list) do
                 addEntry(decorId, factionReq)
@@ -633,7 +633,7 @@ end
 -- UPDATE_FACTION because that event carries no factionID payload and faction
 -- names don't change on reputation-value updates anyway.
 function addon:RefreshFactionLocalizedLabel(factionID)
-    if not factionID or not self.renownHierarchy then return end
+    if not factionID then return end
     for _, expData in pairs(self.renownHierarchy) do
         if expData.factions then
             for _, entry in ipairs(expData.factions) do
@@ -732,11 +732,6 @@ end
 --------------------------------------------------------------------------------
 
 addon:RegisterInternalEvent("RECORD_OWNERSHIP_UPDATED", function()
-    wipe(addon.renownProgressCache)
-    wipe(addon.renownExpansionProgressCache)
-end)
-
-addon:RegisterInternalEvent(addon.Events.DECOR_VISIBILITY_CHANGED, function()
     wipe(addon.renownProgressCache)
     wipe(addon.renownExpansionProgressCache)
 end)

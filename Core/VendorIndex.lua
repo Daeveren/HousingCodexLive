@@ -10,8 +10,8 @@ local ZONE_TO_EXPANSION = addon.ZONE_TO_EXPANSION
 
 -- Shared expansion order; module-specific unknowns fall back to 0 at usage sites
 local EXPANSION_ORDER = addon.CONSTANTS.EXPANSION_ORDER
-local SOURCE_PREFIX_COLOR = "|cffeac100"
-local COLOR_RESET = "|r"
+local SOURCE_PREFIX_COLOR = addon.CONSTANTS.SOURCE_PREFIX_COLOR
+local COLOR_RESET = addon.CONSTANTS.COLOR_RESET
 
 -- Legion Class Hall zone annotations
 local CLASS_HALL_ZONES = {
@@ -181,8 +181,9 @@ local function FormatVendorSourceText(vendorName)
     return vendorName
 end
 
-local function GetVendorDecorCost(vendorData, decorId)
-    return addon:GetVendorDecorCostDetails(vendorData, decorId)
+local function GetVendorPromoSet(vendorData)
+    if not vendorData or not vendorData.npcId then return nil end
+    return addon.VendorPromotionalDecorIds and addon.VendorPromotionalDecorIds[vendorData.npcId]
 end
 
 local function IsVendorFriendlyToBothFactions(npcId)
@@ -200,9 +201,8 @@ local function IsVendorFriendlyToBothFactions(npcId)
 end
 
 local function BuildVendorDecorDetails(vendorData, zoneName, decorId)
-    local cost, currencyName, hasItemCost, costComponents = GetVendorDecorCost(vendorData, decorId)
-    local promoSet = addon.VendorPromotionalDecorIds
-        and addon.VendorPromotionalDecorIds[vendorData.npcId]
+    local cost, currencyName, hasItemCost, costComponents = addon:GetVendorDecorCostDetails(vendorData, decorId)
+    local promoSet = GetVendorPromoSet(vendorData)
 
     return {
         contextKind = "default",
@@ -251,11 +251,10 @@ local function IsBetterVendorSource(candidateVendor, currentVendor, decorId)
         return candidateFriendly
     end
 
-    local promoData = addon.VendorPromotionalDecorIds
-    local candidatePromo = promoData and promoData[candidateVendor.npcId]
-        and promoData[candidateVendor.npcId][decorId] == true
-    local currentPromo = promoData and promoData[currentVendor.npcId]
-        and promoData[currentVendor.npcId][decorId] == true
+    local candidateSet = GetVendorPromoSet(candidateVendor)
+    local currentSet = GetVendorPromoSet(currentVendor)
+    local candidatePromo = candidateSet and candidateSet[decorId] == true
+    local currentPromo = currentSet and currentSet[decorId] == true
     if candidatePromo ~= currentPromo then
         return not candidatePromo
     end
@@ -273,8 +272,6 @@ local function IsBetterVendorSource(candidateVendor, currentVendor, decorId)
 end
 
 function addon:BuildVendorSourceLookup()
-    if not self.vendorHierarchy then return end
-
     self.decorVendorSourceText = self.decorVendorSourceText or {}
     self.decorPrimaryVendorSource = self.decorPrimaryVendorSource or {}
     self.decorPrimaryVendorZone = self.decorPrimaryVendorZone or {}
@@ -314,7 +311,7 @@ local function LocalizeVendorDecorDetails(details)
         vendorName = addon:GetLocalizedNPCName(details.npcId, details.vendorName)
             or details.vendorName
             or addon.L["VENDOR_UNKNOWN"],
-        zoneName = details.zoneName and addon:GetLocalizedVendorZoneName(details.zoneName) or nil,
+        zoneName = details.zoneName and addon:GetLocalizedZoneName(details.zoneName) or nil,
         cost = details.cost,
         currencyName = details.currencyName,
         costComponents = details.costComponents,
@@ -324,7 +321,7 @@ end
 
 function addon:GetDefaultVendorDecorDetails(decorId)
     if not decorId then return nil end
-    if not self.vendorIndexBuilt and self.BuildVendorIndex then
+    if not self.vendorIndexBuilt then
         self:BuildVendorIndex()
     end
 
@@ -337,12 +334,12 @@ end
 
 function addon:GetAllVendorDecorDetails(decorId)
     if not decorId then return {} end
-    if not self.vendorIndexBuilt and self.BuildVendorIndex then
+    if not self.vendorIndexBuilt then
         self:BuildVendorIndex()
     end
 
     local detailByNPC = {}
-    for _, expansionData in pairs(self.vendorHierarchy or {}) do
+    for _, expansionData in pairs(self.vendorHierarchy) do
         for zoneName, vendors in pairs(expansionData.zones or {}) do
             for _, vendorData in ipairs(vendors) do
                 for _, candidateDecorId in ipairs(vendorData.decorIds or {}) do
@@ -375,34 +372,14 @@ end
 
 function addon:HasVendorSource(decorId)
     if not decorId then return false end
-    if not self.vendorIndexBuilt and self.BuildVendorIndex then
+    if not self.vendorIndexBuilt then
         self:BuildVendorIndex()
     end
     return self.decorPrimaryVendorSource and self.decorPrimaryVendorSource[decorId] ~= nil
 end
 
 function addon:EnrichVendorSourceText()
-    if not self.decorVendorSourceText then return 0 end
-
-    local enriched = 0
-    for decorId, sourceText in pairs(self.decorVendorSourceText) do
-        local primary = self.decorRecords and self.decorRecords[decorId]
-        if primary and (not primary.sourceText or primary.sourceText == "") then
-            primary.sourceText = sourceText
-            enriched = enriched + 1
-        end
-        local fallback = self.fallbackRecords and self.fallbackRecords[decorId]
-        if fallback and fallback ~= false and (not fallback.sourceText or fallback.sourceText == "") then
-            fallback.sourceText = sourceText
-            enriched = enriched + 1
-        end
-    end
-
-    if enriched > 0 then
-        self.byWordIndexBuilt = false
-    end
-
-    return enriched
+    return self:EnrichRecordsSourceText(self.decorVendorSourceText)
 end
 
 function addon:GetClassHallAnnotation(zoneName)
@@ -606,8 +583,7 @@ function addon:BuildVendorIndex()
                         -- items, etc.). Populated from addon.VendorPromotionalDecorIds when the
                         -- scraper emitted it; nil for vendors with no rotated stock. Consumed by
                         -- GetVendorPinProgress to split tooltip counts into active-vs-rotated.
-                        local promoSet = addon.VendorPromotionalDecorIds
-                            and addon.VendorPromotionalDecorIds[npcId]
+                        local promoSet = GetVendorPromoSet(vendorData)
                         vendorEntry = {
                             npcId = npcId,
                             npcName = vendorData.npcName,
@@ -751,12 +727,6 @@ function addon:GetSortedVendorZones(expansionKey)
     return zones
 end
 
--- GetLocalizedVendorZoneName: use addon:GetLocalizedZoneName() in Localization.lua
--- Kept as a thin wrapper for backwards compatibility
-function addon:GetLocalizedVendorZoneName(zoneName)
-    return self:GetLocalizedZoneName(zoneName)
-end
-
 function addon:GetVendorsForZone(expansionKey, zoneName)
     local expData = self.vendorHierarchy[expansionKey]
     return expData and expData.zones[zoneName] or {}
@@ -833,11 +803,6 @@ function addon:IsVendorDecorResolvable(decorId, requireRecord)
     end
     local fallback = self.VendorItemFallback and self.VendorItemFallback[decorId]
     return fallback and fallback.name ~= nil
-end
-
-local function GetVendorPromoSet(vendorData)
-    if not vendorData or not vendorData.npcId then return nil end
-    return addon.VendorPromotionalDecorIds and addon.VendorPromotionalDecorIds[vendorData.npcId]
 end
 
 local function AddDecorToProgressSet(progressSet, decorId)
@@ -934,12 +899,6 @@ function addon:GetVendorFaction(npcId)
 end
 
 addon:RegisterInternalEvent("RECORD_OWNERSHIP_UPDATED", function()
-    wipe(addon.vendorExpansionProgressCache)
-    wipe(addon.vendorZoneProgressCache)
-    addon.vendorUniqueProgressCache = nil
-end)
-
-addon:RegisterInternalEvent(addon.Events.DECOR_VISIBILITY_CHANGED, function()
     wipe(addon.vendorExpansionProgressCache)
     wipe(addon.vendorZoneProgressCache)
     addon.vendorUniqueProgressCache = nil

@@ -288,6 +288,11 @@ QuestZoneHeaderOnLeave = function(frame)
     frame.bg:SetColorTexture(unpack(COLORS.PANEL_NORMAL_ALT))
 end
 
+-- Explicit recordID, else the quest's first reward (nil when it has none)
+local function GetPreviewRecordID(questID, recordID)
+    return recordID or addon:GetRecordsForQuest(questID)[1]
+end
+
 -- Named handlers for quest rows (bound once, read data from frame fields)
 QuestRowOnMouseDown = function(frame, button)
     local elementData = frame.elementData
@@ -297,11 +302,7 @@ QuestRowOnMouseDown = function(frame, button)
     end
 
     if IsShiftKeyDown() then
-        local recordID = elementData.recordID
-        if not recordID then
-            local recordIDs = addon:GetRecordsForQuest(elementData.questID)
-            recordID = recordIDs and recordIDs[1]
-        end
+        local recordID = GetPreviewRecordID(elementData.questID, elementData.recordID)
         if not recordID then
             addon:Print(addon.L["QUESTS_TRACKING_FAILED"])
             return
@@ -319,11 +320,7 @@ QuestRowOnEnter = function(frame)
         frame.bg:SetColorTexture(unpack(COLORS.ROW_BG_SOLID))
     end
 
-    local recordID = frame.recordID
-    if not recordID then
-        local recordIDs = addon:GetRecordsForQuest(frame.questID)
-        recordID = recordIDs and recordIDs[1]
-    end
+    local recordID = GetPreviewRecordID(frame.questID, frame.recordID)
     if recordID then
         addon:FireEvent("RECORD_SELECTED", recordID)
     end
@@ -345,13 +342,9 @@ QuestRowOnLeave = function(frame)
     ApplyQuestRowState(frame, QuestsTab.selectedQuestID == frame.questID and
         (not frame.recordID or QuestsTab.selectedRecordID == frame.recordID))
 
-    if QuestsTab.selectedRecordID then
-        addon:FireEvent("RECORD_SELECTED", QuestsTab.selectedRecordID)
-    elseif QuestsTab.selectedQuestID then
-        local recordIDs = addon:GetRecordsForQuest(QuestsTab.selectedQuestID)
-        if recordIDs and recordIDs[1] then
-            addon:FireEvent("RECORD_SELECTED", recordIDs[1])
-        end
+    local previewID = GetPreviewRecordID(QuestsTab.selectedQuestID, QuestsTab.selectedRecordID)
+    if previewID then
+        addon:FireEvent("RECORD_SELECTED", previewID)
     end
 end
 
@@ -457,17 +450,13 @@ function QuestsTab:Show()
     self:SetCompletionFilter(saved and saved.completionFilter or "all", skipRefresh)
 end
 
-local function GetNormalizedSearchText(tab)
-    return addon:NormalizeSearchText(tab.searchBox and tab.searchBox:GetText() or "")
-end
-
 function QuestsTab:NavigateFromProgress(expansionKey, filter)
     if self.searchBox then
         self.searchBox:SetText("")
     end
     self:SetCompletionFilter(filter or "all", true)
     local activeFilter = self:GetCompletionFilter()
-    local searchText = GetNormalizedSearchText(self)
+    local searchText = self:GetActiveSearchText()
     local visibilityCache = self:BuildQuestVisibilityCache(activeFilter, searchText)
     self:BuildExpansionDisplay(visibilityCache)
     if not expansionKey then
@@ -508,7 +497,7 @@ end
 function QuestsTab:RefreshDisplay()
     addon:CountDebug("rebuild", "QuestsTab")
     local filter = self:GetCompletionFilter()
-    local searchText = GetNormalizedSearchText(self)
+    local searchText = self:GetActiveSearchText()
     local visibilityCache = self:BuildQuestVisibilityCache(filter, searchText)
     if not self:BuildExpansionDisplay(visibilityCache) then
         self:BuildZoneQuestDisplay(visibilityCache)
@@ -688,7 +677,6 @@ function QuestsTab:CreateZoneQuestPanel(parent)
 
     -- Initialize ScrollBox
     ScrollUtil.InitScrollBoxListWithScrollBar(scrollBox, scrollBar, view)
-    self.zoneQuestView = view
 
     -- Initialize DataProvider once (reused via Flush/InsertTable)
     self.zoneQuestDataProvider = CreateDataProvider()
@@ -813,7 +801,7 @@ function QuestsTab:BuildExpansionDisplay(visibilityCache)
 
     local elements = {}
     local filter = self:GetCompletionFilter()
-    local searchText = GetNormalizedSearchText(self)
+    local searchText = self:GetActiveSearchText()
 
     for _, expansionKey in ipairs(addon:GetSortedExpansions()) do
         local hasVisibleContent = false
@@ -874,7 +862,7 @@ function QuestsTab:BuildZoneQuestDisplay(visibilityCache)
 
     if expansionKey then
         local filter = self:GetCompletionFilter()
-        local searchText = GetNormalizedSearchText(self)
+        local searchText = self:GetActiveSearchText()
 
         for _, zoneName in ipairs(addon:GetSortedZones(expansionKey)) do
             local zoneQuests = {}
@@ -974,14 +962,9 @@ function QuestsTab:SelectQuest(elementData)
     end
 
     -- Preview the specific reward (use stored recordID for multi-reward quests)
-    if recordID then
-        addon:FireEvent("RECORD_SELECTED", recordID)
-    else
-        -- Fallback for single-reward quests
-        local recordIDs = addon:GetRecordsForQuest(questID)
-        if recordIDs and recordIDs[1] then
-            addon:FireEvent("RECORD_SELECTED", recordIDs[1])
-        end
+    local previewID = GetPreviewRecordID(questID, recordID)
+    if previewID then
+        addon:FireEvent("RECORD_SELECTED", previewID)
     end
 
     addon:Debug("Selected quest: " .. tostring(questID) .. (recordID and (" recordID: " .. recordID) or ""))

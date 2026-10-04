@@ -12,14 +12,23 @@ local TEMPLATE_NAME = "HousingCodexVendorPinTemplate"
 local WORLD_MAP_ADDON_NAME = "Blizzard_WorldMap"
 local VENDOR_PIN_TEXTURE = "Interface\\AddOns\\HousingCodex\\HC64"
 
-local function GetMapTooltip()
-    return HousingCodexMapTooltip
-end
-
 -- Module-level rect cache: map coordinate projections are static geometry,
 -- so cache persists across refreshes of the same target map.
 local pinRectCache = {}
 local pinRectCacheMapID = nil
+
+-- Suffix for a missing-item tooltip line. Promo takes precedence over locked: if the
+-- item isn't currently sellable, the achievement gate is academic, so avoid stacking both tags.
+function addon:GetVendorMissingItemSuffix(entry)
+    local L = addon.L
+    if entry.promotional then
+        return " (|cff9090a0" .. L["VENDOR_PIN_ITEM_PROMO"] .. "|r)"
+    elseif entry.locked then
+        local label = entry.achievementReward and L["VENDOR_PIN_ITEM_ACHIEVEMENT_REWARD"] or L["VENDOR_PIN_ITEM_LOCKED"]
+        return " (|cffcc5a40" .. label .. "|r)"
+    end
+    return ""
+end
 
 function addon:StyleMapTooltip(tooltip)
     if not tooltip then return end
@@ -149,6 +158,22 @@ local function AddClusterVendor(cluster, vendorData, owned, total, x, y, promoOw
     }
 end
 
+local function AppendAggregateEntry(entries, cluster)
+    table.sort(cluster.vendors, function(a, b)
+        return (a.npcName or "") < (b.npcName or "")
+    end)
+    entries[#entries + 1] = {
+        vendorData = cluster.vendors[1],
+        owned = cluster.owned,
+        total = cluster.total,
+        x = cluster.xSum / cluster.count,
+        y = cluster.ySum / cluster.count,
+        vendorCount = cluster.count,
+        isAggregate = true,
+        aggregateVendors = cluster.vendors,
+    }
+end
+
 local function BuildPinEntriesForMap(mapID, mapType)
     local entries = {}
     local isContinent = mapType == Enum.UIMapType.Continent
@@ -230,41 +255,14 @@ local function BuildPinEntriesForMap(mapID, mapType)
 
     if isContinent then
         for _, cluster in pairs(clustersByZone) do
-            table.sort(cluster.vendors, function(a, b)
-                return (a.npcName or "") < (b.npcName or "")
-            end)
-
-            local representative = cluster.vendors[1]
-            entries[#entries + 1] = {
-                vendorData = representative,
-                owned = cluster.owned,
-                total = cluster.total,
-                x = cluster.xSum / cluster.count,
-                y = cluster.ySum / cluster.count,
-                vendorCount = cluster.count,
-                isAggregate = true,
-                aggregateVendors = cluster.vendors,
-            }
+            AppendAggregateEntry(entries, cluster)
         end
     end
 
     if isZone then
         for _, cluster in pairs(clustersBySubzone) do
             if cluster.count >= 2 then
-                table.sort(cluster.vendors, function(a, b)
-                    return (a.npcName or "") < (b.npcName or "")
-                end)
-                local representative = cluster.vendors[1]
-                entries[#entries + 1] = {
-                    vendorData = representative,
-                    owned = cluster.owned,
-                    total = cluster.total,
-                    x = cluster.xSum / cluster.count,
-                    y = cluster.ySum / cluster.count,
-                    vendorCount = cluster.count,
-                    isAggregate = true,
-                    aggregateVendors = cluster.vendors,
-                }
+                AppendAggregateEntry(entries, cluster)
             else
                 entries[#entries + 1] = {
                     vendorData = cluster.vendors[1],
@@ -549,7 +547,7 @@ function HousingCodexVendorPinMixin:OnMouseEnter()
         return
     end
 
-    local tooltip = GetMapTooltip()
+    local tooltip = HousingCodexMapTooltip
     tooltip:SetOwner(self, "ANCHOR_RIGHT")
 
     if IsAggregateVendorPin(self) then
@@ -607,18 +605,7 @@ function HousingCodexVendorPinMixin:OnMouseEnter()
     if #missingNames > 0 then
         GameTooltip_AddColoredLine(tooltip, L["VENDOR_PIN_UNCOLLECTED_HEADER"], COLOR_LIGHT_GRAY)
         for _, entry in ipairs(missingNames) do
-            -- Promo takes precedence over locked: if the item isn't currently
-            -- sellable, the achievement gate is academic — avoid stacking both tags.
-            local suffix
-            if entry.promotional then
-                suffix = " (|cff9090a0" .. L["VENDOR_PIN_ITEM_PROMO"] .. "|r)"
-            elseif entry.locked then
-                local label = entry.achievementReward and L["VENDOR_PIN_ITEM_ACHIEVEMENT_REWARD"] or L["VENDOR_PIN_ITEM_LOCKED"]
-                suffix = " (|cffcc5a40" .. label .. "|r)"
-            else
-                suffix = ""
-            end
-            GameTooltip_AddColoredLine(tooltip, TOOLTIP_LIST_INDENT .. TOOLTIP_LIST_BULLET .. entry.name .. suffix, COLOR_ITEM_LIST, false)
+            AddBulletedTooltipLine(tooltip, entry.name .. addon:GetVendorMissingItemSuffix(entry))
         end
 
         local missingTotal = (total - owned) + (promoTotal - promoOwned)
@@ -641,7 +628,7 @@ function HousingCodexVendorPinMixin:OnMouseEnter()
 end
 
 function HousingCodexVendorPinMixin:OnMouseLeave()
-    local tooltip = GetMapTooltip()
+    local tooltip = HousingCodexMapTooltip
     if tooltip:GetOwner() == self then
         tooltip:Hide()
     end

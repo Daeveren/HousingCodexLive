@@ -17,7 +17,7 @@ local DECOR_ROW_HEIGHT = 24
 local ZONE_HEADER_HEIGHT = 28
 local DECOR_ICON_SIZE = 22
 local WAYPOINT_BUTTON_SIZE = 20
-local WAYPOINT_MATCH_EPSILON = CONSTS.WAYPOINT_MATCH_EPSILON or 0.0001
+local WAYPOINT_MATCH_EPSILON = CONSTS.WAYPOINT_MATCH_EPSILON
 local WAYPOINT_OWNER_VENDOR_TRACKING = CONSTS.WAYPOINT_OWNER_VENDOR_TRACKING
 local VENDOR_CURRENCY_GOLD_KEY = CONSTS.VENDOR_CURRENCY_GOLD_KEY
 
@@ -64,7 +64,6 @@ VendorsTab.onUserWaypointUpdated = nil
 
 VendorsTab.toolbarLayout = nil
 VendorsTab.filterContainer = nil
-VendorsTab.currencyFilterDropdown = nil
 VendorsTab.currentZoneOnly = false
 VendorsTab.currentZoneCheckbox = nil
 VendorsTab.playerZoneRootMapID = nil
@@ -82,7 +81,7 @@ function VendorsTab:Create(parent)
     self.frame = frame
 
     self.onUserWaypointUpdated = function()
-        self:OnUserWaypointUpdated()
+        self:ReconcileVendorTrackingWithWaypoint()
     end
 
     self:CreateToolbar(frame)
@@ -96,7 +95,8 @@ end
 function VendorsTab:Show()
     if not self.frame then return end
 
-    local skipRefresh = self.ownershipRefreshedThisShow
+    -- OpenToVendor rebuilds with cleared filters right after this Show
+    local skipRefresh = self.ownershipRefreshedThisShow or self.navigatingToVendor
     self.ownershipRefreshedThisShow = nil
 
     if addon.dataLoaded and not addon.vendorIndexBuilt then
@@ -157,7 +157,6 @@ function VendorsTab:CreateToolbar(parent)
     dropdown:SetupMenu(function(_, rootDescription)
         self:SetupCurrencyFilterMenu(rootDescription)
     end)
-    self.currencyFilterDropdown = dropdown
     xOffset = xOffset + dropdown:GetWidth() + 8
 
     local check = CreateFrame("CheckButton", nil, self.filterContainer, "UICheckButtonTemplate")
@@ -373,7 +372,7 @@ function VendorsTab:GetSelectedVendorDecorDetails(recordID)
         vendorName = addon:GetLocalizedNPCName(vendorData.npcId, vendorData.npcName)
             or vendorData.npcName
             or addon.L["VENDOR_UNKNOWN"],
-        zoneName = zoneName and addon:GetLocalizedVendorZoneName(zoneName) or nil,
+        zoneName = zoneName and addon:GetLocalizedZoneName(zoneName) or nil,
         cost = cost,
         currencyName = currencyName,
         costComponents = costComponents,
@@ -487,6 +486,18 @@ end
 -- Rebuild the expansion list and, if needed, the vendor list.
 local searchCache, filterCache, visibleVendorDecorCache
 
+-- Run one rebuild pass with fresh per-pass caches. xpcall reports an error and still
+-- clears the caches, so a failed pass cannot leave stale results for later reads.
+local function WithRebuildCaches(fn)
+    searchCache = {}
+    filterCache = {}
+    visibleVendorDecorCache = {}
+    xpcall(fn, CallErrorHandler)
+    searchCache = nil
+    filterCache = nil
+    visibleVendorDecorCache = nil
+end
+
 -- BuildExpansionDisplay returns true when it already triggered BuildVendorDisplay
 -- internally (via SelectExpansion or direct call), so we only call it ourselves
 -- when that didn't happen.
@@ -495,16 +506,12 @@ function VendorsTab:RefreshDisplay()
     if self.currentZoneOnly then
         self:UpdatePlayerZone()
     end
-    searchCache = {}
-    filterCache = {}
-    visibleVendorDecorCache = {}
-    self:ReconcileCurrencyFilter()
-    if not self:BuildExpansionDisplay() then
-        self:BuildVendorDisplay()
-    end
-    searchCache = nil
-    filterCache = nil
-    visibleVendorDecorCache = nil
+    WithRebuildCaches(function()
+        self:ReconcileCurrencyFilter()
+        if not self:BuildExpansionDisplay() then
+            self:BuildVendorDisplay()
+        end
+    end)
 end
 
 function VendorsTab:SetCompletionFilter(filterKey, skipRefresh)
@@ -522,10 +529,6 @@ end
 function VendorsTab:GetCompletionFilter()
     local db = GetVendorsDB()
     return db and db.completionFilter or "all"
-end
-
-function VendorsTab:OnSearchTextChanged(text)
-    self:RefreshDisplay()
 end
 
 --------------------------------------------------------------------------------
@@ -732,7 +735,8 @@ function VendorsTab:SetupExpansionButton(frame, elementData)
     addon:SetFontSize(frame.percentLabel, 11, "")
 end
 
-function VendorsTab:SelectExpansion(expansionKey)
+-- skipVendorBuild: the caller rebuilds the vendor list itself after further state changes
+function VendorsTab:SelectExpansion(expansionKey, skipVendorBuild)
     local prevSelected = self.selectedExpansionKey
     self.selectedExpansionKey = expansionKey
 
@@ -749,7 +753,9 @@ function VendorsTab:SelectExpansion(expansionKey)
     self:UpdateHierarchySelection(self.expansionScrollBox, "expansionKey", prevSelected, expansionKey,
         function() return self.selectedExpansionKey end)
 
-    self:BuildVendorDisplay()
+    if not skipVendorBuild then
+        self:BuildVendorDisplay()
+    end
 
     if prevSelected ~= expansionKey then
         self.selectedVendorNpcId = nil
@@ -798,15 +804,12 @@ function VendorsTab:CreateVendorPanel(parent)
     end)
 
     ScrollUtil.InitScrollBoxListWithScrollBar(scrollBox, scrollBar, view)
-    self.vendorView = view
 
     self.vendorDataProvider = CreateDataProvider()
     scrollBox:SetDataProvider(self.vendorDataProvider)
 end
 
 function VendorsTab:SetupVendorButton(frame, elementData)
-    local L = addon.L
-
     -- One-time frame setup
     if not frame.initialized then
         self:InitializeVendorFrame(frame)
@@ -1044,7 +1047,7 @@ function VendorsTab:SetupZoneHeader(frame, elementData)
     frame.indicator:Show()
 
     -- Zone name (with class hall or housing zone annotation if applicable)
-    local localizedZoneName = addon:GetLocalizedVendorZoneName(elementData.zoneName)
+    local localizedZoneName = addon:GetLocalizedZoneName(elementData.zoneName)
     local classHall = addon:GetClassHallAnnotation(elementData.zoneName)
     local housingZone = addon:GetHousingZoneAnnotation(elementData.zoneName)
     if classHall then
@@ -1073,10 +1076,6 @@ function VendorsTab:SetupZoneHeader(frame, elementData)
     frame:SetScript("OnLeave", VendorZoneHeaderOnLeave)
 end
 
--- Check if a decorId can be resolved by any game API or fallback data
-local function IsDecorResolvable(decorId)
-    return addon:IsVendorDecorResolvable(decorId)
-end
 
 local function SortDecorIdsByName(decorIds)
     local sortNames = {}
@@ -1119,7 +1118,7 @@ local function GetVisibleVendorDecorIds(vendorData)
 
     local visible = {}
     for _, decorId in ipairs(vendorData and vendorData.decorIds or {}) do
-        if IsDecorResolvable(decorId) and addon:ShouldDisplayDecor(decorId) then
+        if addon:IsVendorDecorResolvable(decorId) and addon:ShouldDisplayDecor(decorId) then
             visible[#visible + 1] = decorId
         end
     end
@@ -1205,8 +1204,6 @@ function VendorsTab:SetupVendorRow(frame, elementData)
 end
 
 function VendorsTab:SetupDecorRows(frame, decorIds, searchText)
-    local L = addon.L
-
     for i, decorId in ipairs(decorIds) do
         local row = frame.decorRows[i]
         if not row then
@@ -1334,7 +1331,7 @@ local function GetVendorTrackingChatDetails(npcId)
     end
 
     local zoneCache = addon.vendorZoneCache and addon.vendorZoneCache[npcId]
-    local zoneName = zoneCache and addon:GetLocalizedVendorZoneName(zoneCache.zoneName)
+    local zoneName = zoneCache and addon:GetLocalizedZoneName(zoneCache.zoneName)
     if not zoneName or zoneName == "" then
         zoneName = L["VENDORS_UNKNOWN_ZONE"]
     end
@@ -1454,10 +1451,6 @@ function VendorsTab:HasActiveVendorTracking()
     return self.activeTrackedNpcId ~= nil and self.activeTrackedDecorId ~= nil
 end
 
-function VendorsTab:OnUserWaypointUpdated()
-    self:ReconcileVendorTrackingWithWaypoint()
-end
-
 function VendorsTab:OnWaypointChanged(action, owner)
     if owner == WAYPOINT_OWNER_VENDOR_TRACKING then return end
     if self:HasActiveVendorTracking() then
@@ -1568,6 +1561,15 @@ function VendorsTab:IsZoneExpanded(expansionKey, zoneName)
     return db.expandedZones[key] == true
 end
 
+function VendorsTab:RebuildKeepingScroll()
+    local scrollBox = self.vendorScrollBox
+    local scrollOffset = scrollBox and scrollBox:GetDerivedScrollOffset() or 0
+    self:BuildVendorDisplay()
+    if scrollOffset > 0 then
+        scrollBox:ScrollToOffset(scrollOffset, ScrollBoxConstants.NoScrollInterpolation)
+    end
+end
+
 function VendorsTab:ExpandAllZones(expansionKey)
     if not expansionKey then return end
     local db = GetVendorsDB()
@@ -1575,12 +1577,7 @@ function VendorsTab:ExpandAllZones(expansionKey)
     for _, zoneName in ipairs(addon:GetSortedVendorZones(expansionKey)) do
         db.expandedZones[expansionKey .. ":" .. zoneName] = true
     end
-    local scrollBox = self.vendorScrollBox
-    local scrollOffset = scrollBox and scrollBox:GetDerivedScrollOffset() or 0
-    self:BuildVendorDisplay()
-    if scrollOffset > 0 then
-        scrollBox:ScrollToOffset(scrollOffset, ScrollBoxConstants.NoScrollInterpolation)
-    end
+    self:RebuildKeepingScroll()
 end
 
 function VendorsTab:ToggleZone(expansionKey, zoneName)
@@ -1589,23 +1586,19 @@ function VendorsTab:ToggleZone(expansionKey, zoneName)
         local key = expansionKey .. ":" .. zoneName
         db.expandedZones[key] = not db.expandedZones[key]
     end
-    local scrollBox = self.vendorScrollBox
-    local scrollOffset = scrollBox and scrollBox:GetDerivedScrollOffset() or 0
-    self:BuildVendorDisplay()
-    if scrollOffset > 0 then
-        scrollBox:ScrollToOffset(scrollOffset, ScrollBoxConstants.NoScrollInterpolation)
-    end
+    self:RebuildKeepingScroll()
+end
+
+-- Returns zoneName, expansionKey for a vendor NavigateToVendor can open, or nil
+local function GetVendorNavigationTarget(npcId)
+    local zoneCache = npcId and addon.vendorZoneCache and addon.vendorZoneCache[npcId]
+    if not zoneCache or not zoneCache.zoneName or not zoneCache.expansionKey then return nil end
+    return zoneCache.zoneName, zoneCache.expansionKey
 end
 
 function VendorsTab:NavigateToVendor(npcId)
-    if not npcId then return end
-
-    local zoneCache = addon.vendorZoneCache and addon.vendorZoneCache[npcId]
-    if not zoneCache then return end
-
-    local zoneName = zoneCache.zoneName
-    local expansionKey = zoneCache.expansionKey
-    if not zoneName or not expansionKey then return end
+    local zoneName, expansionKey = GetVendorNavigationTarget(npcId)
+    if not zoneName then return end
 
     -- Clear search and set filter to "all" to guarantee vendor visibility
     if self.searchBox then
@@ -1613,38 +1606,69 @@ function VendorsTab:NavigateToVendor(npcId)
     end
     self:ClearCurrentZoneFilter()
     self:ClearCurrencyFilter(true)
-    self:SetCompletionFilter("all")
+    self:SetCompletionFilter("all", true)
 
-    -- Select the expansion (rebuilds display internally)
-    self:SelectExpansion(expansionKey)
+    -- Rebuild the expansion list for the cleared filters, then select the expansion.
+    -- The vendor list is built once below, after the target zone is expanded.
+    -- One cache pass covers both builds: no cache key depends on zone expansion or selection.
+    local firstDecorId
+    WithRebuildCaches(function()
+        self:BuildExpansionDisplay()
+        self:SelectExpansion(expansionKey, true)
 
-    -- Expand the target zone
-    local db = GetVendorsDB()
-    if db and db.expandedZones then
-        local key = expansionKey .. ":" .. zoneName
-        db.expandedZones[key] = true
-    end
-    self:BuildVendorDisplay()
+        -- Expand the target zone (after SelectExpansion, which collapses a newly selected expansion's zones)
+        local db = GetVendorsDB()
+        if db and db.expandedZones then
+            local key = expansionKey .. ":" .. zoneName
+            db.expandedZones[key] = true
+        end
 
-    -- Select the vendor's first decor item to show 3D preview
-    local vendorData = addon.vendorIndex and addon.vendorIndex[npcId]
-    local visibleDecorIds = vendorData and GetVisibleVendorDecorIds(vendorData)
-    local firstDecorId = visibleDecorIds and visibleDecorIds[1]
-    if firstDecorId then
-        self.selectedVendorNpcId = npcId
-        self.selectedVendorZoneName = zoneName
-        self.selectedDecorId = firstDecorId
-        self:ClearHoverVendorDecor()
+        -- Select the vendor's first decor item before the build so rows initialize with the new highlight
+        local vendorData = addon.vendorIndex and addon.vendorIndex[npcId]
+        local visibleDecorIds = vendorData and GetVisibleVendorDecorIds(vendorData)
+        firstDecorId = visibleDecorIds and visibleDecorIds[1]
+        if firstDecorId then
+            self.selectedVendorNpcId = npcId
+            self.selectedVendorZoneName = zoneName
+            self.selectedDecorId = firstDecorId
+            self:ClearHoverVendorDecor()
+        end
+        self:BuildVendorDisplay()
+    end)
+    -- The build drops the selection if a row filter (e.g. the profession filter) hides the vendor
+    if firstDecorId and self.selectedDecorId == firstDecorId then
         addon:FireEvent("RECORD_SELECTED", firstDecorId)
     end
 
-    -- Next frame: scroll to the vendor row
+    -- Next frame: scroll to the vendor row (arguments: predicate, alignment, offset, noInterpolation).
+    -- Not ScrollToNearestByPredicate: Blizzard's wrapper passes noInterpolation into the offset slot.
     C_Timer.After(0, function()
         if not self.vendorScrollBox then return end
         self.vendorScrollBox:ScrollToElementDataByPredicate(function(elementData)
             return elementData.npcId == npcId
-        end, ScrollBoxConstants.AlignNearest, ScrollBoxConstants.NoScrollInterpolation)
+        end, ScrollBoxConstants.AlignNearest, nil, ScrollBoxConstants.NoScrollInterpolation)
     end)
+end
+
+-- Open the main window on the Vendors tab at one vendor (world-map right-click).
+-- While the flag is set, Show() and the ownership refresh skip their rebuild with the
+-- saved filters, since NavigateToVendor rebuilds with cleared filters straight after.
+-- The flag also covers MainFrame:Show(), which shows the restored tab on first open.
+-- Event dispatch is synchronous, so clearing the flag right after SelectTab cannot leak it;
+-- xpcall reports an error with its original stack and still clears the flag.
+function VendorsTab:OpenToVendor(npcId)
+    self.navigatingToVendor = GetVendorNavigationTarget(npcId) ~= nil
+    local shown
+    local ok = xpcall(function()
+        shown = addon.MainFrame:Show()
+        if shown then
+            addon.Tabs:SelectTab("VENDORS")
+        end
+    end, CallErrorHandler)
+    self.navigatingToVendor = nil
+    if ok and shown then
+        self:NavigateToVendor(npcId)
+    end
 end
 
 function VendorsTab:NavigateFromProgress(expansionKey, filter)
@@ -1741,7 +1765,7 @@ local function VendorMatchesSearch(vendorData, decorIds, searchText, zoneName, e
     local cacheKey = vendorData.npcId .. ":" .. zoneName .. ":" .. expansionKey
     if searchCache and searchCache[cacheKey] ~= nil then return searchCache[cacheKey] end
 
-    local localizedZoneName = addon:GetLocalizedVendorZoneName(zoneName)
+    local localizedZoneName = addon:GetLocalizedZoneName(zoneName)
     local localizedNpcName = addon:GetLocalizedNPCName(vendorData.npcId, vendorData.npcName)
     local result = false
 
@@ -1821,6 +1845,18 @@ local function GetCurrencyFilteredDecorIds(vendorData)
     return filteredDecorIds
 end
 
+-- Returns the vendor's filtered decor ID list, or nil when the vendor is hidden by the active filters.
+local function GetVisibleVendorDecorIdsForRow(vendorData, filter, searchText, zoneName, expansionKey)
+    local filteredDecorIds = GetCurrencyFilteredDecorIds(vendorData)
+    if addon:ShouldShowVendorForPlayerProfessionFilter(vendorData.npcId)
+        and #filteredDecorIds > 0
+        and VendorPassesCompletionFilter(vendorData, filteredDecorIds, filter, zoneName, expansionKey)
+        and VendorMatchesSearch(vendorData, filteredDecorIds, searchText, zoneName, expansionKey) then
+        return filteredDecorIds
+    end
+    return nil
+end
+
 --------------------------------------------------------------------------------
 -- Display Building
 --------------------------------------------------------------------------------
@@ -1854,7 +1890,7 @@ function VendorsTab:BuildExpansionDisplay()
 
     local elements = {}
     local filter = self:GetCompletionFilter()
-    local searchText = addon:NormalizeSearchText(self.searchBox and self.searchBox:GetText() or "")
+    local searchText = self:GetActiveSearchText()
 
     local zoneFilterActive = self.currentZoneOnly
 
@@ -1863,11 +1899,7 @@ function VendorsTab:BuildExpansionDisplay()
         for _, zoneName in ipairs(addon:GetSortedVendorZones(expansionKey)) do
             if not zoneFilterActive or VendorZoneMatchesPlayerZone(zoneName) then
                 for _, vendorData in ipairs(addon:GetVendorsForZone(expansionKey, zoneName)) do
-                    local filteredDecorIds = GetCurrencyFilteredDecorIds(vendorData)
-                    if addon:ShouldShowVendorForPlayerProfessionFilter(vendorData.npcId)
-                        and #filteredDecorIds > 0
-                        and VendorPassesCompletionFilter(vendorData, filteredDecorIds, filter, zoneName, expansionKey)
-                        and VendorMatchesSearch(vendorData, filteredDecorIds, searchText, zoneName, expansionKey) then
+                    if GetVisibleVendorDecorIdsForRow(vendorData, filter, searchText, zoneName, expansionKey) then
                         hasVisibleContent = true
                         break
                     end
@@ -1911,7 +1943,7 @@ function VendorsTab:BuildVendorDisplay()
 
     if expansionKey then
         local filter = self:GetCompletionFilter()
-        local searchText = addon:NormalizeSearchText(self.searchBox and self.searchBox:GetText() or "")
+        local searchText = self:GetActiveSearchText()
         local zoneFilterActive = self.currentZoneOnly
         local isForceExpanded = zoneFilterActive or searchText ~= "" or self:HasActiveCurrencyFilter(true)
 
@@ -1920,11 +1952,8 @@ function VendorsTab:BuildVendorDisplay()
                 local zoneVendors = {}
                 local zoneDecorLists = {}
                 for _, vendorData in ipairs(addon:GetVendorsForZone(expansionKey, zoneName)) do
-                    local filteredDecorIds = GetCurrencyFilteredDecorIds(vendorData)
-                    if addon:ShouldShowVendorForPlayerProfessionFilter(vendorData.npcId)
-                        and #filteredDecorIds > 0
-                        and VendorPassesCompletionFilter(vendorData, filteredDecorIds, filter, zoneName, expansionKey)
-                        and VendorMatchesSearch(vendorData, filteredDecorIds, searchText, zoneName, expansionKey) then
+                    local filteredDecorIds = GetVisibleVendorDecorIdsForRow(vendorData, filter, searchText, zoneName, expansionKey)
+                    if filteredDecorIds then
                         zoneVendors[#zoneVendors + 1] = vendorData
                         zoneDecorLists[#zoneDecorLists + 1] = filteredDecorIds
                     end
@@ -2027,7 +2056,11 @@ addon:RegisterInternalEvent("DATA_LOADED", function()
     end
 end)
 
-VendorsTab:RegisterOwnershipRefresh(function() VendorsTab:RefreshDisplay() end)
+VendorsTab:RegisterOwnershipRefresh(function()
+    if not VendorsTab.navigatingToVendor then
+        VendorsTab:RefreshDisplay()
+    end
+end)
 
 addon:RegisterInternalEvent(addon.Events.DECOR_VISIBILITY_CHANGED, function()
     if VendorsTab:IsShown() then

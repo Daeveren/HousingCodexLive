@@ -15,13 +15,13 @@ local MAX_TILE_SIZE = CONSTS.MAX_TILE_SIZE
 
 local TOOLBAR_HEIGHT = 32
 
--- Sort options for dropdown (isNative: true = HousingCatalogSearcher, false = client-side)
+-- Sort options for dropdown
 local SORT_OPTIONS = {
-    { value = CONSTS.SORT_NATIVE_NEWEST, isNative = true },
-    { value = CONSTS.SORT_NATIVE_ALPHA, isNative = true },
-    { value = CONSTS.SORT_CLIENT_SIZE, isNative = false },
-    { value = CONSTS.SORT_CLIENT_QUANTITY, isNative = false },
-    { value = CONSTS.SORT_CLIENT_PLACED, isNative = false },
+    { value = CONSTS.SORT_NATIVE_NEWEST },
+    { value = CONSTS.SORT_NATIVE_ALPHA },
+    { value = CONSTS.SORT_CLIENT_SIZE },
+    { value = CONSTS.SORT_CLIENT_QUANTITY },
+    { value = CONSTS.SORT_CLIENT_PLACED },
 }
 
 -- Lookup table: sort type value -> localization key
@@ -73,11 +73,9 @@ Grid.dataProvider = nil
 Grid.currentRecordIDs = {}
 Grid.selectedRecordID = nil
 Grid.tileSize = DEFAULT_TILE_SIZE
-Grid.parent = nil
 Grid.toolbar = nil
 Grid.container = nil
 Grid.sortDropdown = nil
-Grid.sortLabel = nil
 Grid.emptyState = nil
 
 -- Responsive toolbar state
@@ -161,14 +159,12 @@ function Grid:CreateToolbar(parent)
     sortLabel:SetPoint("RIGHT", sortDropdown, "LEFT", -6, 0)
     sortLabel:SetText(L["SORT_BY_LABEL"])
     sortLabel:SetTextColor(0.8, 0.8, 0.8, 1)
-    self.sortLabel = sortLabel
 
     -- === MIDDLE: Filter dropdown + Size slider (anchored from sort label leftward) ===
 
     -- Filter dropdown (includes collection, trackable, special filters, tags)
     local filterDropdown = addon.FilterBar:CreateDropdown(toolbar)
     filterDropdown:SetPoint("RIGHT", sortLabel, "LEFT", -8, 0)
-    self.filterDropdown = filterDropdown
 
     -- Size value display (created early so slider closure can reference it)
     local valueText = addon:CreateFontString(toolbar, "OVERLAY", "GameFontNormalSmall")
@@ -202,7 +198,6 @@ function Grid:CreateToolbar(parent)
     local searchBox = addon.SearchBox:Create(toolbar)
     searchBox:SetPoint("LEFT", toolbar, "LEFT", GRID_OUTER_PAD, 0)
     searchBox:SetPoint("RIGHT", label, "LEFT", -8, 0)
-    self.searchBox = searchBox
 
     -- Store element references for responsive hiding
     self.toolbarElements = {
@@ -212,7 +207,6 @@ function Grid:CreateToolbar(parent)
         filterDropdown = filterDropdown,
         searchBox = searchBox,
         sortLabel = sortLabel,
-        sortDropdown = sortDropdown,
     }
 
     -- Setup responsive toolbar updates
@@ -491,10 +485,17 @@ function Grid:CreateScrollBox(parent, tileSize)
     addon:Debug("Grid created with " .. columns .. " columns, tile size " .. tileSize)
 end
 
+-- Run the searcher (it already holds current filter state), else show all records
+local function RunDecorSearch(reason)
+    if addon.catalogSearcher then
+        addon:RunSearchNow(reason)
+    else
+        Grid:SetData(addon:GetAllRecordIDs())
+    end
+end
+
 function Grid:Create(parent)
     if self.toolbar and self.scrollBox then return end
-
-    self.parent = parent
 
     -- Load saved tile size from db with validation
     local savedSize = addon.db and addon.db.browser and addon.db.browser.tileSize
@@ -505,12 +506,6 @@ function Grid:Create(parent)
     self:CreateToolbar(parent)
     self:CreateScrollBox(parent, self.tileSize)
     self:CreateEmptyState(parent)
-
-    -- Sync slider to loaded value (toolbar may have been created with default)
-    if self.tileSizeSlider then
-        self.tileSizeSlider:SetValue(self.tileSize)
-        self.tileSizeValueText:SetText(tostring(self.tileSize))
-    end
 
     -- Apply saved sort type (only native sorts go to catalogSearcher)
     local savedSortType = addon.db and addon.db.browser and addon.db.browser.sortType
@@ -523,14 +518,7 @@ function Grid:Create(parent)
     -- Populate grid if data is already loaded and we're on DECOR tab
     -- This handles the case where DATA_LOADED and TAB_CHANGED fired before Grid was created
     if addon.dataLoaded and addon.Tabs and addon.Tabs:GetCurrentTab() == "DECOR" then
-        if addon.catalogSearcher then
-            -- Run search to populate grid (searcher already has current filter state)
-            addon:RunSearchNow("Grid:Create initial")
-        else
-            -- Fallback: use all record IDs
-            local recordIDs = addon:GetAllRecordIDs()
-            self:SetData(recordIDs)
-        end
+        RunDecorSearch("Grid:Create initial")
     end
 end
 
@@ -562,7 +550,6 @@ function Grid:CreateEmptyState(parent)
     msg:SetPoint("CENTER", frame, "CENTER", 0, 20)
     msg:SetText(addon.L["EMPTY_STATE_MESSAGE"])
     msg:SetTextColor(0.6, 0.6, 0.6, 1)
-    frame.message = msg
 
     -- Reset filters button
     local btn = CreateFrame("Button", nil, frame, "UIPanelButtonTemplate")
@@ -573,7 +560,6 @@ function Grid:CreateEmptyState(parent)
     btn:SetScript("OnClick", function()
         addon.Filters:ResetAllFilters()
     end)
-    frame.resetBtn = btn
 end
 
 function Grid:UpdateEmptyState()
@@ -733,7 +719,7 @@ function Grid:SetData(recordIDs)
         if addon.Filters:HasSelectedAddedPatch() and addon.DecorAddedPatchByRecordID then
             candidates = MergeAugmentedCandidates(candidates, addon.DecorAddedPatchByRecordID, function(patchId, patch)
                 if not addon.Filters:IsAddedPatchSelected(patch) then return false end
-                local record = addon:GetRecord(patchId) or addon:ResolveRecord(patchId)
+                local record = addon:ResolveRecord(patchId)
                 return record and addon.Filters:PassesSearcherFilters(record)
             end)
         end
@@ -903,20 +889,12 @@ addon:RegisterInternalEvent("DATA_LOADED", function(recordCount)
     if addon.Tabs and addon.Tabs:GetCurrentTab() == "DECOR" then
         -- Trigger search refresh to respect current filter state
         -- SEARCH_RESULTS_UPDATED will populate grid with filtered results
-        if addon.catalogSearcher then
-            addon:RunSearchNow("DATA_LOADED")
-        else
-            -- Fallback: use all record IDs (no searcher available)
-            local recordIDs = addon:GetAllRecordIDs()
-            Grid:SetData(recordIDs)
-        end
+        RunDecorSearch("DATA_LOADED")
     end
 end)
 
 function Grid:MergeResults(listA, listB)
-    local seen, merged = CopyAugmentedCandidates(listA)
-    AppendUnseen(merged, seen, listB, IterateListValues)
-    return merged
+    return MergeAugmentedCandidateList(listA, listB)
 end
 
 addon:RegisterInternalEvent("SEARCH_RESULTS_UPDATED", function(recordIDs)
@@ -966,13 +944,7 @@ addon:RegisterInternalEvent("TAB_CHANGED", function(tabKey)
         if addon.dataLoaded then
             -- Trigger search refresh to respect current filter state
             -- SEARCH_RESULTS_UPDATED will populate grid with filtered results
-            if addon.catalogSearcher then
-                addon:RunSearchNow("TAB_CHANGED")
-            else
-                -- Fallback: use all record IDs (no searcher available)
-                local recordIDs = addon:GetAllRecordIDs()
-                Grid:SetData(recordIDs)
-            end
+            RunDecorSearch("TAB_CHANGED")
         end
     else
         Grid:Hide()

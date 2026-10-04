@@ -3,8 +3,7 @@
     Profession-to-decor index building and progress helpers.
 
     Index entries carry scraped values verbatim: skillLine, professionName, and
-    recipeSource stay in English here (interning depends on stable keys, and
-    search matches the English spelling). The display layer localizes them --
+    recipeSource stay in English here (search matches the English spelling). The display layer localizes them --
     see BuildSkillText / BuildRecipeSourceText in UI/ProfessionsTab.lua.
 ]]
 
@@ -23,11 +22,7 @@ local function BuildSortName(record, professionName, decorId)
     if professionName and professionName ~= "" then
         return strlower(professionName)
     end
-    return tostring(decorId or 0)
-end
-
-local function ResolveCraftRecord(owner, decorId)
-    return owner:GetRecord(decorId) or owner:ResolveRecord(decorId)
+    return tostring(decorId)
 end
 
 function addon:BuildCraftingIndex()
@@ -44,23 +39,6 @@ function addon:BuildCraftingIndex()
     wipe(self.craftingProgressCache)
     self.craftingTotalCount = 0
 
-    -- Intern shared strings to reduce memory (skillLine and recipeSource repeat across entries)
-    local internedStrings = {}
-    for _, crafts in pairs(self.CraftingSourceData) do
-        for _, craft in ipairs(crafts) do
-            local sl = craft.skillLine
-            if sl then
-                internedStrings[sl] = internedStrings[sl] or sl
-                craft.skillLine = internedStrings[sl]
-            end
-            local source = craft.recipeSource
-            if source then
-                internedStrings[source] = internedStrings[source] or source
-                craft.recipeSource = internedStrings[source]
-            end
-        end
-    end
-
     local professionCount = 0
     local skippedMissingRecord = 0
 
@@ -70,7 +48,7 @@ function addon:BuildCraftingIndex()
         for _, craft in ipairs(crafts or {}) do
             local decorId = craft.decorId
             if decorId then
-                local record = ResolveCraftRecord(self, decorId)
+                local record = self:ResolveRecord(decorId)
                 if record then
                     table.insert(entries, {
                         decorId = decorId,
@@ -90,7 +68,7 @@ function addon:BuildCraftingIndex()
         if #entries > 0 then
             table.sort(entries, function(a, b)
                 if a.sortName == b.sortName then
-                    return (a.decorId or 0) < (b.decorId or 0)
+                    return a.decorId < b.decorId
                 end
                 return a.sortName < b.sortName
             end)
@@ -102,7 +80,7 @@ function addon:BuildCraftingIndex()
     end
 
     table.sort(self.craftingHierarchy, function(a, b)
-        return (a or "") < (b or "")
+        return a < b
     end)
 
     self.craftingIndexBuilt = true
@@ -153,7 +131,7 @@ function addon:GetCraftingProgress(professionName)
     for _, craft in ipairs(self:GetCraftsForProfession(professionName)) do
         if self:ShouldDisplayDecor(craft.decorId) then
             total = total + 1
-            local record = ResolveCraftRecord(self, craft.decorId)
+            local record = self:ResolveRecord(craft.decorId)
             if record and record.isCollected then
                 owned = owned + 1
             end
@@ -168,10 +146,6 @@ function addon:GetCraftingProgress(professionName)
 end
 
 addon:RegisterInternalEvent("RECORD_OWNERSHIP_UPDATED", function()
-    wipe(addon.craftingProgressCache)
-end)
-
-addon:RegisterInternalEvent(addon.Events.DECOR_VISIBILITY_CHANGED, function()
     wipe(addon.craftingProgressCache)
 end)
 

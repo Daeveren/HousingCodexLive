@@ -1,6 +1,6 @@
 --[[
     Housing Codex - Localization.lua
-    Locale detection and string table management
+    Missing-key fallback and game-data name localization (currency, zone, profession, NPC, skill line)
 ]]
 
 local _, addon = ...
@@ -237,13 +237,9 @@ local ZONE_AREA_ID = {
 }
 
 -- Resolve a zone name to a uiMapID from either vendor data or the static table
-local function getMapIdForZone(self, zoneName)
+function addon:GetMapIdForZone(zoneName)
     return (self.vendorZoneToMapId and self.vendorZoneToMapId[zoneName])
         or ZONE_TO_MAP_ID[zoneName]
-end
-
-function addon:GetMapIdForZone(zoneName)
-    return getMapIdForZone(self, zoneName)
 end
 
 -- Resolve a uiMapID to a localized zone name via C_Map
@@ -260,7 +256,7 @@ function addon:GetLocalizedZoneName(englishZoneName)
     if cached then return cached end
 
     -- Try direct mapID lookup
-    local localizedName = getLocalizedNameFromMapId(getMapIdForZone(self, englishZoneName))
+    local localizedName = getLocalizedNameFromMapId(self:GetMapIdForZone(englishZoneName))
     if localizedName then
         zoneNameCache[englishZoneName] = localizedName
         return localizedName
@@ -270,8 +266,8 @@ function addon:GetLocalizedZoneName(englishZoneName)
     -- try localizing both the parent zone (after the last comma) and the subzone prefix
     local prefix, parentZone = englishZoneName:match("^(.+),%s*([^,]+)$")
     if parentZone then
-        local localizedParent = getLocalizedNameFromMapId(getMapIdForZone(self, parentZone))
-        local localizedPrefix = getLocalizedNameFromMapId(getMapIdForZone(self, prefix))
+        local localizedParent = getLocalizedNameFromMapId(self:GetMapIdForZone(parentZone))
+        local localizedPrefix = getLocalizedNameFromMapId(self:GetMapIdForZone(prefix))
         if localizedParent then
             local displayPrefix = localizedPrefix or prefix
             local localized = displayPrefix .. ", " .. localizedParent
@@ -404,11 +400,9 @@ function addon:GetLocalizedSkillLine(englishSkillLine)
             if professionPart ~= "" then
                 local localizedExpansion = self.L[locKey]
                 local localizedProfession = self:GetLocalizedProfessionName(professionPart)
-                if localizedExpansion and localizedProfession then
-                    local result = localizedExpansion .. " " .. localizedProfession
-                    skillLineCache[englishSkillLine] = result
-                    return result
-                end
+                local result = localizedExpansion .. " " .. localizedProfession
+                skillLineCache[englishSkillLine] = result
+                return result
             end
         end
     end

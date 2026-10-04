@@ -67,20 +67,16 @@ end
 -- Get the features to show for current version (features from versions newer than lastSeen)
 local function GetFeaturesForUpdate(lastSeenVersion)
     local features = {}
-    local latestVersion = nil
 
     for _, versionData in ipairs(addon.WhatsNewVersions) do
         if not lastSeenVersion or IsNewerVersion(versionData.version, lastSeenVersion) then
-            if not latestVersion then
-                latestVersion = versionData.version
-            end
             for _, feature in ipairs(versionData.features) do
                 features[#features + 1] = feature
             end
         end
     end
 
-    return features, latestVersion
+    return features
 end
 
 --------------------------------------------------------------------------------
@@ -300,12 +296,7 @@ local function CreateWelcomeFeatureGrid(parent)
         card:SetSize(colWidth, cardHeight)
         card:SetPoint("TOPLEFT", parent, "TOPLEFT", colX, rowY)
 
-        card:SetBackdrop({
-            bgFile = "Interface\\Buttons\\WHITE8x8",
-            edgeFile = "Interface\\Tooltips\\UI-Tooltip-Border",
-            edgeSize = 10,
-            insets = { left = 2, right = 2, top = 2, bottom = 2 }
-        })
+        card:SetBackdrop(CONSTS.PANEL_BACKDROP)
         card:SetBackdropColor(0.12, 0.12, 0.14, 0.95)
         card:SetBackdropBorderColor(0.25, 0.25, 0.25, 1)
 
@@ -326,7 +317,6 @@ local function CreateWelcomeFeatureGrid(parent)
         title:SetJustifyH("LEFT")
         title:SetText(L[feature.titleKey] or feature.titleKey)
         title:SetTextColor(unpack(COLORS.GOLD))
-        card.title = title
 
         -- Description (GameFontHighlight base +1pt, slightly dimmer)
         local desc = addon:CreateFontString(card, "OVERLAY", "GameFontHighlight")
@@ -400,7 +390,7 @@ local function CreateWelcomeFeatureGrid(parent)
         end
     end)
 
-    return entries, sweepDriver
+    return sweepDriver
 end
 
 --------------------------------------------------------------------------------
@@ -436,7 +426,6 @@ local function CreateFooter(frame, variant)
         check:SetScript("OnClick", function(self)
             WhatsNew.checkboxChecked = self:GetChecked()
         end)
-        frame.dontShowCheckbox = check
 
         -- "Explore Housing Codex" button (gold tinted)
         local btn = CreateFrame("Button", nil, footer, "UIPanelButtonTemplate")
@@ -447,7 +436,6 @@ local function CreateFooter(frame, variant)
         btn:SetScript("OnClick", function()
             WhatsNew:OnExploreClick()
         end)
-        frame.exploreButton = btn
     else
         -- Welcome variant: "Start Exploring" centered button
         local btn = CreateFrame("Button", nil, footer, "UIPanelButtonTemplate")
@@ -458,16 +446,16 @@ local function CreateFooter(frame, variant)
         btn:SetScript("OnClick", function()
             WhatsNew:OnStartExploringClick()
         end)
-        frame.startButton = btn
     end
 
     return footer
 end
 
+--------------------------------------------------------------------------------
 -- Welcome: Good to Know Row (instructional)
 --------------------------------------------------------------------------------
 
-local function CreateQuickSetupRow(frame, contentArea)
+local function CreateQuickSetupRow(contentArea)
     local setupRow = CreateFrame("Frame", nil, contentArea, "BackdropTemplate")
     setupRow:SetPoint("BOTTOMLEFT", 12, 10)
     setupRow:SetPoint("BOTTOMRIGHT", -12, 10)
@@ -532,6 +520,11 @@ local function ReleaseChild(child)
     child:SetParent(nil)
 end
 
+-- Horizontal offset of the What's New popup from screen center
+local function GetWhatsNewXOffset()
+    return -(GetScreenWidth() * 0.12)
+end
+
 function WhatsNew:Build(variant)
     local frame = self:EnsureFrame()
     frame:Hide()
@@ -546,12 +539,6 @@ function WhatsNew:Build(variant)
     StopTypewriter()
     if self.contentArea then ReleaseChild(self.contentArea); self.contentArea = nil end
 
-    -- Drop references owned only by the released variant trees.
-    frame.dontShowCheckbox = nil
-    frame.exploreButton = nil
-    frame.startButton = nil
-    frame.featureList = nil
-
     -- Reset state
     self.currentVariant = variant
     self.featureEntries = {}
@@ -565,7 +552,7 @@ function WhatsNew:Build(variant)
         frame:SetPoint("CENTER", UIParent, "CENTER", 0, 30)
     else
         frame:SetSize(WN.WIDTH, WN.HEIGHT)
-        local offset = -(GetScreenWidth() * 0.12)
+        local offset = GetWhatsNewXOffset()
         frame:SetPoint("CENTER", UIParent, "CENTER", offset, 30)
     end
 
@@ -597,7 +584,7 @@ function WhatsNew:Build(variant)
     if variant == "whatsnew" then
         self:BuildWhatsNewContent(content)
     else
-        self:BuildWelcomeContent(content, frame)
+        self:BuildWelcomeContent(content)
     end
 end
 
@@ -615,7 +602,6 @@ function WhatsNew:BuildWhatsNewContent(content)
     local featureList = CreateFrame("Frame", nil, content)
     featureList:SetPoint("TOPLEFT", 0, 0)
     featureList:SetPoint("BOTTOMRIGHT", 0, 0)
-    self.frame.featureList = featureList
 
     -- Lay out feature entries
     local yOffset = -8
@@ -626,7 +612,7 @@ function WhatsNew:BuildWhatsNewContent(content)
         entry:SetPoint("RIGHT", featureList, "RIGHT", -WN.ENTRY_PADDING, 0)
 
         -- Defer height calculation until text can be measured
-        self.featureEntries[i] = { entry = entry, feature = feature }
+        self.featureEntries[i] = { entry = entry }
     end
 
     -- Layout pass: calculate entry heights after anchoring
@@ -650,12 +636,12 @@ function WhatsNew:BuildWhatsNewContent(content)
 
 end
 
-function WhatsNew:BuildWelcomeContent(content, frame)
-    -- Welcome uses a 2-column feature grid (no image panel)
-    _, self.sweepDriver = CreateWelcomeFeatureGrid(content)
+function WhatsNew:BuildWelcomeContent(content)
+    -- Welcome uses a 3x2 feature grid (no image panel)
+    self.sweepDriver = CreateWelcomeFeatureGrid(content)
 
     -- Quick setup row above footer
-    CreateQuickSetupRow(frame, content)
+    CreateQuickSetupRow(content)
 end
 
 --------------------------------------------------------------------------------
@@ -742,6 +728,7 @@ function WhatsNew:SelectFeature(index)
     end
 end
 
+--------------------------------------------------------------------------------
 -- Animations
 --------------------------------------------------------------------------------
 
@@ -768,7 +755,7 @@ local function CreateFadeInAnimation(frame)
         if WhatsNew.currentVariant == "welcome" then
             frame:SetPoint("CENTER", UIParent, "CENTER", 0, 0)
         else
-            local xOff = -(GetScreenWidth() * 0.12)
+            local xOff = GetWhatsNewXOffset()
             frame:SetPoint("CENTER", UIParent, "CENTER", xOff, 0)
         end
     end)
@@ -932,7 +919,6 @@ end
 -- Auto-trigger on DATA_LOADED
 --------------------------------------------------------------------------------
 
-local autoShowPending = false
 local autoShowScheduled = false
 
 addon:RegisterInternalEvent("DATA_LOADED", function()
@@ -947,10 +933,8 @@ addon:RegisterInternalEvent("DATA_LOADED", function()
 
     if autoShowScheduled then return end
     autoShowScheduled = true
-    autoShowPending = true
 
     C_Timer.After(WN.SHOW_DELAY, function()
-        autoShowPending = false
         local variant = WhatsNew:ShouldShow()
         if variant then
             WhatsNew:Show(variant)

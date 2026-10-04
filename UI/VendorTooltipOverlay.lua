@@ -14,7 +14,7 @@ local MISSING_DISPLAY_LIMIT = 5
 local COMPLETE_CHECKMARK = "|A:common-icon-checkmark:14:14:0:-1|a"
 
 local initialized = false
-local ICON_PREFIX    -- "|Tpath:18:18:0:0|t " (set at Initialize)
+local ICON_PREFIX = string.format("|T%s:18:18:0:0|t ", HC_ICON_PATH)
 
 local function IsSecretValue(value)
     return type(issecretvalue) == "function" and issecretvalue(value)
@@ -79,17 +79,7 @@ local function OnTooltipUnit(tooltip)
         local shown = math.min(#missingNames, MISSING_DISPLAY_LIMIT)
         for i = 1, shown do
             local entry = missingNames[i]
-            -- Promo takes precedence over locked (rotation moots the achievement gate).
-            local suffix
-            if entry.promotional then
-                suffix = " (|cff9090a0" .. L["VENDOR_PIN_ITEM_PROMO"] .. "|r)"
-            elseif entry.locked then
-                local label = entry.achievementReward and L["VENDOR_PIN_ITEM_ACHIEVEMENT_REWARD"] or L["VENDOR_PIN_ITEM_LOCKED"]
-                suffix = " (|cffcc5a40" .. label .. "|r)"
-            else
-                suffix = ""
-            end
-            tooltip:AddLine("  " .. entry.name .. suffix, 0.7, 0.7, 0.7)
+            tooltip:AddLine("  " .. entry.name .. addon:GetVendorMissingItemSuffix(entry), 0.7, 0.7, 0.7)
         end
 
         local missingTotal = (total - owned) + ((promoTotal or 0) - (promoOwned or 0))
@@ -103,8 +93,6 @@ end
 function VendorTooltipOverlay:Initialize()
     if initialized then return end
     initialized = true
-
-    ICON_PREFIX = string.format("|T%s:18:18:0:0|t ", HC_ICON_PATH)
 
     TooltipDataProcessor.AddTooltipPostCall(Enum.TooltipDataType.Unit, OnTooltipUnit)
 

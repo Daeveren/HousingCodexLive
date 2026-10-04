@@ -168,8 +168,7 @@ local function GetBudgetDB()
     end
 
     local db = addon.db.placementBudget
-    local migratedChanged = MigratePlacementBudgetIdentity
-        and MigratePlacementBudgetIdentity(db, addon.db.placementBudgetQuarantine)
+    local migratedChanged = MigratePlacementBudgetIdentity(db, addon.db.placementBudgetQuarantine)
     for context, snapshot in pairs(db) do
         if context ~= CONTEXT_PLOTS_BY_ID and context ~= CONTEXT_KNOWN_PLOTS then
             if (context ~= CONTEXT_INTERIOR and context ~= CONTEXT_PLOT) or not IsValidSnapshot(snapshot) then
@@ -322,7 +321,7 @@ end
 local function GetOwnedBudgetContext()
     if not C_Housing then return false, nil, nil, "housing API unavailable" end
 
-    -- Prefer the ownership-specific combined check when a future client exposes it.
+    -- Prefer the ownership-specific combined check added in 12.1, and fall back to the broader check where it is absent.
     local ownedContextCheck = C_Housing.IsInsideOwnedHouseOrPlot
     if type(ownedContextCheck) == "function" then
         local isOwned = SafeCall(ownedContextCheck)
@@ -1179,7 +1178,7 @@ local function SnapshotMatchesCapture(snapshot, spent, maxBudget, updatedAt, ide
         and snapshot.identityKey == identityKey
 end
 
-local function CaptureBudget(silent)
+local function CaptureBudget()
     if not addon.db or not C_Housing then return false end
     local isOwnedContext, houseInfo, ownedHouseKey, blockReason = GetOwnedBudgetContext()
     if not isOwnedContext then
@@ -1207,14 +1206,14 @@ local function CaptureBudget(silent)
     local context = GetCurrentContext()
     if not context or not C_HousingDecor then
         if changed then
-            if not silent then addon:FireEvent(addon.Events.PLACEMENT_BUDGET_UPDATED) end
+            addon:FireEvent(addon.Events.PLACEMENT_BUDGET_UPDATED)
         end
         return changed
     end
 
     if not C_HousingDecor.HasMaxPlacementBudget or not C_HousingDecor.HasMaxPlacementBudget() then
         if changed then
-            if not silent then addon:FireEvent(addon.Events.PLACEMENT_BUDGET_UPDATED) end
+            addon:FireEvent(addon.Events.PLACEMENT_BUDGET_UPDATED)
         end
         return changed
     end
@@ -1223,7 +1222,7 @@ local function CaptureBudget(silent)
     local maxBudget = C_HousingDecor.GetMaxPlacementBudget and C_HousingDecor.GetMaxPlacementBudget()
     if type(spent) ~= "number" or type(maxBudget) ~= "number" or maxBudget <= 0 then
         if changed then
-            if not silent then addon:FireEvent(addon.Events.PLACEMENT_BUDGET_UPDATED) end
+            addon:FireEvent(addon.Events.PLACEMENT_BUDGET_UPDATED)
         end
         return changed
     end
@@ -1231,7 +1230,7 @@ local function CaptureBudget(silent)
     local now = GetServerTime and GetServerTime()
     if type(now) ~= "number" then
         if changed then
-            if not silent then addon:FireEvent(addon.Events.PLACEMENT_BUDGET_UPDATED) end
+            addon:FireEvent(addon.Events.PLACEMENT_BUDGET_UPDATED)
         end
         return changed
     end
@@ -1253,7 +1252,7 @@ local function CaptureBudget(silent)
                     "nothingPlaced", lastZeroSignals.placed)
             end
             if changed then
-                if not silent then addon:FireEvent(addon.Events.PLACEMENT_BUDGET_UPDATED) end
+                addon:FireEvent(addon.Events.PLACEMENT_BUDGET_UPDATED)
             end
             return changed
         end
@@ -1322,13 +1321,13 @@ local function CaptureBudget(silent)
             .. tostring(spent) .. "/" .. tostring(maxBudget) .. " for " .. tostring(plotKey))
     end
     if changed then
-        if not silent then addon:FireEvent(addon.Events.PLACEMENT_BUDGET_UPDATED) end
+        addon:FireEvent(addon.Events.PLACEMENT_BUDGET_UPDATED)
     end
     return changed
 end
 
 local function CaptureBudgetAndRefresh()
-    local changed = CaptureBudget(false)
+    local changed = CaptureBudget()
     if not changed and addon.db then
         addon:FireEvent(addon.Events.PLACEMENT_BUDGET_UPDATED)
     end
