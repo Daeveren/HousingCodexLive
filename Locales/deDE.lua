@@ -78,8 +78,8 @@ L["SORT_PLACED"] = "Anz. platziert"
 L["SORT_NEWEST_TIP"] = "Neu hinzugefügtes Dekor zuerst"
 L["SORT_ALPHABETICAL_TIP"] = "Alphabetische Reihenfolge (A bis Z)"
 L["SORT_SIZE_TIP"] = "Größtes Dekor zuerst (Riesig bis Winzig)"
-L["SORT_QUANTITY_TIP"] = "Meiste besessene Kopien zuerst"
-L["SORT_PLACED_TIP"] = "Am häufigsten in deinem Haus platziert zuerst"
+L["SORT_QUANTITY_TIP"] = "Dekor mit den meisten Exemplaren in deinem Besitz zuerst"
+L["SORT_PLACED_TIP"] = "Dekor mit den meisten platzierten Exemplaren in deinem Haus zuerst"
 
 --------------------------------------------------------------------------------
 -- Result Count & Empty State
@@ -285,7 +285,7 @@ L["LDB_POPUP_TOTAL_ITEMS"] = "Gesamtobjekte"
 L["LDB_POPUP_PERCENT"] = "Sammlung %"
 L["LDB_TOOLTIP_WISHLIST"] = "Wunschliste"
 L["LDB_TOOLTIP_WISHLIST_COUNT"] = "%d Objekte"
-L["LDB_TOOLTIP_SHIFT_RIGHT"] = "|cffffffffShift-Rechtsklick|r um Sammelfortschritt anzuzeigen"
+L["LDB_TOOLTIP_SHIFT_RIGHT"] = "|cffffffffUmschalt-Rechtsklick|r zum Anzeigen des Sammlungsfortschritts"
 
 --------------------------------------------------------------------------------
 -- Quests Tab
@@ -482,9 +482,9 @@ L["PROGRESS_COLLECTED"] = "Gesammelt"
 L["PROGRESS_TOTAL"] = "Gesamt"
 L["PROGRESS_REMAINING"] = "Verbleibend"
 L["PROGRESS_BY_SOURCE"] = "Nach Quelle"
-L["PROGRESS_VENDOR_EXPANSIONS"] = "Händler-Erweiterungen"
-L["PROGRESS_QUEST_EXPANSIONS"] = "Quest-Erweiterungen"
-L["PROGRESS_RENOWN_EXPANSIONS"] = "Ruhm-Erweiterungen"
+L["PROGRESS_VENDOR_EXPANSIONS"] = "Händler nach Erweiterung"
+L["PROGRESS_QUEST_EXPANSIONS"] = "Quests nach Erweiterung"
+L["PROGRESS_RENOWN_EXPANSIONS"] = "Ruhm nach Erweiterung"
 L["PROGRESS_PVP_CATEGORIES"] = "PvP-Kategorien"
 L["PROGRESS_PROFESSIONS"] = "Berufe"
 L["PROGRESS_ALMOST_THERE"] = "Am weitesten fortgeschritten"
@@ -580,7 +580,7 @@ L["WHATSNEW_EXPLORE"] = "Housing Codex entdecken"
 -- Welcome Popup
 --------------------------------------------------------------------------------
 L["WELCOME_TITLE"] = "Willkommen bei Housing Codex"
-L["WELCOME_SUBTITLE"] = "Dein Begleiter für Dekorentdeckung und alles rund ums Housing"
+L["WELCOME_SUBTITLE"] = "Dein Begleiter beim Entdecken von Dekor und Einrichten deines Zuhauses"
 L["WELCOME_START"] = "Entdecken starten"
 L["WELCOME_QUICK_SETUP"] = "Gut zu wissen"
 L["WELCOME_OPEN_INSTRUCTION"] = "Du kannst das Addon jederzeit mit %s öffnen oder in %s eine eigene Tastenbelegung festlegen."

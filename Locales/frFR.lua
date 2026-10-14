@@ -78,8 +78,8 @@ L["SORT_PLACED"] = "Qté placée"
 L["SORT_NEWEST_TIP"] = "Décors ajoutés le plus récemment en premier"
 L["SORT_ALPHABETICAL_TIP"] = "Ordre alphabétique (A à Z)"
 L["SORT_SIZE_TIP"] = "Plus grands décors en premier (Énorme à Minuscule)"
-L["SORT_QUANTITY_TIP"] = "Plus de copies possédées en premier"
-L["SORT_PLACED_TIP"] = "Plus de décors placés dans votre maison en premier"
+L["SORT_QUANTITY_TIP"] = "Décors dont vous possédez le plus d'exemplaires en premier"
+L["SORT_PLACED_TIP"] = "Décors dont vous avez placé le plus d'exemplaires dans votre maison en premier"
 
 --------------------------------------------------------------------------------
 -- Result Count & Empty State
@@ -280,12 +280,12 @@ L["LDB_POPUP_TITLE"] = "Affichage du broker"
 L["LDB_TOOLTIP_DECOR_HEADER"] = "Statistiques de collection"
 L["LDB_POPUP_UNIQUE"] = "Décors uniques"
 L["LDB_POPUP_ROOMS"] = "Pièces débloquées"
-L["LDB_POPUP_TOTAL_OWNED"] = "Total possédés (incl. dupes)"
+L["LDB_POPUP_TOTAL_OWNED"] = "Total possédé (doublons inclus)"
 L["LDB_POPUP_TOTAL_ITEMS"] = "Total des objets"
 L["LDB_POPUP_PERCENT"] = "Collection %"
 L["LDB_TOOLTIP_WISHLIST"] = "Liste de souhaits"
 L["LDB_TOOLTIP_WISHLIST_COUNT"] = "%d objets"
-L["LDB_TOOLTIP_SHIFT_RIGHT"] = "|cffffffffShift-Droit|r pour voir la progression"
+L["LDB_TOOLTIP_SHIFT_RIGHT"] = "|cffffffffMaj-clic droit|r pour voir la progression de collection"
 
 --------------------------------------------------------------------------------
 -- Quests Tab
@@ -596,8 +596,8 @@ L["WHATSNEW_V150_F2_TITLE"] = "Suivi des métiers"
 L["WHATSNEW_V150_F2_DESC"] = "Suivez la progression d'artisanat pour chaque métier avec des barres de progression dédiées."
 L["WHATSNEW_V150_F3_TITLE"] = "Navigation intelligente"
 L["WHATSNEW_V150_F3_DESC"] = "Cliquez sur une ligne de progression pour accéder directement à l'onglet source correspondant."
-L["WHATSNEW_V150_F4_TITLE"] = "Liens de liste de souhaits"
-L["WHATSNEW_V150_F4_DESC"] = "Partagez les objets de votre liste de souhaits dans le chat sous forme de liens cliquables."
+L["WHATSNEW_V150_F4_TITLE"] = "Liens cliquables de liste de souhaits"
+L["WHATSNEW_V150_F4_DESC"] = "Partagez les objets de votre liste de souhaits dans le chat sous forme de liens cliquables permettant aux autres d'en afficher un aperçu."
 
 --------------------------------------------------------------------------------
 -- Welcome feature highlights

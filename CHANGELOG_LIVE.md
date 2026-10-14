@@ -2,6 +2,14 @@
 
 All notable changes to Housing Codex.
 
+**3.4.4** (2026-10-14)
+
+**Changed**
+- Updated for Patch 12.1.5
+
+**Fixed**
+- Improved translations for non-English clients
+
 **3.4.1** (2026-10-04)
 
 **Changed**
