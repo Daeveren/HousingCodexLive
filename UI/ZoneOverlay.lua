@@ -39,6 +39,7 @@ local BACKDROP_ALPHA_FACTOR = 0.95  -- Reduce backdrop alpha slightly vs user se
 -- query is unavailable, so keep wide headroom against a future cap increase rather than
 -- hugging today's total; the pin manager itself refuses to allocate past 9000.
 local OVERLAY_FRAME_LEVEL_FALLBACK = 5000
+local TOPMOST_PIN_INDEX = 10000 -- above the pin manager's 9000 cap, so it always clamps to the top of the band
 
 local function IsSecretValue(value)
     return type(issecretvalue) == "function" and issecretvalue(value)
@@ -58,7 +59,8 @@ end
 -- One level above the topmost pin band, which places the panel over every map pin within
 -- the map's own strata. What keeps it *below* the map border and quest panel is strata,
 -- not this level: both are explicitly HIGH while we inherit the map's. GetValidFrameLevel
--- clamps the index to the band's range, so math.huge resolves to that band's top level.
+-- clamps the index to 1..range of the topmost band, so TOPMOST_PIN_INDEX (larger than any
+-- band can be) resolves to that band's top level.
 --
 -- Re-read rather than cached: MapCanvasPinFrameLevelsManagerMixin:AddDefinition shifts
 -- existing bands upward when a new one is registered, so a data provider that appears
@@ -73,8 +75,11 @@ local function GetOverlayFrameLevel()
         return OVERLAY_FRAME_LEVEL_FALLBACK
     end
 
-    local topPinLevel = manager:GetValidFrameLevel("PIN_FRAME_LEVEL_TOPMOST", math.huge)
-    if type(topPinLevel) ~= "number" or IsSecretValue(topPinLevel) then
+    -- 12.1.5: Blizzard's Clamp is native math.clamp; keep the index finite and
+    -- fail soft to the fallback level if the manager ever errors.
+    local ok, topPinLevel = pcall(manager.GetValidFrameLevel, manager,
+        "PIN_FRAME_LEVEL_TOPMOST", TOPMOST_PIN_INDEX)
+    if not ok or type(topPinLevel) ~= "number" or IsSecretValue(topPinLevel) then
         return OVERLAY_FRAME_LEVEL_FALLBACK
     end
 

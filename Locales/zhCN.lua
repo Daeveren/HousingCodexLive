@@ -797,6 +797,7 @@ SN["The Lost Explorers (The Venomous Abyss)"] = "迷失的探险者（烈毒之�
 SN["The Restless Cabal"] = "无眠秘党"
 SN["The Restless Heart"] = "无眠之心"
 SN["The Twin Fangs (The Venomous Abyss)"] = "双子毒牙（烈毒之渊）"
+SN["The Unbinding of Kith'ix"] = "基希克斯破封"
 SN["Ula'tek (Heroic, The Venomous Abyss)"] = "乌拉特克（英雄难度，烈毒之渊）"
 SN["Ula'tek (Mythic, The Venomous Abyss)"] = "乌拉特克（史诗难度，烈毒之渊）"
 SN["Ula'tek (Raid Finder/Normal, The Venomous Abyss)"] = "乌拉特克（随机团队/普通难度，烈毒之渊）"
@@ -827,6 +828,7 @@ SN["Zul'jan's Strongbox (Altar of Fangs)"] = "祖尔加的保险箱（毒牙祭�
 -- Recipe sources (Professions tab)
 SN["Construct V'anore"] = "构造体瓦诺雷"
 SN["Jan'sari the Watchful"] = "警惕的詹萨莉"
+SN["Lillistrasza"] = "莉莉斯塔萨"
 SN["Navigator Otoola"] = "领航员奥图拉"
 SN["Second Mate Sluggs"] = "二副斯拉格斯"
 SN["Thalassian Recipe in a Bottle"] = "萨拉斯瓶中配方"

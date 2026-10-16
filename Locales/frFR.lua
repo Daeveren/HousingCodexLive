@@ -799,6 +799,7 @@ SN["The Lost Explorers (The Venomous Abyss)"] = "L’expédition perdue (L’ab�
 SN["The Restless Cabal"] = "La Cabale agitée"
 SN["The Restless Heart"] = "Le Cœur agité"
 SN["The Twin Fangs (The Venomous Abyss)"] = "Les crochets jumeaux (L’abîme Venimeux)"
+SN["The Unbinding of Kith'ix"] = "Le Déliement de Kith’ix"
 SN["Ula'tek (Heroic, The Venomous Abyss)"] = "Ula'tek (Héroïque, L’abîme Venimeux)"
 SN["Ula'tek (Mythic, The Venomous Abyss)"] = "Ula'tek (Mythique, L’abîme Venimeux)"
 SN["Ula'tek (Raid Finder/Normal, The Venomous Abyss)"] = "Ula'tek (Outil Raids/Normal, L’abîme Venimeux)"
@@ -829,6 +830,7 @@ SN["Zul'jan's Strongbox (Altar of Fangs)"] = "Coffre renforcé de Zul’jan (Aut
 -- Recipe sources (Professions tab)
 SN["Construct V'anore"] = "Assemblage V'anore"
 SN["Jan'sari the Watchful"] = "Jan'sari la Vigilante"
+SN["Lillistrasza"] = "Lillistrasza"
 SN["Navigator Otoola"] = "Navigatrice Otoola"
 SN["Second Mate Sluggs"] = "Quartier-maître Sluggs"
 SN["Thalassian Recipe in a Bottle"] = "Recette thalassienne en bouteille"

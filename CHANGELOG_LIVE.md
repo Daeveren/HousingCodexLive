@@ -2,6 +2,16 @@
 
 All notable changes to Housing Codex.
 
+**3.6.0** (2026-10-16)
+
+**Changed**
+- Updated profession decor data with new Patch 12.1.5 crafts
+- Updated raid drop decor data for Patch 12.1.5
+- New Patch 12.1.5 decor now show their patch in item details and the "Added in patch" filter
+
+**Fixed**
+- Improved reliability of the world map zone overlay
+
 **3.4.4** (2026-10-14)
 
 **Changed**

@@ -802,6 +802,7 @@ SN["The Lost Explorers (The Venomous Abyss)"] = "Потерявшиеся исс
 SN["The Restless Cabal"] = "Неутомимый конклав"
 SN["The Restless Heart"] = "Неупокоенное сердце"
 SN["The Twin Fangs (The Venomous Abyss)"] = "Два Клыка (Отравленная бездна)"
+SN["The Unbinding of Kith'ix"] = "Освобождение Кит'икса"
 SN["Ula'tek (Heroic, The Venomous Abyss)"] = "Ула'тек (героический, Отравленная бездна)"
 SN["Ula'tek (Mythic, The Venomous Abyss)"] = "Ула'тек (эпохальный, Отравленная бездна)"
 SN["Ula'tek (Raid Finder/Normal, The Venomous Abyss)"] = "Ула'тек (поиск рейда/обычный, Отравленная бездна)"
@@ -832,6 +833,7 @@ SN["Zul'jan's Strongbox (Altar of Fangs)"] = "Сейф Зул'джана (Алт
 -- Recipe sources (Professions tab)
 SN["Construct V'anore"] = "Голем В'аноре"
 SN["Jan'sari the Watchful"] = "Джан'сари Внимательная"
+SN["Lillistrasza"] = "Лиллистраза"
 SN["Navigator Otoola"] = "Штурман Отула"
 SN["Second Mate Sluggs"] = "Вторая помощница Склизз"
 SN["Thalassian Recipe in a Bottle"] = "Талассийский рецепт в бутылке"
