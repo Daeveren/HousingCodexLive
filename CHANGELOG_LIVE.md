@@ -2,6 +2,12 @@
 
 All notable changes to Housing Codex.
 
+**3.6.1** (2026-10-18)
+
+**Changed**
+- Added the new Patch 12.1.5 renown vendors in Silvermoon City
+- Updated vendor prices for several decor items
+
 **3.6.0** (2026-10-16)
 
 **Changed**
