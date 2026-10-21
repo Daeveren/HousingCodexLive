@@ -2,6 +2,13 @@
 
 All notable changes to Housing Codex.
 
+**3.6.2** (2026-10-21)
+
+**Changed**
+- Added Hallow's End decor vendors, prices, waypoints, crafts, and achievement rewards
+- Hallow's End decor now shows in the Drops tab and "Added in patch" filter
+- Preparations for the upcoming Patch 12.1.7
+
 **3.6.1** (2026-10-18)
 
 **Changed**
