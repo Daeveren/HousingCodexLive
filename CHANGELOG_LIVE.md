@@ -2,6 +2,13 @@
 
 All notable changes to Housing Codex.
 
+**3.6.3** (2026-10-25)
+
+**Changed**
+- Updated Argus decor vendor data, prices, and achievement rewards
+- Argus decor now shows its patch in item details and the "Added in patch" filter
+- Currency filters in Decor and Vendors tabs now include item-based currencies like holiday tokens
+
 **3.6.2** (2026-10-21)
 
 **Changed**

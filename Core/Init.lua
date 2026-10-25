@@ -609,8 +609,12 @@ local function ForEachVendorDecorCurrencyKey(owner, vendorData, decorId, callbac
     if components then
         for _, component in ipairs(components) do
             local key = component.currencyName
-            if (not key or key == "") and component.kind == "gold" then
-                key = owner.CONSTANTS.VENDOR_CURRENCY_GOLD_KEY
+            if not key or key == "" then
+                if component.kind == "gold" then
+                    key = owner.CONSTANTS.VENDOR_CURRENCY_GOLD_KEY
+                elseif component.kind == "item" then
+                    key = owner:GetItemCostCurrencyKey(component.itemID)
+                end
             end
             if key and key ~= "" and callback(key, context) then
                 return true

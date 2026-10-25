@@ -89,6 +89,22 @@ local ITEM_CURRENCY_TO_ID = {
     ["Mark of Honor"] = 137642,
 }
 
+local ITEM_ID_TO_CURRENCY_NAME = {}
+for currencyName, itemID in pairs(ITEM_CURRENCY_TO_ID) do
+    ITEM_ID_TO_CURRENCY_NAME[itemID] = currencyName
+end
+
+-- Item-token cost components (Tricky Treats, Brewfest Prize Tokens, ...) have no
+-- currencyName; they get "item:<itemID>" currency keys. Items already named as a
+-- currency above share that name's key, so one filter option covers both encodings.
+local ITEM_COST_KEY_PREFIX = "item:"
+local requestedItemNameLoads = {}
+
+function addon:GetItemCostCurrencyKey(itemID)
+    if type(itemID) ~= "number" or itemID <= 0 then return nil end
+    return ITEM_ID_TO_CURRENCY_NAME[itemID] or (ITEM_COST_KEY_PREFIX .. itemID)
+end
+
 local currencyNameCache = {}  -- englishName -> localized name (positive only)
 local currencyDisplayInfoCache = {}  -- englishName -> { name, iconFileID, currencyID/itemID } (positive only)
 
@@ -112,13 +128,19 @@ function addon:GetLocalizedCurrencyName(englishName)
         end
     end
 
-    -- Try item-based currency lookup (e.g., Mark of Honor)
+    -- Try item-based currency lookup (e.g., Mark of Honor, "item:<itemID>" keys)
     local itemID = ITEM_CURRENCY_TO_ID[englishName]
+        or (type(englishName) == "string" and tonumber(englishName:match("^" .. ITEM_COST_KEY_PREFIX .. "(%d+)$")))
     if itemID and C_Item and C_Item.GetItemNameByID then
         local ok, name = pcall(C_Item.GetItemNameByID, itemID)
         if ok and IsUsableValue(name) and name ~= "" then
             currencyNameCache[englishName] = name
             return name
+        end
+        -- Uncached item: ask the client once so the next label read has the name
+        if not requestedItemNameLoads[itemID] and C_Item.RequestLoadItemDataByID then
+            requestedItemNameLoads[itemID] = true
+            pcall(C_Item.RequestLoadItemDataByID, itemID)
         end
     end
 
