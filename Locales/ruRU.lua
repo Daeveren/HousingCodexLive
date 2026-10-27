@@ -245,6 +245,8 @@ L["HELP_RESET"] = "/hc reset — сбросить положение окна"
 L["HELP_RETRY"] = "/hc retry/reload — повторить попытку загрузки данных"
 L["HELP_HELP"] = "/hc help/? — показать эту справку"
 L["HELP_FONT"] = "/hc font — переключить пользовательский шрифт Housing Codex"
+L["HELP_VERSION"] = "/hc version — показать версию аддона"
+L["VERSION_FORMAT"] = "Версия %s"
 
 --------------------------------------------------------------------------------
 -- Slash Commands
@@ -268,6 +270,12 @@ L["POSITION_RESET"] = "Положение окна сброшено по цен�
 L["ERROR_API_UNAVAILABLE"] = "API жилья недоступно"
 L["ERROR_LOAD_FAILED"] = "Не удалось загрузить данные жилья после нескольких попыток. Используйте /hc retry, чтобы повторить."
 L["ERROR_LOAD_FAILED_SHORT"] = "Ошибка загрузки данных. Введите /hc retry"
+L["ERROR_LOAD_FAILED_REASON"] = "Причина: %s"
+L["LOAD_REASON_SERVICE_DISABLED"] = "Жилье сейчас недоступно для этого персонажа"
+L["LOAD_REASON_SEARCHER_UNAVAILABLE"] = "Не удалось запустить поиск по каталогу"
+L["LOAD_REASON_SEARCH_TIMEOUT"] = "Каталог жилья не ответил вовремя"
+L["LOAD_REASON_NO_ENTRIES"] = "Каталог жилья не вернул ни одного предмета"
+L["LOAD_REASON_BUILD_ERROR"] = "Ошибка Lua прервала загрузку"
 
 --------------------------------------------------------------------------------
 -- LDB (LibDataBroker)

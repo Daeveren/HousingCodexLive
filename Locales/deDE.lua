@@ -246,6 +246,8 @@ L["HELP_RESET"] = "/hc reset - Fensterposition zurücksetzen"
 L["HELP_RETRY"] = "/hc retry/reload - Datenladen erneut versuchen"
 L["HELP_HELP"] = "/hc help/? - Diese Hilfe anzeigen"
 L["HELP_FONT"] = "/hc font - Benutzerdefinierte Housing Codex-Schrift umschalten"
+L["HELP_VERSION"] = "/hc version - Addon-Version anzeigen"
+L["VERSION_FORMAT"] = "Version %s"
 
 --------------------------------------------------------------------------------
 -- Slash Commands
@@ -269,6 +271,12 @@ L["POSITION_RESET"] = "Fensterposition auf Mitte zurückgesetzt"
 L["ERROR_API_UNAVAILABLE"] = "Housing-APIs nicht verfügbar"
 L["ERROR_LOAD_FAILED"] = "Housing-Daten konnten nach mehreren Versuchen nicht geladen werden. Nutze /hc retry, um es erneut zu versuchen."
 L["ERROR_LOAD_FAILED_SHORT"] = "Datenladen fehlgeschlagen. Nutze /hc retry"
+L["ERROR_LOAD_FAILED_REASON"] = "Grund: %s"
+L["LOAD_REASON_SERVICE_DISABLED"] = "Housing ist auf diesem Charakter gerade nicht verfügbar"
+L["LOAD_REASON_SEARCHER_UNAVAILABLE"] = "Katalogsuche konnte nicht gestartet werden"
+L["LOAD_REASON_SEARCH_TIMEOUT"] = "Der Housing-Katalog hat nicht rechtzeitig geantwortet"
+L["LOAD_REASON_NO_ENTRIES"] = "Der Housing-Katalog hat keine Objekte zurückgegeben"
+L["LOAD_REASON_BUILD_ERROR"] = "Ein Lua-Fehler hat das Laden unterbrochen"
 
 --------------------------------------------------------------------------------
 -- LDB (LibDataBroker)

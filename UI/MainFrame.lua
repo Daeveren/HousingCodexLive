@@ -160,6 +160,20 @@ function MainFrame:CreateTitleBar()
     -- while shown (interval/direction logic lives in UI/Animations.lua)
     addon:AttachGoldShimmer(title, frame, COLORS.TITLE)
 
+    -- Version tooltip over icon + title. Motion-only so clicks fall through
+    -- to the title bar and window dragging keeps working.
+    local versionHover = CreateFrame("Frame", nil, titleBar)
+    versionHover:SetPoint("TOPLEFT", icon, "TOPLEFT")
+    versionHover:SetPoint("BOTTOMLEFT", icon, "BOTTOMLEFT")
+    versionHover:SetPoint("RIGHT", title, "RIGHT")
+    versionHover:SetMouseMotionEnabled(true)
+    versionHover:SetScript("OnEnter", function(hover)
+        GameTooltip:SetOwner(hover, "ANCHOR_BOTTOMRIGHT")
+        GameTooltip:SetText(string.format(addon.L["VERSION_FORMAT"], addon.version), 1, 1, 1)
+        GameTooltip:Show()
+    end)
+    versionHover:SetScript("OnLeave", GameTooltip_Hide)
+
     -- Close button
     local closeBtn = CreateFrame("Button", nil, titleBar, "UIPanelCloseButton")
     closeBtn:SetPoint("TOPRIGHT", titleBar, "TOPRIGHT", 0, 0)
@@ -322,7 +336,12 @@ function MainFrame:SetLoadingState(state)
     end
 
     if state == "failed" then
-        self.loadingText:SetText(addon.L["ERROR_LOAD_FAILED_SHORT"])
+        local reasonText = addon:GetLoadFailureReasonText()
+        local text = addon.L["ERROR_LOAD_FAILED_SHORT"]
+        if reasonText then
+            text = text .. "\n" .. reasonText
+        end
+        self.loadingText:SetText(text)
         self.loadingText:SetTextColor(1, 0.4, 0.4, 1)
     else
         self.loadingText:SetText(addon.L["LOADING_DATA"])

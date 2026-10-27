@@ -167,6 +167,7 @@ local function CreateCommandHelpButton(parent)
         GameTooltip:AddLine(L["HELP_RESET"], 0.85, 0.85, 0.85, true)
         GameTooltip:AddLine(L["HELP_RETRY"], 0.85, 0.85, 0.85, true)
         GameTooltip:AddLine(L["HELP_FONT"], 0.85, 0.85, 0.85, true)
+        GameTooltip:AddLine(L["HELP_VERSION"], 0.85, 0.85, 0.85, true)
         GameTooltip:AddLine(L["HELP_HELP"], 0.85, 0.85, 0.85, true)
         GameTooltip:Show()
     end)
@@ -688,6 +689,12 @@ function addon.Settings:Initialize()
         end
     end)
     hiddenItemsBtn:SetPoint("TOPLEFT", COL1_X, yOffset - 28)
+
+    -- Addon version, right-aligned on the Hidden Items row
+    local versionText = addon:CreateFontString(panel, "ARTWORK", "GameFontNormalSmall")
+    versionText:SetPoint("RIGHT", panel, "TOPRIGHT", -16, yOffset - 28 - addon.CONSTANTS.ACTION_BUTTON.HEIGHT / 2)
+    versionText:SetText(string.format(L["VERSION_FORMAT"], addon.version))
+    versionText:SetTextColor(unpack(addon.CONSTANTS.COLORS.TEXT_DISABLED))
 
     -- Custom Font toggle button
     local customFontBtn

@@ -214,7 +214,9 @@ local function BuildRecordFields(recordID, entryType, info, options)
     return record
 end
 
-function addon:ScheduleRetry(reason)
+-- reasonKey: locale key naming why the attempt failed (LOAD_REASON_* or ERROR_API_UNAVAILABLE).
+-- The last one is kept so the failed state can say why without debug mode.
+function addon:ScheduleRetry(reasonKey)
     -- Several async failure paths (search timeout, searcher released, empty results) can
     -- each report the SAME failed attempt. The first report owns the retry; the rest
     -- return untouched, so one attempt costs exactly one retry and duplicates never push
@@ -224,28 +226,40 @@ function addon:ScheduleRetry(reason)
     -- covers the final attempt, whose give-up branch below leaves retryTimer nil and would
     -- otherwise re-fire DATA_LOAD_FAILED. ResetLoadState() clears both, so /hc retry works.
     if self.retryTimer or self.dataLoadFailed then
-        self:Debug(string.format("Attempt already accounted for, ignoring duplicate: %s", reason or "unknown"))
+        self:Debug(string.format("Attempt already accounted for, ignoring duplicate: %s", reasonKey or "unknown"))
         return
     end
 
     self.loadingInProgress = false
     self.loadRetryCount = self.loadRetryCount + 1
+    self.lastLoadFailureReason = reasonKey
 
     if self.loadRetryCount > MAX_RETRIES then
-        self:Debug("Max retries reached, giving up")
+        self:Debug("Max retries reached, giving up: " .. (reasonKey or "unknown"))
         self.dataLoadFailed = true
         self:FireEvent(self.Events.DATA_LOAD_FAILED)
         self:Print(self.L["ERROR_LOAD_FAILED"])
+        local reasonText = self:GetLoadFailureReasonText()
+        if reasonText then
+            self:Print(reasonText)
+        end
         return
     end
 
     local delay = RETRY_DELAYS[self.loadRetryCount] or 8
-    self:Debug(string.format("Retry %d/%d in %.1fs: %s", self.loadRetryCount, MAX_RETRIES, delay, reason or "unknown"))
+    self:Debug(string.format("Retry %d/%d in %.1fs: %s", self.loadRetryCount, MAX_RETRIES, delay, reasonKey or "unknown"))
 
     self.retryTimer = C_Timer.NewTimer(delay, function()
         self.retryTimer = nil
         self:LoadData()
     end)
+end
+
+-- "Reason: <text>" for the last failed attempt, or nil when none is recorded.
+function addon:GetLoadFailureReasonText()
+    local reasonKey = self.lastLoadFailureReason
+    if not reasonKey then return nil end
+    return string.format(self.L["ERROR_LOAD_FAILED_REASON"], self.L[reasonKey])
 end
 
 function addon:LoadData()
@@ -267,6 +281,16 @@ function addon:LoadData()
         return
     end
 
+    -- A new trigger after a give-up (a loading screen, the housing service coming back)
+    -- starts a fresh cycle: a full retry allowance and a new searcher, in case the old
+    -- search is stuck. Retry-timer calls never see dataLoadFailed, so a cycle in progress
+    -- keeps its count and searcher.
+    if self.dataLoadFailed then
+        self.loadRetryCount = 0
+        self.lastLoadFailureReason = nil
+        self.searcherGeneration = (self.searcherGeneration or 0) + 1
+        self.catalogSearcher = nil
+    end
     self.dataLoadFailed = false
     self:FireEvent(self.Events.DATA_LOAD_STARTED)
 
@@ -274,59 +298,76 @@ function addon:LoadData()
 
     -- Check API availability
     if not C_HousingCatalog or not C_HousingCatalog.CreateCatalogSearcher then
-        self:ScheduleRetry("C_HousingCatalog API not available")
+        self:ScheduleRetry("ERROR_API_UNAVAILABLE")
         return
     end
 
     -- Check if housing service is enabled (API may not exist in all versions)
     local serviceCheck = C_Housing and C_Housing.IsHousingServiceEnabled
     if serviceCheck and not serviceCheck() then
-        self:ScheduleRetry("Housing service not enabled")
+        self:ScheduleRetry("LOAD_REASON_SERVICE_DISABLED")
         return
     end
 
-    self.searcherGeneration = (self.searcherGeneration or 0) + 1
+    local searcher = self.catalogSearcher
     local searcherGeneration = self.searcherGeneration
 
-    -- Create searcher
-    local searcher = C_HousingCatalog.CreateCatalogSearcher()
-    if not searcher then
-        self:ScheduleRetry("Failed to create catalog searcher")
-        return
-    end
+    if searcher then
+        -- Reuse the previous attempt's searcher. The first catalog search after login can
+        -- outlast the 5 s timeout; a fresh searcher would abandon it, so on a slow client
+        -- no attempt ever finished. Its callback is still bound to this generation and
+        -- completes the load whenever the search returns, even after a give-up.
+        self.loadingInProgress = true
+        if searcher.IsSearchInProgress and searcher:IsSearchInProgress() then
+            self:Debug("Catalog search still running, waiting for it")
+        else
+            self:Debug("Re-running catalog search...")
+            searcher:RunSearch()
+        end
+    else
+        self.searcherGeneration = (self.searcherGeneration or 0) + 1
+        searcherGeneration = self.searcherGeneration
 
-    self.catalogSearcher = searcher
-    self.loadingInProgress = true
-
-    -- Configure searcher to include all base entries (collected and uncollected)
-    -- Per Blizzard's HousingCatalogFrameMixin pattern
-    searcher:SetStoredOnly(false)
-    searcher:SetBaseVariantOnly(true)
-    searcher:SetCollected(true)
-    searcher:SetUncollected(true)
-    searcher:SetAutoUpdateOnParamChanges(false)
-
-    -- Nil context returns ALL catalog entries (decor, rooms, fixtures, expert items).
-    -- BasicDecor mode silently excludes items only available in other editor modes,
-    -- reducing decorRecords and breaking counts, quest/vendor/drop lookups, and LDB totals.
-    -- UI tabs filter display as needed; the record set must be complete.
-    searcher:SetEditorModeContext(nil)
-
-    -- Set up callback for when search results are ready (Blizzard pattern)
-    searcher:SetResultsUpdatedCallback(function()
-        if not IsCurrentSearcher(self, searcher, searcherGeneration) then
+        -- Create searcher
+        searcher = C_HousingCatalog.CreateCatalogSearcher()
+        if not searcher then
+            self:ScheduleRetry("LOAD_REASON_SEARCHER_UNAVAILABLE")
             return
         end
-        if self.searchTimeoutTimer then
-            self.searchTimeoutTimer:Cancel()
-            self.searchTimeoutTimer = nil
-        end
-        self:ProcessSearchResults(searcher, searcherGeneration)
-    end)
 
-    -- CRITICAL: Run the search to populate results (required before GetAllSearchItems)
-    self:Debug("Running catalog search...")
-    searcher:RunSearch()
+        self.catalogSearcher = searcher
+        self.loadingInProgress = true
+
+        -- Configure searcher to include all base entries (collected and uncollected)
+        -- Per Blizzard's HousingCatalogFrameMixin pattern
+        searcher:SetStoredOnly(false)
+        searcher:SetBaseVariantOnly(true)
+        searcher:SetCollected(true)
+        searcher:SetUncollected(true)
+        searcher:SetAutoUpdateOnParamChanges(false)
+
+        -- Nil context returns ALL catalog entries (decor, rooms, fixtures, expert items).
+        -- BasicDecor mode silently excludes items only available in other editor modes,
+        -- reducing decorRecords and breaking counts, quest/vendor/drop lookups, and LDB totals.
+        -- UI tabs filter display as needed; the record set must be complete.
+        searcher:SetEditorModeContext(nil)
+
+        -- Set up callback for when search results are ready (Blizzard pattern)
+        searcher:SetResultsUpdatedCallback(function()
+            if not IsCurrentSearcher(self, searcher, searcherGeneration) then
+                return
+            end
+            if self.searchTimeoutTimer then
+                self.searchTimeoutTimer:Cancel()
+                self.searchTimeoutTimer = nil
+            end
+            self:ProcessSearchResults(searcher, searcherGeneration)
+        end)
+
+        -- CRITICAL: Run the search to populate results (required before GetAllSearchItems)
+        self:Debug("Running catalog search...")
+        searcher:RunSearch()
+    end
 
     -- Timeout: if callback doesn't fire within 5 seconds, retry
     self.searchTimeoutTimer = C_Timer.NewTimer(5, function()
@@ -336,13 +377,14 @@ function addon:LoadData()
         self.searchTimeoutTimer = nil
         if self.loadingInProgress and not self.dataLoaded then
             self:Debug("Search callback timeout")
-            -- Try to get results synchronously as fallback
-            local results = searcher:GetCatalogSearchResults()
-            if results and #results > 0 then
+            -- Try to get results synchronously as fallback. Protected for the same reason
+            -- as RunBatch: an error here would leave loadingInProgress stuck true.
+            local ok, results = xpcall(searcher.GetCatalogSearchResults, CallErrorHandler, searcher)
+            if ok and results and #results > 0 then
                 self:Debug("Timeout fallback: found " .. #results .. " results")
                 self:ProcessSearchResults(searcher, searcherGeneration)
             else
-                self:ScheduleRetry("Search callback never fired")
+                self:ScheduleRetry("LOAD_REASON_SEARCH_TIMEOUT")
             end
         end
     end)
@@ -356,13 +398,6 @@ function addon:ProcessSearchResults(searcher, generation)
 
     self.loadingInProgress = false
 
-    if not searcher or self.catalogSearcher ~= searcher then
-        if not self.dataLoaded then
-            self:ScheduleRetry("Searcher was released before results")
-        end
-        return
-    end
-
     -- Get search results (NOT GetAllSearchItems which returns source collection)
     local entryVariantIDs = searcher:GetCatalogSearchResults()
 
@@ -374,8 +409,18 @@ function addon:ProcessSearchResults(searcher, generation)
 
     -- Initial load: build all records
     if not entryVariantIDs or #entryVariantIDs == 0 then
-        self:ScheduleRetry("No entries returned after search")
+        self:ScheduleRetry("LOAD_REASON_NO_ENTRIES")
         return
+    end
+
+    -- A reused searcher can deliver results after a give-up. Treat that build as a fresh
+    -- cycle so a failure in it retries normally instead of hitting ScheduleRetry's
+    -- dataLoadFailed dedupe, which would leave no retry and a stale failure reason.
+    if self.dataLoadFailed then
+        self.dataLoadFailed = false
+        self.loadRetryCount = 0
+        self.lastLoadFailureReason = nil
+        self:FireEvent(self.Events.DATA_LOAD_STARTED)
     end
 
     self:Debug("Processing " .. #entryVariantIDs .. " catalog entries")
@@ -418,6 +463,8 @@ function addon:ProcessSearchResults(searcher, generation)
         end)
     end
 
+    local RunBatch
+
     local function ProcessBatch()
         if generation and not IsCurrentSearcher(self, searcher, generation) then
             return
@@ -445,13 +492,27 @@ function addon:ProcessSearchResults(searcher, generation)
         end
 
         if index <= total then
-            C_Timer.After(0, ProcessBatch)
+            C_Timer.After(0, RunBatch)
         else
             FinishInitialLoad()
         end
     end
 
-    ProcessBatch()
+    -- A Lua error mid-build would otherwise leave loadingInProgress stuck true with no
+    -- retry pending, so every later LoadData() skips and DATA_LOADED never fires.
+    RunBatch = function()
+        if xpcall(ProcessBatch, CallErrorHandler) then return end
+        if self.dataLoaded or (generation and not IsCurrentSearcher(self, searcher, generation)) then
+            return
+        end
+        -- Clear the flag here, not only in ScheduleRetry: a late results callback can
+        -- rebuild while a retry is already pending, and ScheduleRetry's dedupe would
+        -- then return before resetting it, so the pending LoadData() would skip.
+        self.loadingInProgress = false
+        self:ScheduleRetry("LOAD_REASON_BUILD_ERROR")
+    end
+
+    RunBatch()
 end
 
 function addon:OnSearchResultsUpdated(entryVariantIDs)
@@ -896,9 +957,17 @@ function addon:WithSearcherBatchUpdate(reason, fn)
     end
 end
 
+-- Set when a storage event lands while the initial build is reading ownership across
+-- frames; the DATA_LOADED listener below replays it as one bulk refresh.
+local storageUpdatePendingDuringLoad = false
+
 -- Single-entry storage update (direct record update following Blizzard's pattern)
 addon:RegisterWoWEvent("HOUSING_STORAGE_ENTRY_UPDATED", function(entryVariantID)
-    if not addon.dataLoaded or not entryVariantID then return end
+    if not addon.dataLoaded then
+        if addon.loadingInProgress then storageUpdatePendingDuringLoad = true end
+        return
+    end
+    if not entryVariantID then return end
 
     local entryType = entryVariantID.entryType
     local recordID = entryVariantID.recordID
@@ -1017,9 +1086,7 @@ local function ProcessStorageUpdate(generation)
     ProcessBatch()
 end
 
--- Bulk storage update (refresh record data and re-run searcher)
-addon:RegisterWoWEvent("HOUSING_STORAGE_UPDATED", function()
-    if not addon.dataLoaded then return end
+local function ScheduleStorageUpdate()
     storageUpdateGeneration = storageUpdateGeneration + 1
     local generation = storageUpdateGeneration
     if storageUpdateTimer then
@@ -1028,13 +1095,30 @@ addon:RegisterWoWEvent("HOUSING_STORAGE_UPDATED", function()
     storageUpdateTimer = C_Timer.NewTimer(addon.CONSTANTS.TIMER.STORAGE_UPDATE_DEBOUNCE, function()
         ProcessStorageUpdate(generation)
     end)
+end
+
+-- Bulk storage update (refresh record data and re-run searcher)
+addon:RegisterWoWEvent("HOUSING_STORAGE_UPDATED", function()
+    if not addon.dataLoaded then
+        if addon.loadingInProgress then storageUpdatePendingDuringLoad = true end
+        return
+    end
+    ScheduleStorageUpdate()
+end)
+
+addon:RegisterInternalEvent("DATA_LOADED", function()
+    if not storageUpdatePendingDuringLoad then return end
+    storageUpdatePendingDuringLoad = false
+    ScheduleStorageUpdate()
 end)
 
 -- Reset load state for /hc retry recovery (clears stuck guards and stale refs)
 function addon:ResetLoadState()
     self.searcherGeneration = (self.searcherGeneration or 0) + 1
     storageUpdateGeneration = storageUpdateGeneration + 1
+    storageUpdatePendingDuringLoad = false
     self.loadRetryCount = 0
+    self.lastLoadFailureReason = nil
     self.dataLoadFailed = false
     if self.searchTimeoutTimer then
         self.searchTimeoutTimer:Cancel()
@@ -1056,6 +1140,17 @@ function addon:ResetLoadState()
     ResetFallbackRecords(self)
     self:Debug("Load state reset for retry")
 end
+
+-- Housing availability can change at runtime (no payload; re-read the getter, as the
+-- micro menu does). Restart a load that already gave up; a load still retrying picks the
+-- change up on its next attempt. LoadData() treats this as a fresh cycle.
+addon:RegisterWoWEvent("HOUSING_SERVICES_AVAILABILITY_UPDATED", function()
+    if addon.dataLoaded or not addon.dataLoadFailed then return end
+    local serviceCheck = C_Housing and C_Housing.IsHousingServiceEnabled
+    if serviceCheck and not serviceCheck() then return end
+    addon:Debug("Housing service available again, restarting data load")
+    addon:LoadData()
+end)
 
 -- Cache invalidation for categories (fired by Init.lua from WoW events)
 addon:RegisterInternalEvent("CATEGORY_CACHE_INVALIDATED", function(categoryID)

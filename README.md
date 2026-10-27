@@ -41,7 +41,7 @@ Download from [CurseForge](https://www.curseforge.com/wow/addons/housing-codex) 
 
 ## Usage
 
-Type `/hc` to open, click the minimap button, or set a keybind in WoW's keybinding options. Also available from the addon compartment and any LibDataBroker display addon. `/hc welcome` reopens the onboarding screen, and `/hc whatsnew` opens the feature popup.
+Type `/hc` to open, click the minimap button, or set a keybind in WoW's keybinding options. Also available from the addon compartment and any LibDataBroker display addon. `/hc welcome` reopens the onboarding screen, `/hc whatsnew` opens the feature popup, and `/hc version` prints the installed version.
 
 ## Feedback
 

@@ -822,11 +822,14 @@ local SEARCH_PUNCTUATION_REPLACEMENTS = {
 
 -- Canonicalize punctuation commonly introduced by websites, chat, and rich text.
 -- Both query and candidate text must pass through this helper before comparison.
+-- Double quotes are dropped after canonicalization so nicknamed NPCs ("Yen" Malone)
+-- match a plain query (yen malone).
 function addon:NormalizeSearchText(text)
     local normalized = tostring(text or "")
     for source, replacement in pairs(SEARCH_PUNCTUATION_REPLACEMENTS) do
         normalized = normalized:gsub(source, replacement)
     end
+    normalized = normalized:gsub('"', "")
     return strlower(strtrim(normalized))
 end
 
@@ -1324,6 +1327,7 @@ function addon:PrintSlashCommandHelp()
     self:Print("  " .. L["HELP_RESET"])
     self:Print("  " .. L["HELP_RETRY"])
     self:Print("  " .. L["HELP_FONT"])
+    self:Print("  " .. L["HELP_VERSION"])
     self:Print("  " .. L["HELP_HELP"])
 end
 
@@ -1671,6 +1675,8 @@ SlashCmdList["HOUSINGCODEX"] = function(msg)
             local status = addon.db.settings.useCustomFont and L["DEBUG_ON"] or L["DEBUG_OFF"]
             addon:Print(string.format(L["FONT_MODE_STATUS"], status))
         end
+    elseif cmd == "version" or cmd == "ver" then
+        addon:Print(string.format(L["VERSION_FORMAT"], addon.version))
     elseif cmd == "whatsnew" then
         if addon.WhatsNew then
             addon.WhatsNew:ForceShow("whatsnew")

@@ -245,6 +245,8 @@ L["HELP_RESET"] = "/hc reset - 重置窗口位置"
 L["HELP_RETRY"] = "/hc retry/reload - 重试加载数据"
 L["HELP_HELP"] = "/hc help/? - 显示此帮助"
 L["HELP_FONT"] = "/hc font - 切换 Housing Codex 自定义字体"
+L["HELP_VERSION"] = "/hc version - 显示插件版本"
+L["VERSION_FORMAT"] = "版本 %s"
 
 --------------------------------------------------------------------------------
 -- Slash Commands
@@ -268,6 +270,12 @@ L["POSITION_RESET"] = "窗口位置已重置到中央"
 L["ERROR_API_UNAVAILABLE"] = "住宅API不可用"
 L["ERROR_LOAD_FAILED"] = "多次尝试后仍未能加载住宅数据。使用 /hc retry 重试。"
 L["ERROR_LOAD_FAILED_SHORT"] = "加载数据失败。使用 /hc retry 重试"
+L["ERROR_LOAD_FAILED_REASON"] = "原因：%s"
+L["LOAD_REASON_SERVICE_DISABLED"] = "此角色当前无法使用住宅功能"
+L["LOAD_REASON_SEARCHER_UNAVAILABLE"] = "无法启动目录搜索"
+L["LOAD_REASON_SEARCH_TIMEOUT"] = "住宅目录未及时响应"
+L["LOAD_REASON_NO_ENTRIES"] = "住宅目录未返回任何物品"
+L["LOAD_REASON_BUILD_ERROR"] = "Lua错误中断了加载"
 
 --------------------------------------------------------------------------------
 -- LDB (LibDataBroker)

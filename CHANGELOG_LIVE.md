@@ -2,6 +2,19 @@
 
 All notable changes to Housing Codex.
 
+**3.6.4** (2026-10-27)
+
+**Changed**
+- `/hc version` shows the installed addon version, also shown in Settings and the window title tooltip
+- Updated Razorwind Shores vendor waypoint data
+- Clearer error messages when the addon fails to load
+
+**Fixed**
+- Vendor search now finds nicknamed vendors without typing the quotes, like "Yen" Malone
+- Fixed the addon failing to load on slower clients, even after /hc retry
+- Improved loading reliability so green checkmarks at vendors no longer go missing
+- Collected decor no longer shows as uncollected right after logging in
+
 **3.6.3** (2026-10-25)
 
 **Changed**

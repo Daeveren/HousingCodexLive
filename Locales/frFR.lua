@@ -246,6 +246,8 @@ L["HELP_RESET"] = "/hc reset - Réinitialiser la position"
 L["HELP_RETRY"] = "/hc retry/reload - Réessayer le chargement"
 L["HELP_HELP"] = "/hc help/? - Afficher cette aide"
 L["HELP_FONT"] = "/hc font - Activer/désactiver la police personnalisée de Housing Codex"
+L["HELP_VERSION"] = "/hc version - Afficher la version de l'addon"
+L["VERSION_FORMAT"] = "Version %s"
 
 --------------------------------------------------------------------------------
 -- Slash Commands
@@ -269,6 +271,12 @@ L["POSITION_RESET"] = "Position de la fenêtre réinitialisée au centre"
 L["ERROR_API_UNAVAILABLE"] = "API de logement non disponibles"
 L["ERROR_LOAD_FAILED"] = "Échec du chargement des données après plusieurs tentatives. Utilisez /hc retry pour réessayer."
 L["ERROR_LOAD_FAILED_SHORT"] = "Échec du chargement. Utilisez /hc retry"
+L["ERROR_LOAD_FAILED_REASON"] = "Raison : %s"
+L["LOAD_REASON_SERVICE_DISABLED"] = "Le logement est indisponible sur ce personnage pour le moment"
+L["LOAD_REASON_SEARCHER_UNAVAILABLE"] = "Impossible de lancer une recherche dans le catalogue"
+L["LOAD_REASON_SEARCH_TIMEOUT"] = "Le catalogue de logement n'a pas répondu à temps"
+L["LOAD_REASON_NO_ENTRIES"] = "Le catalogue de logement n'a renvoyé aucun objet"
+L["LOAD_REASON_BUILD_ERROR"] = "Une erreur Lua a interrompu le chargement"
 
 --------------------------------------------------------------------------------
 -- LDB (LibDataBroker)
