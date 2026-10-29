@@ -2,6 +2,17 @@
 
 All notable changes to Housing Codex.
 
+**3.6.5** (2026-10-30)
+
+**Changed**
+- Updated Patch 12.1.5 decor vendor data for 15 more vendors
+- Updated decor quest and achievement requirement data
+- Updated Draenor garrison and neighborhood decor vendor data
+
+**Fixed**
+- Green checkmarks now appear right away at a vendor opened while the addon loads
+- Fixed the decor collected chat message sometimes showing twice at login
+
 **3.6.4** (2026-10-27)
 
 **Changed**

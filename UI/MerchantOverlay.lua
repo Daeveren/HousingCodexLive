@@ -327,6 +327,10 @@ end
 -- Register for DATA_LOADED
 addon:RegisterInternalEvent("DATA_LOADED", function()
     MerchantOverlay:Initialize()
+    -- A vendor opened before the catalog loaded was never drawn: the hook was not
+    -- installed yet. Outside Initialize()'s guard so /hc retry refreshes too.
+    ClearSessionCache()
+    MerchantOverlay:ScheduleUpdateMerchantButtons()
 end)
 
 addon:RegisterInternalEvent(addon.Events.DECOR_VISIBILITY_CHANGED, function()

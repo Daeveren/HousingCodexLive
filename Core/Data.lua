@@ -22,6 +22,7 @@ local CATALOG_BUILD_BATCH_SIZE = 250
 addon.catalogSearcher = nil
 addon.loadRetryCount = 0
 addon.loadingInProgress = false
+addon.initialBuildInProgress = false
 addon.loadStartTime = 0
 addon.searcherGeneration = 0
 addon.categoryCache = {}
@@ -396,6 +397,14 @@ function addon:ProcessSearchResults(searcher, generation)
         return
     end
 
+    -- The 5 s timeout fallback and the searcher's own late callback can both deliver the
+    -- same search. The first delivery owns the initial build; a second would run a
+    -- concurrent one that fires DATA_LOADED twice and swaps decorRecords.
+    if self.initialBuildInProgress then
+        self:Debug("Initial build already in progress, ignoring duplicate results")
+        return
+    end
+
     self.loadingInProgress = false
 
     -- Get search results (NOT GetAllSearchItems which returns source collection)
@@ -429,6 +438,7 @@ function addon:ProcessSearchResults(searcher, generation)
     -- every catalog API lookup in one callback can trip WoW's insecure script
     -- execution limit before DATA_LOADED fires.
     self.loadingInProgress = true
+    self.initialBuildInProgress = true
     local records = {}
     local recordCount = 0
     local index = 1
@@ -436,6 +446,7 @@ function addon:ProcessSearchResults(searcher, generation)
 
     local function FinishInitialLoad()
         self.loadingInProgress = false
+        self.initialBuildInProgress = false
         self.decorRecords = records
         self.cachedAllRecordIDs = nil
 
@@ -509,6 +520,7 @@ function addon:ProcessSearchResults(searcher, generation)
         -- rebuild while a retry is already pending, and ScheduleRetry's dedupe would
         -- then return before resetting it, so the pending LoadData() would skip.
         self.loadingInProgress = false
+        self.initialBuildInProgress = false
         self:ScheduleRetry("LOAD_REASON_BUILD_ERROR")
     end
 
@@ -1136,6 +1148,9 @@ function addon:ResetLoadState()
         self:CancelPendingSearch()
     end
     self.loadingInProgress = false
+    -- A build abandoned by the generation bump stops without clearing its flag; left set,
+    -- it would make the new cycle ignore its own results.
+    self.initialBuildInProgress = false
     self.catalogSearcher = nil
     ResetFallbackRecords(self)
     self:Debug("Load state reset for retry")
