@@ -21,6 +21,8 @@ local CATALOG_BUILD_BATCH_SIZE = 250
 
 addon.catalogSearcher = nil
 addon.loadRetryCount = 0
+addon.loadAttemptReasons = {}
+addon.freshSearchTried = false
 addon.loadingInProgress = false
 addon.initialBuildInProgress = false
 addon.loadStartTime = 0
@@ -215,6 +217,66 @@ local function BuildRecordFields(recordID, entryType, info, options)
     return record
 end
 
+local function ResetRetryCycle(self)
+    self.loadRetryCount = 0
+    self.lastLoadFailureReason = nil
+    self.loadAttemptReasons = {}
+    self.freshSearchTried = false
+    self.firstSearchState = nil
+end
+
+-- Drop the current searcher; its late callback fails IsCurrentSearcher from here on.
+local function RetireSearcher(self)
+    self.searcherGeneration = (self.searcherGeneration or 0) + 1
+    self.catalogSearcher = nil
+end
+
+-- Give-up diagnostics must print even if a read fails, so a failed call shows as "error".
+local function ReadForDiagnostics(fn)
+    local ok, value = pcall(fn)
+    return ok and tostring(value) or "error"
+end
+
+local function DescribeSearcher(searcher)
+    if not searcher then return "none" end
+    return string.format("running=%s items=%s results=%s",
+        ReadForDiagnostics(function() return searcher:IsSearchInProgress() end),
+        ReadForDiagnostics(function() return searcher:GetNumSearchItems() end),
+        ReadForDiagnostics(function() return #searcher:GetCatalogSearchResults() end))
+end
+
+-- "SEARCH_TIMEOUT x6, NO_ENTRIES x1": one entry per run of identical attempt reasons.
+local function SummarizeAttemptReasons(reasons)
+    local parts = {}
+    local previous, count = nil, 0
+    local function flush()
+        if previous then
+            parts[#parts + 1] = previous:gsub("^LOAD_REASON_", "") .. " x" .. count
+        end
+    end
+    for _, reason in ipairs(reasons) do
+        if reason == previous then
+            count = count + 1
+        else
+            flush()
+            previous, count = reason, 1
+        end
+    end
+    flush()
+    return table.concat(parts, ", ")
+end
+
+-- Untranslated on purpose: these are codes for a bug report, not text for the player.
+function addon:GetLoadDiagnosticsText()
+    return string.format("first[%s] last[%s] service=%s timerunning=%s npe=%s attempts[%s]",
+        self.firstSearchState or "none",
+        DescribeSearcher(self.catalogSearcher),
+        ReadForDiagnostics(function() return C_Housing.IsHousingServiceEnabled() end),
+        ReadForDiagnostics(function() return PlayerIsTimerunning() end),
+        ReadForDiagnostics(function() return C_PlayerInfo.IsPlayerNPERestricted() end),
+        SummarizeAttemptReasons(self.loadAttemptReasons))
+end
+
 -- reasonKey: locale key naming why the attempt failed (LOAD_REASON_* or ERROR_API_UNAVAILABLE).
 -- The last one is kept so the failed state can say why without debug mode.
 function addon:ScheduleRetry(reasonKey)
@@ -234,17 +296,34 @@ function addon:ScheduleRetry(reasonKey)
     self.loadingInProgress = false
     self.loadRetryCount = self.loadRetryCount + 1
     self.lastLoadFailureReason = reasonKey
+    self.loadAttemptReasons[#self.loadAttemptReasons + 1] = reasonKey or "unknown"
 
     if self.loadRetryCount > MAX_RETRIES then
-        self:Debug("Max retries reached, giving up: " .. (reasonKey or "unknown"))
-        self.dataLoadFailed = true
-        self:FireEvent(self.Events.DATA_LOAD_FAILED)
-        self:Print(self.L["ERROR_LOAD_FAILED"])
-        local reasonText = self:GetLoadFailureReasonText()
-        if reasonText then
-            self:Print(reasonText)
+        if reasonKey ~= "LOAD_REASON_SEARCH_TIMEOUT" or self.freshSearchTried then
+            self:Debug("Max retries reached, giving up: " .. (reasonKey or "unknown"))
+            self.dataLoadFailed = true
+            self:FireEvent(self.Events.DATA_LOAD_FAILED)
+            self:Print(self.L["ERROR_LOAD_FAILED"])
+            local reasonText = self:GetLoadFailureReasonText()
+            if reasonText then
+                self:Print(reasonText)
+            end
+            -- Housing being off on this character is not a bug, so don't ask for a report.
+            if reasonKey ~= "LOAD_REASON_SERVICE_DISABLED" then
+                self:Print(string.format(self.L["LOAD_DIAGNOSTICS"], self:GetLoadDiagnosticsText()))
+            end
+            return
         end
-        return
+
+        -- Retries share one searcher, so a search that never ends gets a single RunSearch
+        -- all cycle. Try one new searcher before giving up; the count stays over the limit,
+        -- so its failure gives up. This drops a search that is slow rather than stuck, which
+        -- then has to finish on the new searcher. A timeout has no build running (the
+        -- callback and the fallback both cancel or clear this timer before building), so
+        -- retiring here cannot abandon one.
+        self.freshSearchTried = true
+        self.firstSearchState = DescribeSearcher(self.catalogSearcher)
+        RetireSearcher(self)
     end
 
     local delay = RETRY_DELAYS[self.loadRetryCount] or 8
@@ -285,12 +364,10 @@ function addon:LoadData()
     -- A new trigger after a give-up (a loading screen, the housing service coming back)
     -- starts a fresh cycle: a full retry allowance and a new searcher, in case the old
     -- search is stuck. Retry-timer calls never see dataLoadFailed, so a cycle in progress
-    -- keeps its count and searcher.
+    -- keeps its count, and its searcher unless ScheduleRetry retired it after timeouts.
     if self.dataLoadFailed then
-        self.loadRetryCount = 0
-        self.lastLoadFailureReason = nil
-        self.searcherGeneration = (self.searcherGeneration or 0) + 1
-        self.catalogSearcher = nil
+        ResetRetryCycle(self)
+        RetireSearcher(self)
     end
     self.dataLoadFailed = false
     self:FireEvent(self.Events.DATA_LOAD_STARTED)
@@ -317,7 +394,8 @@ function addon:LoadData()
         -- Reuse the previous attempt's searcher. The first catalog search after login can
         -- outlast the 5 s timeout; a fresh searcher would abandon it, so on a slow client
         -- no attempt ever finished. Its callback is still bound to this generation and
-        -- completes the load whenever the search returns, even after a give-up.
+        -- completes the load whenever the search returns, even after a give-up, until
+        -- ScheduleRetry retires this searcher.
         self.loadingInProgress = true
         if searcher.IsSearchInProgress and searcher:IsSearchInProgress() then
             self:Debug("Catalog search still running, waiting for it")
@@ -427,8 +505,7 @@ function addon:ProcessSearchResults(searcher, generation)
     -- dataLoadFailed dedupe, which would leave no retry and a stale failure reason.
     if self.dataLoadFailed then
         self.dataLoadFailed = false
-        self.loadRetryCount = 0
-        self.lastLoadFailureReason = nil
+        ResetRetryCycle(self)
         self:FireEvent(self.Events.DATA_LOAD_STARTED)
     end
 
@@ -1126,11 +1203,10 @@ end)
 
 -- Reset load state for /hc retry recovery (clears stuck guards and stale refs)
 function addon:ResetLoadState()
-    self.searcherGeneration = (self.searcherGeneration or 0) + 1
+    RetireSearcher(self)
     storageUpdateGeneration = storageUpdateGeneration + 1
     storageUpdatePendingDuringLoad = false
-    self.loadRetryCount = 0
-    self.lastLoadFailureReason = nil
+    ResetRetryCycle(self)
     self.dataLoadFailed = false
     if self.searchTimeoutTimer then
         self.searchTimeoutTimer:Cancel()
@@ -1151,7 +1227,6 @@ function addon:ResetLoadState()
     -- A build abandoned by the generation bump stops without clearing its flag; left set,
     -- it would make the new cycle ignore its own results.
     self.initialBuildInProgress = false
-    self.catalogSearcher = nil
     ResetFallbackRecords(self)
     self:Debug("Load state reset for retry")
 end

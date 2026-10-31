@@ -25,7 +25,6 @@ Filters.currencyFilterKeySet = nil
 Filters.currencyLookupBuilt = false
 
 local FILTER_CURRENCY_GOLD_KEY = addon.CONSTANTS.VENDOR_CURRENCY_GOLD_KEY
-local FILTER_NO_ADDED_PATCH_KEY = "__no_patch_data"
 
 -- Valid states for trackable filter
 local TRACKABLE_STATES = { all = true, trackable = true, not_trackable = true }
@@ -436,8 +435,9 @@ function Filters:HasSelectedAddedPatch()
     return false
 end
 
+-- Patchless decor is shown only after Uncheck All; ticking any patch hides it
 function Filters:IsNoAddedPatchSelected()
-    return self:IsAddedPatchSelected(FILTER_NO_ADDED_PATCH_KEY)
+    return not self:HasSelectedAddedPatch()
 end
 
 function Filters:SetAddedPatchEnabled(patch, enabled, skipApply)

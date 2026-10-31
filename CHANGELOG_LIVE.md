@@ -2,6 +2,17 @@
 
 All notable changes to Housing Codex.
 
+**3.6.6** (2026-10-31)
+
+**Changed**
+- Updated Patch 12.1.5 decor vendor, drop, craft, and quest data
+- More Patch 12.1.5 decor now appears in the "Added in patch" filter and search
+- Decor loading error messages now include details to help with bug reports
+
+**Fixed**
+- "Added in patch" filter now shows only decor from the ticked patches
+- Improved recovery when the housing catalog does not respond during loading
+
 **3.6.5** (2026-10-30)
 
 **Changed**
