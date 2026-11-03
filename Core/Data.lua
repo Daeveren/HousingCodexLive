@@ -417,21 +417,8 @@ function addon:LoadData()
         self.catalogSearcher = searcher
         self.loadingInProgress = true
 
-        -- Configure searcher to include all base entries (collected and uncollected)
-        -- Per Blizzard's HousingCatalogFrameMixin pattern
-        searcher:SetStoredOnly(false)
-        searcher:SetBaseVariantOnly(true)
-        searcher:SetCollected(true)
-        searcher:SetUncollected(true)
-        searcher:SetAutoUpdateOnParamChanges(false)
-
-        -- Nil context returns ALL catalog entries (decor, rooms, fixtures, expert items).
-        -- BasicDecor mode silently excludes items only available in other editor modes,
-        -- reducing decorRecords and breaking counts, quest/vendor/drop lookups, and LDB totals.
-        -- UI tabs filter display as needed; the record set must be complete.
-        searcher:SetEditorModeContext(nil)
-
-        -- Set up callback for when search results are ready (Blizzard pattern)
+        -- Set up callback for when search results are ready, and turn auto-update off before
+        -- setting any filter (Blizzard's HousingCatalogFrameMixin order)
         searcher:SetResultsUpdatedCallback(function()
             if not IsCurrentSearcher(self, searcher, searcherGeneration) then
                 return
@@ -442,6 +429,20 @@ function addon:LoadData()
             end
             self:ProcessSearchResults(searcher, searcherGeneration)
         end)
+        searcher:SetAutoUpdateOnParamChanges(false)
+
+        -- Configure searcher to include all base entries (collected and uncollected)
+        -- Per Blizzard's HousingCatalogFrameMixin pattern
+        searcher:SetStoredOnly(false)
+        searcher:SetBaseVariantOnly(true)
+        searcher:SetCollected(true)
+        searcher:SetUncollected(true)
+
+        -- Nil context returns ALL catalog entries (decor, rooms, fixtures, expert items).
+        -- BasicDecor mode silently excludes items only available in other editor modes,
+        -- reducing decorRecords and breaking counts, quest/vendor/drop lookups, and LDB totals.
+        -- UI tabs filter display as needed; the record set must be complete.
+        searcher:SetEditorModeContext(nil)
 
         -- CRITICAL: Run the search to populate results (required before GetAllSearchItems)
         self:Debug("Running catalog search...")

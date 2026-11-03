@@ -2,6 +2,11 @@
 
 All notable changes to Housing Codex.
 
+**3.6.7** (2026-11-03)
+
+**Changed**
+- Improved reliability of decor catalog loading at login
+
 **3.6.6** (2026-10-31)
 
 **Changed**
