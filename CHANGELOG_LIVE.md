@@ -2,6 +2,11 @@
 
 All notable changes to Housing Codex.
 
+**3.6.8** (2026-11-07)
+
+**Changed**
+- Updated Patch 12.1.5 decor vendor and drop data
+
 **3.6.7** (2026-11-03)
 
 **Changed**
