@@ -347,6 +347,8 @@ function Filters:EnsureCurrencyLookup()
     for _, currencyKey in ipairs(currencyKeys) do
         currencyKeySet[currencyKey] = true
     end
+    -- Ask for item-token names now so labels are cached before the menu first opens
+    addon:RequestItemCostKeyNames(currencyKeySet)
 
     self.currencyFilterKeys = currencyKeys
     self.currencyFilterKeySet = currencyKeySet
@@ -744,6 +746,18 @@ function Filters:ResetAllFilters(options)
 
     -- Save the reset state
     self:SaveState()
+
+    -- SaveState reads the searcher-based filters from the searcher, which is nil until
+    -- the catalog load finishes. Reset their saved values directly then, or
+    -- RestoreState would re-apply the old ones on DATA_LOADED.
+    if not addon.catalogSearcher and addon.db and addon.db.browser and addon.db.browser.filters then
+        local db = addon.db.browser.filters
+        db.indoors = true
+        db.outdoors = true
+        db.dyeable = false
+        db.firstAcquisition = false
+        db.tagFilters = {}
+    end
 
     addon:Debug("All filters reset to defaults")
 end

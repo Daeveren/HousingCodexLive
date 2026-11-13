@@ -94,17 +94,6 @@ for currencyName, itemID in pairs(ITEM_CURRENCY_TO_ID) do
     ITEM_ID_TO_CURRENCY_NAME[itemID] = currencyName
 end
 
--- Item-token cost components (Tricky Treats, Brewfest Prize Tokens, ...) have no
--- currencyName; they get "item:<itemID>" currency keys. Items already named as a
--- currency above share that name's key, so one filter option covers both encodings.
-local ITEM_COST_KEY_PREFIX = "item:"
-local requestedItemNameLoads = {}
-
-function addon:GetItemCostCurrencyKey(itemID)
-    if type(itemID) ~= "number" or itemID <= 0 then return nil end
-    return ITEM_ID_TO_CURRENCY_NAME[itemID] or (ITEM_COST_KEY_PREFIX .. itemID)
-end
-
 local currencyNameCache = {}  -- englishName -> localized name (positive only)
 local currencyDisplayInfoCache = {}  -- englishName -> { name, iconFileID, currencyID/itemID } (positive only)
 
@@ -113,11 +102,149 @@ local function IsUsableValue(value)
         and not (type(issecretvalue) == "function" and issecretvalue(value))
 end
 
+-- Item-token cost components (Tricky Treats, Brewfest Prize Tokens, ...) have no
+-- currencyName; they get "item:<itemID>" currency keys. Items already named as a
+-- currency above share that name's key, so one filter option covers both encodings.
+-- The raw key is an identifier only (SavedVariables keep it); it is never shown or
+-- searched. Readers go through ResolveItemCostKey / GetItemCostLabel below.
+local ITEM_COST_KEY_PREFIX = "item:"
+local ITEM_COST_KEY_PATTERN = "^" .. ITEM_COST_KEY_PREFIX .. "(%d+)$"
+local ITEM_DATA_LOAD_RESULT_EVENT = "ITEM_DATA_LOAD_RESULT"
+
+local itemNameCache = {}           -- itemID -> client item name (positive only)
+local requestedItemNameLoads = {}  -- itemID -> true while this module awaits ITEM_DATA_LOAD_RESULT
+local pendingItemNameLoadCount = 0
+
+function addon:GetItemCostCurrencyKey(itemID)
+    if type(itemID) ~= "number" or itemID <= 0 then return nil end
+    return ITEM_ID_TO_CURRENCY_NAME[itemID] or (ITEM_COST_KEY_PREFIX .. itemID)
+end
+
+local function GetItemCostKeyItemID(currencyKey)
+    if type(currencyKey) ~= "string" then return nil end
+    local digits = currencyKey:match(ITEM_COST_KEY_PATTERN)
+    return digits and tonumber(digits) or nil
+end
+
+-- Reads a cached item name without requesting anything.
+local function ReadItemName(itemID)
+    local cached = itemNameCache[itemID]
+    if cached then return cached end
+    if not (C_Item and C_Item.GetItemNameByID) then return nil end
+
+    local ok, name = pcall(C_Item.GetItemNameByID, itemID)
+    if ok and IsUsableValue(name) and type(name) == "string" and name ~= "" then
+        itemNameCache[itemID] = name
+        return name
+    end
+    return nil
+end
+
+-- ITEM_DATA_LOAD_RESULT fires for every item load in the client, so it is registered
+-- only while this module has a request outstanding and filtered to those item IDs.
+local OnItemDataLoadResult
+
+local function ClearItemNameRequest(itemID)
+    if not requestedItemNameLoads[itemID] then return end
+    requestedItemNameLoads[itemID] = nil
+    pendingItemNameLoadCount = pendingItemNameLoadCount - 1
+    if pendingItemNameLoadCount <= 0 then
+        pendingItemNameLoadCount = 0
+        addon:UnregisterWoWEvent(ITEM_DATA_LOAD_RESULT_EVENT, OnItemDataLoadResult)
+    end
+end
+
+OnItemDataLoadResult = function(itemID, success)
+    if type(itemID) ~= "number" or not IsUsableValue(itemID) then return end
+    if not requestedItemNameLoads[itemID] then return end
+
+    -- A failed load leaves the flag cleared so a later read asks again (no retry loop).
+    ClearItemNameRequest(itemID)
+    if not IsUsableValue(success) or success ~= true or not ReadItemName(itemID) then return end
+
+    -- Display info built before the load holds the pre-load name (Mark of Honor's English name)
+    for englishName, displayInfo in pairs(currencyDisplayInfoCache) do
+        if displayInfo.itemID == itemID then
+            currencyDisplayInfoCache[englishName] = nil
+        end
+    end
+    addon:FireEvent(addon.Events.ITEM_COST_NAME_LOADED, itemID)
+end
+
+local function RequestItemNameLoad(itemID)
+    if requestedItemNameLoads[itemID] then return end
+    if not (C_Item and C_Item.RequestLoadItemDataByID) then return end
+    -- An item the client does not know may never report a load result
+    if C_Item.DoesItemExistByID then
+        local ok, exists = pcall(C_Item.DoesItemExistByID, itemID)
+        if not ok or exists ~= true then return end
+    end
+
+    requestedItemNameLoads[itemID] = true
+    pendingItemNameLoadCount = pendingItemNameLoadCount + 1
+    if pendingItemNameLoadCount == 1 then
+        addon:RegisterWoWEvent(ITEM_DATA_LOAD_RESULT_EVENT, OnItemDataLoadResult)
+    end
+    if not pcall(C_Item.RequestLoadItemDataByID, itemID) then
+        ClearItemNameRequest(itemID)
+    end
+end
+
+-- Item name for a vendor cost, or nil while uncached (a load is requested).
+local function GetItemCostName(itemID)
+    local name = ReadItemName(itemID)
+    if not name then
+        RequestItemNameLoad(itemID)
+        -- The load result can arrive inside the request call when the data is already cached
+        name = ReadItemName(itemID)
+    end
+    return name
+end
+
+-- For an "item:<itemID>" cost key: returns the itemID and the client item name, or the
+-- itemID and nil while the name is unresolved (a load is requested). Any other key
+-- returns nil. Callers must never fall back to the raw key for display or search.
+function addon:ResolveItemCostKey(currencyKey)
+    local itemID = GetItemCostKeyItemID(currencyKey)
+    if not itemID then return nil end
+    return itemID, GetItemCostName(itemID)
+end
+
+-- Display label for an item used as a vendor cost, plus whether its name resolved.
+-- While unresolved the label is a localized placeholder carrying the item ID (several
+-- tokens can be pending at once); it is never cached as a name and never persisted.
+function addon:GetItemCostLabel(itemID)
+    if type(itemID) ~= "number" or itemID <= 0 then return nil, false end
+    local name = GetItemCostName(itemID)
+    if name then return name, true end
+    return string.format(self.L["CURRENCY_ITEM_PENDING_FORMAT"], itemID), false
+end
+
+-- Requests names for every unresolved item key in a currency key set (keys -> true),
+-- so labels are normally cached before a filter menu first opens.
+function addon:RequestItemCostKeyNames(keySet)
+    if type(keySet) ~= "table" then return end
+    for currencyKey in pairs(keySet) do
+        -- Items keyed by a currency name (Mark of Honor) need the same early request
+        local namedItemID = ITEM_CURRENCY_TO_ID[currencyKey]
+        if namedItemID then
+            GetItemCostName(namedItemID)
+        else
+            self:ResolveItemCostKey(currencyKey)
+        end
+    end
+end
+
 function addon:GetLocalizedCurrencyName(englishName)
     if not englishName then return englishName end
 
     local cached = currencyNameCache[englishName]
     if cached then return cached end
+
+    local itemKeyID = GetItemCostKeyItemID(englishName)
+    if itemKeyID then
+        return (self:GetItemCostLabel(itemKeyID))
+    end
 
     local currencyID = CURRENCY_NAME_TO_ID[englishName]
     if currencyID and C_CurrencyInfo and C_CurrencyInfo.GetCurrencyInfo then
@@ -128,19 +255,13 @@ function addon:GetLocalizedCurrencyName(englishName)
         end
     end
 
-    -- Try item-based currency lookup (e.g., Mark of Honor, "item:<itemID>" keys)
+    -- Item-based currency name (e.g., Mark of Honor)
     local itemID = ITEM_CURRENCY_TO_ID[englishName]
-        or (type(englishName) == "string" and tonumber(englishName:match("^" .. ITEM_COST_KEY_PREFIX .. "(%d+)$")))
-    if itemID and C_Item and C_Item.GetItemNameByID then
-        local ok, name = pcall(C_Item.GetItemNameByID, itemID)
-        if ok and IsUsableValue(name) and name ~= "" then
+    if itemID then
+        local name = GetItemCostName(itemID)
+        if name then
             currencyNameCache[englishName] = name
             return name
-        end
-        -- Uncached item: ask the client once so the next label read has the name
-        if not requestedItemNameLoads[itemID] and C_Item.RequestLoadItemDataByID then
-            requestedItemNameLoads[itemID] = true
-            pcall(C_Item.RequestLoadItemDataByID, itemID)
         end
     end
 

@@ -421,6 +421,7 @@ L["VENDORS_ACTION_TRACK_DISABLED_TOOLTIP"] = "此商人没有有效的路径点�
 -- Vendor cost display
 L["CURRENCY_GOLD"] = "金币"
 L["CURRENCY_GOLD_FORMAT"] = "%s 金币"
+L["CURRENCY_ITEM_PENDING_FORMAT"] = "物品 %d (加载中...)"
 -- Vendor decor fallback
 L["VENDOR_CAT_ACCENTS"] = "装饰品"
 L["VENDOR_CAT_FUNCTIONAL"] = "功能性"
@@ -743,7 +744,7 @@ SN["Lush Garden Decor Pack"] = "葱郁花园装饰礼包"
 SN["Lush Garden Decor Pack 2"] = "葱郁花园装饰礼包2"
 SN["Midnight Delves"] = "至暗之夜地下堡"
 SN["Pepe (neighborhood billboard)"] = "Pepe（社区广告牌）"
-SN["Pinterest London IRL quest (March 21)"] = "Pinterest 伦敦线下任务（3月21日）"
+SN["Pinterest London IRL quest"] = "Pinterest 伦敦线下任务"
 SN["Ral'kala"] = "拉尔卡拉"
 SN["Roofus charity pet (The Roofus Pack)"] = "鲁弗斯慈善宠物（鲁弗斯礼包）"
 SN["Rotmire"] = "腐沼"
@@ -756,9 +757,6 @@ SN["Spring Blossom Decor Pack 2"] = "春芳花装饰礼包2"
 SN["Strange Recycling Requisition (Mechagon)"] = "奇怪的回收申请单（麦卡贡）"
 SN["Theater Troupe event chest (Isle of Dorn)"] = "剧场巡演宝箱（多恩岛）"
 SN["Twitch Drop"] = "Twitch掉落"
-SN["Twitch drop (Feb 26 to Mar 24)"] = "Twitch掉落（2月26日至3月24日）"
-SN["Twitch drop (June 16 to July 14)"] = "Twitch掉落（6月16日至7月14日）"
-SN["Twitch drop (Oct 13 to Nov 3)"] = "Twitch掉落（10月13日至11月3日）"
 SN["Undermine Jobs"] = "安德麦任务"
 SN["Victorious Stormarion Cache"] = "胜利的风暴者宝箱"
 SN["Zillow & Warcraft collab"] = "Zillow与魔兽世界联动"
@@ -855,6 +853,6 @@ BINDING_HEADER_HCODEX = L["KEYBIND_HEADER"]
 BINDING_NAME_HOUSINGCODEX_TOGGLE = L["KEYBIND_TOGGLE"]
 
 -- World of Warcraft: Forever purchase sources
-SN["BlizzCon 2026 login reward (September 12-27)"] = "BlizzCon 2026登录奖励（9月12日至27日）"
+SN["BlizzCon 2026 login reward"] = "BlizzCon 2026登录奖励"
 SN["World of Warcraft: Forever - Skyborne packs"] = "World of Warcraft: Forever - Skyborne礼包"
 SN["Warcraft Forever Collection / Collector's Edition"] = "Warcraft Forever Collection / 典藏版"

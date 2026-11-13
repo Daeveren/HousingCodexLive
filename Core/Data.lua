@@ -19,7 +19,13 @@ local MAX_RETRIES = 5
 local RETRY_DELAYS = { 0.5, 1, 2, 4, 8 }  -- Exponential backoff in seconds
 local CATALOG_BUILD_BATCH_SIZE = 250
 
+-- The UI's searcher. Published only when the initial build finishes (FinishInitialLoad),
+-- so UI search and filter changes cannot reach the load's search while the catalog is
+-- still being read: any results it delivered then would become decorRecords for the session.
 addon.catalogSearcher = nil
+-- The searcher the load owns, from creation until it is retired. Private during a load;
+-- after the initial build it is the same object as addon.catalogSearcher.
+local activeSearcher = nil
 addon.loadRetryCount = 0
 addon.loadAttemptReasons = {}
 addon.freshSearchTried = false
@@ -32,7 +38,7 @@ addon.subcategoryCache = {}
 addon.fallbackRecords = {}  -- Cache for items resolved via direct API (HiddenInCatalog)
 
 local function IsCurrentSearcher(self, searcher, generation)
-    return searcher and self.catalogSearcher == searcher and self.searcherGeneration == generation
+    return searcher and activeSearcher == searcher and self.searcherGeneration == generation
 end
 
 local function IsValidFileID(id)
@@ -225,9 +231,11 @@ local function ResetRetryCycle(self)
     self.firstSearchState = nil
 end
 
--- Drop the current searcher; its late callback fails IsCurrentSearcher from here on.
+-- Drop the current searcher, published or not; its late callback fails IsCurrentSearcher
+-- from here on, and the UI sees no searcher until the next load publishes one.
 local function RetireSearcher(self)
     self.searcherGeneration = (self.searcherGeneration or 0) + 1
+    activeSearcher = nil
     self.catalogSearcher = nil
 end
 
@@ -270,7 +278,7 @@ end
 function addon:GetLoadDiagnosticsText()
     return string.format("first[%s] last[%s] service=%s timerunning=%s npe=%s attempts[%s]",
         self.firstSearchState or "none",
-        DescribeSearcher(self.catalogSearcher),
+        DescribeSearcher(activeSearcher),
         ReadForDiagnostics(function() return C_Housing.IsHousingServiceEnabled() end),
         ReadForDiagnostics(function() return PlayerIsTimerunning() end),
         ReadForDiagnostics(function() return C_PlayerInfo.IsPlayerNPERestricted() end),
@@ -280,7 +288,7 @@ end
 -- reasonKey: locale key naming why the attempt failed (LOAD_REASON_* or ERROR_API_UNAVAILABLE).
 -- The last one is kept so the failed state can say why without debug mode.
 function addon:ScheduleRetry(reasonKey)
-    -- Several async failure paths (search timeout, searcher released, empty results) can
+    -- Several async failure paths (search timeout, empty results, build error) can
     -- each report the SAME failed attempt. The first report owns the retry; the rest
     -- return untouched, so one attempt costs exactly one retry and duplicates never push
     -- the pending timer further out. The guard must precede the loadingInProgress reset:
@@ -322,7 +330,7 @@ function addon:ScheduleRetry(reasonKey)
         -- callback and the fallback both cancel or clear this timer before building), so
         -- retiring here cannot abandon one.
         self.freshSearchTried = true
-        self.firstSearchState = DescribeSearcher(self.catalogSearcher)
+        self.firstSearchState = DescribeSearcher(activeSearcher)
         RetireSearcher(self)
     end
 
@@ -387,7 +395,7 @@ function addon:LoadData()
         return
     end
 
-    local searcher = self.catalogSearcher
+    local searcher = activeSearcher
     local searcherGeneration = self.searcherGeneration
 
     if searcher then
@@ -395,7 +403,8 @@ function addon:LoadData()
         -- outlast the 5 s timeout; a fresh searcher would abandon it, so on a slow client
         -- no attempt ever finished. Its callback is still bound to this generation and
         -- completes the load whenever the search returns, even after a give-up, until
-        -- ScheduleRetry retires this searcher.
+        -- ScheduleRetry retires this searcher. It is still unpublished, so its parameters
+        -- are the ones set below at creation.
         self.loadingInProgress = true
         if searcher.IsSearchInProgress and searcher:IsSearchInProgress() then
             self:Debug("Catalog search still running, waiting for it")
@@ -414,7 +423,8 @@ function addon:LoadData()
             return
         end
 
-        self.catalogSearcher = searcher
+        -- Private until FinishInitialLoad publishes it as addon.catalogSearcher.
+        activeSearcher = searcher
         self.loadingInProgress = true
 
         -- Set up callback for when search results are ready, and turn auto-update off before
@@ -437,6 +447,12 @@ function addon:LoadData()
         searcher:SetBaseVariantOnly(true)
         searcher:SetCollected(true)
         searcher:SetUncollected(true)
+        -- Set the remaining result filters explicitly rather than trusting construction
+        -- defaults (values from Blizzard's HousingCatalogFiltersMixin:ResetFiltersToDefault).
+        searcher:SetCustomizableOnly(false)
+        searcher:SetAllowedIndoors(true)
+        searcher:SetAllowedOutdoors(true)
+        searcher:SetFirstAcquisitionBonusOnly(false)
 
         -- Nil context returns ALL catalog entries (decor, rooms, fixtures, expert items).
         -- BasicDecor mode silently excludes items only available in other editor modes,
@@ -449,9 +465,24 @@ function addon:LoadData()
         searcher:RunSearch()
     end
 
-    -- Timeout: if callback doesn't fire within 5 seconds, retry
-    self.searchTimeoutTimer = C_Timer.NewTimer(5, function()
-        if not IsCurrentSearcher(self, searcher, searcherGeneration) then
+    -- Timeout: if callback doesn't fire within 5 seconds, retry. One timer per attempt: a
+    -- results callback that ran inside RunSearch can schedule a retry before this line, so an
+    -- earlier attempt's timer may still be pending here. Cancel it, and let a timer act only
+    -- while it is still the current handle, so a stale one can neither report this attempt as
+    -- timed out nor clear its handle. If that callback already settled this attempt (loaded,
+    -- started the build, or scheduled a retry), there is nothing left to time out.
+    if self.searchTimeoutTimer then
+        self.searchTimeoutTimer:Cancel()
+        self.searchTimeoutTimer = nil
+    end
+    if self.dataLoaded or self.initialBuildInProgress or not self.loadingInProgress then
+        return
+    end
+    local timeoutTimer
+    timeoutTimer = C_Timer.NewTimer(5, function()
+        if self.searchTimeoutTimer ~= timeoutTimer
+            or not IsCurrentSearcher(self, searcher, searcherGeneration)
+        then
             return
         end
         self.searchTimeoutTimer = nil
@@ -468,10 +499,11 @@ function addon:LoadData()
             end
         end
     end)
+    self.searchTimeoutTimer = timeoutTimer
 end
 
 function addon:ProcessSearchResults(searcher, generation)
-    searcher = searcher or self.catalogSearcher
+    searcher = searcher or activeSearcher
     if generation and not IsCurrentSearcher(self, searcher, generation) then
         return
     end
@@ -533,6 +565,13 @@ function addon:ProcessSearchResults(searcher, generation)
         -- the startup loading state if the client is already under load.
         self.dataLoaded = true
         self.dataLoadFailed = false
+
+        -- Publish the load's searcher to the UI before any DATA_LOADED listener runs, and
+        -- give it the auto-update state MainFrame:Show() could not set while it was private.
+        -- After dataLoaded, so a result delivered from here on is a search update, never a
+        -- second initial build.
+        self.catalogSearcher = searcher
+        self:SetSearcherVisible(self.MainFrame and self.MainFrame:IsShown() or false)
 
         local elapsedMs = math.floor(debugprofilestop() - (self.loadStartTime or 0))
         self:Debug(string.format("Loaded %d records in %d ms", recordCount, elapsedMs))

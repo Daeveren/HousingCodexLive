@@ -113,15 +113,18 @@ end
 function SearchBox:ApplySearch(text, force)
     local searchText = NormalizeSearchText(text)
 
-    -- Skip if same as last search
-    if not force and searchText == self.lastSearchText then return end
-
-    -- Save for later if searcher not yet available
+    -- Save for later if searcher not yet available (it is nil until the catalog load
+    -- finishes). Checked before the duplicate test so clearing the box also clears a
+    -- queued text, and the old text never reads as applied to the next searcher.
     if not addon.catalogSearcher then
         addon:Debug("SearchBox: Searcher not available, saving pending search")
         self.pendingSearchText = searchText
+        self.lastSearchText = nil
         return
     end
+
+    -- Skip if same as last search
+    if not force and searchText == self.lastSearchText then return end
 
     -- Apply search
     self.lastSearchText = searchText

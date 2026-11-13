@@ -275,6 +275,8 @@ local function BuildCurrencyFilterData(owner, includeOptions)
             end
         end
     end
+    -- Ask for item-token names now so labels are cached before the menu first opens
+    addon:RequestItemCostKeyNames(seen)
 
     if options then
         for currencyKey in pairs(seen) do
@@ -1737,6 +1739,12 @@ end
 --------------------------------------------------------------------------------
 
 local function CurrencyKeyMatchesSearch(currencyKey, searchText)
+    -- Item-token keys match on the resolved item name only, never the raw key or placeholder
+    local itemID, itemName = addon:ResolveItemCostKey(currencyKey)
+    if itemID then
+        return itemName ~= nil and addon:NormalizeSearchText(itemName):find(searchText, 1, true) ~= nil
+    end
+
     local rawCurrency = currencyKey == VENDOR_CURRENCY_GOLD_KEY and addon.L["CURRENCY_GOLD"] or currencyKey
 
     if rawCurrency and addon:NormalizeSearchText(rawCurrency):find(searchText, 1, true) then
@@ -2076,6 +2084,22 @@ addon:RegisterInternalEvent(addon.Events.PLAYER_PROFESSIONS_CHANGED, function()
     if VendorsTab:IsShown() then
         VendorsTab:RefreshDisplay()
     end
+end)
+
+-- An item-token name arriving can add currency search matches; coalesce a burst of loads.
+-- Menu labels need nothing here: the dropdown regenerates them on every open.
+local itemCostNameRefreshPending = false
+addon:RegisterInternalEvent(addon.Events.ITEM_COST_NAME_LOADED, function()
+    if itemCostNameRefreshPending then return end
+    itemCostNameRefreshPending = true
+    C_Timer.After(addon.CONSTANTS.TIMER.ITEM_COST_NAME_REFRESH_DEBOUNCE, function()
+        itemCostNameRefreshPending = false
+        if VendorsTab:IsShown() and not VendorsTab.navigatingToVendor
+            and VendorsTab:GetActiveSearchText() ~= ""
+        then
+            VendorsTab:RefreshDisplay()
+        end
+    end)
 end)
 
 -- Reconcile vendor tracking after loading screens/teleports/reloads

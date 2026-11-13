@@ -423,6 +423,7 @@ L["VENDORS_ACTION_TRACK_DISABLED_TOOLTIP"] = "Ce marchand n'a pas d'emplacement 
 -- Vendor cost display
 L["CURRENCY_GOLD"] = "or"
 L["CURRENCY_GOLD_FORMAT"] = "%s |4pièce d’or:pièces d’or;"
+L["CURRENCY_ITEM_PENDING_FORMAT"] = "Objet %d (chargement...)"
 -- Vendor decor fallback
 L["VENDOR_CAT_ACCENTS"] = "Accents"
 L["VENDOR_CAT_FUNCTIONAL"] = "Fonctionnel"
@@ -745,7 +746,7 @@ SN["Lush Garden Decor Pack"] = "Pack de décorations de jardin luxuriant"
 SN["Lush Garden Decor Pack 2"] = "Pack de décorations de jardin luxuriant 2"
 SN["Midnight Delves"] = "Gouffres de Midnight"
 SN["Pepe (neighborhood billboard)"] = "Pepe (panneau d'affichage du quartier)"
-SN["Pinterest London IRL quest (March 21)"] = "Chasse au trésor Pinterest à Londres (21 mars)"
+SN["Pinterest London IRL quest"] = "Chasse au trésor Pinterest à Londres"
 SN["Ral'kala"] = "Ral'kala"
 SN["Roofus charity pet (The Roofus Pack)"] = "Mascotte caritative Architoutou (le pack Architoutou)"
 SN["Rotmire"] = "Embourbe-pourri"
@@ -758,9 +759,6 @@ SN["Spring Blossom Decor Pack 2"] = "Pack de décorations à floraison printani�
 SN["Strange Recycling Requisition (Mechagon)"] = "Étrange demande de recyclage (Mécagone)"
 SN["Theater Troupe event chest (Isle of Dorn)"] = "Coffre de la troupe de théâtre (Île de Dorn)"
 SN["Twitch Drop"] = "Twitch Drop"
-SN["Twitch drop (Feb 26 to Mar 24)"] = "Twitch Drop (26 fév. au 24 mars)"
-SN["Twitch drop (June 16 to July 14)"] = "Twitch Drop (16 juin au 14 juillet)"
-SN["Twitch drop (Oct 13 to Nov 3)"] = "Twitch Drop (13 oct. au 3 nov.)"
 SN["Undermine Jobs"] = "Travaux de Terremine"
 SN["Victorious Stormarion Cache"] = "Cache victorieuse de Stormarion"
 SN["Zillow & Warcraft collab"] = "Collaboration Zillow et Warcraft"
@@ -857,6 +855,6 @@ BINDING_HEADER_HCODEX = L["KEYBIND_HEADER"]
 BINDING_NAME_HOUSINGCODEX_TOGGLE = L["KEYBIND_TOGGLE"]
 
 -- World of Warcraft: Forever purchase sources
-SN["BlizzCon 2026 login reward (September 12-27)"] = "Récompense de connexion BlizzCon 2026 (12–27 septembre)"
+SN["BlizzCon 2026 login reward"] = "Récompense de connexion BlizzCon 2026"
 SN["World of Warcraft: Forever - Skyborne packs"] = "World of Warcraft: Forever - Packs Skyborne"
 SN["Warcraft Forever Collection / Collector's Edition"] = "Warcraft Forever Collection / Édition collector"

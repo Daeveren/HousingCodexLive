@@ -50,7 +50,7 @@ local SOURCE_LINE_SPACING = 2
 local NATIVE_SOURCE_ITEM_COST_BY_QUEST_ID = {
     [98204] = 274481, -- Cursed Keepsake -> Keepsake Corruption
 }
-local pendingNativeSourceItemLoads = {}
+local nativeSourceItemCallbacks = {}  -- itemID -> callbacks waiting for the item's name
 
 local function IsSecretValue(value)
     return type(issecretvalue) == "function" and issecretvalue(value)
@@ -207,6 +207,31 @@ local function GetLoadedItemName(itemID)
     return nil
 end
 
+-- Runs and clears the callbacks queued by RequestNativeSourceItemCostName, once the name reads
+-- back. Without that check a callback that re-renders would find the name still missing, ask
+-- again, and be called again.
+local function RunNativeSourceItemCallbacks(itemID)
+    local callbacks = nativeSourceItemCallbacks[itemID]
+    if not callbacks or not GetLoadedItemName(itemID) then return end
+
+    nativeSourceItemCallbacks[itemID] = nil
+    for _, callback in ipairs(callbacks) do
+        callback(itemID)
+    end
+end
+
+-- Re-render the details of whatever record is shown once an item-cost name loads.
+-- GetItemCostLabel requests the name; a failed load is re-requested on the next read.
+addon:RegisterInternalEvent(addon.Events.ITEM_COST_NAME_LOADED, function(itemID)
+    RunNativeSourceItemCallbacks(itemID)
+
+    local currentRecordID = Preview.currentRecordID
+    local currentRecord = currentRecordID and addon:GetRecord(currentRecordID)
+    if currentRecord then
+        Preview:UpdateDetails(currentRecord)
+    end
+end)
+
 local function FormatItemCostComponent(component)
     local itemID = component and component.itemID
     local amount = component and component.amount
@@ -216,7 +241,8 @@ local function FormatItemCostComponent(component)
         return nil
     end
 
-    local itemName = GetLoadedItemName(itemID)
+    local label = addon:GetItemCostLabel(itemID)
+    if not label then return nil end
 
     local iconFileID
     if C_Item and C_Item.GetItemIconByID then
@@ -226,7 +252,6 @@ local function FormatItemCostComponent(component)
         end
     end
 
-    local label = itemName or ("item:" .. itemID)
     local iconMarkup = FormatTextureMarkup(iconFileID)
     local tokenText = iconMarkup and (iconMarkup .. " " .. label) or label
     local itemToken = FormatItemLinkToken(itemID, tokenText)
@@ -257,34 +282,29 @@ function addon:FormatNativeSourceText(record)
     return itemToken and (sourceText .. " " .. itemToken) or sourceText
 end
 
+-- Asks the shared item-name loader (Core/Localization.lua) for the item's name and runs each
+-- distinct callback once, with the itemID, when ITEM_COST_NAME_LOADED reports it readable.
+-- A failed load reports nothing: the callbacks stay queued (one of each) and the next request
+-- asks again. The Preview needs no callback: its ITEM_COST_NAME_LOADED listener re-renders.
 function addon:RequestNativeSourceItemCostName(itemID, onLoaded)
-    local callbacks = pendingNativeSourceItemLoads[itemID]
-    if callbacks then
-        if type(onLoaded) == "function" then
+    if type(itemID) ~= "number" then return end
+
+    if type(onLoaded) == "function" then
+        local callbacks = nativeSourceItemCallbacks[itemID]
+        if not callbacks then
+            callbacks = {}
+            nativeSourceItemCallbacks[itemID] = callbacks
+        end
+        if not tContains(callbacks, onLoaded) then
             callbacks[#callbacks + 1] = onLoaded
         end
-        return
     end
 
-    if not Item
-        or not Item.CreateFromItemID
-    then
-        return
+    -- Queued first: the load result can arrive inside this call when the data is cached
+    local _, isResolved = addon:GetItemCostLabel(itemID)
+    if isResolved then
+        RunNativeSourceItemCallbacks(itemID)
     end
-
-    local item = Item:CreateFromItemID(itemID)
-    if not item or not item.ContinueOnItemLoad then return end
-
-    pendingNativeSourceItemLoads[itemID] = type(onLoaded) == "function" and { onLoaded } or {}
-    item:ContinueOnItemLoad(function()
-        local loadedCallbacks = pendingNativeSourceItemLoads[itemID]
-        pendingNativeSourceItemLoads[itemID] = nil
-        if not GetLoadedItemName(itemID) then return end
-
-        for _, callback in ipairs(loadedCallbacks or {}) do
-            callback()
-        end
-    end)
 end
 
 local function FormatSelectedVendorCost(vendorDetails)
@@ -950,20 +970,13 @@ function Preview:UpdateDetails(record)
     local isPromo = addon:IsPromoDecor(record.recordID)
     local useVendorSource = ShouldUseVendorSource(vendorDetails, record, isPromo)
     local selectedVendorSource = useVendorSource and FormatSelectedVendorSource(vendorDetails, record.recordID) or nil
+    local pendingNativeSourceItemID
     if selectedVendorSource then
         self.detailsSource:SetText(selectedVendorSource)
     else
         if record.sourceText and record.sourceText ~= "" then
             local sourceText, pendingItemID = addon:FormatNativeSourceText(record)
-            if pendingItemID then
-                addon:RequestNativeSourceItemCostName(pendingItemID, function()
-                    local currentRecordID = Preview.currentRecordID
-                    local currentRecord = currentRecordID and addon:GetRecord(currentRecordID)
-                    if currentRecord and GetNativeSourceItemCostID(currentRecord) == pendingItemID then
-                        Preview:UpdateDetails(currentRecord)
-                    end
-                end)
-            end
+            pendingNativeSourceItemID = pendingItemID
             if isPromo then
                 self.detailsSource:SetText(sourceText .. " — " .. addon.L["SOURCE_PROMOTIONAL"])
             else
@@ -974,6 +987,12 @@ function Preview:UpdateDetails(record)
         else
             self.detailsSource:SetText(addon.L["DETAILS_SOURCE_UNKNOWN"])
         end
+    end
+    -- After the text is set: a cached item's name can arrive inside this call and re-render
+    -- with the name, which the older text above must not overwrite
+    if pendingNativeSourceItemID then
+        local pendingItemID = pendingNativeSourceItemID
+        addon:RequestNativeSourceItemCostName(pendingItemID)
     end
     self.sourceContainer:SetHeight(self.detailsSource:GetStringHeight() or 20)
 

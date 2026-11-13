@@ -260,6 +260,7 @@ addon.CONSTANTS = {
         BUDGET_OWNED_LIST_MAX_RETRIES = 2,
         BUDGET_OWNED_LIST_FALLBACK_DELAY = 10.0,
         ITEM_LINK_LOAD_TIMEOUT = 2.0,     -- Fall back to plain text when item data never loads
+        ITEM_COST_NAME_REFRESH_DEBOUNCE = 0.1, -- Coalesce item-cost name loads before a list refresh
     },
 
     -- Progress sidebar additions
@@ -370,6 +371,7 @@ addon.Events = {
     ENDEAVORS_HOUSE_LEVEL_UPDATED   = "ENDEAVORS_HOUSE_LEVEL_UPDATED",
     ENDEAVORS_INITIATIVE_UPDATED    = "ENDEAVORS_INITIATIVE_UPDATED",
     ENDEAVORS_TASK_COMPLETED        = "ENDEAVORS_TASK_COMPLETED",
+    ITEM_COST_NAME_LOADED           = "ITEM_COST_NAME_LOADED",  -- (itemID) an item-cost name became readable
 }
 
 function addon:RegisterInternalEvent(event, callback)

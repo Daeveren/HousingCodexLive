@@ -423,6 +423,7 @@ L["VENDORS_ACTION_TRACK_DISABLED_TOOLTIP"] = "This vendor has no valid waypoint 
 -- Vendor cost display
 L["CURRENCY_GOLD"] = "gold"
 L["CURRENCY_GOLD_FORMAT"] = "%s gold"
+L["CURRENCY_ITEM_PENDING_FORMAT"] = "Item %d (loading...)"
 -- Vendor decor fallback
 L["VENDOR_CAT_ACCENTS"] = "Accents"
 L["VENDOR_CAT_FUNCTIONAL"] = "Functional"
@@ -747,7 +748,7 @@ SN["Lush Garden Decor Pack"] = "Lush Garden Decor Pack"
 SN["Lush Garden Decor Pack 2"] = "Lush Garden Decor Pack 2"
 SN["Midnight Delves"] = "Midnight Delves"
 SN["Pepe (neighborhood billboard)"] = "Pepe (neighborhood billboard)"
-SN["Pinterest London IRL quest (March 21)"] = "Pinterest London IRL quest (March 21)"
+SN["Pinterest London IRL quest"] = "Pinterest London IRL quest"
 SN["Ral'kala"] = "Ral'kala"
 SN["Roofus charity pet (The Roofus Pack)"] = "Roofus charity pet (The Roofus Pack)"
 SN["Rotmire"] = "Rotmire"
@@ -760,9 +761,6 @@ SN["Spring Blossom Decor Pack 2"] = "Spring Blossom Decor Pack 2"
 SN["Strange Recycling Requisition (Mechagon)"] = "Strange Recycling Requisition (Mechagon)"
 SN["Theater Troupe event chest (Isle of Dorn)"] = "Theater Troupe event chest (Isle of Dorn)"
 SN["Twitch Drop"] = "Twitch Drop"
-SN["Twitch drop (Feb 26 to Mar 24)"] = "Twitch drop (Feb 26 to Mar 24)"
-SN["Twitch drop (June 16 to July 14)"] = "Twitch drop (June 16 to July 14)"
-SN["Twitch drop (Oct 13 to Nov 3)"] = "Twitch drop (Oct 13 to Nov 3)"
 SN["Undermine Jobs"] = "Undermine Jobs"
 SN["Victorious Stormarion Cache"] = "Victorious Stormarion Cache"
 SN["Zillow & Warcraft collab"] = "Zillow & Warcraft collab"
@@ -856,6 +854,6 @@ BINDING_HEADER_HCODEX = L["KEYBIND_HEADER"]
 BINDING_NAME_HOUSINGCODEX_TOGGLE = L["KEYBIND_TOGGLE"]
 
 -- World of Warcraft: Forever purchase sources
-SN["BlizzCon 2026 login reward (September 12-27)"] = "BlizzCon 2026 login reward (September 12-27)"
+SN["BlizzCon 2026 login reward"] = "BlizzCon 2026 login reward"
 SN["World of Warcraft: Forever - Skyborne packs"] = "World of Warcraft: Forever - Skyborne packs"
 SN["Warcraft Forever Collection / Collector's Edition"] = "Warcraft Forever Collection / Collector's Edition"

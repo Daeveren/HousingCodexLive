@@ -2,6 +2,17 @@
 
 All notable changes to Housing Codex.
 
+**3.6.9** (2026-11-13)
+
+**Changed**
+- Small tweaks to Twitch and promotional drop source names
+
+**Fixed**
+- Improved reliability of search and filters during login
+- Improved display of item-based vendor costs
+- Cursed Keepsake source details now show the required item name more reliably in Preview and Wishlist
+- Improved reliability of decor catalog loading at login
+
 **3.6.8** (2026-11-07)
 
 **Changed**

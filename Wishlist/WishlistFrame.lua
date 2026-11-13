@@ -1091,6 +1091,21 @@ function WishlistFrame:UpdateOwnershipDetails(record)
     self:RecalculateDetailsHeight()
 end
 
+-- One stable callback, so repeated previews while an item name loads queue it only once.
+-- Refreshes only when the record now shown is the one waiting for that item's name.
+local function RefreshPreviewForNativeSourceItem(itemID)
+    if WishlistFrame.pendingNativeSourceItemID ~= itemID then return end
+    local currentRecordID = WishlistFrame.currentRecordID
+    if not currentRecordID then return end
+
+    if WishlistFrame.frame and WishlistFrame.frame:IsShown() then
+        WishlistFrame:ShowPreview(currentRecordID)
+    else
+        -- ShowPreview does nothing while hidden; Show() refreshes the kept preview instead
+        WishlistFrame.previewNameArrivedWhileHidden = true
+    end
+end
+
 function WishlistFrame:ShowPreview(recordID)
     -- Guard against preview updates when frame is hidden (edge case from hover transitions)
     if not self.frame or not self.frame:IsShown() then return end
@@ -1116,15 +1131,13 @@ function WishlistFrame:ShowPreview(recordID)
     self:ApplyOwnedPlacedCounts(record)
 
     -- Source
+    self.pendingNativeSourceItemID = nil
     if record.sourceText and record.sourceText ~= "" then
         local sourceText, pendingItemID = addon:FormatNativeSourceText(record)
         self.detailsSource:SetText(sourceText)
+        self.pendingNativeSourceItemID = pendingItemID
         if pendingItemID then
-            addon:RequestNativeSourceItemCostName(pendingItemID, function()
-                if WishlistFrame.currentRecordID == recordID then
-                    WishlistFrame:ShowPreview(recordID)
-                end
-            end)
+            addon:RequestNativeSourceItemCostName(pendingItemID, RefreshPreviewForNativeSourceItem)
         end
     else
         self.detailsSource:SetText(L["DETAILS_SOURCE_UNKNOWN"])
@@ -1230,6 +1243,14 @@ function WishlistFrame:Show()
 
     self.frame:Show()
     self.frame:Raise()
+
+    -- An item name that loaded while the window was closed could not refresh the kept preview
+    if self.previewNameArrivedWhileHidden then
+        self.previewNameArrivedWhileHidden = nil
+        if self.currentRecordID then
+            self:ShowPreview(self.currentRecordID)
+        end
+    end
 
     return true
 end

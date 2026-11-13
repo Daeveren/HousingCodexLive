@@ -422,6 +422,7 @@ L["VENDORS_ACTION_TRACK_DISABLED_TOOLTIP"] = "Dieser Händler hat keinen gültig
 -- Vendor cost display
 L["CURRENCY_GOLD"] = "Gold"
 L["CURRENCY_GOLD_FORMAT"] = "%s Gold"
+L["CURRENCY_ITEM_PENDING_FORMAT"] = "Gegenstand %d (wird geladen...)"
 -- Vendor decor fallback
 L["VENDOR_CAT_ACCENTS"] = "Akzente"
 L["VENDOR_CAT_FUNCTIONAL"] = "Funktional"
@@ -744,7 +745,7 @@ SN["Lush Garden Decor Pack"] = "Dekorationspaket des üppigen Gartens"
 SN["Lush Garden Decor Pack 2"] = "Dekorationspaket 2 des üppigen Gartens"
 SN["Midnight Delves"] = "Midnight-Tiefen"
 SN["Pepe (neighborhood billboard)"] = "Pepe (Werbetafel der Nachbarschaft)"
-SN["Pinterest London IRL quest (March 21)"] = "Pinterest-Quest in London (21. März)"
+SN["Pinterest London IRL quest"] = "Pinterest-Quest in London"
 SN["Ral'kala"] = "Ral'kala"
 SN["Roofus charity pet (The Roofus Pack)"] = "Wohltätigkeitshaustier Bob (Das Bob-Paket)"
 SN["Rotmire"] = "Rottmoor"
@@ -757,9 +758,6 @@ SN["Spring Blossom Decor Pack 2"] = "Dekorationspaket 2 der Frühlingsblüten"
 SN["Strange Recycling Requisition (Mechagon)"] = "Seltsamer Recyclingauftrag (Mechagon)"
 SN["Theater Troupe event chest (Isle of Dorn)"] = "Eventtruhe der Theatertruppe (Insel von Dorn)"
 SN["Twitch Drop"] = "Twitch-Drop"
-SN["Twitch drop (Feb 26 to Mar 24)"] = "Twitch-Drop (26. Feb. bis 24. März)"
-SN["Twitch drop (June 16 to July 14)"] = "Twitch-Drop (16. Juni bis 14. Juli)"
-SN["Twitch drop (Oct 13 to Nov 3)"] = "Twitch-Drop (13. Okt. bis 3. Nov.)"
 SN["Undermine Jobs"] = "Jobs in Lorenhall"
 SN["Victorious Stormarion Cache"] = "Siegreiche Stormarion-Truhe"
 SN["Zillow & Warcraft collab"] = "Zillow- und Warcraft-Kollaboration"
@@ -856,6 +854,6 @@ BINDING_HEADER_HCODEX = L["KEYBIND_HEADER"]
 BINDING_NAME_HOUSINGCODEX_TOGGLE = L["KEYBIND_TOGGLE"]
 
 -- World of Warcraft: Forever purchase sources
-SN["BlizzCon 2026 login reward (September 12-27)"] = "BlizzCon-2026-Loginbelohnung (12.–27. September)"
+SN["BlizzCon 2026 login reward"] = "BlizzCon-2026-Loginbelohnung"
 SN["World of Warcraft: Forever - Skyborne packs"] = "World of Warcraft: Forever - Skyborne-Pakete"
 SN["Warcraft Forever Collection / Collector's Edition"] = "Warcraft Forever Collection / Collector's Edition"
