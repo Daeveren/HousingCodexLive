@@ -2,6 +2,12 @@
 
 All notable changes to Housing Codex.
 
+**3.6.10** (2026-11-17)
+
+**Changed**
+- Updated Draenor, Legion, Midnight and Kalimdor decor vendor data
+- Added map waypoints for more decor vendors
+
 **3.6.9** (2026-11-13)
 
 **Changed**
