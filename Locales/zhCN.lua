@@ -272,6 +272,7 @@ L["ERROR_LOAD_FAILED"] = "多次尝试后仍未能加载住宅数据。使用 /h
 L["ERROR_LOAD_FAILED_SHORT"] = "加载数据失败。使用 /hc retry 重试"
 L["ERROR_LOAD_FAILED_REASON"] = "原因：%s"
 L["LOAD_DIAGNOSTICS"] = "报告问题时请附上：%s"
+L["CATALOG_LOAD_NOTES"] = "目录加载说明（已跳过部分目录条目）：%s"
 L["LOAD_REASON_SERVICE_DISABLED"] = "此角色当前无法使用住宅功能"
 L["LOAD_REASON_SEARCHER_UNAVAILABLE"] = "无法启动目录搜索"
 L["LOAD_REASON_SEARCH_TIMEOUT"] = "住宅目录未及时响应"

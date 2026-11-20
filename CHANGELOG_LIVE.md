@@ -2,6 +2,14 @@
 
 All notable changes to Housing Codex.
 
+**3.6.11** (2026-11-20)
+
+**Fixed**
+- Improved reliability of decor catalog loading
+- Improved reliability of decor search, crafting and collected status when the game rejects a catalog entry
+- Improved accuracy of the decor history chart on the Progress tab
+- `/hc version` now shows catalog load details to help with bug reports
+
 **3.6.10** (2026-11-17)
 
 **Changed**

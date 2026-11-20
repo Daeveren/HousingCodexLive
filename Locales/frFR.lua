@@ -273,6 +273,7 @@ L["ERROR_LOAD_FAILED"] = "Échec du chargement des données après plusieurs ten
 L["ERROR_LOAD_FAILED_SHORT"] = "Échec du chargement. Utilisez /hc retry"
 L["ERROR_LOAD_FAILED_REASON"] = "Raison : %s"
 L["LOAD_DIAGNOSTICS"] = "À inclure dans un rapport de bug : %s"
+L["CATALOG_LOAD_NOTES"] = "Notes de chargement du catalogue (certaines entrées du catalogue ont été ignorées) : %s"
 L["LOAD_REASON_SERVICE_DISABLED"] = "Le logement est indisponible sur ce personnage pour le moment"
 L["LOAD_REASON_SEARCHER_UNAVAILABLE"] = "Impossible de lancer une recherche dans le catalogue"
 L["LOAD_REASON_SEARCH_TIMEOUT"] = "Le catalogue de logement n'a pas répondu à temps"

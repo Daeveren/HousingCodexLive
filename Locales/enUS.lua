@@ -270,6 +270,7 @@ L["ERROR_LOAD_FAILED"] = "Failed to load housing data after multiple attempts. U
 L["ERROR_LOAD_FAILED_SHORT"] = "Failed to load data. Use /hc retry"
 L["ERROR_LOAD_FAILED_REASON"] = "Reason: %s"
 L["LOAD_DIAGNOSTICS"] = "Please include this in a bug report: %s"
+L["CATALOG_LOAD_NOTES"] = "Catalog load notes (some catalog entries were skipped): %s"
 L["LOAD_REASON_SERVICE_DISABLED"] = "Housing is unavailable on this character right now"
 L["LOAD_REASON_SEARCHER_UNAVAILABLE"] = "Could not start a catalog search"
 L["LOAD_REASON_SEARCH_TIMEOUT"] = "The housing catalog did not respond in time"

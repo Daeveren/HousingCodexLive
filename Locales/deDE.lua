@@ -273,6 +273,7 @@ L["ERROR_LOAD_FAILED"] = "Housing-Daten konnten nach mehreren Versuchen nicht ge
 L["ERROR_LOAD_FAILED_SHORT"] = "Datenladen fehlgeschlagen. Nutze /hc retry"
 L["ERROR_LOAD_FAILED_REASON"] = "Grund: %s"
 L["LOAD_DIAGNOSTICS"] = "Bitte in Fehlerberichten angeben: %s"
+L["CATALOG_LOAD_NOTES"] = "Hinweise zum Katalog-Laden (einige Katalogeinträge wurden übersprungen): %s"
 L["LOAD_REASON_SERVICE_DISABLED"] = "Housing ist auf diesem Charakter gerade nicht verfügbar"
 L["LOAD_REASON_SEARCHER_UNAVAILABLE"] = "Katalogsuche konnte nicht gestartet werden"
 L["LOAD_REASON_SEARCH_TIMEOUT"] = "Der Housing-Katalog hat nicht rechtzeitig geantwortet"

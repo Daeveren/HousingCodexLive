@@ -157,7 +157,8 @@ addon.CONSTANTS = {
     SORT_CLIENT_QUANTITY = 101, -- Client-side: by quantity owned
     SORT_CLIENT_PLACED = 102,   -- Client-side: by quantity placed
 
-    -- Entry type constant for room detection (HousingCatalogConstantsDocumentation: Room = 2)
+    -- Catalog entry types the addon models (HousingCatalogConstantsDocumentation: Decor = 1, Room = 2)
+    DECOR_ENTRY_TYPE = Enum.HousingCatalogEntryType and Enum.HousingCatalogEntryType.Decor or 1,
     ROOM_ENTRY_TYPE = Enum.HousingCatalogEntryType and Enum.HousingCatalogEntryType.Room or 2,
 
     -- Category navigation
@@ -1608,17 +1609,7 @@ function addon:RunDevInspect(searchName)
             -- Also get raw info from API
             local entryType = record.entryType
             local rawRecordID = record.recordID
-            local isSecretValue = type(issecretvalue) == "function" and issecretvalue
-            local info
-            local canInspectRawCatalogInfo = C_HousingCatalog
-                and C_HousingCatalog.GetCatalogEntryInfoByRecordID
-                and entryType
-                and rawRecordID
-                and not (isSecretValue and isSecretValue(entryType))
-                and not (isSecretValue and isSecretValue(rawRecordID))
-            if canInspectRawCatalogInfo then
-                info = C_HousingCatalog.GetCatalogEntryInfoByRecordID(entryType, rawRecordID)
-            end
+            local info = self.GetCatalogEntryInfoByRecordID(entryType, rawRecordID)
             if info then
                 self:Print("  RAW iconTexture: " .. tostring(info.iconTexture) .. " (type: " .. type(info.iconTexture) .. ")")
                 self:Print("  RAW iconAtlas: " .. tostring(info.iconAtlas) .. " (type: " .. type(info.iconAtlas) .. ")")
@@ -1679,6 +1670,13 @@ SlashCmdList["HOUSINGCODEX"] = function(msg)
         end
     elseif cmd == "version" or cmd == "ver" then
         addon:Print(string.format(L["VERSION_FORMAT"], addon.version))
+        -- Prints the load codes. A lookup the client rejected in the last build, or ownership
+        -- still unresolved since one did, asks for a bug report; skipped rows alone are a note.
+        if addon:HasCatalogLookupErrors() then
+            addon:Print(string.format(L["LOAD_DIAGNOSTICS"], addon:GetLoadDiagnosticsText()))
+        elseif addon:HasCatalogBuildSkips() then
+            addon:Print(string.format(L["CATALOG_LOAD_NOTES"], addon:GetLoadDiagnosticsText()))
+        end
     elseif cmd == "whatsnew" then
         if addon.WhatsNew then
             addon.WhatsNew:ForceShow("whatsnew")

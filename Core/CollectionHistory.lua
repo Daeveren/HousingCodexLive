@@ -137,14 +137,25 @@ local function NormalizeHistoryDB(liveDay, liveCount, rebaseLiveDayLegacy)
     return normalized, normalizedChanged
 end
 
+-- The live decor collected count, or nil while it cannot be trusted (HasIncompleteCatalog): a
+-- catalog missing decor records whose lookup raised, or a decor record whose ownership is
+-- unresolved since a refresh lookup raised, can read low, and storing or normalizing to that count
+-- would let the next trusted count record the difference as a false gain.
+local function GetTrustedLiveCount()
+    if not addon.indexesBuilt or addon:HasIncompleteCatalog() then return nil end
+    local count = addon:GetDecorCollectedCount()
+    if type(count) ~= "number" then return nil end
+    return count
+end
+
 local function Snapshot(learnedDelta)
-    if not addon.db or not addon.indexesBuilt then return end
+    if not addon.db then return end
 
     local today = GetTodayKey()
     if not today then return end
 
-    local count = addon:GetDecorCollectedCount()
-    if type(count) ~= "number" then return end
+    local count = GetTrustedLiveCount()
+    if not count then return end
     count = math.max(0, math.floor(count))
     learnedDelta = math.max(0, math.floor(learnedDelta or 0))
 
@@ -206,7 +217,10 @@ end
 
 local historyTimer
 local function SnapshotDebounced(recordID, collectionStateChanged)
-    if recordID ~= nil and collectionStateChanged and IsCollectedDecor(recordID) then
+    -- A record catching up after a failed ownership lookup was collected earlier, perhaps on a
+    -- day history was paused for: counting it as learned would credit today with that gain.
+    if recordID ~= nil and collectionStateChanged and IsCollectedDecor(recordID)
+        and not (addon.IsOwnershipResync and addon:IsOwnershipResync(recordID)) then
         pendingSnapshotRecords[recordID] = true
     end
     if historyTimer then historyTimer:Cancel() end
@@ -226,8 +240,7 @@ function addon:GetCollectionHistoryGains(days)
     local today = GetTodayKey()
     if not today then return nil end
 
-    local liveCount = addon.indexesBuilt and addon:GetDecorCollectedCount() or nil
-    local history = NormalizeHistoryDB(today, liveCount, true)
+    local history = NormalizeHistoryDB(today, GetTrustedLiveCount(), true)
     if not history then return nil end
 
     local entryByDay = {}

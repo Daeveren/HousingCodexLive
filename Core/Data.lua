@@ -18,6 +18,12 @@ local TRACKING_TYPE_DECOR = addon.CONSTANTS.TRACKING_TYPE_DECOR
 local MAX_RETRIES = 5
 local RETRY_DELAYS = { 0.5, 1, 2, 4, 8 }  -- Exponential backoff in seconds
 local CATALOG_BUILD_BATCH_SIZE = 250
+-- Catalog lookups that may raise during one initial build before it stops and retries. A few
+-- bad rows are skipped so they cannot cost the whole catalog; more means the lookup itself is
+-- failing, which belongs in the retry and failure path rather than a silently partial catalog.
+local MAX_SKIPPED_LOOKUP_ERRORS = 25
+-- The first failed catalog lookup is reported once per session; later ones are not.
+local lookupErrorReported = false
 
 -- The UI's searcher. Published only when the initial build finishes (FinishInitialLoad),
 -- so UI search and filter changes cannot reach the load's search while the catalog is
@@ -62,14 +68,36 @@ local function IsValidAtlas(atlas)
 end
 
 local function IsSecretValue(value)
-    return type(issecretvalue) == "function" and issecretvalue(value)
+    -- issecretvalue documents a non-nilable argument; comparing a secret with nil is allowed.
+    return value ~= nil and type(issecretvalue) == "function" and issecretvalue(value)
 end
+
+-- GetCatalogEntryInfoByRecordID raises "bad argument #1" for an entry type it does not accept,
+-- and a 12.1.5 catalog search returned one (user report, 2026-11). Blizzard's own catalog list
+-- builder handles only Decor and Room, and the addon models nothing else, so accept exactly
+-- those. Secret checks come first: a secret value cannot be compared or tested. The type and
+-- equality checks also reject nil.
+local DECOR_ENTRY_TYPE = addon.CONSTANTS.DECOR_ENTRY_TYPE
+local ROOM_ENTRY_TYPE = addon.CONSTANTS.ROOM_ENTRY_TYPE
 
 local function HasValidCatalogRecordLookupArgs(entryType, recordID)
-    if not entryType or not recordID then return false end
-    return not IsSecretValue(entryType) and not IsSecretValue(recordID)
+    if IsSecretValue(entryType) or IsSecretValue(recordID) then return false end
+    if type(recordID) ~= "number" then return false end
+    return entryType == DECOR_ENTRY_TYPE or entryType == ROOM_ENTRY_TYPE
 end
 
+-- Why HasValidCatalogRecordLookupArgs refused a row, for the build's debug summary.
+local function GetCatalogRowSkipReason(entryType, recordID)
+    if IsSecretValue(entryType) or IsSecretValue(recordID) then return "secret" end
+    if type(recordID) ~= "number" then return "recordID:" .. type(recordID) end
+    if type(entryType) == "number" then return "entryType:" .. entryType end
+    return "entryType:" .. type(entryType)
+end
+
+-- Protected, so a record the client rejects cannot break the initial build, an ownership
+-- refresh or an on-demand resolve. A raised lookup returns nil plus a message naming the
+-- record; callers that must tell it from a plain miss read the second return (the build counts
+-- it, ResolveRecord does not negative-cache it). The first such error in a session is reported.
 local function GetCatalogEntryInfoByRecordID(entryType, recordID)
     if not C_HousingCatalog or not C_HousingCatalog.GetCatalogEntryInfoByRecordID then
         return nil
@@ -77,8 +105,17 @@ local function GetCatalogEntryInfoByRecordID(entryType, recordID)
     if not HasValidCatalogRecordLookupArgs(entryType, recordID) then
         return nil
     end
-    return C_HousingCatalog.GetCatalogEntryInfoByRecordID(entryType, recordID)
+    local ok, result = pcall(C_HousingCatalog.GetCatalogEntryInfoByRecordID, entryType, recordID)
+    if ok then return result end
+    local message = string.format("%s (entryType %d, recordID %d)", tostring(result), entryType, recordID)
+    if not lookupErrorReported then
+        lookupErrorReported = true
+        CallErrorHandler("Catalog lookup failed: " .. message)
+    end
+    return nil, message
 end
+-- Shared with the /hc inspect command in Init.lua.
+addon.GetCatalogEntryInfoByRecordID = GetCatalogEntryInfoByRecordID
 
 local function GetCatalogEntryInfoByItem(itemID)
     if not C_HousingCatalog or not C_HousingCatalog.GetCatalogEntryInfoByItem then
@@ -129,17 +166,77 @@ local function CacheFallbackMiss(self, recordID)
     end
 end
 
+-- Records whose ResolveRecord lookup raised. Later calls skip the raising lookup (the item
+-- fallback still runs) without negative-caching the record, until the next clear below.
+local raisedFallbackLookups = {}
+
 local function ClearFallbackMisses(self)
     for recordID, cached in pairs(self.fallbackRecords) do
         if cached == false then
             self.fallbackRecords[recordID] = nil
         end
     end
+    wipe(raisedFallbackLookups)
 end
 
 local function ResetFallbackRecords(self)
     wipe(self.fallbackRecords)
+    wipe(raisedFallbackLookups)
     InvalidateFallbackRecordCaches(self)
+end
+
+-- Primary-catalog decor records with an ownership refresh unresolved since a lookup raised, so
+-- their collected state may be stale and the decor collected count is not trusted
+-- (HasIncompleteCatalog) until a later lookup returns info; a plain nil proves nothing and keeps
+-- the mark. Rooms and fallback records are not in that count. Cleared by ResetRetryCycle and
+-- when a new catalog is built.
+local staleOwnershipRecords = {}
+-- Stale records a bulk pass has read successfully. The mark clears only once that pass rebuilds
+-- the collected index, so history never trusts a count the index has not caught up with.
+local pendingOwnershipRecoveries = {}
+
+local function WipeStaleOwnership()
+    wipe(staleOwnershipRecords)
+    wipe(pendingOwnershipRecoveries)
+end
+
+-- deferClear: a bulk pass, whose recoveries clear in FinishStorageUpdate after the index rebuild.
+local function NoteOwnershipLookup(recordID, record, info, lookupError, deferClear)
+    if IsRoomRecord(record) then return end
+    if lookupError then
+        staleOwnershipRecords[recordID] = true
+        pendingOwnershipRecoveries[recordID] = nil
+    elseif info and staleOwnershipRecords[recordID] then
+        if deferClear then
+            pendingOwnershipRecoveries[recordID] = true
+        else
+            staleOwnershipRecords[recordID] = nil
+            pendingOwnershipRecoveries[recordID] = nil
+        end
+    end
+end
+
+-- Set only while a targeted RECORD_OWNERSHIP_UPDATED fires for a record that was stale, so the
+-- change it reports catches up on an earlier one rather than being a new acquisition.
+local resyncRecordID = nil
+
+-- True during that event for its record. Collection history reads it so a catch-up after a
+-- failed lookup is not counted as learned today; other listeners still see the change.
+function addon:IsOwnershipResync(recordID)
+    return recordID ~= nil and recordID == resyncRecordID
+end
+
+local function ApplyOwnershipRecoveries()
+    for recordID in pairs(pendingOwnershipRecoveries) do
+        staleOwnershipRecords[recordID] = nil
+    end
+    wipe(pendingOwnershipRecoveries)
+end
+
+local function CountStaleOwnershipRecords()
+    local count = 0
+    for _ in pairs(staleOwnershipRecords) do count = count + 1 end
+    return count
 end
 
 local function GetEntryIcon(info)
@@ -229,6 +326,8 @@ local function ResetRetryCycle(self)
     self.loadAttemptReasons = {}
     self.freshSearchTried = false
     self.firstSearchState = nil
+    self.catalogBuildStats = nil
+    WipeStaleOwnership()
 end
 
 -- Drop the current searcher, published or not; its late callback fails IsCurrentSearcher
@@ -274,15 +373,64 @@ local function SummarizeAttemptReasons(reasons)
     return table.concat(parts, ", ")
 end
 
+-- "entryType:3=2, recordID:string=1", sorted, so the summary reads the same every load.
+local function FormatSkipReasons(skippedByReason)
+    local parts = {}
+    for reason, count in pairs(skippedByReason) do
+        parts[#parts + 1] = string.format("%s=%d", reason, count)
+    end
+    table.sort(parts)
+    return table.concat(parts, ", ")
+end
+
+-- "rows=900 records=880 skipped=2(entryType:3=2) lookupErrors=1 missingDecor=1" for the last
+-- build this cycle; an aborted build (too many failed lookups) is marked "aborted".
+local function DescribeCatalogBuild(stats)
+    if not stats then return "none" end
+    local skipped = tostring(stats.skippedRows)
+    if stats.skippedRows > 0 then
+        skipped = skipped .. "(" .. FormatSkipReasons(stats.skippedByReason) .. ")"
+    end
+    return string.format("rows=%d records=%d skipped=%s lookupErrors=%d missingDecor=%d%s",
+        stats.rows, stats.records, skipped, stats.lookupErrors, stats.missingDecorRecords,
+        stats.aborted and " aborted" or "")
+end
+
 -- Untranslated on purpose: these are codes for a bug report, not text for the player.
 function addon:GetLoadDiagnosticsText()
-    return string.format("first[%s] last[%s] service=%s timerunning=%s npe=%s attempts[%s]",
+    local staleCount = CountStaleOwnershipRecords()
+    return string.format("first[%s] last[%s] service=%s timerunning=%s npe=%s attempts[%s] build[%s]%s",
         self.firstSearchState or "none",
         DescribeSearcher(activeSearcher),
         ReadForDiagnostics(function() return C_Housing.IsHousingServiceEnabled() end),
         ReadForDiagnostics(function() return PlayerIsTimerunning() end),
         ReadForDiagnostics(function() return C_PlayerInfo.IsPlayerNPERestricted() end),
-        SummarizeAttemptReasons(self.loadAttemptReasons))
+        SummarizeAttemptReasons(self.loadAttemptReasons),
+        DescribeCatalogBuild(self.catalogBuildStats),
+        staleCount > 0 and (" staleOwnership=" .. staleCount) or "")
+end
+
+-- True when the last build skipped catalog rows or lookups; /hc version then prints diagnostics,
+-- as a neutral note unless HasCatalogLookupErrors() asks for a bug report.
+function addon:HasCatalogBuildSkips()
+    local stats = self.catalogBuildStats
+    return stats ~= nil and (stats.skippedRows > 0 or stats.lookupErrors > 0)
+end
+
+-- True when a catalog lookup raised in the last build or a decor ownership refresh is still
+-- stale, so /hc version asks for a bug report rather than only noting skipped rows.
+function addon:HasCatalogLookupErrors()
+    local stats = self.catalogBuildStats
+    return (stats ~= nil and stats.lookupErrors > 0) or next(staleOwnershipRecords) ~= nil
+end
+
+-- True when the decor collected count cannot be trusted: the published catalog lacks decor
+-- records whose lookup raised, or a decor record's ownership is unresolved since a refresh
+-- lookup raised, so its collected state may be stale. Rooms and unsupported rows do not count: neither is in that count.
+function addon:HasIncompleteCatalog()
+    if next(staleOwnershipRecords) ~= nil then return true end
+    local stats = self.catalogBuildStats
+    return stats ~= nil and stats.missingDecorRecords > 0
 end
 
 -- reasonKey: locale key naming why the attempt failed (LOAD_REASON_* or ERROR_API_UNAVAILABLE).
@@ -553,12 +701,43 @@ function addon:ProcessSearchResults(searcher, generation)
     local recordCount = 0
     local index = 1
     local total = #entryVariantIDs
+    -- Distinct records whose lookup raised, so one bad record counts once toward the allowance.
+    -- Maps recordID to the entry type of the failing row.
+    local lookupErrors = 0
+    local failedLookups = {}
+    local skippedRows = 0
+    local skippedByReason = {}
+
+    -- Kept for the load diagnostics and HasIncompleteCatalog() until the next cycle starts
+    -- (ResetRetryCycle). Also recorded by an aborted build, so the give-up diagnostics show it.
+    local function RecordBuildStats(aborted)
+        -- A record can fail on one row and build from a later row of the same record.
+        local missingDecorRecords = 0
+        for recordID, entryType in pairs(failedLookups) do
+            if entryType == DECOR_ENTRY_TYPE and not records[recordID] then
+                missingDecorRecords = missingDecorRecords + 1
+            end
+        end
+        self.catalogBuildStats = {
+            rows = total,
+            records = recordCount,
+            skippedRows = skippedRows,
+            skippedByReason = skippedByReason,
+            lookupErrors = lookupErrors,
+            missingDecorRecords = missingDecorRecords,
+            aborted = aborted or nil,
+        }
+    end
 
     local function FinishInitialLoad()
         self.loadingInProgress = false
         self.initialBuildInProgress = false
         self.decorRecords = records
         self.cachedAllRecordIDs = nil
+        -- The new records carry fresh ownership, so no earlier refresh failure applies to them.
+        WipeStaleOwnership()
+        -- Before DATA_LOADED: collection history reads it from its DATA_LOADED listener.
+        RecordBuildStats()
 
         -- Mark as loaded before the optional tracking refresh. Tracking queries
         -- touch every record too, so they should not be able to leave the UI in
@@ -575,6 +754,13 @@ function addon:ProcessSearchResults(searcher, generation)
 
         local elapsedMs = math.floor(debugprofilestop() - (self.loadStartTime or 0))
         self:Debug(string.format("Loaded %d records in %d ms", recordCount, elapsedMs))
+        if skippedRows > 0 then
+            self:Debug(string.format("Skipped %d unsupported catalog rows: %s",
+                skippedRows, FormatSkipReasons(skippedByReason)))
+        end
+        if lookupErrors > 0 then
+            self:Debug(string.format("Skipped %d records whose catalog lookup failed", lookupErrors))
+        end
 
         -- Fire loaded event
         self:FireEvent(self.Events.DATA_LOADED, recordCount)
@@ -603,11 +789,23 @@ function addon:ProcessSearchResults(searcher, generation)
             local entryVariantID = entryVariantIDs[index]
             local entryType = entryVariantID.entryType
             local recordID = entryVariantID.recordID
-            -- Check duplicate first to avoid unnecessary API call
-            if HasValidCatalogRecordLookupArgs(entryType, recordID) and not records[recordID] then
+            if not HasValidCatalogRecordLookupArgs(entryType, recordID) then
+                skippedRows = skippedRows + 1
+                local reason = GetCatalogRowSkipReason(entryType, recordID)
+                skippedByReason[reason] = (skippedByReason[reason] or 0) + 1
+            elseif not records[recordID] then
                 -- Use recordID-based query so a dedup winner still reflects aggregate ownership;
                 -- native totalNumStored/totalNumPlaced/remainingRedeemable already sum across variants.
-                local info = GetCatalogEntryInfoByRecordID(entryType, recordID)
+                -- Only the lookup is protected: a bug in BuildRecordFields still stops the build.
+                local info, lookupError = GetCatalogEntryInfoByRecordID(entryType, recordID)
+                if lookupError and not failedLookups[recordID] then
+                    failedLookups[recordID] = entryType
+                    lookupErrors = lookupErrors + 1
+                    if lookupErrors > MAX_SKIPPED_LOOKUP_ERRORS then
+                        RecordBuildStats(true)
+                        error(string.format("%d catalog lookups failed; last: %s", lookupErrors, lookupError), 0)
+                    end
+                end
                 if info and not info.isPrefab then
                     local record = BuildRecordFields(entryVariantID.recordID, entryVariantID.entryType, info)
                     if record then
@@ -760,7 +958,7 @@ function addon:ResolveRecord(recordID)
     if cached ~= nil then return cached ~= false and cached or nil end
 
     -- Try direct API lookup (bypasses catalog search filter)
-    local entryType = Enum and Enum.HousingCatalogEntryType and Enum.HousingCatalogEntryType.Decor
+    local entryType = DECOR_ENTRY_TYPE
     if not HasValidCatalogRecordLookupArgs(entryType, recordID)
         or not C_HousingCatalog
         or not C_HousingCatalog.GetCatalogEntryInfoByRecordID
@@ -769,7 +967,12 @@ function addon:ResolveRecord(recordID)
     end
 
     local fallbackItemID
-    local info = GetCatalogEntryInfoByRecordID(entryType, recordID)
+    local info
+    if not raisedFallbackLookups[recordID] then
+        local lookupError
+        info, lookupError = GetCatalogEntryInfoByRecordID(entryType, recordID)
+        if lookupError then raisedFallbackLookups[recordID] = true end
+    end
     if not info then
         fallbackItemID = self.DropDecorItemIDs and self.DropDecorItemIDs[recordID]
         info = GetCatalogEntryInfoByItem(fallbackItemID)
@@ -778,7 +981,11 @@ function addon:ResolveRecord(recordID)
         end
     end
     if not info then
-        CacheFallbackMiss(self, recordID)
+        -- A raised lookup does not prove the record unresolvable, so it is not negative-cached:
+        -- the lookup is retried after the next DATA_LOADED or bulk ownership refresh.
+        if not raisedFallbackLookups[recordID] then
+            CacheFallbackMiss(self, recordID)
+        end
         return nil
     end
 
@@ -1114,8 +1321,20 @@ addon:RegisterWoWEvent("HOUSING_STORAGE_ENTRY_UPDATED", function(entryVariantID)
 
     -- Use recordID-based query so the returned info reflects the best owned stack
     -- when a recordID has multiple entryVariantIDs (e.g. dyed and base variants).
-    local info = GetCatalogEntryInfoByRecordID(entryType, recordID)
-    if not info then return end
+    local info, lookupError = GetCatalogEntryInfoByRecordID(entryType, recordID)
+    -- Read before the lookup result can clear it: a change on a stale record is a catch-up.
+    local wasStale = not isFallback and staleOwnershipRecords[recordID] == true
+    -- Fallback records are outside decorRecords, so outside the decor collected count.
+    -- A recovery clears at once: the index patch below brings the count up to date.
+    if not isFallback then
+        NoteOwnershipLookup(recordID, record, info, lookupError)
+    end
+    if not info then
+        if lookupError then
+            addon:Debug("Storage entry lookup failed, ownership kept: " .. tostring(recordID))
+        end
+        return
+    end
 
     addon:Debug("Storage entry updated" .. (isFallback and " (fallback)" or "") .. ": " .. tostring(recordID))
     addon:CountDebug("ownership", "targeted")
@@ -1139,7 +1358,10 @@ addon:RegisterWoWEvent("HOUSING_STORAGE_ENTRY_UPDATED", function(entryVariantID)
         wipe(addon.countCache)
     end
 
+    -- Listeners run synchronously (and under xpcall), so the resync flag covers exactly this event.
+    resyncRecordID = wasStale and recordID or nil
     addon:FireEvent("RECORD_OWNERSHIP_UPDATED", recordID, collectionStateChanged, "targeted")
+    resyncRecordID = nil
     if collectionStateChanged and addon.MainFrame and addon.MainFrame:IsShown() then
         addon:RunSearchNow("ownership changed")
     end
@@ -1166,6 +1388,13 @@ local function ProcessStorageUpdate(generation)
 
         -- ALWAYS: Lightweight collected index rebuild (needed by LDB, merchant overlay)
         addon:BuildCollectedIndex()
+
+        -- Only now does the collected count include the records this pass recovered.
+        ApplyOwnershipRecoveries()
+        local staleCount = CountStaleOwnershipRecords()
+        if staleCount > 0 then
+            addon:Debug(string.format("Ownership lookups failed for %d decor records; collected count untrusted", staleCount))
+        end
 
         -- ALWAYS: Re-resolve crafting fallback records (hidden-in-catalog recipes).
         -- The wipe above cleared fallbackRecords; without this rebuild, hidden-only
@@ -1202,7 +1431,8 @@ local function ProcessStorageUpdate(generation)
             end
 
             -- Use per-record entryType so both Decor (1) and Room (2) records refresh correctly.
-            local info = GetCatalogEntryInfoByRecordID(record.entryType, record.recordID)
+            local info, lookupError = GetCatalogEntryInfoByRecordID(record.entryType, record.recordID)
+            NoteOwnershipLookup(recordID, record, info, lookupError, true)
             if info then
                 RefreshRecordOwnership(record, info)
             end

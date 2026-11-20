@@ -272,6 +272,7 @@ L["ERROR_LOAD_FAILED"] = "Не удалось загрузить данные ж
 L["ERROR_LOAD_FAILED_SHORT"] = "Ошибка загрузки данных. Введите /hc retry"
 L["ERROR_LOAD_FAILED_REASON"] = "Причина: %s"
 L["LOAD_DIAGNOSTICS"] = "Укажите это в сообщении об ошибке: %s"
+L["CATALOG_LOAD_NOTES"] = "Сведения о загрузке каталога (некоторые записи каталога пропущены): %s"
 L["LOAD_REASON_SERVICE_DISABLED"] = "Жилье сейчас недоступно для этого персонажа"
 L["LOAD_REASON_SEARCHER_UNAVAILABLE"] = "Не удалось запустить поиск по каталогу"
 L["LOAD_REASON_SEARCH_TIMEOUT"] = "Каталог жилья не ответил вовремя"
