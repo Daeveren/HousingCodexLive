@@ -2,6 +2,12 @@
 
 All notable changes to Housing Codex.
 
+**3.6.12** (2026-11-25)
+
+**Changed**
+- Updated Midnight, Khaz Algar and Draenor decor vendor data
+- Added a map waypoint for a new Midnight decor vendor
+
 **3.6.11** (2026-11-20)
 
 **Fixed**
